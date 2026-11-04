@@ -74,6 +74,30 @@ class CLI(Client):
         self.output_style = "json"
         StateMachine(self).examine(table, check, format)
 
+    def convert_config(
+        self,
+        filename: str,
+        output_filename: str,
+        format: str | None = None,
+        warehouse: str | None = None,
+    ) -> None:
+        self.output_style = "json"
+        StateMachine(self).convert_config(
+            filename, output_filename, format, warehouse=warehouse
+        )
+
+    def compare_config(
+        self,
+        filename: str,
+        target_filename: str,
+        format: str | None = None,
+        warehouse: str | None = None,
+    ) -> None:
+        self.output_style = "json"
+        StateMachine(self).compare_config(
+            filename, target_filename, format, warehouse=warehouse
+        )
+
     def apply(
         self,
         filename: str,

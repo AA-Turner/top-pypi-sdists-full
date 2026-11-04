@@ -5,17 +5,18 @@
     runtime = dlthub_sdk.connect(token="...")
     ws = runtime.workspaces.get(id="...")
     for job in ws.jobs.list():
-        print(job.job_ref, job.paused)
+        print(job.job_ref, job.is_paused)
 
-The same calls, awaited, off ``connect_async``:
+The same calls, awaited, off `connect_async`:
 
     runtime = dlthub_sdk.connect_async(token="...")
     ws = await runtime.workspaces.get(id="...")
     async for job in ws.jobs.list():
-        print(job.job_ref, job.paused)
+        print(job.job_ref, job.is_paused)
 
-The entry point fixes the mode: nothing reached from ``connect`` returns an
-awaitable, and everything reached from ``connect_async`` does.
+The entry point fixes the mode: nothing reached from `connect` returns an
+awaitable. From `connect_async`, calls to the platform return awaitables and
+listings return async iterables; navigating (e.g. `ws.jobs`) never awaits.
 """
 
 from __future__ import annotations

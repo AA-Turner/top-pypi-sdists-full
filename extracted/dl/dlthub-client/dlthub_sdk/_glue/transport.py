@@ -806,7 +806,7 @@ class Transport(Protocol):
         jobs: Sequence[Mapping[str, Any]],
         manifest_hash: str,
         engine_version: int,
-        module: str | None,
+        deployment_module: str | None,
         description: str | None | Keep,
         dry_run: bool,
     ) -> DeployWorkspaceResponse: ...
@@ -1712,12 +1712,12 @@ class HttpTransport:
         jobs: Sequence[Mapping[str, Any]],
         manifest_hash: str,
         engine_version: int,
-        module: str | None,
+        deployment_module: str | None,
         description: str | None | Keep,
         dry_run: bool,
     ) -> DeployWorkspaceResponse:
         body = _manifest_body(
-            jobs, manifest_hash, engine_version, module, description, dry_run
+            jobs, manifest_hash, engine_version, deployment_module, description, dry_run
         )
         return _call(
             lambda: deploy_workspace.sync_detailed(
@@ -2122,7 +2122,7 @@ class AsyncTransport(Protocol):
         jobs: Sequence[Mapping[str, Any]],
         manifest_hash: str,
         engine_version: int,
-        module: str | None,
+        deployment_module: str | None,
         description: str | None | Keep,
         dry_run: bool,
     ) -> DeployWorkspaceResponse: ...
@@ -3032,12 +3032,12 @@ class AsyncHttpTransport:
         jobs: Sequence[Mapping[str, Any]],
         manifest_hash: str,
         engine_version: int,
-        module: str | None,
+        deployment_module: str | None,
         description: str | None | Keep,
         dry_run: bool,
     ) -> DeployWorkspaceResponse:
         body = _manifest_body(
-            jobs, manifest_hash, engine_version, module, description, dry_run
+            jobs, manifest_hash, engine_version, deployment_module, description, dry_run
         )
         return await _acall(
             lambda: deploy_workspace.asyncio_detailed(
@@ -3426,7 +3426,7 @@ def _manifest_body(
     jobs: Sequence[Mapping[str, Any]],
     manifest_hash: str,
     engine_version: int,
-    module: str | None,
+    deployment_module: str | None,
     description: str | None | Keep,
     dry_run: bool,
 ) -> DeployWorkspaceRequest:
@@ -3436,7 +3436,7 @@ def _manifest_body(
         jobs: Job definitions, as the manifest carries them.
         manifest_hash: Content hash of the manifest they came from.
         engine_version: Manifest engine version they were written for.
-        module: Deployment module, or ``None`` for an ad-hoc deploy.
+        deployment_module: Deployment module, or ``None`` for an ad-hoc deploy.
         description: Workspace description, or KEEP to leave it as it is.
         dry_run: Report the plan without persisting it.
 
@@ -3458,7 +3458,7 @@ def _manifest_body(
         job_definition_engine_version=engine_version,
         job_definition_hash=manifest_hash,
         jobs=definitions,
-        deployment_module=module,
+        deployment_module=deployment_module,
         description=_wire(description, API_UNSET),
         dry_run=dry_run,
     )

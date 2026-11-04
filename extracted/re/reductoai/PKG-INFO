@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: reductoai
-Version: 0.25.0
+Version: 0.26.0
 Summary: The official Python library for the reducto API
 Project-URL: Homepage, https://github.com/reductoai/reducto-python-sdk
 Project-URL: Repository, https://github.com/reductoai/reducto-python-sdk
@@ -32,6 +32,13 @@ Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
+Provides-Extra: heic
+Requires-Dist: pi-heif<1.2,>=0.18; (python_version < '3.10') and extra == 'heic'
+Requires-Dist: pi-heif>=0.18; (python_version >= '3.10') and extra == 'heic'
+Provides-Extra: sagemaker
+Requires-Dist: boto3>=1.28; extra == 'sagemaker'
+Requires-Dist: pillow>=10.3; extra == 'sagemaker'
+Requires-Dist: pypdfium2>=5.0; extra == 'sagemaker'
 Description-Content-Type: text/markdown
 
 # Reducto Python API library

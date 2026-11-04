@@ -6,7 +6,7 @@ import selectors
 import subprocess
 import time
 from collections import OrderedDict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -15,10 +15,11 @@ from cc_transcript.context import ContextWindow
 from cc_transcript.corrections import Correction
 from loguru import logger
 
-from captain_hook.snapshots.client import MAX_RESULT_BYTES, EvidenceIncomplete
-from captain_hook.snapshots.client import client_scope as review_client
+from captain_hook.snapshots.client import MAX_RESULT_BYTES, EvidenceIncomplete, client_scope
 
 if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
+
     from cc_transcript.ids import EventRef
     from cc_transcript.mining.candidates import FeedbackCandidate
     from cc_transcript.models import TranscriptEvent
@@ -26,11 +27,29 @@ if TYPE_CHECKING:
     from captain_hook.review.scan import CorrectionLedger
     from captain_hook.snapshots.client import RemoteSession, SnapshotClient
 
+HYDRATE_REQUEST_BYTES = 512 * 1024
 UNFAULTED = "none"
 CORRECTION_PICK = (
     "Which numbered candidate edit does the developer's feedback fault? Pick none when the feedback is not about any "
     "of them."
 )
+
+
+def review_client() -> AbstractContextManager[SnapshotClient]:
+    return client_scope(retry_retained=False)
+
+
+def hydrate_batches(batch: Sequence[tuple[int, ContextWindow]]) -> Iterator[list[tuple[int, ContextWindow]]]:
+    selected: list[tuple[int, ContextWindow]] = []
+    size = 0
+    for item in batch:
+        encoded = len(json.dumps(item[1].to_json()))
+        if selected and (size + encoded > HYDRATE_REQUEST_BYTES or len(selected) == 256):
+            yield selected
+            selected, size = [], 0
+        selected.append(item)
+        size += encoded
+    yield selected
 
 
 class ReviewPolicy:
@@ -141,18 +160,6 @@ class BoundedGit:
                 process.stdout.close()
             if process.stderr is not None:
                 process.stderr.close()
-
-
-def review_roots(paths: Sequence[str]) -> list[str]:
-    from cc_transcript import codex, discovery
-
-    return sorted(
-        {
-            str(discovery.CLAUDE_PROJECTS_DIR),
-            str(codex.sessions_root()),
-            *(str(Path(path).parent) for path in paths if Path(path).is_absolute()),
-        }
-    )
 
 
 def capture_windows(client: SnapshotClient, session: RemoteSession, anchors: Sequence[EventRef]) -> list[ContextWindow]:
@@ -273,10 +280,9 @@ def render_review_windows(
     windows: Sequence[ContextWindow],
     *,
     source_paths: Sequence[str | None],
-    roots: Sequence[str],
     render: Mapping[str, Any],
 ) -> list[RenderedEvidence | None | Exception]:
-    from captain_hook.snapshots.client import NATIVE_CLASSIFIER, EvidenceIncomplete, Lease, SnapshotProtocolError
+    from captain_hook.snapshots.client import NATIVE_CLASSIFIER, EvidenceIncomplete, SnapshotProtocolError
 
     if not windows:
         return []
@@ -288,35 +294,19 @@ def render_review_windows(
         grouped.setdefault((window.anchor.session_id, path), []).append((index, window))
     with review_client() as client:
         for (session_id, path), batch in grouped.items():
-            leases: list[Lease] = []
+            if path is None:
+                for index, _ in batch:
+                    rendered[index] = None
+                continue
+            lease = None
             try:
-                if path is not None:
-                    leases.append(client.acquire(path, classifier=NATIVE_CLASSIFIER).lease)
-                else:
-                    resolutions: list[dict[str, Any]] = []
-                    for page in client.pages(
-                        "resolve", session_ids=[session_id], roots=list(roots), classifier=NATIVE_CLASSIFIER
-                    ):
-                        for resolution in page["sessions"]:
-                            resolutions.append(resolution)
-                            if resolution["description"] is not None:
-                                leases.append(Lease(client, resolution["description"]))
-                    if len(resolutions) != 1 or resolutions[0]["session_id"] != session_id:
-                        raise SnapshotProtocolError("resolve did not return the requested session")
-                    resolution = resolutions[0]
-                    if resolution["status"] == "missing":
-                        for index, _ in batch:
-                            rendered[index] = None
-                        continue
-                    if resolution["status"] != "ok" or len(leases) != 1:
-                        raise EvidenceIncomplete("incomplete", "session resolution did not complete")
-                for offset in range(0, len(batch), 256):
-                    selected = batch[offset : offset + 256]
+                lease = client.acquire(path, classifier=NATIVE_CLASSIFIER).lease
+                for selected in hydrate_batches(batch):
                     outputs = [
                         output
                         for page in client.pages(
                             "hydrate",
-                            handles=[{"session_id": session_id, "handle": leases[0].require()}],
+                            handles=[{"session_id": session_id, "handle": lease.require()}],
                             windows_json=[window.to_json() for _, window in selected],
                             render=dict(render),
                         )
@@ -332,7 +322,7 @@ def render_review_windows(
                         if output["availability"] == "missing_ref":
                             rendered[index] = None
                         elif output["availability"] == "full" and isinstance(output["rendered"], str):
-                            handle = leases[0].require()
+                            handle = lease.require()
                             rendered[index] = RenderedEvidence(
                                 output["rendered"],
                                 f"transcript:{handle['owner_epoch']}:{handle['snapshot_id']}:{handle['generation']}",
@@ -341,8 +331,9 @@ def render_review_windows(
                             raise SnapshotProtocolError("hydrate returned invalid availability")
             except EvidenceIncomplete as exc:
                 for index, _ in batch:
-                    rendered[index] = None if path is not None and exc.status == "missing" else exc
+                    if not isinstance(rendered[index], RenderedEvidence):
+                        rendered[index] = None if exc.status == "missing" else exc
             finally:
-                for lease in leases:
+                if lease is not None:
                     lease.release()
     return rendered

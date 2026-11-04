@@ -24,7 +24,7 @@ SECOND_TOKEN: CollaborationAuth = {
 
 
 def test_sync_client_forwards_auth_only_on_open() -> None:
-    client = SuperDocClient(document_host_path='/unused')
+    client = SuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
     calls: list[tuple[str, dict, dict]] = []
 
     def invoke(operation_id: str, params: dict, **options: object) -> dict:
@@ -43,7 +43,7 @@ def test_sync_client_forwards_auth_only_on_open() -> None:
 
 
 def test_sync_client_reserves_an_explicit_session_during_open() -> None:
-    client = SuperDocClient(document_host_path='/unused')
+    client = SuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
     first_open_started = threading.Event()
     release_first_open = threading.Event()
     calls: list[CollaborationAuth] = []
@@ -79,7 +79,7 @@ def test_sync_client_reserves_an_explicit_session_during_open() -> None:
 
 
 def test_sync_client_releases_an_explicit_session_when_open_fails() -> None:
-    client = SuperDocClient(document_host_path='/unused')
+    client = SuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
     attempts = 0
 
     def invoke(_operation_id: str, _params: dict, **_options: object) -> dict:
@@ -102,7 +102,7 @@ def test_sync_client_releases_an_explicit_session_when_open_fails() -> None:
 
 @pytest.mark.asyncio
 async def test_async_client_forwards_auth_only_on_open() -> None:
-    client = AsyncSuperDocClient(document_host_path='/unused')
+    client = AsyncSuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
     calls: list[tuple[str, dict, dict]] = []
 
     async def invoke(operation_id: str, params: dict, **options: object) -> dict:
@@ -122,7 +122,7 @@ async def test_async_client_forwards_auth_only_on_open() -> None:
 
 @pytest.mark.asyncio
 async def test_async_client_reserves_an_explicit_session_during_open() -> None:
-    client = AsyncSuperDocClient(document_host_path='/unused')
+    client = AsyncSuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
     first_open_started = asyncio.Event()
     release_first_open = asyncio.Event()
     calls: list[CollaborationAuth] = []
@@ -153,7 +153,7 @@ async def test_async_client_reserves_an_explicit_session_during_open() -> None:
 
 @pytest.mark.asyncio
 async def test_async_client_releases_an_explicit_session_when_open_fails() -> None:
-    client = AsyncSuperDocClient(document_host_path='/unused')
+    client = AsyncSuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
     attempts = 0
 
     async def invoke(_operation_id: str, _params: dict, **_options: object) -> dict:

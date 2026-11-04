@@ -1,47 +1,17 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Generated exports for ``client.mcp``."""
 
-from .mcp import (
-    McpResource,
-    AsyncMcpResource,
-    McpResourceWithRawResponse,
-    AsyncMcpResourceWithRawResponse,
-    McpResourceWithStreamingResponse,
-    AsyncMcpResourceWithStreamingResponse,
-)
-from .custom import (
-    CustomResource,
-    AsyncCustomResource,
-    CustomResourceWithRawResponse,
-    AsyncCustomResourceWithRawResponse,
-    CustomResourceWithStreamingResponse,
-    AsyncCustomResourceWithStreamingResponse,
-)
-from .generate import (
-    GenerateResource,
-    AsyncGenerateResource,
-    GenerateResourceWithRawResponse,
-    AsyncGenerateResourceWithRawResponse,
-    GenerateResourceWithStreamingResponse,
-    AsyncGenerateResourceWithStreamingResponse,
-)
+from __future__ import annotations
+
+from .custom import AsyncCustomResource, CustomResource
+from .generate import AsyncGenerateResource, GenerateResource
+from .mcp import AsyncMcpResource, McpResource
 
 __all__ = [
-    "CustomResource",
-    "AsyncCustomResource",
-    "CustomResourceWithRawResponse",
-    "AsyncCustomResourceWithRawResponse",
-    "CustomResourceWithStreamingResponse",
-    "AsyncCustomResourceWithStreamingResponse",
-    "GenerateResource",
-    "AsyncGenerateResource",
-    "GenerateResourceWithRawResponse",
-    "AsyncGenerateResourceWithRawResponse",
-    "GenerateResourceWithStreamingResponse",
-    "AsyncGenerateResourceWithStreamingResponse",
     "McpResource",
     "AsyncMcpResource",
-    "McpResourceWithRawResponse",
-    "AsyncMcpResourceWithRawResponse",
-    "McpResourceWithStreamingResponse",
-    "AsyncMcpResourceWithStreamingResponse",
+    "CustomResource",
+    "AsyncCustomResource",
+    "GenerateResource",
+    "AsyncGenerateResource",
 ]

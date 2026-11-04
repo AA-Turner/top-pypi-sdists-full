@@ -21,7 +21,14 @@ from mistralai.vibe.harness.app_server.session.local_record import LocalSessionP
 from mistralai.vibe.harness.runtime.agents.control_plane import SessionControlPlaneError
 from mistralai.vibe_agents.sdk.authoring import errors as sdk_errors
 from mistralai.vibe_agents.sdk.authoring.experimental import warn_experimental
-from mistralai.vibe_agents.sdk.client.records import SessionInfo, Termination
+from mistralai.vibe_agents.sdk.client.records import (
+    CancelledTermination,
+    CompletedTermination,
+    FailedTermination,
+    SessionInfo,
+    Termination,
+    UnknownTermination,
+)
 from mistralai.vibe_agents.sdk.client.turn_reads import protocol_error
 from mistralai.vibe_agents.sdk.transport import local
 from mistralai.vibe_agents.sdk.transport import remote as remote_transport
@@ -53,9 +60,13 @@ class LocalRuntime:
     must run inside one. Two ``asyncio.run`` calls have two runtimes, which share no session.
 
     ``async with agents.local_runtime() as runtime:`` starts the runtime if it has not started, and
-    its exit stops every session of that runtime: running turns, subagents and sandboxes. Sessions
-    that run in a runtime of their own are not stopped, as they are not listed.
-    The next local call starts a new runtime. In a nested block, only the outermost exit stops them.
+    its exit stops every session of that runtime: running turns, subagents and sandboxes. The
+    sessions of an ``async with agent.local_runtime()`` block run in a runtime of their own and
+    are not stopped.
+    The exit frees the stopped sessions: a read or command on one then raises
+    ``SessionTerminatedError``. With ``journal_factory``, a new block with the same journals
+    continues them. The next local call starts a new runtime. In a nested block, only the outermost
+    exit stops them.
 
     While the block is open, no session is closed for being idle: a session that no client holds,
     such as the session of an ``agent.run`` that returned, keeps its sandbox and can be driven
@@ -84,7 +95,7 @@ class LocalRuntime:
         in a local session of this event loop.
 
         It is the budget of the loop's runtime, or 60 seconds while it has not started, as the next
-        local session would get. The ``program_timeout_seconds`` given to ``local_runtime`` applies
+        local session would get. The ``program_timeout_seconds`` given to ``agents.local_runtime`` applies
         when the ``async with`` block is entered.
         """
         runtime = local._running_process_runtime()
@@ -104,9 +115,8 @@ class LocalRuntime:
 
         The arguments are those of ``agents.list_sessions``. An ended session is listed as
         ``"terminated"`` until the event loop stops. Listing starts nothing: before the runtime
-        starts, it lists no session. Sessions that run in a runtime of their own are not listed:
-        those of an ``async with agent.local_runtime()`` block, and an ``agent.create_session`` of
-        an agent without subagents.
+        starts, it lists no session. The sessions of an ``async with agent.local_runtime()`` block
+        run in a runtime of their own and are not listed.
         """
         params = _catalog_params(scope, root, parent, status, limit)
         return _iterate(self._page, params, status, limit)
@@ -208,7 +218,7 @@ def list_sessions(
     plane, through ``client``. Without one, a default ``agents.Client()`` is used: the API key and
     URLs come from the environment, and a missing ``MISTRAL_API_KEY`` raises ``SdkError`` at the
     call. ``list_sessions(client=client)`` is ``client.list_sessions()``. ``host="local"`` lists the
-    sessions of this event loop's local runtime, as ``local_runtime().list_sessions()`` does, and
+    sessions of this event loop's local runtime, as ``agents.local_runtime().list_sessions()`` does, and
     takes no ``client``.
 
     A ``root=`` or ``parent=`` that is not a UUID raises ``SdkError`` at the call. One that names no
@@ -354,11 +364,13 @@ def _session_info(item: harness_session.Session) -> SessionInfo:
 def _termination(termination: harness_session.Termination) -> Termination:
     match termination:
         case harness_session.CompletedTermination(stop_reason=stop_reason):
-            return Termination(outcome="completed", stop_reason=stop_reason)
+            return CompletedTermination(stop_reason=stop_reason)
         case harness_session.CancelledTermination(cause=cause):
-            return Termination(outcome="cancelled", cause=cause)
+            return CancelledTermination(cause=cause)
+        case harness_session.FailedTermination(error=error):
+            return FailedTermination(error=protocol_error(error))
         case _:
-            return Termination(outcome="failed", error=protocol_error(termination.error))
+            return UnknownTermination(outcome=termination.original_outcome, raw=termination.raw)
 
 
 def _utc(unix_ms: int) -> datetime:

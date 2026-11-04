@@ -3,7 +3,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, LazyLock};
 
 use super::refdata::LongMode;
-use super::typed_builder::{ArrowType, ColumnSet, TypedBuilder};
+use super::typed_builder::{ArrowType, ColumnSet, ColumnSlot, TypedBuilder};
+use crate::diagnostics::{FieldExceptionRef, FieldExceptions, METADATA_KEY_FIELD_EXCEPTIONS};
 use arrow_array::ArrayRef;
 use arrow_array::RecordBatch;
 use arrow_array::builder::{
@@ -21,9 +22,6 @@ pub const METADATA_KEY_EID_DATA: &str = "xbbg.eid_data";
 /// Schema-metadata key carrying per-security `securityError` details
 /// (JSON: `{"<ticker>": {"category", "code", "subcategory", "message"}}`).
 pub const METADATA_KEY_SECURITY_ERRORS: &str = "xbbg.security_errors";
-/// Schema-metadata key carrying per-security `fieldExceptions`
-/// (JSON: `{"<ticker>": [{"field", "category", "code", "subcategory", "message"}, ...]}`).
-pub const METADATA_KEY_FIELD_EXCEPTIONS: &str = "xbbg.field_exceptions";
 /// Schema-metadata key carrying per-security delayed-data status for requests
 /// made with `on_delayed`
 /// (JSON: `{"<ticker>": {"delayed": bool, "delay_minutes": int | null}}`).
@@ -135,45 +133,110 @@ pub struct SecurityErrorMeta {
     pub message: String,
 }
 
-/// One `fieldExceptions[]` entry captured for batch metadata.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct FieldExceptionMeta {
-    pub field: String,
-    pub category: String,
-    pub code: i32,
-    pub subcategory: String,
-    pub message: String,
-}
-
 struct ResponseElementNames {
-    eid_data: Name,
-    security_error: Name,
-    field_exceptions: Name,
+    /// `securityData[]` children, in [`SecurityElements::scan`] destructuring
+    /// order: `security`, `fieldData`, `eidData`, `securityError`,
+    /// `fieldExceptions`.
+    security_children: [Name; 5],
+    response_error: Name,
+    source: Name,
     field_id: Name,
     error_info: Name,
     category: Name,
     code: Name,
     subcategory: Name,
     message: Name,
-    field_data: Name,
     is_delayed_stream: Name,
     exchange_delay: Name,
 }
 
 static RESPONSE_NAMES: LazyLock<ResponseElementNames> = LazyLock::new(|| ResponseElementNames {
-    eid_data: Name::get_or_intern("eidData"),
-    security_error: Name::get_or_intern("securityError"),
-    field_exceptions: Name::get_or_intern("fieldExceptions"),
+    security_children: [
+        "security",
+        "fieldData",
+        "eidData",
+        "securityError",
+        "fieldExceptions",
+    ]
+    .map(Name::get_or_intern),
+    response_error: Name::get_or_intern("responseError"),
+    source: Name::get_or_intern("source"),
     field_id: Name::get_or_intern("fieldId"),
     error_info: Name::get_or_intern("errorInfo"),
     category: Name::get_or_intern("category"),
     code: Name::get_or_intern("code"),
     subcategory: Name::get_or_intern("subcategory"),
     message: Name::get_or_intern("message"),
-    field_data: Name::get_or_intern("fieldData"),
     is_delayed_stream: Name::get_or_intern(IS_DELAYED_STREAM),
     exchange_delay: Name::get_or_intern(EXCHANGE_DELAY),
 });
+
+/// Locate `names` among `element`'s direct children in one pass: `found[i]`
+/// is the child named `names[i]`.
+///
+/// Asking an element for a name its definition lacks takes the SDK's error
+/// path, which costs far more than a present name; walking the few children
+/// of a structural element is cheaper than probing usually-absent optional
+/// names one at a time, and finds exactly the children such probes would.
+pub(super) fn find_children<'a, const N: usize>(
+    element: &Element<'a>,
+    names: &[Name; N],
+) -> [Option<Element<'a>>; N] {
+    let mut found = std::array::from_fn(|_| None);
+    for index in 0..element.num_children() {
+        // Stop where `Element::children` stops when the SDK rejects an index.
+        let Some(child) = element.get_at(index) else {
+            break;
+        };
+        if let Some(slot) = child.name_index(names) {
+            found[slot] = Some(child);
+        }
+    }
+    found
+}
+
+/// One `securityData[]` entry's children, located in a single pass.
+///
+/// `securityError`, `eidData` and `fieldExceptions` are usually absent, so
+/// one walk over the entry replaces five name probes per security.
+pub(super) struct SecurityElements<'a> {
+    security: Option<Element<'a>>,
+    field_data: Option<Element<'a>>,
+    eid_data: Option<Element<'a>>,
+    security_error: Option<Element<'a>>,
+    field_exceptions: Option<Element<'a>>,
+}
+
+impl<'a> SecurityElements<'a> {
+    pub(super) fn scan(entry: &Element<'a>) -> Self {
+        let [
+            security,
+            field_data,
+            eid_data,
+            security_error,
+            field_exceptions,
+        ] = find_children(entry, &RESPONSE_NAMES.security_children);
+        Self {
+            security,
+            field_data,
+            eid_data,
+            security_error,
+            field_exceptions,
+        }
+    }
+
+    /// The `security` identifier; empty when absent, null or not text.
+    pub(super) fn ticker(&self) -> &'a str {
+        self.security
+            .as_ref()
+            .and_then(|security| security.get_str(0))
+            .unwrap_or("")
+    }
+
+    pub(super) fn field_data(&self) -> Option<&Element<'a>> {
+        self.field_data.as_ref()
+    }
+}
 
 /// Borrowed error details let callers log or emit an error row without copying
 /// the strings already owned by the response metadata.
@@ -220,7 +283,7 @@ pub(super) struct SecurityDiagnostics<'a> {
 pub(crate) struct ResponseMetadata {
     eid_data: BTreeMap<String, Vec<i64>>,
     security_errors: BTreeMap<String, SecurityErrorMeta>,
-    field_exceptions: BTreeMap<String, Vec<FieldExceptionMeta>>,
+    field_exceptions: FieldExceptions,
     delayed: BTreeMap<String, DelayedMeta>,
     type_misses: BTreeMap<String, u64>,
     bloomberg_request_ids: BloombergRequestIds,
@@ -323,16 +386,17 @@ impl ResponseMetadata {
     pub(super) fn record_security<'a>(
         &mut self,
         ticker: &str,
-        security: &Element<'a>,
+        security: &SecurityElements<'a>,
     ) -> SecurityDiagnostics<'a> {
         let names = &RESPONSE_NAMES;
-        if let Some(eids) = security.get(&names.eid_data) {
-            self.record_eid_data(ticker, &eids);
+        if let Some(eids) = &security.eid_data {
+            self.record_eid_data(ticker, eids);
         }
         let security_error = security
-            .get(&names.security_error)
+            .security_error
+            .as_ref()
             .filter(|error| !error.is_null())
-            .map(|error| SecurityErrorDetails::read(Some(&error), names));
+            .map(|error| SecurityErrorDetails::read(Some(error), names));
         if let Some(error) = &security_error {
             self.record_security_error(
                 ticker,
@@ -345,7 +409,7 @@ impl ResponseMetadata {
             );
         }
         let mut field_exception_count = 0;
-        if let Some(exceptions) = security.get(&names.field_exceptions) {
+        if let Some(exceptions) = &security.field_exceptions {
             for exception in exceptions.values() {
                 let field = exception
                     .get(&names.field_id)
@@ -360,14 +424,14 @@ impl ResponseMetadata {
                 }
                 let error_info = exception.get(&names.error_info);
                 let error = SecurityErrorDetails::read(error_info.as_ref(), names);
-                self.record_field_exception(
+                self.field_exceptions.record_ref(
                     ticker,
-                    FieldExceptionMeta {
-                        field: field.to_string(),
-                        category: error.category.to_string(),
+                    FieldExceptionRef {
+                        field,
+                        category: error.category,
                         code: error.code,
-                        subcategory: error.subcategory.to_string(),
-                        message: error.message.to_string(),
+                        subcategory: error.subcategory,
+                        message: error.message,
                     },
                 );
                 field_exception_count += 1;
@@ -380,9 +444,9 @@ impl ResponseMetadata {
             }
         }
         if self.capture_delayed
-            && let Some(field_data) = security.get(&names.field_data)
+            && let Some(field_data) = &security.field_data
         {
-            self.record_delayed(ticker, &field_data);
+            self.record_delayed(ticker, field_data);
         }
         SecurityDiagnostics {
             security_error,
@@ -424,7 +488,11 @@ impl ResponseMetadata {
 
     /// Record `securityData[].eidData` (an int array element) for `ticker`.
     pub(crate) fn record_eid_data(&mut self, ticker: &str, eids: &Element<'_>) {
-        let entry = self.eid_data.entry(ticker.to_string()).or_default();
+        // Repeated chunks for one security extend its entry without a new key.
+        let entry = match self.eid_data.get_mut(ticker) {
+            Some(entry) => entry,
+            None => self.eid_data.entry(ticker.to_owned()).or_default(),
+        };
         for i in 0..eids.len() {
             if let Some(eid) = eids.get_i32(i) {
                 entry.push(i64::from(eid));
@@ -434,13 +502,6 @@ impl ResponseMetadata {
 
     pub(crate) fn record_security_error(&mut self, ticker: &str, error: SecurityErrorMeta) {
         self.security_errors.insert(ticker.to_string(), error);
-    }
-
-    pub(crate) fn record_field_exception(&mut self, ticker: &str, exception: FieldExceptionMeta) {
-        self.field_exceptions
-            .entry(ticker.to_string())
-            .or_default()
-            .push(exception);
     }
 
     pub(super) fn is_empty(&self) -> bool {
@@ -469,11 +530,14 @@ impl ResponseMetadata {
             METADATA_KEY_SECURITY_ERRORS,
             &self.security_errors,
         );
-        Self::insert_json(
-            metadata,
-            METADATA_KEY_FIELD_EXCEPTIONS,
-            &self.field_exceptions,
-        );
+        if !self.field_exceptions.is_empty() {
+            metadata.insert(
+                METADATA_KEY_FIELD_EXCEPTIONS.into(),
+                self.field_exceptions
+                    .to_json()
+                    .expect("field-exception strings and indices serialize"),
+            );
+        }
         Self::insert_json(metadata, METADATA_KEY_DELAYED, &self.delayed);
         Self::insert_json(metadata, METADATA_KEY_TYPE_MISSES, &self.type_misses);
         self.bloomberg_request_ids.attach_metadata(metadata);
@@ -483,13 +547,9 @@ impl ResponseMetadata {
     fn insert_json<T: serde::Serialize>(
         metadata: &mut HashMap<String, String>,
         key: &str,
-        value: &T,
+        value: &BTreeMap<String, T>,
     ) {
-        let is_empty = match serde_json::to_value(value) {
-            Ok(serde_json::Value::Object(map)) => map.is_empty(),
-            _ => false,
-        };
-        if is_empty {
+        if value.is_empty() {
             return;
         }
         match serde_json::to_string(value) {
@@ -507,7 +567,7 @@ impl ResponseMetadata {
     /// silently drop diagnostics from later shards. Shards partition
     /// securities, so per-ticker entries never conflict.
     /// Conversion misses are per-batch deltas and sum across shards or chunks.
-    pub(crate) fn union_of(batches: &[RecordBatch]) -> Self {
+    pub(crate) fn union_of(batches: &[RecordBatch]) -> Result<Self, BlpError> {
         let mut merged = Self::default();
         for batch in batches {
             merged.collect_type_misses(batch);
@@ -523,16 +583,14 @@ impl ResponseMetadata {
             ) {
                 merged.security_errors.extend(map);
             }
-            if let Some(map) = Self::parse_json::<BTreeMap<String, Vec<FieldExceptionMeta>>>(
-                metadata.get(METADATA_KEY_FIELD_EXCEPTIONS),
-            ) {
-                for (ticker, exceptions) in map {
-                    merged
-                        .field_exceptions
-                        .entry(ticker)
-                        .or_default()
-                        .extend(exceptions);
-                }
+            if let Some(raw) = metadata.get(METADATA_KEY_FIELD_EXCEPTIONS) {
+                let exceptions =
+                    FieldExceptions::from_json(raw).map_err(|error| BlpError::Internal {
+                        detail: format!(
+                            "invalid {METADATA_KEY_FIELD_EXCEPTIONS} metadata: {error}"
+                        ),
+                    })?;
+                merged.field_exceptions.extend(exceptions);
             }
             if let Some(map) = Self::parse_json::<BTreeMap<String, DelayedMeta>>(
                 metadata.get(METADATA_KEY_DELAYED),
@@ -540,7 +598,7 @@ impl ResponseMetadata {
                 merged.delayed.extend(map);
             }
         }
-        merged
+        Ok(merged)
     }
 
     fn parse_json<T: serde::de::DeserializeOwned>(value: Option<&String>) -> Option<T> {
@@ -576,21 +634,19 @@ pub(crate) fn top_level_response_error(
     service: &'static str,
     operation: &'static str,
 ) -> Option<BlpError> {
-    let response_error = msg.elements().get_by_str("responseError")?;
+    let names = &RESPONSE_NAMES;
+    // Usually absent: one pass over the root's few children avoids the SDK's
+    // error path that probing a missing name takes.
+    let root = msg.elements();
+    let [response_error] = find_children(&root, std::array::from_ref(&names.response_error));
+    let response_error = response_error?;
+    let string = |name: &Name| response_error.get(name).and_then(|e| e.get_str(0));
 
-    let source = response_error
-        .get_by_str("source")
-        .and_then(|e| e.get_str(0));
-    let code = response_error.get_by_str("code").and_then(|e| e.get_i32(0));
-    let category = response_error
-        .get_by_str("category")
-        .and_then(|e| e.get_str(0));
-    let subcategory = response_error
-        .get_by_str("subcategory")
-        .and_then(|e| e.get_str(0));
-    let message = response_error
-        .get_by_str("message")
-        .and_then(|e| e.get_str(0));
+    let source = string(&names.source);
+    let code = response_error.get(&names.code).and_then(|e| e.get_i32(0));
+    let category = string(&names.category);
+    let subcategory = string(&names.subcategory);
+    let message = string(&names.message);
 
     let mut parts = Vec::with_capacity(5);
     if let Some(source) = source {
@@ -626,15 +682,21 @@ pub(crate) fn top_level_response_error(
     })
 }
 
+/// Whether `datatype` holds a value `Element::get_value` reads with a typed
+/// getter: everything except sequences, choices, byte arrays and correlation ids.
+#[inline(always)]
+pub(crate) fn has_scalar_value(datatype: BlpDataType) -> bool {
+    !matches!(
+        datatype,
+        BlpDataType::Sequence
+            | BlpDataType::Choice
+            | BlpDataType::ByteArray
+            | BlpDataType::CorrelationId
+    )
+}
+
 pub(crate) fn should_emit_scalar_field(element: &Element<'_>) -> bool {
-    !element.is_array()
-        && !matches!(
-            element.datatype(),
-            BlpDataType::Sequence
-                | BlpDataType::Choice
-                | BlpDataType::ByteArray
-                | BlpDataType::CorrelationId
-        )
+    !element.is_array() && has_scalar_value(element.datatype())
 }
 
 pub(crate) fn arrow_type_for_element(element: &Element<'_>) -> ArrowType {
@@ -654,31 +716,76 @@ pub(crate) fn arrow_type_for_element(element: &Element<'_>) -> ArrowType {
     }
 }
 
+/// [`Element::get_value`]`(0)` with the element datatype cached per field.
+///
+/// A present value costs one getter call instead of the four Bloomberg calls
+/// behind `get_value` (null check, value count, datatype, getter). Null
+/// elements still read as `Some(Value::Null)` and empty ones as `None`, and a
+/// failed getter refreshes the cache, so results match `get_value(0)` for
+/// fields whose Bloomberg datatype stays fixed while the cache is in use.
 #[inline(always)]
 pub(crate) fn get_value_cached_datatype<'a>(
     element: &Element<'a>,
     cached_datatype: &mut Option<BlpDataType>,
 ) -> Option<Value<'a>> {
-    if let Some(cached) = *cached_datatype {
-        if let Some(value) = element.get_value_fast_with_datatype(0, cached) {
-            return Some(value);
-        }
-
-        let datatype = element.datatype();
-        if datatype != cached {
-            xbbg_log::debug!(
-                cached = ?cached,
-                actual = ?datatype,
-                "Bloomberg element datatype changed; refreshing extractor cache"
-            );
-        }
-        *cached_datatype = Some(datatype);
-        return element.get_value_fast_with_datatype(0, datatype);
+    if let Some(datatype) = *cached_datatype
+        && has_scalar_value(datatype)
+        && let Some(value) = element.get_value_fast_with_datatype(0, datatype)
+    {
+        return Some(value);
     }
+    refresh_value_datatype(element, cached_datatype)
+}
 
+/// Uncached path of [`get_value_cached_datatype`]: null, empty, complex or
+/// retyped elements.
+fn refresh_value_datatype<'a>(
+    element: &Element<'a>,
+    cached_datatype: &mut Option<BlpDataType>,
+) -> Option<Value<'a>> {
+    if element.is_null() {
+        return Some(Value::Null);
+    }
     let datatype = element.datatype();
-    *cached_datatype = Some(datatype);
-    element.get_value_fast_with_datatype(0, datatype)
+    if let Some(cached) = cached_datatype.replace(datatype)
+        && cached != datatype
+    {
+        xbbg_log::debug!(
+            cached = ?cached,
+            actual = ?datatype,
+            "Bloomberg element datatype changed; refreshing extractor cache"
+        );
+    }
+    non_null_value(element, datatype)
+}
+
+/// [`Element::get_value`]`(0)` for a caller that already read the datatype:
+/// one getter call for a present value, with the same null and empty results.
+pub(crate) fn get_value_with_datatype<'a>(
+    element: &Element<'a>,
+    datatype: BlpDataType,
+) -> Option<Value<'a>> {
+    if has_scalar_value(datatype) {
+        // A getter succeeds only on a non-null element with a value at index 0.
+        return element
+            .get_value_fast_with_datatype(0, datatype)
+            .or_else(|| element.is_null().then_some(Value::Null));
+    }
+    if element.is_null() {
+        Some(Value::Null)
+    } else {
+        non_null_value(element, datatype)
+    }
+}
+
+/// `Element::get_value(0)` for an element known not to be null.
+fn non_null_value<'a>(element: &Element<'a>, datatype: BlpDataType) -> Option<Value<'a>> {
+    if has_scalar_value(datatype) {
+        element.get_value_fast_with_datatype(0, datatype)
+    } else {
+        // `get_value` reads these as null, but only at a valid index.
+        (!element.is_empty()).then_some(Value::Null)
+    }
 }
 
 /// Compute the common Arrow type for the "value" column from requested fields
@@ -1317,41 +1424,95 @@ impl WideColumns {
     }
 }
 
-pub(crate) fn append_long_value_row<F>(
-    columns: &mut ColumnSet,
-    long_mode: LongMode,
-    field_name: &str,
-    value: Option<Value<'_>>,
-    dtype: Option<&str>,
-    prefix: F,
-) where
-    F: FnOnce(&mut ColumnSet),
-{
-    prefix(columns);
-    columns.append_str("field", field_name);
+/// Per requested field, the `dtype` label its type hint fixes for
+/// `long_metadata` rows; resolved once per request instead of per value.
+pub(crate) fn field_dtype_hints(
+    field_names: &[String],
+    field_types: &HashMap<String, ArrowType>,
+) -> Vec<Option<&'static str>> {
+    field_names
+        .iter()
+        .map(|name| field_types.get(name).map(ArrowType::type_name))
+        .collect()
+}
 
-    match long_mode {
-        LongMode::String => {
-            if let Some(value) = value {
-                columns.append("value", value);
-            } else {
-                columns.append_null("value");
-            }
-        }
-        LongMode::WithMetadata => {
-            if let Some(ref value) = value {
-                let value_str = value_to_string(value);
-                columns.append_str("value", value_str.as_ref());
-                columns.append_str("dtype", dtype.unwrap_or("null"));
-            } else {
-                columns.append_null("value");
-                columns.append_str("dtype", "null");
-            }
-        }
-        LongMode::Typed => unreachable!("typed long rows are appended by TypedLongColumns"),
+/// Appends long rows through a [`ColumnSet`] (the `long_metadata` layout and
+/// security-error rows) by column slots resolved once per column set.
+#[derive(Clone, Copy)]
+pub(crate) struct LongRowWriter {
+    mode: LongMode,
+    ticker: ColumnSlot,
+    date: Option<ColumnSlot>,
+    field: ColumnSlot,
+    value: ColumnSlot,
+    dtype: ColumnSlot,
+}
+
+impl LongRowWriter {
+    /// Rows `[ticker, field, value]`, plus `dtype` with metadata.
+    pub(crate) fn refdata(columns: &mut ColumnSet, mode: LongMode) -> Self {
+        Self::new(columns, mode, false)
     }
 
-    columns.end_row();
+    /// Rows `[ticker, date, field, value]`, plus `dtype` with metadata.
+    pub(crate) fn histdata(columns: &mut ColumnSet, mode: LongMode) -> Self {
+        Self::new(columns, mode, true)
+    }
+
+    fn new(columns: &mut ColumnSet, mode: LongMode, include_date: bool) -> Self {
+        Self {
+            mode,
+            ticker: columns.slot("ticker"),
+            date: include_date.then(|| columns.slot("date")),
+            field: columns.slot("field"),
+            value: columns.slot("value"),
+            dtype: columns.slot("dtype"),
+        }
+    }
+
+    /// Append and end one row. `date` is written only for historical rows.
+    /// With metadata, a present value's `dtype` is `dtype_hint`, or else the
+    /// type inferred from the value.
+    pub(crate) fn append_row(
+        &self,
+        columns: &mut ColumnSet,
+        ticker: &str,
+        date: Option<&Value<'_>>,
+        field_name: &str,
+        value: Option<Value<'_>>,
+        dtype_hint: Option<&str>,
+    ) {
+        columns.append_str_slot(self.ticker, ticker);
+        if let Some(date_slot) = self.date {
+            match date {
+                Some(date) => columns.append_slot(date_slot, date.clone()),
+                None => columns.append_null_slot(date_slot),
+            }
+        }
+        columns.append_str_slot(self.field, field_name);
+
+        match self.mode {
+            LongMode::String => match value {
+                Some(value) => columns.append_slot(self.value, value),
+                None => columns.append_null_slot(self.value),
+            },
+            LongMode::WithMetadata => match value {
+                Some(value) => {
+                    let dtype =
+                        dtype_hint.unwrap_or_else(|| ArrowType::from_value(&value).type_name());
+                    columns.append_str_slot(self.value, value_to_string(&value).as_ref());
+                    columns.append_str_slot(self.dtype, dtype);
+                }
+                None => {
+                    columns.append_null_slot(self.value);
+                    columns.append_str_slot(self.dtype, "null");
+                }
+            },
+            LongMode::Typed => unreachable!("typed long rows are appended by TypedLongColumns"),
+        }
+
+        columns.end_row();
+    }
 }
 
 fn civil_from_days(days: i64) -> (i32, u32, u32) {
@@ -1484,6 +1645,7 @@ pub(crate) fn value_to_string<'a>(value: &'a Value<'a>) -> Cow<'a, str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::diagnostics::FieldExceptionMeta;
     use arrow_array::{Array, Date32Array, Float64Array, StringArray};
 
     #[test]
@@ -1506,7 +1668,8 @@ mod tests {
             (Some(b'N'), Some(Value::Bool(false))),
             (Some(b'X'), Some(Value::Byte(b'X'))),
             (Some(255), Some(Value::Byte(255))),
-            (None, None),
+            // A null reads exactly as `Element::get_value` reports it.
+            (None, Some(Value::Null)),
         ] {
             let event = TestEvent::subscription(schema, "Characters", |formatter| {
                 formatter.char("FLAG", character);
@@ -1522,9 +1685,13 @@ mod tests {
                 );
                 assert_eq!(
                     get_value_cached_datatype(&element, &mut cached),
-                    element.get_value_fast_with_datatype(0, element.datatype())
+                    element.get_value(0)
                 );
             }
+            assert_eq!(
+                get_value_with_datatype(&element, element.datatype()),
+                element.get_value(0)
+            );
         }
     }
 
@@ -1552,6 +1719,104 @@ mod tests {
             Some(Value::String("not numeric"))
         );
         assert_eq!(cached, Some(BlpDataType::String));
+    }
+
+    #[test]
+    fn cached_and_known_datatype_extraction_match_get_value_for_every_shape() {
+        use xbbg_core::test_support::TestEvent;
+
+        let schema = r#"<ServiceDefinition name="xbbg.test.value_parity" version="1.0.0.0">
+            <service name="//xbbg/test/value_parity" version="1.0.0.0">
+                <event name="Values" eventType="ValuesType"/>
+            </service>
+            <schema>
+                <sequenceType name="ValuesType">
+                    <element name="TEXT" type="String"/>
+                    <element name="NULL_TEXT" type="String" minOccurs="0"/>
+                    <element name="COUNTS" type="Int64" maxOccurs="unbounded"/>
+                    <element name="NO_COUNTS" type="Int64" minOccurs="0" maxOccurs="unbounded"/>
+                    <element name="ROW" type="RowType"/>
+                    <element name="ROWS" type="RowType" maxOccurs="unbounded"/>
+                    <element name="NO_ROWS" type="RowType" minOccurs="0" maxOccurs="unbounded"/>
+                </sequenceType>
+                <sequenceType name="RowType">
+                    <element name="VALUE" type="Float64"/>
+                </sequenceType>
+            </schema>
+        </ServiceDefinition>"#;
+        let event = TestEvent::subscription(schema, "Values", |formatter| {
+            formatter.json(
+                r#"{"TEXT":"x","NULL_TEXT":null,"COUNTS":[7,8],"NO_COUNTS":[],
+                    "ROW":{"VALUE":1.5},"ROWS":[{"VALUE":2.5}],"NO_ROWS":[]}"#,
+            );
+        });
+        let mut messages = event.event().messages();
+        let message = messages.next().unwrap();
+        let root = message.elements();
+        assert_eq!(root.num_children(), 7);
+        for element in root.children() {
+            let name = element.name_str();
+            let expected = element.get_value(0);
+            assert_eq!(
+                get_value_with_datatype(&element, element.datatype()),
+                expected,
+                "{name}"
+            );
+            // Cold, warm and pre-seeded caches; only a stale datatype may differ.
+            let mut cached = None;
+            for _ in 0..2 {
+                assert_eq!(
+                    get_value_cached_datatype(&element, &mut cached),
+                    expected,
+                    "{name}"
+                );
+            }
+            let mut cached = Some(element.datatype());
+            assert_eq!(
+                get_value_cached_datatype(&element, &mut cached),
+                expected,
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn child_scan_finds_exactly_the_children_name_probes_find() {
+        use xbbg_core::test_support::TestEvent;
+
+        let schema = r#"<ServiceDefinition name="xbbg.test.child_scan" version="1.0.0.0">
+            <service name="//xbbg/test/child_scan" version="1.0.0.0">
+                <event name="Children" eventType="ChildrenType"/>
+            </service>
+            <schema><sequenceType name="ChildrenType">
+                <element name="PRESENT" type="String"/>
+                <element name="NULL_VALUE" type="String" minOccurs="0"/>
+                <element name="EMPTY_ARRAY" type="Int32" minOccurs="0" maxOccurs="unbounded"/>
+            </sequenceType></schema>
+        </ServiceDefinition>"#;
+        let event = TestEvent::subscription(schema, "Children", |formatter| {
+            formatter.json(r#"{"PRESENT":"x","NULL_VALUE":null,"EMPTY_ARRAY":[]}"#);
+        });
+        let mut messages = event.event().messages();
+        let message = messages.next().unwrap();
+        let root = message.elements();
+        // Out of schema order, with a name the element's definition lacks.
+        let names = ["EMPTY_ARRAY", "UNDECLARED", "PRESENT", "NULL_VALUE"].map(Name::get_or_intern);
+        let found = find_children(&root, &names);
+        for (name, child) in names.iter().zip(&found) {
+            let probed = root.get(name);
+            assert_eq!(child.is_some(), probed.is_some(), "{name}");
+            if let (Some(child), Some(probed)) = (child, probed) {
+                assert!(child.name_eq(name), "{name}");
+                assert_eq!(child.is_null(), probed.is_null(), "{name}");
+                assert_eq!(child.len(), probed.len(), "{name}");
+            }
+        }
+        assert!(found[1].is_none());
+        assert_eq!(
+            found[2].as_ref().and_then(|present| present.get_str(0)),
+            Some("x")
+        );
     }
 
     #[test]
@@ -1794,6 +2059,7 @@ mod tests {
         let first = ResponseMetadata::attach_bloomberg_request_id(tiny_batch(), "sdk-synthetic-z");
         let second = ResponseMetadata::attach_bloomberg_request_id(tiny_batch(), "sdk-synthetic-a");
         let combined = ResponseMetadata::union_of(&[first.clone(), second.clone(), first.clone()])
+            .unwrap()
             .attach(tiny_batch());
         let metadata = combined.schema_ref().metadata();
         assert!(!metadata.contains_key(METADATA_KEY_BLOOMBERG_REQUEST_ID));
@@ -1801,8 +2067,9 @@ mod tests {
             metadata[METADATA_KEY_BLOOMBERG_REQUEST_IDS],
             r#"["sdk-synthetic-a","sdk-synthetic-z"]"#
         );
-        let duplicate =
-            ResponseMetadata::union_of(&[first.clone(), first.clone()]).attach(tiny_batch());
+        let duplicate = ResponseMetadata::union_of(&[first.clone(), first.clone()])
+            .unwrap()
+            .attach(tiny_batch());
         assert_eq!(
             duplicate.schema_ref().metadata()[METADATA_KEY_BLOOMBERG_REQUEST_ID],
             "sdk-synthetic-z"
@@ -1874,15 +2141,15 @@ mod tests {
         meta1
             .eid_data
             .insert("IBM US Equity".to_string(), vec![14005, 35009]);
-        meta1.field_exceptions.insert(
-            "IBM US Equity".to_string(),
-            vec![FieldExceptionMeta {
+        meta1.field_exceptions.record(
+            "IBM US Equity",
+            FieldExceptionMeta {
                 field: "BAD_FIELD".to_string(),
                 category: "BAD_FLD".to_string(),
                 code: 9,
                 subcategory: "NOT_APPLICABLE_TO_REF_DATA".to_string(),
                 message: "Field not applicable".to_string(),
-            }],
+            },
         );
         meta1.delayed.insert(
             "IBM US Equity".to_string(),
@@ -1929,7 +2196,7 @@ mod tests {
         assert!(batch3.schema_ref().metadata().is_empty());
 
         // Union across shards preserves every entry from both sides.
-        let merged = ResponseMetadata::union_of(&[batch1, batch2, batch3]);
+        let merged = ResponseMetadata::union_of(&[batch1, batch2, batch3]).unwrap();
         assert_eq!(
             merged.eid_data.get("IBM US Equity"),
             Some(&vec![14005, 35009])
@@ -1938,7 +2205,10 @@ mod tests {
         let err = merged.security_errors.get("PRIVATE US Equity").unwrap();
         assert_eq!(err.code, 17);
         assert_eq!(err.subcategory, "NOT_ENTITLED");
-        let excs = merged.field_exceptions.get("IBM US Equity").unwrap();
+        let excs: Vec<_> = merged
+            .field_exceptions
+            .for_security("IBM US Equity")
+            .collect();
         assert_eq!(excs.len(), 1);
         assert_eq!(excs[0].field, "BAD_FIELD");
         assert_eq!(merged.delayed.len(), 2);
@@ -1952,10 +2222,10 @@ mod tests {
 
         // Re-attach of the merged map keeps JSON parseable end to end.
         let final_batch = merged.attach(tiny_batch());
-        let re_merged = ResponseMetadata::union_of(std::slice::from_ref(&final_batch));
+        let re_merged = ResponseMetadata::union_of(std::slice::from_ref(&final_batch)).unwrap();
         assert_eq!(re_merged.eid_data.len(), 2);
         assert_eq!(re_merged.security_errors.len(), 1);
-        assert_eq!(re_merged.field_exceptions.len(), 1);
+        assert_eq!(re_merged.field_exceptions.securities().count(), 1);
         assert_eq!(re_merged.delayed.len(), 2);
     }
 
@@ -2078,8 +2348,25 @@ mod tests {
             let errors: serde_json::Value =
                 serde_json::from_str(&metadata[METADATA_KEY_SECURITY_ERRORS]).unwrap();
             assert_eq!(errors["DENIED Equity"]["message"], "Synthetic diagnostic");
-            let exceptions: serde_json::Value =
+            let encoded: serde_json::Value =
                 serde_json::from_str(&metadata[METADATA_KEY_FIELD_EXCEPTIONS]).unwrap();
+            assert_eq!(encoded["version"], 1);
+            assert_eq!(
+                encoded["entries"],
+                serde_json::json!([{
+                    "field": "VALUE", "category": "TEST_ERROR", "code": 9,
+                    "subcategory": "SYNTHETIC", "message": "Synthetic diagnostic",
+                }])
+            );
+            assert_eq!(
+                encoded["securities"],
+                serde_json::json!({
+                    "TEST Equity": [0], "DENIED Equity": [0],
+                })
+            );
+            let exceptions = FieldExceptions::from_json(&metadata[METADATA_KEY_FIELD_EXCEPTIONS])
+                .unwrap()
+                .expanded_json();
             for ticker in ["TEST Equity", "DENIED Equity"] {
                 assert_eq!(exceptions[ticker][0]["field"], "VALUE");
                 assert_eq!(exceptions[ticker][0]["code"], 9);
@@ -2235,11 +2522,11 @@ mod tests {
                     ),
                 ])
             );
-            let exceptions: BTreeMap<String, Vec<FieldExceptionMeta>> = batch
+            let exceptions = batch
                 .schema_ref()
                 .metadata()
                 .get(METADATA_KEY_FIELD_EXCEPTIONS)
-                .map(|json| serde_json::from_str(json).unwrap())
+                .map(|json| FieldExceptions::from_json(json).unwrap().expanded())
                 .unwrap_or_default();
             let reported: Vec<&str> = exceptions
                 .values()

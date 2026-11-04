@@ -104,7 +104,7 @@ fn resume(store: &NativeStore, response: &Value, owner: &Value, cancel: &Cancell
         Some("incomplete"),
         "{response:?}"
     );
-    store.request(
+    store.test_request(
         &json!({"schema":SCHEMA,"id":"race-resume","operation":"resume",
         "cursor":response["cursor"]}),
         owner,
@@ -509,7 +509,12 @@ fn old_generation_first_lift_after_append_preserves_each_classifier_and_late_res
         "timestamp":"2026-01-02T03:04:07Z","message":{"content":[{"type":"tool_result","tool_use_id":"edit","content":"done"}]}})
     );
     let source = RaceSource::new(&[user("a"), tool, user("b")].concat());
-    let store = race_store();
+    let store = NativeStore::new_agent(
+        &json!({"max_read_bytes_per_step":128,"max_events_per_step":2,
+        "max_entry_bytes":8192,"max_retained_bytes":32*1024*1024,
+        "reserved_hook_accounted_bytes":4096,"max_leases":16,"reserved_hook_leases":1}),
+    )
+    .unwrap();
     let owner = context(&store, &source, "reader");
     store
         .register_classifier(
@@ -535,14 +540,14 @@ fn old_generation_first_lift_after_append_preserves_each_classifier_and_late_res
         .unwrap();
     let old_response = finish(
         &store,
-        store.request(&acquire(&source.path), &owner, &Cancellation::default()),
+        store.request_agent(&acquire(&source.path), &owner, &Cancellation::default()),
         &owner,
     );
     let old = pin(&store, &old_response, &owner);
     source.append(&[result, user("c")].concat());
     let new_response = finish(
         &store,
-        store.request(&acquire(&source.path), &owner, &Cancellation::default()),
+        store.request_agent(&acquire(&source.path), &owner, &Cancellation::default()),
         &owner,
     );
     let new = pin(&store, &new_response, &owner);
@@ -639,19 +644,27 @@ struct Family {
 
 impl Family {
     fn new(store: NativeStore) -> Self {
-        let source = RaceSource::new(
+        let members: Vec<(&str, String)> =
+            MEMBERS.iter().map(|name| (*name, member(name))).collect();
+        Self::with(
+            store,
             &[
                 user("root"),
                 call("root-read", "Read", json!({"file_path":"root.rs"})),
             ]
             .concat(),
-        );
+            &members,
+        )
+    }
+
+    fn with(store: NativeStore, root: &str, members: &[(&str, String)]) -> Self {
+        let source = RaceSource::new(root);
         let owner = context(&store, &source, "observer");
-        let members: Vec<PathBuf> = MEMBERS
+        let members: Vec<PathBuf> = members
             .iter()
-            .map(|name| {
+            .map(|(name, contents)| {
                 let path = source.directory.join(format!("{name}.jsonl"));
-                std::fs::write(&path, member(name)).unwrap();
+                std::fs::write(&path, contents).unwrap();
                 path
             })
             .collect();
@@ -1358,6 +1371,51 @@ fn glob_and_regex_kinds_answer_only_as_the_primary_while_the_other_eight_settle_
     );
     assert_eq!(
         family.ask(matched, None)["data"],
+        json!({"kind":"scalar","value":true})
+    );
+}
+
+#[test]
+fn has_source_edit_reaches_subagents_and_ignores_what_the_predicate_excludes() {
+    let query = json!({"kind":"has_source_edit","root":null,"exclude_suffixes":[".md"],
+        "exclude_prefixes":["docs"],"subagents":true});
+    let excluded = [
+        user("root"),
+        call(
+            "root-docs",
+            "Edit",
+            json!({"file_path":"docs/guide.py","old_string":"a","new_string":"b"}),
+        ),
+        call(
+            "root-prose",
+            "Write",
+            json!({"file_path":"notes.md","content":"x"}),
+        ),
+        call(
+            "root-test",
+            "Write",
+            json!({"file_path":"pkg/tests/test_app.py","content":"x"}),
+        ),
+        call("root-read", "Read", json!({"file_path":"src/app.py"})),
+    ]
+    .concat();
+    let quiet = Family::with(swift_store(), &excluded, &[]);
+    assert_eq!(
+        quiet.ask(query.clone(), None)["data"],
+        json!({"kind":"scalar","value":false})
+    );
+    let member = [
+        user("member"),
+        call(
+            "member-write",
+            "Write",
+            json!({"file_path":"src/app.py","content":"x"}),
+        ),
+    ]
+    .concat();
+    let edited = Family::with(swift_store(), &excluded, &[("member", member)]);
+    assert_eq!(
+        edited.ask(query, None)["data"],
         json!({"kind":"scalar","value":true})
     );
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pympp
-Version: 0.19.0
+Version: 0.20.0
 Summary: Python SDK for the Machine Payments Protocol (MPP)
 Project-URL: Homepage, https://github.com/tempoxyz/pympp
 Project-URL: Documentation, https://github.com/tempoxyz/pympp#readme
@@ -52,7 +52,7 @@ Requires-Dist: eth-hash[pycryptodome]>=0.7; extra == 'stripe'
 Requires-Dist: propcache==0.5.2; extra == 'stripe'
 Requires-Dist: pydantic>=2.0; extra == 'stripe'
 Requires-Dist: pyjwt==2.15.1; extra == 'stripe'
-Requires-Dist: pytempo>=0.2.1; extra == 'stripe'
+Requires-Dist: pytempo>=0.7.0; extra == 'stripe'
 Requires-Dist: rlp>=4.0; extra == 'stripe'
 Requires-Dist: stripe>=8.0.0; extra == 'stripe'
 Requires-Dist: urllib3==2.8.0; extra == 'stripe'
@@ -65,7 +65,7 @@ Requires-Dist: eth-hash[pycryptodome]>=0.7; extra == 'tempo'
 Requires-Dist: propcache==0.5.2; extra == 'tempo'
 Requires-Dist: pydantic>=2.0; extra == 'tempo'
 Requires-Dist: pyjwt==2.15.1; extra == 'tempo'
-Requires-Dist: pytempo>=0.2.1; extra == 'tempo'
+Requires-Dist: pytempo>=0.7.0; extra == 'tempo'
 Requires-Dist: rlp>=4.0; extra == 'tempo'
 Requires-Dist: urllib3==2.8.0; extra == 'tempo'
 Requires-Dist: yarl==1.24.5; extra == 'tempo'
@@ -130,8 +130,11 @@ async def handle(request: Request) -> Response:
 ```
 
 A `tempo.charge(fee_payer=...)` server sponsors its payers' fees on every route, as
-mppx does; pass `fee_payer=False` to a route to opt out. Before broadcasting a
-sponsored charge it simulates it with `eth_call`, which every public Tempo RPC serves.
+mppx does; pass `fee_payer=False` to a route to opt out. As in mppx, a sponsored
+challenge must expire at least 15 seconds after it is issued, so a shorter-lived route
+on such a server raises unless it passes `fee_payer=False` (zero-amount and push-only
+routes are exempt). Before broadcasting a sponsored charge it simulates it with
+`eth_call`, which every public Tempo RPC serves.
 
 If the endpoint already uses `Authorization` (API keys, Bearer tokens), create the server with `requires_auth=True`. Challenges then advertise `header="Payment-Authorization"`, and clients send the Payment credential in that header instead of `Authorization`.
 
@@ -212,6 +215,21 @@ async with Mpp(methods=[tempo.charge(account=account)]) as mpp:
 
 To use your own `httpx.AsyncClient`, pass it `transport=mpp.payment_transport`, or
 call `mpp.client()`.
+
+A `402` with no challenge a configured method can pay raises `NoMethodFoundError`
+(a `PaymentError`), as mppx does; a `402` answering a paid retry is returned. To
+choose among payable challenges, pass `order_challenges`: it gets the
+`ChallengeCandidate`s (challenge, method, index) in default order and returns them in
+preference order, and the first is paid.
+
+```python
+mpp = Mpp(
+    methods=[tempo.charge(account=account)],
+    order_challenges=lambda candidates: [
+        c for c in candidates if c.challenge.request.get("currency") == USDC
+    ],
+)
+```
 
 ### Pay x402 servers
 
@@ -323,22 +341,38 @@ is a protection-space name, not an authenticated origin. This policy prevents
 payments to unapproved origins; it cannot identify a relayed challenge served by
 an origin you have already approved.
 
-### External fee-payer services
+### Hosted fee-payer services
 
-An external `feePayerUrl` signs sponsored transactions through `eth_signRawTransaction`.
-Treat the returned transaction as a spending capability: callers can broadcast it
-without passing through pympp. Before returning a signature, the service must
-validate the complete transaction and caller authorization, simulate execution,
-and enforce gas-price, gas-limit, per-caller, and aggregate spending budgets.
-Simulation is a point-in-time check; state can change before inclusion, so it does
-not replace hard spending limits.
+`tempo.charge(fee_payer=...)` also takes a hosted fee payer: its URL, or
+`{"url": ..., "headers": ...}` (or a `RemoteFeePayer`), where `headers` may be a
+sync or async callable returning them per request. Hosted sponsorship is on by
+default. Local account sponsorship requires route-level `fee_payer=True`;
+otherwise access-key clients retain an unsponsored payment path.
+The server enforces its sponsor policy and simulates the calls before asking the
+service to co-sign with `eth_fillTransaction`, keeps only the returned
+`feePayerSignature` and `feeToken` (`allowed_fee_tokens` restricts it), simulates
+the final transaction with the recovered sponsor, and broadcasts it itself.
+Challenges never name the service; a `feePayerUrl` in an old challenge is ignored.
 
-These requirements apply to any external sponsor. pympp validates the expected
-payment before requesting sponsorship, but its checks cannot protect a sponsor
-that also accepts direct signing requests. Local sponsorship uses pympp's local
-simulation path; externally signed transactions rely on the external service's
-pre-sign controls. Adding a simulation after receiving the signature would not
-prevent a caller from broadcasting that same transaction elsewhere.
+```python
+server = Mpp(
+    methods=tempo.charge(
+        recipient="0x...",
+        fee_payer={
+            "url": "https://sponsor.example/rpc",
+            "headers": {"Authorization": "Bearer ..."},
+        },
+    )
+)
+```
+
+Treat the returned signature as a spending capability: callers can broadcast it
+without passing through pympp. Before signing, the service must validate the
+complete transaction and caller authorization, simulate execution, and enforce
+gas-price, gas-limit, per-caller, and aggregate spending budgets. Simulation is a
+point-in-time check; state can change before inclusion, so it does not replace
+hard spending limits. pympp's checks cannot protect a sponsor that also accepts
+direct signing requests.
 
 ### Sponsored recovery records
 
@@ -414,3 +448,73 @@ outside the MPP format. Servers reject this configuration before issuing a
 challenge, and clients reject it before signing or broadcasting. Drain or
 replace outstanding challenges with fixed MPP memos before upgrading; their
 transfers cannot safely authorize the enclosing split charge.
+
+Local fee sponsorship verifies secp256k1, P256 and WebAuthn root signatures
+before co-signing. Keychain sponsorship is refused locally: root-account
+`eth_call` does not enforce access-key authorization or spending limits, so even
+a cryptographically valid access-key signature is insufficient. Keychain and
+unsupported signature formats require an independently authorizing hosted sponsor
+that enforces those permissions before spending its gas. For locally configured
+charge and session routes, pass `fee_payer=False` to offer unsponsored payments.
+Local charge sponsorship is opt-in (`fee_payer=True` on the route); configuring
+a local sponsor alone does not make every charge route inaccessible to access keys.
+
+Push payments require more than 15 seconds of challenge lifetime before signing
+and again immediately before submission. Their signed inclusion deadline leaves
+15 seconds for returning the hash credential. This margin reduces expiry races;
+applications must still allow enough time for network delays and recovery.
+
+Local sponsored charges atomically bind each payer and challenge to its first
+submitted transaction and allow only one pending sponsored charge per payer on
+a chain, across currencies. Busy payers wait up to five seconds (bounded by the
+new transaction's expiry). A preflight rejection releases its claims without
+consuming sponsorship. Submitted transactions keep their challenge binding for
+its acceptance window.
+
+Unknown payer claims remain until a receipt or chain-time non-inclusion check
+resolves them. Wall-clock expiry alone does not release a claim; a later request
+for that payer performs reconciliation. Provision storage for retained records
+and apply capacity limits rather than evicting pending payments.
+
+Use an atomic `SponsorBudget(store=...)` backend or a replay store supporting
+`compare_and_set`. The Redis adapter requires permission to execute its CAS Lua
+script (`EVAL`). Admission probes the operation before creating payment claims or
+sending transactions; an adapter whose CAS operation is disabled is rejected.
+Failed conditional cleanup retains the claim rather than deleting another
+request's reservation. Without a configured store these claims are process-local,
+so use a shared atomic store across server instances.
+
+### Session top-up sponsorship limits
+
+Sponsored session top-ups use a rolling 24-hour allowance: five attempts per payer
+across its channels, 100 attempts across all payers, and an aggregate fee allowance
+of 100 default maximum envelope fees. After successful simulation, each submission reserves its full configured
+maximum fee for the window, even after success, a mined revert, or an uncertain result.
+Retries of the same sender-signed transaction reuse the reservation, including
+concurrent retries on different instances. Invalid signatures and failed simulations
+consume no allowance. Sponsored top-ups
+must be signed by the channel payer.
+This is conservative: unused fee allowance is not refunded. Unsponsored top-ups
+and server settlement/close transactions are unaffected.
+
+```python
+from mpp.methods.tempo.session.server import SessionSponsorshipLimit
+
+method = tempo.session(
+    account=operator,
+    fee_payer=sponsor,
+    store=shared_store,
+    top_up_sponsorship_limit=SessionSponsorshipLimit(per_payer=10, max_transactions=200),
+)
+```
+
+Use the same shared compare-and-set store and policy on every instance using a
+sponsor; the default in-memory store protects only one process. The policy is
+operator-owned: route inputs cannot increase its limits. Reaching a limit rejects
+the top-up before broadcast. Raising the count does not raise the separate fee
+allowance; configure `max_total_fee` explicitly when needed. The aggregate cap is a
+sponsor-wide availability limit: once exhausted, new sponsored top-ups are rejected
+for every payer until capacity returns. Payers can submit their own fee-paying
+transactions through an unsponsored route. A signed `0x78` sponsorship envelope
+cannot be automatically converted to a payer-funded transaction without a new
+payer signature.

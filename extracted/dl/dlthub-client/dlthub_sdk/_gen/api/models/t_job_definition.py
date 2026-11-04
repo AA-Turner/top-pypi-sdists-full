@@ -6,12 +6,14 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.t_job_definition_auto_refresh_pipeline_mode import (
-    TJobDefinitionAutoRefreshPipelineMode,
+from ..models.t_job_definition_auto_refresh_pipeline_mode_type_0 import (
+    TJobDefinitionAutoRefreshPipelineModeType0,
 )
-from ..models.t_job_definition_incremental_mode import TJobDefinitionIncrementalMode
-from ..models.t_job_definition_refresh_propagation import (
-    TJobDefinitionRefreshPropagation,
+from ..models.t_job_definition_incremental_mode_type_0 import (
+    TJobDefinitionIncrementalModeType0,
+)
+from ..models.t_job_definition_refresh_propagation_type_0 import (
+    TJobDefinitionRefreshPropagationType0,
 )
 from ..types import UNSET, Unset
 
@@ -33,7 +35,7 @@ T = TypeVar("T", bound="TJobDefinition")
 
 @_attrs_define
 class TJobDefinition:
-    """Full job definition from dlt deployment manifest
+    """Job definition from the dlt deployment manifest.
 
     Attributes:
         engine_version (int):
@@ -43,18 +45,18 @@ class TJobDefinition:
         triggers (list[str]):
         access (TWorkspaceAccess | Unset):
         agent (TAgentDefinition | Unset):
-        auto_refresh_pipeline_mode (TJobDefinitionAutoRefreshPipelineMode | Unset):
+        auto_refresh_pipeline_mode (str | TJobDefinitionAutoRefreshPipelineModeType0 | Unset):
         config_keys (list[str] | Unset):
         default_trigger (str | Unset):
         deliver (TDeliverSpec | Unset):
         description (str | Unset):
         expose (TExposeSpec | Unset):
         freshness (list[str] | Unset):
-        incremental_mode (TJobDefinitionIncrementalMode | Unset):
+        incremental_mode (str | TJobDefinitionIncrementalModeType0 | Unset):
         inputs (TJobDefinitionInputs | Unset):
         interval (TIntervalSpec | Unset):
         output (TJobDefinitionOutput | Unset):
-        refresh_propagation (TJobDefinitionRefreshPropagation | Unset):
+        refresh_propagation (str | TJobDefinitionRefreshPropagationType0 | Unset):
         require (TRequireSpec | Unset):
     """
 
@@ -65,18 +67,20 @@ class TJobDefinition:
     triggers: list[str]
     access: TWorkspaceAccess | Unset = UNSET
     agent: TAgentDefinition | Unset = UNSET
-    auto_refresh_pipeline_mode: TJobDefinitionAutoRefreshPipelineMode | Unset = UNSET
+    auto_refresh_pipeline_mode: (
+        str | TJobDefinitionAutoRefreshPipelineModeType0 | Unset
+    ) = UNSET
     config_keys: list[str] | Unset = UNSET
     default_trigger: str | Unset = UNSET
     deliver: TDeliverSpec | Unset = UNSET
     description: str | Unset = UNSET
     expose: TExposeSpec | Unset = UNSET
     freshness: list[str] | Unset = UNSET
-    incremental_mode: TJobDefinitionIncrementalMode | Unset = UNSET
+    incremental_mode: str | TJobDefinitionIncrementalModeType0 | Unset = UNSET
     inputs: TJobDefinitionInputs | Unset = UNSET
     interval: TIntervalSpec | Unset = UNSET
     output: TJobDefinitionOutput | Unset = UNSET
-    refresh_propagation: TJobDefinitionRefreshPropagation | Unset = UNSET
+    refresh_propagation: str | TJobDefinitionRefreshPropagationType0 | Unset = UNSET
     require: TRequireSpec | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -99,9 +103,15 @@ class TJobDefinition:
         if not isinstance(self.agent, Unset):
             agent = self.agent.to_dict()
 
-        auto_refresh_pipeline_mode: str | Unset = UNSET
-        if not isinstance(self.auto_refresh_pipeline_mode, Unset):
+        auto_refresh_pipeline_mode: str | Unset
+        if isinstance(self.auto_refresh_pipeline_mode, Unset):
+            auto_refresh_pipeline_mode = UNSET
+        elif isinstance(
+            self.auto_refresh_pipeline_mode, TJobDefinitionAutoRefreshPipelineModeType0
+        ):
             auto_refresh_pipeline_mode = self.auto_refresh_pipeline_mode.value
+        else:
+            auto_refresh_pipeline_mode = self.auto_refresh_pipeline_mode
 
         config_keys: list[str] | Unset = UNSET
         if not isinstance(self.config_keys, Unset):
@@ -123,9 +133,13 @@ class TJobDefinition:
         if not isinstance(self.freshness, Unset):
             freshness = self.freshness
 
-        incremental_mode: str | Unset = UNSET
-        if not isinstance(self.incremental_mode, Unset):
+        incremental_mode: str | Unset
+        if isinstance(self.incremental_mode, Unset):
+            incremental_mode = UNSET
+        elif isinstance(self.incremental_mode, TJobDefinitionIncrementalModeType0):
             incremental_mode = self.incremental_mode.value
+        else:
+            incremental_mode = self.incremental_mode
 
         inputs: dict[str, Any] | Unset = UNSET
         if not isinstance(self.inputs, Unset):
@@ -139,9 +153,15 @@ class TJobDefinition:
         if not isinstance(self.output, Unset):
             output = self.output.to_dict()
 
-        refresh_propagation: str | Unset = UNSET
-        if not isinstance(self.refresh_propagation, Unset):
+        refresh_propagation: str | Unset
+        if isinstance(self.refresh_propagation, Unset):
+            refresh_propagation = UNSET
+        elif isinstance(
+            self.refresh_propagation, TJobDefinitionRefreshPropagationType0
+        ):
             refresh_propagation = self.refresh_propagation.value
+        else:
+            refresh_propagation = self.refresh_propagation
 
         require: dict[str, Any] | Unset = UNSET
         if not isinstance(self.require, Unset):
@@ -229,14 +249,26 @@ class TJobDefinition:
         else:
             agent = TAgentDefinition.from_dict(_agent)
 
-        _auto_refresh_pipeline_mode = d.pop("auto_refresh_pipeline_mode", UNSET)
-        auto_refresh_pipeline_mode: TJobDefinitionAutoRefreshPipelineMode | Unset
-        if isinstance(_auto_refresh_pipeline_mode, Unset):
-            auto_refresh_pipeline_mode = UNSET
-        else:
-            auto_refresh_pipeline_mode = TJobDefinitionAutoRefreshPipelineMode(
-                _auto_refresh_pipeline_mode
-            )
+        def _parse_auto_refresh_pipeline_mode(
+            data: object,
+        ) -> str | TJobDefinitionAutoRefreshPipelineModeType0 | Unset:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                auto_refresh_pipeline_mode_type_0 = (
+                    TJobDefinitionAutoRefreshPipelineModeType0(data)
+                )
+
+                return auto_refresh_pipeline_mode_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(str | TJobDefinitionAutoRefreshPipelineModeType0 | Unset, data)
+
+        auto_refresh_pipeline_mode = _parse_auto_refresh_pipeline_mode(
+            d.pop("auto_refresh_pipeline_mode", UNSET)
+        )
 
         config_keys = cast(list[str], d.pop("config_keys", UNSET))
 
@@ -260,12 +292,22 @@ class TJobDefinition:
 
         freshness = cast(list[str], d.pop("freshness", UNSET))
 
-        _incremental_mode = d.pop("incremental_mode", UNSET)
-        incremental_mode: TJobDefinitionIncrementalMode | Unset
-        if isinstance(_incremental_mode, Unset):
-            incremental_mode = UNSET
-        else:
-            incremental_mode = TJobDefinitionIncrementalMode(_incremental_mode)
+        def _parse_incremental_mode(
+            data: object,
+        ) -> str | TJobDefinitionIncrementalModeType0 | Unset:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                incremental_mode_type_0 = TJobDefinitionIncrementalModeType0(data)
+
+                return incremental_mode_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(str | TJobDefinitionIncrementalModeType0 | Unset, data)
+
+        incremental_mode = _parse_incremental_mode(d.pop("incremental_mode", UNSET))
 
         _inputs = d.pop("inputs", UNSET)
         inputs: TJobDefinitionInputs | Unset
@@ -288,12 +330,24 @@ class TJobDefinition:
         else:
             output = TJobDefinitionOutput.from_dict(_output)
 
-        _refresh_propagation = d.pop("refresh_propagation", UNSET)
-        refresh_propagation: TJobDefinitionRefreshPropagation | Unset
-        if isinstance(_refresh_propagation, Unset):
-            refresh_propagation = UNSET
-        else:
-            refresh_propagation = TJobDefinitionRefreshPropagation(_refresh_propagation)
+        def _parse_refresh_propagation(
+            data: object,
+        ) -> str | TJobDefinitionRefreshPropagationType0 | Unset:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                refresh_propagation_type_0 = TJobDefinitionRefreshPropagationType0(data)
+
+                return refresh_propagation_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(str | TJobDefinitionRefreshPropagationType0 | Unset, data)
+
+        refresh_propagation = _parse_refresh_propagation(
+            d.pop("refresh_propagation", UNSET)
+        )
 
         _require = d.pop("require", UNSET)
         require: TRequireSpec | Unset

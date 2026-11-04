@@ -17,7 +17,7 @@ T = TypeVar("T", bound="DataplaneCatalog")
 class DataplaneCatalog:
     """
     Attributes:
-        items (list[DataplaneResponse]): The data planes the operator has declared.
+        items (list[DataplaneResponse]): The available data planes.
     """
 
     items: list[DataplaneResponse]

@@ -12,7 +12,9 @@ use crate::evaluation::comparisons::{
 use crate::evaluation::dynamic_returnable::DynamicReturnable;
 use crate::evaluation::dynamic_string::DynamicString;
 use crate::evaluation::dynamic_value::DynamicValue;
-use crate::evaluation::evaluation_data::{InternedStrRef, RuleRef, SpecAccess, SpecView};
+use crate::evaluation::evaluation_data::{
+    InternedStrRef, ReturnableRef, RuleRef, SpecAccess, SpecView,
+};
 use crate::evaluation::evaluation_types::SecondaryExposure;
 use crate::evaluation::evaluator_context::{
     EvaluatorContext, IdListResolution, NestedExperimentExposure, NestedGateMemoEntry,
@@ -21,6 +23,7 @@ use crate::evaluation::evaluator_context::{
 use crate::evaluation::evaluator_value::{EvaluatorValue, EvaluatorValueRef};
 use crate::evaluation::get_unit_id::get_unit_id;
 use crate::evaluation::user_agent_parsing::UserAgentParser;
+use crate::hashing::hash_one;
 use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
 use crate::specs_response::spec_types::{Condition, ConditionOperator, ConditionType};
@@ -124,7 +127,11 @@ impl Evaluator {
         }
 
         if spec.uses_new_layer_eval() && matches!(spec_type, SpecType::Layer) {
-            return new_layer_eval(ctx, spec);
+            return if ctx.manual_layer_exposure_only && ctx.nested_count == 0 {
+                new_layer_eval::<false>(ctx, spec)
+            } else {
+                new_layer_eval::<true>(ctx, spec)
+            };
         }
 
         for index in 0..spec.rules_len() {
@@ -204,7 +211,7 @@ impl Evaluator {
     }
 }
 
-fn new_layer_eval<'a>(
+fn new_layer_eval<'a, const BUILD_VALUES: bool>(
     ctx: &mut EvaluatorContext<'a>,
     spec: SpecView<'a>,
 ) -> Result<Recognition, StatsigErr> {
@@ -244,12 +251,14 @@ fn new_layer_eval<'a>(
         if let Some(shared_control_experiments) = rule.shared_control_experiments() {
             if !has_passed_rule {
                 passed = ctx.result.bool_value;
-                update_parameter_values(
-                    &mut value,
-                    &mut rule_ids,
-                    rule.return_value().json_value(),
-                    rule.id(),
-                );
+                if BUILD_VALUES {
+                    update_parameter_values(
+                        &mut value,
+                        &mut rule_ids,
+                        rule.return_value().json_value(),
+                        rule.id(),
+                    );
+                }
                 rule_id = Some(rule.id().to_interned());
                 ctx.result.shared_control_experiments = Some(shared_control_experiments);
                 break;
@@ -263,7 +272,10 @@ fn new_layer_eval<'a>(
                 continue;
             }
             let delegate_value = match &ctx.result.json_value {
-                Some(val) => val.get_json(),
+                // An accepted delegate precedes every contributing layer rule.
+                // A manual exposure needs to preserve whether a delegate returned a value.
+                Some(val) if BUILD_VALUES => val.get_json(),
+                Some(_) => None,
                 None => continue,
             };
             let mut has_reused_parameter = false;
@@ -285,12 +297,14 @@ fn new_layer_eval<'a>(
                 .rule_id
                 .clone()
                 .unwrap_or_else(InternedString::default_rule_id);
-            update_parameter_values(
-                &mut value,
-                &mut rule_ids,
-                delegate_value,
-                (&delegate_rule_id).into(),
-            );
+            if BUILD_VALUES {
+                update_parameter_values(
+                    &mut value,
+                    &mut rule_ids,
+                    delegate_value,
+                    (&delegate_rule_id).into(),
+                );
+            }
 
             secondary_exposures.append(&mut ctx.result.secondary_exposures);
             ctx.result.secondary_exposures.clear();
@@ -303,35 +317,74 @@ fn new_layer_eval<'a>(
             explicit_parameters = ctx.result.explicit_parameters.clone();
         } else {
             passed = ctx.result.bool_value;
-            update_parameter_values(
-                &mut value,
-                &mut rule_ids,
-                rule.return_value().json_value(),
-                rule.id(),
-            );
+            if BUILD_VALUES {
+                update_parameter_values(
+                    &mut value,
+                    &mut rule_ids,
+                    rule.return_value().json_value(),
+                    rule.id(),
+                );
+            }
         }
         has_passed_rule = true;
     }
-    update_parameter_values(
-        &mut value,
-        &mut rule_ids,
-        spec.default_value().json_value(),
-        InternedString::default_rule_id_ref().into(),
-    );
+    if BUILD_VALUES {
+        // Rule processing is complete. A matched rule can affect assignment even if it adds no keys.
+        let reused = if ctx.reuse_default_only_layer_values && value.is_empty() {
+            reuse_default_layer_value(spec.default_value(), &mut rule_ids)
+        } else {
+            None
+        };
+        let result_value = reused.unwrap_or_else(|| {
+            update_parameter_values(
+                &mut value,
+                &mut rule_ids,
+                spec.default_value().json_value(),
+                InternedString::default_rule_id_ref().into(),
+            );
+            DynamicReturnable::from_map(value)
+        });
+        ctx.result.json_value = Some(result_value);
+        ctx.result.parameter_rule_ids = Some(rule_ids);
+    } else {
+        // Manual layer events take their rule ID from the fresh evaluation itself.
+        ctx.result.json_value = None;
+        ctx.result.parameter_rule_ids = None;
+    }
     ctx.result.bool_value = passed;
     ctx.result.config_delegate = delegate_name;
     ctx.result.group_name = group_name;
     ctx.result.rule_id = rule_id;
-    ctx.result.json_value = Some(DynamicReturnable::from_map(value));
     ctx.result.is_experiment_group = is_experiment_group;
     ctx.result.is_experiment_active = is_experiment_active;
     ctx.result.explicit_parameters = explicit_parameters;
     ctx.result.secondary_exposures = secondary_exposures;
     ctx.result.undelegated_secondary_exposures = Some(undelegated_secondary_exposures);
-    ctx.result.parameter_rule_ids = Some(rule_ids);
     ctx.result.rule_pass_percentage = None;
     ctx.finalize_evaluation_values(None, spec.forward_all_exposures());
     Ok(Recognition::Recognized)
+}
+
+fn reuse_default_layer_value(
+    default: ReturnableRef<'_>,
+    rule_ids: &mut HashMap<InternedString, InternedString>,
+) -> Option<DynamicReturnable> {
+    let default = default.to_owned();
+    let default_rule_id = InternedString::default_rule_id();
+    if let Some(map) = default.get_json_archived_ref() {
+        rule_ids.extend(map.keys().map(|key| {
+            let key = key.as_str();
+            let name = InternedString::from_static(hash_one(key.as_bytes()), key);
+            (name, default_rule_id.clone())
+        }));
+    } else {
+        let map = default.get_json_pointer_ref()?;
+        rule_ids.extend(map.keys().map(|key| {
+            let name = InternedString::from_string_uninterned(key.clone());
+            (name, default_rule_id.clone())
+        }));
+    }
+    Some(default)
 }
 
 fn update_parameter_values(
@@ -625,6 +678,19 @@ fn evaluate_condition<'a>(
         op @ (ConditionOperator::Before | ConditionOperator::After | ConditionOperator::On) => {
             compare_time(value, target_value, op)
         }
+        ConditionOperator::InCronWindow => {
+            let Some(window) = condition.compiled_cron_window.as_ref() else {
+                log_w!(TAG, "Unsupported - Invalid cron window target value");
+                ctx.result.unsupported = true;
+                return Ok(());
+            };
+            let Some(timestamp_millis) = value.timestamp_value().or(value.int_value()) else {
+                log_w!(TAG, "Unsupported - Cron window requires a timestamp value");
+                ctx.result.unsupported = true;
+                return Ok(());
+            };
+            window.is_active_at_millis(timestamp_millis)
+        }
 
         // strict equals
         ConditionOperator::Eq => target_value.is_equal_to_user_value(value),
@@ -660,7 +726,20 @@ fn evaluate_id_list(
     target_value: EvaluatorValueRef<'_>,
     value: UserValueRef<'_>,
 ) -> bool {
-    let is_in_list = is_in_id_list(ctx, target_value, value);
+    let Some(is_in_list) = is_in_id_list(ctx, target_value, value) else {
+        // A body that remains unavailable after lazy loading is unresolved, not
+        // an empty list. Preserve that state so nested gates and the containing
+        // rule stop evaluation instead of selecting a later rule.
+        if ctx.unresolved_missing_id_lists {
+            ctx.result.unsupported = true;
+            return false;
+        }
+
+        // Outside a failed/timed-out lazy load, preserve the established SDK
+        // behavior: an absent list is treated as empty, so a negative
+        // membership condition passes.
+        return matches!(op, ConditionOperator::NotInSegmentList);
+    };
 
     if matches!(op, ConditionOperator::NotInSegmentList) {
         return !is_in_list;
@@ -673,19 +752,23 @@ fn is_in_id_list(
     ctx: &mut EvaluatorContext<'_>,
     target_value: EvaluatorValueRef<'_>,
     value: UserValueRef<'_>,
-) -> bool {
-    let list_name = unwrap_or_return!(target_value.string_value(), false);
-    let dyn_str = unwrap_or_return!(value.string_value(), false);
-    let hashed = ctx.hashing.sha256(dyn_str);
-    let lookup_id: String = hashed.chars().take(8).collect();
+) -> Option<bool> {
+    let Some(list_name) = target_value.string_value() else {
+        return Some(false);
+    };
+    let Some(dyn_str) = value.string_value() else {
+        return Some(false);
+    };
+    // SHA-256 output (including the error sentinel) is ASCII.
+    let mut lookup_id = ctx.hashing.sha256(dyn_str);
+    lookup_id.truncate(8);
 
     match ctx.id_list_resolver {
         IdListResolution::MapLookup(id_lists) => {
-            let list = unwrap_or_return!(id_lists.get(list_name), false);
-
-            list.ids.contains(&lookup_id)
+            let list = id_lists.get(list_name)?;
+            Some(list.ids.contains(&lookup_id))
         }
-        IdListResolution::Callback(callback) => callback(list_name, lookup_id.as_str()),
+        IdListResolution::Callback(callback) => Some(callback(list_name, lookup_id.as_str())),
     }
 }
 

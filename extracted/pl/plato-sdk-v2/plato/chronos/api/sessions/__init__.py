@@ -8,7 +8,6 @@ from . import (
     complete_session,
     create_session,
     get_analytics_timeseries,
-    get_audit_event_counts,
     get_session,
     get_session_artifact_download,
     get_session_bash_logs_download,
@@ -22,10 +21,8 @@ from . import (
     get_session_state_download_url,
     get_session_state_upload_url,
     get_session_status,
-    get_session_trajectory,
     get_session_workspace_download_url,
     get_session_workspace_upload_url,
-    get_span_audit_events,
     get_usage_stats,
     link_plato_session,
     list_session_creators,
@@ -38,6 +35,7 @@ from . import (
     update_session_span_note,
     update_session_status,
     update_session_tags,
+    upsert_session_preview_url,
 )
 
 __all__ = [
@@ -58,12 +56,11 @@ __all__ = [
     "update_session_notes",
     "clear_agent_notes",
     "update_session_span_note",
+    "upsert_session_preview_url",
     "complete_session",
     "link_plato_session",
     "get_session_logs",
     "stream_session_logs",
-    "get_audit_event_counts",
-    "get_span_audit_events",
     "get_session_logs_download",
     "get_session_artifact_download",
     "get_session_state_upload_url",
@@ -76,6 +73,5 @@ __all__ = [
     "get_session_bash_logs_download",
     "get_session_envs",
     "get_session_live_logs",
-    "get_session_trajectory",
     "close_session",
 ]

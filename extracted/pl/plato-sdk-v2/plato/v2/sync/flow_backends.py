@@ -48,19 +48,33 @@ class FlowBackend(Protocol):
 
 
 class PlaywrightBackend:
-    """Synchronous FlowBackend wrapping a Playwright ``Page``."""
+    """Synchronous FlowBackend wrapping a Playwright ``Page``.
 
-    def __init__(self, page: Page) -> None:
+    See the async twin for the ``fast_mode`` rationale: ``domcontentloaded``
+    navigation plus Playwright auto-wait instead of explicit pre-waits.
+    """
+
+    def __init__(self, page: Page, *, fast_mode: bool = False) -> None:
         self.page = page
+        self.fast_mode = fast_mode
 
     def navigate(self, url: str) -> None:
-        self.page.goto(url)
+        if self.fast_mode:
+            self.page.goto(url, wait_until="domcontentloaded")
+        else:
+            self.page.goto(url)
 
     def click(self, selector: str, timeout_ms: int | None) -> None:
+        if self.fast_mode:
+            self.page.click(selector, timeout=timeout_ms)
+            return
         self.page.wait_for_selector(selector, timeout=timeout_ms)
         self.page.click(selector)
 
     def fill(self, selector: str, value: str, timeout_ms: int | None) -> None:
+        if self.fast_mode:
+            self.page.fill(selector, value, timeout=timeout_ms)
+            return
         self.page.wait_for_selector(selector, timeout=timeout_ms)
         self.page.fill(selector, value)
 

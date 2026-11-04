@@ -41,6 +41,7 @@ async fn setup() -> (StatsigUser, Statsig, Arc<MockSpecsAdapter>) {
 }
 
 #[tokio::test]
+#[ignore = "manual timing benchmark; run with --release --ignored --nocapture"]
 async fn test_individual_gate_checks() {
     let (_, statsig, _) = setup().await;
 
@@ -61,6 +62,7 @@ async fn test_individual_gate_checks() {
 }
 
 #[tokio::test]
+#[ignore = "manual timing benchmark; run with --release --ignored --nocapture"]
 async fn test_individual_experiment_gets() {
     let (_, statsig, _) = setup().await;
 
@@ -138,6 +140,7 @@ async fn test_all_gate_checks() {
 }
 
 #[tokio::test]
+#[ignore = "manual timing benchmark; run with --release --ignored --nocapture"]
 async fn test_gcir() {
     let (user, statsig, _) = setup().await;
 
@@ -165,6 +168,7 @@ async fn test_gcir() {
 }
 
 #[tokio::test]
+#[ignore = "manual timing benchmark; run with --release --ignored --nocapture"]
 async fn test_specs_sync() {
     let (_, _, specs_adapter) = setup().await;
 

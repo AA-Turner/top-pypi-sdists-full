@@ -284,6 +284,11 @@ class BaseAdapterExtension(abc.ABC):
     def rollback(self) -> None:
         self.adapter.connections.rollback_if_open()
 
+    def commit_if_open(self) -> None:
+        """Commit the current thread's connection transaction if one is open."""
+        self.adapter.connections.get_thread_connection().transaction_open = True
+        self.adapter.commit_if_has_connection()
+
     def _resolve_futures(
         self,
         cache: EventualCache[str, CacheValue],
@@ -665,7 +670,9 @@ class BaseAdapterExtension(abc.ABC):
             cache.remove(fqns)
 
     def traverse_view_definitions(
-        self, sql_or_tables: exp.Expr | str | t.Collection[exp.Table]
+        self,
+        sql_or_tables: exp.Expr | str | t.Collection[exp.Table],
+        terminal_fqns: t.Optional[t.Set[str]] = None,
     ) -> ViewTraversalResult:
         """Recursively traverse view definitions for references in the given SQL or table names.
 
@@ -673,12 +680,13 @@ class BaseAdapterExtension(abc.ABC):
         not fulfill on exit
         """
         with self._view_definition_cache.scoped() as claimed_fqns:
-            return self._traverse_view_definitions(sql_or_tables, claimed_fqns)
+            return self._traverse_view_definitions(sql_or_tables, claimed_fqns, terminal_fqns)
 
     def _traverse_view_definitions(
         self,
         sql_or_tables: exp.Expr | str | t.Collection[exp.Table],
         claimed_fqns: t.Set[str],
+        terminal_fqns: t.Optional[t.Set[str]] = None,
     ) -> ViewTraversalResult:
         """Recursively traverses view definitions for references extracted from the given SQL expression or table names.
 
@@ -707,8 +715,10 @@ class BaseAdapterExtension(abc.ABC):
         queue = deque(set(tables))
         visited: t.Set[str] = set()
         futures: t.Dict[Future[ViewFetchResult], t.Collection[exp.Table]] = {}
+        terminal_fqns = terminal_fqns or set()
         view_definitions: t.Dict[str, ViewDefinition] = {}
         unresolvable: t.Set[str] = set()
+        unsupported_references: t.Set[str] = set()
 
         def _fetch_view_definitions_with_connection(
             index: int, table_batch: t.Collection[exp.Table]
@@ -731,14 +741,26 @@ class BaseAdapterExtension(abc.ABC):
             if queue:
                 tables_to_query: dict[str, exp.Table] = {}
                 while queue:
+                    raw = queue.popleft()
+                    if isinstance(raw, exp.Table) and not isinstance(raw.this, exp.Identifier):
+                        # sqlglot parses Snowflake stage references (e.g. '@db.schema.stage/my_file.csv')
+                        # as a Literal/Var name rather than an identifier. They aren't tables, so there is
+                        # no view definition or last modified time to fetch (and exp.table_ rejects them)
+                        unsupported_references.add(raw.this.name)
+                        continue
+
                     # We can't assume any of the tables in the queue are fully qualified, so we fully qualify them
                     # before doing anything
                     try:
-                        next_table = self._to_fqn(queue.popleft())
+                        next_table = self._to_fqn(raw)
                     except AdapterExtensionError:
                         continue
 
                     fqn = self._sql(next_table)
+                    if fqn in terminal_fqns:
+                        visited.add(fqn)
+                        continue
+
                     if self._is_system_metadata_table(next_table):
                         # we should not attempt to fetch view definitions for system metadata tables
                         # we should still record the dependency as a "seen_table" though, so we add it to the visited set
@@ -825,6 +847,7 @@ class BaseAdapterExtension(abc.ABC):
                     view_definitions=view_definitions,
                     seen_tables=visited - set(view_definitions),
                     unresolvable_tables=unresolvable,
+                    unsupported_references=unsupported_references,
                 )
 
     def cache_last_modified_epoch(self, table: exp.Table, last_modified_epoch: int) -> None:

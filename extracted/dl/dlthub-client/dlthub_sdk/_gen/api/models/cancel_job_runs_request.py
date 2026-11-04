@@ -16,8 +16,8 @@ T = TypeVar("T", bound="CancelJobRunsRequest")
 class CancelJobRunsRequest:
     """
     Attributes:
-        job_run_ids (list[UUID]): Runs to cancel; a run already in a terminal state is skipped.
-        dry_run (bool | Unset): If true, return runs that would be cancelled without cancelling them. Default: False.
+        job_run_ids (list[UUID]): Runs to cancel; a run that is already finished or being cancelled is skipped.
+        dry_run (bool | Unset): Preview which runs would be cancelled, without cancelling them. Default: False.
     """
 
     job_run_ids: list[UUID]

@@ -16,7 +16,6 @@ from pydantic import JsonValue
 from mistralai.vibe.harness.app_server.session import (
     SessionMessageRejectedError,
     SessionTerminatedError,
-    UnsupportedSessionProcedureError,
 )
 from mistralai.vibe.harness.app_server.session.file_sources import iter_file_source, sanitize_filename
 from mistralai.vibe.harness.app_server.session.models.content import ResourceLinkContentBlock
@@ -306,10 +305,6 @@ class LocalSessionFileManager:
     def _ensure_open(self) -> None:
         if self._closed:
             raise SessionTerminatedError("The Session files are closed")
-
-
-def unsupported_upload(reason: str) -> UnsupportedSessionProcedureError:
-    return UnsupportedSessionProcedureError(method="upload_file", backend="local", reason=reason)
 
 
 __all__ = [

@@ -1,9 +1,12 @@
 """Events: what happened in a session, in the order it happened, as immutable values.
 
 Each event has the ``id`` of its position in the session's log: read again after it with
-``session.iter_events(after=event.id)``. A few events are typed; any other event is an
-:class:`UnknownEvent` with its type name and the host's data. Changes to history entries (an entry
-added, patched or completed) are not delivered yet.
+``session.iter_events(after=event.id)``. A few events are typed. An event of a type this SDK does
+not know is an :class:`UnknownEvent` with its type name and the host's data. The other events this
+SDK knows but does not type, such as a notice, are not delivered: their position still moves
+``after=``, and a debug log line names them (shown with ``AGENTS_SDK_DEBUG=1``). The raw protocol
+client, ``session_protocol.attach(session).events()``, yields every event. Changes to history
+entries (an entry added, patched or completed) are not delivered yet.
 """
 
 from __future__ import annotations
@@ -12,13 +15,15 @@ import asyncio
 import contextlib
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass, field
+from typing import Literal
 
+import structlog
 from pydantic import JsonValue
 
 from mistralai.vibe.harness.app_server import session as harness_session
 from mistralai.vibe.harness.app_server.session import SessionClient as _RawSession
 from mistralai.vibe.harness.app_server.session import SessionTransport
-from mistralai.vibe_agents.sdk.authoring.errors import OutcomeUnknownError, mark_caller_error
+from mistralai.vibe_agents.sdk.authoring.errors import mark_caller_error
 from mistralai.vibe_agents.sdk.client.approval_requests import NO_TOOLS, _Tool
 from mistralai.vibe_agents.sdk.client.records import (
     Blocked,
@@ -29,8 +34,10 @@ from mistralai.vibe_agents.sdk.client.records import (
     OpenCallback,
     Running,
     TurnState,
+    UnknownOutcome,
 )
 from mistralai.vibe_agents.sdk.client.turn_reads import open_callback, read_turn
+from mistralai.vibe_agents.sdk.transport.client_tools import callback_turn_id
 from mistralai.vibe_agents.sdk.transport.remote import VibeAgentsSessionTransport
 
 __all__ = [
@@ -38,10 +45,14 @@ __all__ = [
     "CallbackResolved",
     "Event",
     "EventHandler",
+    "SessionUpdated",
     "TurnEnded",
     "TurnStarted",
+    "TurnUpdated",
     "UnknownEvent",
 ]
+
+logger = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -73,7 +84,7 @@ class TurnEnded(Event):
 
     __match_args__ = ("state",)
 
-    state: Completed[str] | Interrupted | Failed
+    state: Completed[str] | Interrupted | Failed | UnknownOutcome
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
@@ -92,6 +103,36 @@ class CallbackResolved(Event):
     __match_args__ = ("callback_id",)
 
     callback_id: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
+class TurnUpdated(Event):
+    """A turn's status changed while it runs: ``"blocked"`` when it waits on a callback, such as an
+    approval, ``"running"`` when it runs again. ``turn_id`` is always that turn's id.
+
+    The turn's end is :class:`TurnEnded`, which has its record.
+    """
+
+    __match_args__ = ("turn_id", "status")
+
+    turn_id: str
+    status: Literal["running", "blocked", "terminated"]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
+class SessionUpdated(Event):
+    """The session changed: its status, or its title, or it was archived.
+
+    ``status`` is ``"running"`` while a turn is active, ``"waiting"`` when no turn is, and
+    ``"terminated"`` once the session has ended. ``title`` is the session's title, or ``None`` when
+    it has none yet. ``archived`` is whether the session is archived.
+    """
+
+    __match_args__ = ("status",)
+
+    status: Literal["running", "waiting", "terminated"]
+    title: str | None
+    archived: bool
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
@@ -118,6 +159,22 @@ _LAGGED_END_MAX_SECONDS = 1.0
 
 # Their content is the streaming design, still open; they come later as types of their own.
 _ENTRY_CHANGES = frozenset({"history_entry_added", "history_entry_patched", "history_entry_completed"})
+
+# The event types this SDK knows. An event of any other type is an UnknownEvent; one of these that
+# has no type of its own here is left out of the typed stream, with a debug line.
+_KNOWN_TYPES = _ENTRY_CHANGES | {
+    "turn_started",
+    "turn_updated",
+    "turn_terminated",
+    "session_updated",
+    "session_terminated",
+    "callback_opened",
+    "callback_resolved",
+    "prompt_suggested",
+    "artifact_created",
+    "notice",
+    "error",
+}
 
 
 async def deliver(on_event: EventHandler | None, event: Event) -> None:
@@ -155,7 +212,6 @@ async def follow(
     after: str | None,
     active_turn_id: str | None,
     active_known: bool = True,
-    bind: Callable[[str], SessionTransport],
     turn_id: str | None = None,
     ends: Mapping[str, TurnState[str]] | None = None,
     reconnect: bool = True,
@@ -172,16 +228,12 @@ async def follow(
     to run there, as a turn's reader after a bare cursor does. When the session ends before an
     event told which turn runs after the cursor ``after``, the session's last turn is read (one
     more request): it ended with the session if it has no end of its own. A turn that ended before
-    ``after`` thus gets no second end. On the older remote format, the session ends without its
-    terminal event: the turn running then is read, and its ``TurnEnded`` has the read's position;
-    if the read says it still runs, this raises ``ObservationLost``. Without ``reconnect``, a
-    deployment's stream that drops raises at once instead of reconnecting. ``bind`` binds another
-    session of the host by id, for ``read_turn``. ``tools`` are the agent's tool objects by tool id,
-    for the requests of approvals.
+    ``after`` thus gets no second end. Without ``reconnect``, a deployment's stream that drops
+    raises at once instead of reconnecting. ``tools`` are the agent's tool objects by tool id, for
+    the requests of approvals.
 
     Raises:
-        ObservationLost: The session's events could not be read again, or, on the older remote
-            format, the session ended while the turn still reads as running.
+        ObservationLost: The session's events could not be read again.
     """
     # Only a session's reader looks the running turn up at the session's end.
     known = turn_id is not None or after is None or active_turn_id is not None
@@ -214,12 +266,10 @@ async def follow(
                     if isinstance(event.payload, harness_session.SessionTerminatedEvent):
                         ending = running if turns.known else await _ended_with_session(raw, session_id)
                     if ending is not None:
-                        state = (ends or {}).get(ending) or await read_turn(
-                            raw, session_id, ending, bind=bind, tools=tools
-                        )
+                        state = (ends or {}).get(ending) or await read_turn(raw, session_id, ending, tools=tools)
                         if reread:
                             # The turn's end, or the session's: no turn of an ended session runs.
-                            state = await _read_ended(raw, session_id, ending, state, bind=bind, tools=tools)
+                            state = await _read_ended(raw, session_id, ending, state, tools=tools)
                         # Without ``reread``, a read that still says the turn runs: its end is not given.
                         if not isinstance(state, Running | Blocked):
                             yield cursor, TurnEnded(id=cursor, session_id=session_id, turn_id=ending, state=state)
@@ -230,18 +280,6 @@ async def follow(
                     yield cursor, None if terminated else _event(event, owner, tools)
     except harness_session.SessionEventStreamLostError as error:
         raise ObservationLost(session_id, cursor) from error
-    except OutcomeUnknownError as error:
-        ending = turns.active if turns.known else await _ended_with_session(raw, session_id)
-        # A turn's reader reads its own turn: it ended with the session, or before it.
-        own = turn_id or ending
-        if own is None:
-            return
-        state = (ends or {}).get(own) or await read_turn(raw, session_id, own, bind=bind, tools=tools)
-        if isinstance(state, Running | Blocked):
-            # The turn's end was not read, as when the stream drops: resume after ``cursor``.
-            raise ObservationLost(session_id, cursor) from error
-        if own == ending:
-            yield state.cursor, TurnEnded(id=state.cursor, session_id=session_id, turn_id=ending, state=state)
 
 
 async def _read_ended(
@@ -250,7 +288,6 @@ async def _read_ended(
     turn_id: str,
     state: TurnState[str],
     *,
-    bind: Callable[[str], SessionTransport],
     tools: Mapping[str, _Tool],
 ) -> TurnState[str]:
     """Read the turn again until the record shows the end its events showed.
@@ -263,7 +300,7 @@ async def _read_ended(
     while isinstance(state, Running | Blocked):
         await asyncio.sleep(delay)
         delay = min(delay * 2, _LAGGED_END_MAX_SECONDS)
-        state = await read_turn(raw, session_id, turn_id, bind=bind, tools=tools)
+        state = await read_turn(raw, session_id, turn_id, tools=tools)
     return state
 
 
@@ -355,9 +392,8 @@ class _Turns:
                 self.known = True
                 return turn.id
             case harness_session.CallbackOpenedEvent(callback=callback):
-                owner = callback.turn_id or self.active
-                if owner is not None:
-                    self._callbacks[callback.id] = owner
+                owner = callback_turn_id(callback)
+                self._callbacks[callback.id] = owner
                 return owner
             case harness_session.CallbackResolvedEvent(callback_id=callback_id):
                 return self._callbacks.pop(callback_id, None) or self.active
@@ -371,17 +407,28 @@ def _event(event: harness_session.Event, turn_id: str | None, tools: Mapping[str
         case harness_session.TurnStartedEvent():
             return TurnStarted(**base)
         case harness_session.CallbackOpenedEvent(callback=callback):
-            # Both hosts name a callback's turn; "" only when read from a cursor inside a turn that does not.
-            return CallbackOpened(**base, callback=open_callback(callback, event.session_id, turn_id or "", tools))
+            return CallbackOpened(**base, callback=open_callback(callback, event.session_id, tools))
         case harness_session.CallbackResolvedEvent(callback_id=callback_id):
             return CallbackResolved(**base, callback_id=callback_id)
-        case harness_session.UnknownEventPayload(original_type=event_type, raw=raw):
-            # A known type whose content is newer than this SDK comes as unknown: an entry change stays out.
-            return None if event_type in _ENTRY_CHANGES else UnknownEvent(**base, type=event_type, raw=raw)
-        case _ if payload.type in _ENTRY_CHANGES:
-            return None
+        case harness_session.TurnUpdatedEvent(turn=turn):
+            return TurnUpdated(**{**base, "turn_id": turn.id}, status=turn.status)
+        case harness_session.SessionUpdatedEvent(session=session):
+            return SessionUpdated(
+                **base, status=session.status, title=session.title, archived=session.archived_at is not None
+            )
+        case harness_session.UnknownEventPayload(original_type=event_type, raw=raw) if event_type not in _KNOWN_TYPES:
+            return UnknownEvent(**base, type=event_type, raw=raw)
         case _:
-            return UnknownEvent(**base, type=payload.type, raw=payload.model_dump(mode="json", by_alias=True))
+            # A known type whose content is newer than this SDK comes as unknown, under its own type.
+            event_type = (
+                payload.original_type if isinstance(payload, harness_session.UnknownEventPayload) else payload.type
+            )
+            if event_type not in _ENTRY_CHANGES:
+                # One line per event; the raw protocol client yields the event itself.
+                logger.debug(
+                    "Skipped an event this SDK version does not type", event_type=event_type, event_id=event.event_id
+                )
+            return None
 
 
 def _events(item: harness_session.ClientTransportStreamItem) -> Iterable[harness_session.Event]:

@@ -43,8 +43,16 @@ import orjson
 from ..constants import FIXED_DELTA_SECONDS
 from ..rerun import TRAJECTORY_SUFFIX
 from ..utils.clearance import _HIDDEN_BELOW_M
+from ..utils.light_lanes import LightLanes, elements_ahead, light_lanes
 from ._proto import t4_scene_pb2 as pb
-from .grid import indicator_at, is_ego, on_scene, scene_stem, step_frames
+from .grid import (
+    checked_max_distance,
+    indicator_at,
+    is_ego,
+    on_scene,
+    scene_stem,
+    step_frames,
+)
 from .map_resource import map_resource
 from .route import RouteGraph
 
@@ -80,13 +88,7 @@ _STATUSES = {**dict.fromkeys(_COLORS, _STATUS_ON), "off": _STATUS_OFF}
 #: The contract's turn indicators (``EgoSequence.turn_indicators``) of the
 #: log's ``turn_indicators`` states.
 _TURN_INDICATORS = {"off": 1, "left": 2, "right": 3, "hazard": 4}
-#: How far (m) of lanelets past the one a light's stop waypoint is on its
-#: traffic light regulatory elements are looked for; and how near (m) a
-#: lanelet's start is to another's end to follow it.  As
-#: ``carla_driver_interface.hdmap`` finds a light on a Lanelet2 map: a policy
-#: that took its lights from there is shown the same lanelets lit.
-_LIGHT_SEARCH_M = 50.0
-_JOIN_M = 0.3
+
 
 #: The ego's ``base_link`` points closer than this to the last one kept are
 #: passed over before its route is walked: a stop would pile them up, and
@@ -196,7 +198,10 @@ class _Log:
                 center=_xyz(record.get("center") or (0.0, 0.0, 0.0)),
             )
         elif kind == "rear_axle":
-            self.rear_axles[int(record["id"])] = float(record["offset"])
+            actor_id = int(record["id"])
+            self.rear_axles[actor_id] = checked_rear_axle_offset(
+                record["offset"], f"the rear_axle record of actor {actor_id}: offset"
+            )
         elif kind == "turn_indicators":
             for actor_id, state in record["states"].items():
                 changes = self.turn_indicators.setdefault(int(actor_id), ([], []))
@@ -232,6 +237,32 @@ class _Log:
         return on_scene(self.spawned.get(actor_id), self.despawned.get(actor_id), frame)
 
 
+def checked_rear_axle_offset(
+    rear_axle_offset_m: float, key: str = "rear_axle_offset_m"
+) -> float:
+    """*rear_axle_offset_m* as a float, which must be finite.
+
+    The offset is where the ego's rear axle (its ``base_link``) is from its
+    actor origin along its x axis: negative behind the origin -- the usual
+    case, and the default's ``-0.5 * extent.x`` -- 0 at it, positive ahead of
+    it, so any finite value is a place.  NaN or infinity would put the ego's
+    every pose and ``base_link_to_front`` at NaN, so either is refused before
+    a scene is written.  A bool is refused too: ``true`` is not an offset,
+    though ``float()`` would read it as 1 m.
+
+    Args:
+        rear_axle_offset_m: The offset, metres.
+        key: The setting's name, which the error names (``--rear-axle-offset``).
+
+    Raises:
+        ValueError: If *rear_axle_offset_m* is a bool, or not finite.
+    """
+    value = float(rear_axle_offset_m)
+    if isinstance(rear_axle_offset_m, bool) or not math.isfinite(value):
+        raise ValueError(f"{key} must be finite, not {rear_axle_offset_m}")
+    return value
+
+
 def _read_log(path: Path, step_frames: int) -> _Log:
     log = _Log(step_frames=step_frames)
     with path.open("rb") as stream:
@@ -244,7 +275,10 @@ def _read_log(path: Path, step_frames: int) -> _Log:
                 raise ValueError(
                     f"{path}:{number}: not a JSON line ({error})"
                 ) from None
-            log.feed(record)
+            try:
+                log.feed(record)
+            except ValueError as error:
+                raise ValueError(f"{path}:{number}: {error}") from None
     if log.first_frame < 0:
         raise ValueError(f"{path} has no tick: there is nothing to convert")
     return log
@@ -352,20 +386,6 @@ class _StopLine(NamedTuple):
     heading: float
 
 
-class _Lanes(NamedTuple):
-    """A Lanelet2 map's lanelets, as far as finding a light's lanelets takes:
-    each one's outline, length, traffic light regulatory elements and the
-    lanelets that start where it ends."""
-
-    ids: tuple[int, ...]
-    outlines: tuple[npt.NDArray[np.float64], ...]
-    #: ``(L, 4)``: each outline's min x, min y, max x, max y.
-    boxes: npt.NDArray[np.float64]
-    lengths: Mapping[int, float]
-    elements: Mapping[int, tuple[int, ...]]
-    successors: Mapping[int, tuple[int, ...]]
-
-
 class _Map(NamedTuple):
     """A run's map, ready for its scenes: the resource, the source file's
     SHA-256, the stop lines of the lanelets its lights govern and the
@@ -379,7 +399,7 @@ class _Map(NamedTuple):
     #: Lanelet2-to-OpenDRIVE convention ``TrafficSignalAction`` follows);
     #: empty without an OpenDRIVE file or such controllers.
     signals: Mapping[int, tuple[str, ...]]
-    lanes: _Lanes
+    lanes: LightLanes
     #: The drivable lanelets' graph a live scene's route is walked on
     #: (:meth:`RouteGraph.match`); ``None`` where the map was not read for one.
     route: Optional[RouteGraph] = None
@@ -429,7 +449,7 @@ def map_of(lanelet_map: Any, digest: str, network: Any = None) -> _Map:
                     get_signal_ids_for_controller(network, controller)
                 )
     return _Map(
-        map_resource(lanelet_map), digest, stop_lines, signals, _lanes_of(lanelet_map)
+        map_resource(lanelet_map), digest, stop_lines, signals, light_lanes(lanelet_map)
     )
 
 
@@ -521,99 +541,13 @@ def _stop_lines(lanelet_map: Any) -> list[_StopLine]:
     return governed
 
 
-def _lanes_of(lanelet_map: Any) -> _Lanes:
-    """The lanelets of *lanelet_map*, read for :func:`_elements_ahead`."""
-    ids: list[int] = []
-    outlines: list[npt.NDArray[np.float64]] = []
-    lengths: dict[int, float] = {}
-    elements: dict[int, tuple[int, ...]] = {}
-    starts: dict[int, npt.NDArray[np.float64]] = {}
-    ends: dict[int, npt.NDArray[np.float64]] = {}
-    for lanelet in lanelet_map.laneletLayer:
-        left = np.array([(p.x, p.y) for p in lanelet.leftBound], dtype=np.float64)
-        right = np.array([(p.x, p.y) for p in lanelet.rightBound], dtype=np.float64)
-        if len(left) < 2 or len(right) < 2:
-            continue
-        ids.append(int(lanelet.id))
-        outlines.append(np.vstack([left, right[::-1]]))
-        lengths[ids[-1]] = 0.5 * float(
-            np.linalg.norm(np.diff(left, axis=0), axis=1).sum()
-            + np.linalg.norm(np.diff(right, axis=0), axis=1).sum()
-        )
-        elements[ids[-1]] = tuple(
-            int(element.id)
-            for element in lanelet.regulatoryElements
-            if "subtype" in element.attributes
-            and element.attributes["subtype"] == "traffic_light"
-        )
-        starts[ids[-1]] = (left[0] + right[0]) / 2
-        ends[ids[-1]] = (left[-1] + right[-1]) / 2
-    start_ids = list(starts)
-    start_points = np.array([starts[i] for i in start_ids]).reshape(-1, 2)
-    successors = {
-        lanelet_id: tuple(
-            start_ids[k]
-            for k in np.flatnonzero(np.hypot(*(start_points - end).T) < _JOIN_M)
-            if start_ids[k] != lanelet_id
-        )
-        for lanelet_id, end in ends.items()
-    }
-    boxes = np.array(
-        [[*o.min(axis=0), *o.max(axis=0)] for o in outlines], dtype=np.float64
-    ).reshape(-1, 4)
-    return _Lanes(tuple(ids), tuple(outlines), boxes, lengths, elements, successors)
-
-
-def _inside(point: npt.NDArray[np.float64], outline: npt.NDArray[np.float64]) -> bool:
-    """Whether *point* is inside the polygon *outline* (even-odd rule)."""
-    x, y = float(point[0]), float(point[1])
-    xs, ys = outline[:, 0], outline[:, 1]
-    xs2, ys2 = np.roll(xs, -1), np.roll(ys, -1)
-    crosses = (ys > y) != (ys2 > y)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        at = xs + (y - ys) * (xs2 - xs) / (ys2 - ys)
-    return bool(np.count_nonzero(crosses & (x < at)) % 2)
-
-
-def _elements_ahead(lanes: _Lanes, point: npt.NDArray[np.float64]) -> list[int]:
-    """The traffic light regulatory elements of the first lanelets on or ahead
-    of the lanelets *point* is on that carry one: each branch stops at its
-    first such lanelet, or once ``_LIGHT_SEARCH_M`` of lanelets lie behind it
-    (``carla_driver_interface.hdmap``'s ``rules_ahead``)."""
-    b = lanes.boxes
-    near = np.flatnonzero(
-        (b[:, 0] <= point[0])
-        & (point[0] <= b[:, 2])
-        & (b[:, 1] <= point[1])
-        & (point[1] <= b[:, 3])
-    )
-    start = {lanes.ids[i] for i in near if _inside(point, lanes.outlines[i])}
-    found: dict[int, None] = {}
-    queue = [(lanelet_id, 0.0) for lanelet_id in sorted(start)]
-    seen: set[int] = set()
-    while queue:
-        lanelet_id, travelled = queue.pop(0)
-        if lanelet_id in seen:
-            continue
-        seen.add(lanelet_id)
-        if lanes.elements[lanelet_id]:
-            found.update(dict.fromkeys(lanes.elements[lanelet_id]))
-            continue
-        ahead = (
-            travelled if lanelet_id in start else travelled + lanes.lengths[lanelet_id]
-        )
-        if ahead <= _LIGHT_SEARCH_M:
-            queue += [(nxt, ahead) for nxt in lanes.successors[lanelet_id]]
-    return list(found)
-
-
 def _element_lights(log: _Log, loaded: _Map, frame: _MapFrame) -> dict[int, int]:
     """The CARLA light (its id) each traffic light regulatory element shows.
 
     One switching an OpenDRIVE signal the element's controller names, as
     ``TrafficSignalAction`` maps them; else the first light, in the log's
     order, with a stop waypoint on a lanelet the element governs or before
-    it (:func:`_elements_ahead`) -- where CARLA puts its stop waypoints, at
+    it (:func:`~..utils.light_lanes.elements_ahead`) -- where CARLA puts its stop waypoints, at
     its own junction's start, is not where a Lanelet2 map draws the stop line.
     """
     by_signal: dict[str, int] = {}
@@ -628,7 +562,7 @@ def _element_lights(log: _Log, loaded: _Map, frame: _MapFrame) -> dict[int, int]
     for light in log.lights:
         for stop in light.get("stops") or ():
             point = frame.positions(np.array(stop[:3], dtype=np.float64))[:2]
-            for element in _elements_ahead(loaded.lanes, point):
+            for element in elements_ahead(loaded.lanes, point):
                 lights.setdefault(element, int(light["id"]))
     return lights
 
@@ -872,8 +806,12 @@ def trajectory_log_to_t4_scene(
             the scene's objects; ``None`` takes all of them.
         rear_axle_offset_m: Where the ego's ``base_link``, the rear axle, is
             from its actor origin along its x axis (negative: behind).  By
-            default half its box behind, as the run itself takes it on CARLA
-            UE5 (``driver.rear_axle_offset_m``).
+            default as the run took it (the log's ``rear_axle`` record), else
+            half its box's half-length behind (``-0.5 * extent.x``, a quarter
+            of its length), as the run itself takes it on CARLA UE5
+            (``driver.rear_axle_offset_m``).  Any finite value; NaN and
+            infinity are refused, as is a ``rear_axle`` record the log holds
+            with one.
         with_map: Write the run's Lanelet2 map as the scene's map.
         lanelet2_path: The Lanelet2 map to use instead of the one the log
             names (a map moved since the run).
@@ -884,9 +822,14 @@ def trajectory_log_to_t4_scene(
             the scene's route, the same on every row (:func:`driven_route`).
 
     Raises:
-        ValueError: If the log has no tick or no ego, or *step_s* or
-            *current_index* does not fit it.
+        ValueError: If the log has no tick or no ego, *step_s* or
+            *current_index* does not fit it, *max_distance_m* is not
+            positive and finite, *rear_axle_offset_m* is not finite, or the
+            log's ``rear_axle`` record's offset is not.
     """
+    max_distance_m = checked_max_distance(max_distance_m)
+    if rear_axle_offset_m is not None:
+        rear_axle_offset_m = checked_rear_axle_offset(rear_axle_offset_m)
     path = Path(log_path)
     step = step_frames(step_s)
     log = _read_log(path, step)
@@ -946,13 +889,23 @@ def driven_route(scene: pb.T4Scene, graph: RouteGraph) -> list[int]:
     return graph.match(np.array(kept))
 
 
+def _route_data(lanelet_ids: Sequence[int]) -> pb.RouteData:
+    """A route as the contract writes one: each lanelet a segment of its own,
+    the way the route runs (``RouteSegment``, one lane and no alternative).
+    The route walks one lane per lanelet, so a segment has nothing else to
+    choose between."""
+    return pb.RouteData(
+        segments=[pb.RouteSegment(lane_ids=[int(i)]) for i in lanelet_ids]
+    )
+
+
 def _fill_route(scene: pb.T4Scene, lanelet_ids: Sequence[int]) -> None:
     """Write *lanelet_ids* as the route of every row, as a live scene writes
     its route; nothing when there are none."""
     if not lanelet_ids:
         return
     rows = int(scene.timestamps_ns.shape[0])
-    route = pb.RouteData(lane_ids=_array(list(lanelet_ids), "i8"))
+    route = _route_data(lanelet_ids)
     scene.routes.rows.extend(pb.RouteRow(value=route) for _ in range(rows))
 
 
@@ -1004,7 +957,8 @@ def log_to_scene(
     _register_in_map_frame(scene)
 
     frame = _MapFrame.of(log.map)
-    # Given, else as the run took it, else half the box behind the origin:
+    # Given, else as the run took it, else half the box's half-length (a
+    # quarter of its length) behind the origin:
     # where the run takes it on CARLA UE5 without wheel positions.
     rear_axle = rear_axle_offset_m
     if rear_axle is None:

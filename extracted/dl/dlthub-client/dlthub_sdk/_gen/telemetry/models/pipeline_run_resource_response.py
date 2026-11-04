@@ -16,12 +16,13 @@ T = TypeVar("T", bound="PipelineRunResourceResponse")
 class PipelineRunResourceResponse:
     """
     Attributes:
-        resource_name (str):
-        bytes_extracted (int | None | Unset):
-        parent_resource_name (None | str | Unset):
-        rows_extracted (int | None | Unset):
-        schema_name (str | Unset):  Default: ''.
-        write_disposition (None | str | Unset | WriteDisposition):
+        resource_name (str): Name of the dlt resource.
+        bytes_extracted (int | None | Unset): Size of the intermediate files the extract step wrote for this resource.
+        parent_resource_name (None | str | Unset): Resource this transformer reads from; `null` for a top-level
+            resource.
+        rows_extracted (int | None | Unset): Rows the extract step wrote for this resource.
+        schema_name (str | Unset): dlt schema of the resource's load package; empty when not reported. Default: ''.
+        write_disposition (None | str | Unset | WriteDisposition): From the resource hints.
     """
 
     resource_name: str

@@ -25,8 +25,8 @@ dependencies = [
     "rich==14.2.0",
     "pyyaml==6.0.3",
     "tomli==2.4.0",
-    "aiohttp==3.13.4",
-    "pydantic-settings==2.12.0",
+    "aiohttp==3.14.1",
+    "pydantic-settings==2.14.2",
     "requests==2.33.0",
     # For sims/generator
     "jinja2==3.1.6",
@@ -37,7 +37,7 @@ dependencies = [
     "google-genai==1.59.0",
     "cryptography==46.0.7",
     # For LLM calls (multi-provider)
-    "litellm==1.83.14",
+    "litellm==1.90.0",
     "blake3==1.0.8",
     "cloudpickle==3.1.2",
     # For tracing/telemetry
@@ -47,7 +47,9 @@ dependencies = [
     "opentelemetry-instrumentation-system-metrics==0.60b1",
     "boto3==1.42.52",
     "fastmcp==3.2.0",
-    "pathspec==1.0.4",
+    "jsonschema==4.23.0",
+    "typesafe-sdk==0.7.2",
+    "pillow>=12.2.0,<13",
 ]
 
 [project.scripts]
@@ -56,6 +58,7 @@ plato-git-ops-server = "plato.git_ops.server:main"
 plato-apple-container-server = "plato.utils.apple_container_server:main"
 plato-world-runner = "plato.worlds.runner:main"
 plato-agent-runner = "plato.agents.runner:main"
+plato-agent-daemon = "plato.agents.daemon.main:main"
 
 [project.entry-points."plato.worlds"]
 plato-world-test-harness = "plato.worlds.testing.harness_world:WorldTestHarnessWorld"
@@ -64,14 +67,22 @@ plato-world-test-harness = "plato.worlds.testing.harness_world:WorldTestHarnessW
 test-harness-agent = "plato.agents.testing.harness_agent:TestHarnessAgent"
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-asyncio>=0.21", "ruff>=0.1", "basedpyright>=1.18"]
-segmentation = ["numpy>=1.24.0", "Pillow>=10.0.0"]
+dev = ["pytest>=9.1.1", "pytest-asyncio>=0.21", "ruff>=0.1", "basedpyright>=1.18"]
+segmentation = [
+    "numpy>=1.24.0",
+]
 worlds = ["dvc", "dvc-s3"]
 db-cleanup = [
     "sqlalchemy[asyncio]>=2.0",
     "asyncpg>=0.29",
     "aiomysql>=0.2",
     "aiosqlite>=0.20",
+]
+pi = [
+    "playwright==1.58.0",
+    "vncdotool==1.4.2",
+    # mint token reads an emailed sign-in code from the mail-* item's inbox (mail_code)
+    "onepassword-sdk==0.4.1",
 ]
 
 [build-system]
@@ -83,7 +94,7 @@ path = "VERSION"
 pattern = "(?P<version>.+)"
 
 [tool.hatch.build]
-exclude = ["plato-fuse/", "tests/"]
+exclude = ["plato-fuse/", "tests/", "/templates/"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["plato"]
@@ -96,6 +107,12 @@ exclude = ["plato/_generated"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# A mirror of the exploration world's resolver, kept AST-identical to it by
+# tests/unit/chronos/test_login_snapshot_parity.py: a `timezone.utc` -> `UTC`
+# rewrite would make the two differ.
+"plato/chronos/login_snapshot.py" = ["UP017"]
 
 [tool.basedpyright]
 pythonVersion = "3.11"
@@ -117,12 +134,12 @@ markers = [
 [dependency-groups]
 dev = [
     "basedpyright>=1.37.1",
-    "pytest>=9.0.2",
+    "pytest>=9.1.1",
     "pytest-asyncio>=1.3.0",
     "ruff>=0.14.11",
     "ty",
     # For type checking - these are optional runtime deps but needed for ty to resolve imports
-    "playwright",
+    "playwright==1.58.0",
     "streamlit",
     "sqlalchemy[asyncio]>=2.0",
     "psycopg2-binary",

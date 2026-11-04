@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -428,6 +429,153 @@ class TestRetryConfiguration:
             "daprd cold start, or wide enough that a single tail sleep "
             "dominates a caller's activity budget"
         )
+
+
+class TestSecretRequestRetryStatuses:
+    """FND-4279: Dapr answers an absent secret with 500 ERR_SECRET_GET, so
+    get_secret must not replay that answer. Every other 500 (a throttle, an
+    unrecognised wording) keeps the replay: no layer above retries it
+    in-process, and the legacy single-key bridge (FND-4407) would keep a
+    throttled ref-key as the literal value."""
+
+    @staticmethod
+    def _secret_get_body(key: str, backend_error: str) -> dict[str, str]:
+        return {
+            "errorCode": "ERR_SECRET_GET",
+            "message": f"failed getting secret with key {key} from secret "
+            f"store secretstore: {backend_error}",
+        }
+
+    @staticmethod
+    def _client_answering(*responses: tuple[int, Any]):
+        """A client whose sidecar returns *responses* in turn, repeating the last.
+
+        Each response is ``(status, body)``; a ``bytes`` body is sent raw, any
+        other body as JSON.
+        """
+        attempts = {"n": 0}
+
+        class Answer(httpx.AsyncBaseTransport):
+            async def handle_async_request(self, request):
+                status, body = responses[min(attempts["n"], len(responses) - 1)]
+                attempts["n"] += 1
+                if isinstance(body, bytes):
+                    return httpx.Response(status, content=body, request=request)
+                return httpx.Response(status, json=body, request=request)
+
+        # backoff_factor=0 collapses the ladder; per-request retry policies
+        # come from the client, so swap only the inner transport.
+        client = AsyncDaprClient(base_url="http://localhost:3500", backoff_factor=0)
+        client._client._transport._async_transport = Answer()
+        return client, attempts
+
+    @pytest.mark.parametrize(
+        ("key", "backend_error"),
+        [
+            pytest.param("example-key", "secret example-key not found", id="absent"),
+            pytest.param(
+                "arn:aws:iam::123456789012:role/example",
+                'invalid resource name "arn:aws:iam::123456789012:role/example": '
+                "[may not contain '/']",
+                id="k8s-invalid-name",
+            ),
+        ],
+    )
+    async def test_not_found_answer_is_not_replayed(
+        self, key: str, backend_error: str
+    ) -> None:
+        from application_sdk.infrastructure._dapr.client import (
+            classify_secret_fetch_error,
+        )
+
+        client, attempts = self._client_answering(
+            (500, self._secret_get_body(key, backend_error))
+        )
+        with pytest.raises(httpx.HTTPStatusError) as exc_info:
+            await client.get_secret("secretstore", key)
+        await client.close()
+
+        assert attempts["n"] == 1
+        assert isinstance(
+            classify_secret_fetch_error(key, exc_info.value), SecretNotFoundError
+        )
+
+    async def test_throttled_answer_is_still_replayed(self) -> None:
+        from application_sdk.infrastructure._dapr.client import (
+            classify_secret_fetch_error,
+        )
+        from application_sdk.infrastructure._dapr.http import _DEFAULT_RETRY_TOTAL
+        from application_sdk.infrastructure.secrets import SecretStoreTransientError
+
+        body = self._secret_get_body(
+            "example-key", "couldn't get secret: ThrottlingException: Rate exceeded"
+        )
+        client, attempts = self._client_answering((500, body))
+        with pytest.raises(httpx.HTTPStatusError) as exc_info:
+            await client.get_secret("secretstore", "example-key")
+        await client.close()
+
+        assert attempts["n"] == _DEFAULT_RETRY_TOTAL + 1
+        # The last attempt's response reaches the classifier intact.
+        assert isinstance(
+            classify_secret_fetch_error("example-key", exc_info.value),
+            SecretStoreTransientError,
+        )
+
+    async def test_throttle_that_clears_returns_the_secret(self) -> None:
+        body = self._secret_get_body(
+            "example-key", "couldn't get secret: ThrottlingException: Rate exceeded"
+        )
+        client, attempts = self._client_answering(
+            (500, body), (200, {"example-key": "resolved"})
+        )
+        result = await client.get_secret("secretstore", "example-key")
+        await client.close()
+
+        assert result == {"example-key": "resolved"}
+        assert attempts["n"] == 2
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            pytest.param(b"<html>upstream error</html>", id="non-json"),
+            pytest.param({"errorCode": "ERR_SOMETHING_ELSE"}, id="other-code"),
+        ],
+    )
+    async def test_unrecognised_500_is_still_replayed(self, body: Any) -> None:
+        from application_sdk.infrastructure._dapr.http import _DEFAULT_RETRY_TOTAL
+
+        client, attempts = self._client_answering((500, body))
+        with pytest.raises(httpx.HTTPStatusError):
+            await client.get_secret("secretstore", "example-key")
+        await client.close()
+        assert attempts["n"] == _DEFAULT_RETRY_TOTAL + 1
+
+    @pytest.mark.parametrize("status", [502, 503, 504])
+    async def test_secret_gateway_errors_still_replayed(self, status: int) -> None:
+        from application_sdk.infrastructure._dapr.http import _DEFAULT_RETRY_TOTAL
+
+        client, attempts = self._client_answering((status, {}))
+        with pytest.raises(httpx.HTTPStatusError):
+            await client.get_secret("secretstore", "example-key")
+        await client.close()
+        assert attempts["n"] == _DEFAULT_RETRY_TOTAL + 1
+
+    @pytest.mark.parametrize(
+        "call",
+        [
+            pytest.param(lambda c: c.get_state("statestore", "k"), id="state"),
+            pytest.param(lambda c: c.get_bulk_secret("secretstore"), id="bulk-secret"),
+        ],
+    )
+    async def test_other_gets_still_replay_500(self, call) -> None:
+        from application_sdk.infrastructure._dapr.http import _DEFAULT_RETRY_TOTAL
+
+        client, attempts = self._client_answering((500, {}))
+        with pytest.raises(httpx.HTTPStatusError):
+            await call(client)
+        await client.close()
+        assert attempts["n"] == _DEFAULT_RETRY_TOTAL + 1
 
 
 class TestSidecarWaitTimeout:
@@ -1020,6 +1168,119 @@ class TestWarmSidecarReadRetry:
             )
 
         assert calls["n"] == 3
+
+    async def test_a_terminal_warm_failure_disarms_the_gates(
+        self, armed_component, monkeypatch
+    ) -> None:
+        """A sidecar that stops answering after it was confirmed ready (a
+        daprd restart) must not leave the process on the short warm budget
+        for the rest of its life."""
+        import application_sdk.infrastructure._dapr.http as http_mod
+
+        monkeypatch.setattr(http_mod, "_dapr_sidecar_confirmed_ready", True)
+
+        async def call() -> str:
+            raise ColdStartRaceError(message="store unreachable")
+
+        with pytest.raises(ColdStartRaceError):
+            await retry_past_dapr_cold_start(
+                call, description="test read", component=armed_component
+            )
+
+        assert http_mod._dapr_sidecar_confirmed_ready is False
+        assert armed_component not in http_mod._dapr_component_confirmed_ready
+
+    async def test_a_daprd_restart_recovers_on_the_cold_start_budget(
+        self, armed_component, monkeypatch
+    ) -> None:
+        """End to end: confirmed ready, then daprd restarts. The first call
+        exhausts the warm ladder and disarms the gate; the next call waits out
+        the restart on the cold-start budget and re-arms the gate when daprd
+        answers. Under the old one-way gate the second call also got only
+        the 3-attempt warm ladder and failed."""
+        import application_sdk.infrastructure._dapr.http as http_mod
+
+        monkeypatch.setattr(http_mod, "DAPR_COLD_START_MAX_WAIT_SECONDS", 30.0)
+        # daprd is down for the next 6 calls, then back.
+        down_for = {"n": 6}
+        calls = {"n": 0}
+
+        async def call() -> str:
+            calls["n"] += 1
+            if down_for["n"] > 0:
+                down_for["n"] -= 1
+                raise ColdStartRaceError(message="sidecar restarting")
+            return "secret"
+
+        with pytest.raises(ColdStartRaceError):
+            await retry_past_dapr_cold_start(
+                call, description="test read", component=armed_component
+            )
+        assert calls["n"] == 3
+
+        result = await retry_past_dapr_cold_start(
+            call, description="test read", component=armed_component
+        )
+
+        assert result == "secret"
+        assert calls["n"] == 7
+        assert armed_component in http_mod._dapr_component_confirmed_ready
+
+    async def test_a_terminal_warm_failure_leaves_other_components_armed(
+        self, armed_component, monkeypatch
+    ) -> None:
+        import application_sdk.infrastructure._dapr.http as http_mod
+
+        monkeypatch.setattr(
+            http_mod,
+            "_dapr_component_confirmed_ready",
+            {armed_component, "other-component"},
+        )
+
+        async def call() -> str:
+            raise ColdStartRaceError(message="store unreachable")
+
+        with pytest.raises(ColdStartRaceError):
+            await retry_past_dapr_cold_start(
+                call, description="test read", component=armed_component
+            )
+
+        assert http_mod._dapr_component_confirmed_ready == {"other-component"}
+
+    async def test_a_warm_success_re_arms_a_gate_cleared_while_in_flight(
+        self, armed_component
+    ) -> None:
+        """Two warm calls in flight: one exhausts its retries and clears the
+        gate, the other then succeeds. The newer success must re-arm it."""
+        import application_sdk.infrastructure._dapr.http as http_mod
+
+        async def call() -> str:
+            # A concurrent warm call clears the gate while this one runs.
+            http_mod._dapr_component_confirmed_ready.discard(armed_component)
+            return "ok"
+
+        assert (
+            await retry_past_dapr_cold_start(
+                call, description="test read", component=armed_component
+            )
+            == "ok"
+        )
+        assert armed_component in http_mod._dapr_component_confirmed_ready
+
+    async def test_a_definitive_warm_answer_keeps_the_gate_armed(
+        self, armed_component
+    ) -> None:
+        import application_sdk.infrastructure._dapr.http as http_mod
+
+        async def call() -> str:
+            raise SecretNotFoundError("p")
+
+        with pytest.raises(SecretNotFoundError):
+            await retry_past_dapr_cold_start(
+                call, description="test read", component=armed_component
+            )
+
+        assert armed_component in http_mod._dapr_component_confirmed_ready
 
     async def test_the_transport_does_not_replay_a_binding_post(self) -> None:
         """Binding writes go straight through ``invoke_binding`` (an HTTP POST),

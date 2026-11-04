@@ -74,9 +74,12 @@ tier is worth revisiting once the count is near zero.
 from __future__ import annotations
 
 import ast
+from collections.abc import Sequence
 from pathlib import Path
 
 from conformance.suite.checks._ast_common import _IgnoreDirective, make_finding
+from conformance.suite.checks._ast_common._safe_swap import reexport_swap, top_level_ids
+from conformance.suite.schema.extensions import SafeSwap
 from conformance.suite.schema.findings import Finding
 
 _RULE_ID = "B008"
@@ -198,14 +201,19 @@ def scan_private_imports(
     file: str,
     directives: dict[int, _IgnoreDirective],
     own_roots: frozenset[str] = frozenset(),
+    *,
+    lines: Sequence[str],
 ) -> list[Finding]:
     """Return B008 findings for every foreign-private reach in *tree*."""
     findings: list[Finding] = []
     reported: set[tuple[int, str]] = set()
+    top_level = top_level_ids(tree)
     # Local name -> dotted module it is bound to, for `import x as y` chains.
     module_aliases: dict[str, str] = {}
 
-    def emit(node: ast.AST, path: str, component: str) -> None:
+    def emit(
+        node: ast.AST, path: str, component: str, swap: SafeSwap | None = None
+    ) -> None:
         key = (node.lineno, path)
         if key in reported:
             return
@@ -217,6 +225,7 @@ def scan_private_imports(
                 node=node,
                 message=_message(path, component),
                 directives=directives,
+                properties=swap.to_properties() if swap else None,
             )
         )
 
@@ -243,7 +252,8 @@ def scan_private_imports(
                 continue
             component = _private_component(module)
             if component:
-                emit(node, module, component)
+                swap = reexport_swap(node, module, top_level, lines)
+                emit(node, module, component, swap)
                 continue
             # Public module, private member:
             # `from application_sdk.app.base import _helper`.

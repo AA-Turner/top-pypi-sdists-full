@@ -79,6 +79,10 @@ def sync_detailed(
 ) -> Response[ErrorResponse]:
     """GetWorkspaceRunLogs
 
+    Returns a finished job run's stored log as newline-delimited JSON (`application/x-ndjson`),
+    one log line object per line. Answers 404 while the run is still going, for a run that produced
+    no output, and for an unknown run. To follow a running job, use `log-stream`.
+
     Args:
         workspace_id (UUID):
         job_run_id (UUID):
@@ -110,6 +114,10 @@ def sync(
 ) -> ErrorResponse | None:
     """GetWorkspaceRunLogs
 
+    Returns a finished job run's stored log as newline-delimited JSON (`application/x-ndjson`),
+    one log line object per line. Answers 404 while the run is still going, for a run that produced
+    no output, and for an unknown run. To follow a running job, use `log-stream`.
+
     Args:
         workspace_id (UUID):
         job_run_id (UUID):
@@ -135,6 +143,10 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
 ) -> Response[ErrorResponse]:
     """GetWorkspaceRunLogs
+
+    Returns a finished job run's stored log as newline-delimited JSON (`application/x-ndjson`),
+    one log line object per line. Answers 404 while the run is still going, for a run that produced
+    no output, and for an unknown run. To follow a running job, use `log-stream`.
 
     Args:
         workspace_id (UUID):
@@ -164,6 +176,10 @@ async def asyncio(
     client: AuthenticatedClient | Client,
 ) -> ErrorResponse | None:
     """GetWorkspaceRunLogs
+
+    Returns a finished job run's stored log as newline-delimited JSON (`application/x-ndjson`),
+    one log line object per line. Answers 404 while the run is still going, for a run that produced
+    no output, and for an unknown run. To follow a running job, use `log-stream`.
 
     Args:
         workspace_id (UUID):

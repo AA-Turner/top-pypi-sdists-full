@@ -1,427 +1,920 @@
+"""The hand-written dispatch kernel — sync and async.
+
+A port of the TypeScript golden reference (``src/compat/request.ts``) onto
+httpx: per-attempt timeouts, the same retry policy
+(408/409/429/5xx + ``x-should-retry``, connection errors and timeouts retried),
+``retry-after`` honored as ms / seconds / HTTP-date, exponential backoff with
+downward jitter, and the Stainless header-merge precedence. The generated
+pydantic models are codegen-only; nothing from hey-api's runtime ships here.
+
+The credential transport boundary is part of that port too and lives in
+:mod:`._credentials`: HTTPS (or loopback) for a credentialed origin, and the API
+key attached only on that origin. Redirects are followed by this kernel rather
+than by httpx, so that every hop re-derives its own headers and an
+origin-changing one carries no credential.
+
+``BaseClient`` holds the pure request-building and response-processing logic;
+``SyncAPIClient`` / ``AsyncAPIClient`` add the httpx client and the retry loop,
+duplicated across sync/async exactly as Stainless does (there is no clean way to
+share a loop that ``await``s in one arm and not the other).
+"""
+
 from __future__ import annotations
 
-import sys
-import json
-import time
-import uuid
-import email
-import asyncio
+import email.utils
 import inspect
 import logging
-import platform
-import warnings
-import email.utils
-from types import TracebackType
-from random import random
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Type,
-    Union,
-    Generic,
-    Mapping,
-    TypeVar,
-    Iterable,
-    Iterator,
-    Optional,
-    Generator,
-    AsyncIterator,
-    cast,
-    overload,
-)
-from typing_extensions import Literal, override, get_origin
+import random
+import time
+from collections.abc import AsyncIterator, Callable, Mapping
+from dataclasses import dataclass
+from datetime import date, datetime
+from types import UnionType
+from typing import Annotated, Any, ClassVar, Literal, TypeVar, Union, cast, get_args, get_origin, overload
+from urllib.parse import urljoin, urlsplit
 
-import anyio
 import httpx
-import distro
-import pydantic
-from httpx import URL
-from pydantic import PrivateAttr
+from pydantic import BaseModel, RootModel, TypeAdapter, ValidationError
 
-from . import _exceptions
-from ._qs import Querystring
-from ._files import to_httpx_files, async_to_httpx_files
-from ._types import (
-    Body,
-    Omit,
-    Query,
-    Headers,
-    Timeout,
-    NotGiven,
-    ResponseT,
-    AnyMapping,
-    PostParser,
-    BinaryTypes,
-    RequestFiles,
-    HttpxSendArgs,
-    RequestOptions,
-    AsyncBinaryTypes,
-    HttpxRequestFiles,
-    ModelBuilderProtocol,
-    not_given,
+from ._aliasing import rename_to_wire_names
+from ._auth import (
+    AUTH_TYPES,
+    Auth,
+    AuthMode,
+    AutoAuth,
+    NoAuth,
+    Scope,
+    is_sendable_key,
 )
-from ._utils import is_dict, is_list, asyncify, is_given, lru_cache, is_mapping
-from ._compat import PYDANTIC_V1, model_copy, model_dump
-from ._models import GenericModel, FinalRequestOptions, validate_type, construct_type
-from ._response import (
-    APIResponse,
-    BaseAPIResponse,
-    AsyncAPIResponse,
-    extract_response_type,
+from ._credentials import (
+    CREDENTIAL_SCHEME_HEADERS,
+    Credentials,
+    assert_credential_transport,
+    credential_destination,
+    credential_for_request,
+    has_alternate_credential,
+    same_origin,
+    select_scheme,
+    withdraw_credentials,
 )
-from ._constants import (
-    DEFAULT_TIMEOUT,
-    MAX_RETRY_DELAY,
-    DEFAULT_MAX_RETRIES,
-    INITIAL_RETRY_DELAY,
-    RAW_RESPONSE_HEADER,
-    OVERRIDE_CAST_TO_HEADER,
-    DEFAULT_CONNECTION_LIMITS,
+from ._deprecation import (
+    ComposioDeprecationWarning,
+    inspect_deprecated_inputs,
+    inspect_deprecation,
+    match_operation,
 )
-from ._streaming import Stream, SSEDecoder, AsyncStream, SSEBytesDecoder
 from ._exceptions import (
-    APIStatusError,
-    APITimeoutError,
     APIConnectionError,
     APIResponseValidationError,
+    APIStatusError,
+    APITimeoutError,
+    ComposioError,
+    status_error,
 )
-from ._utils._json import openapi_dumps
+from ._identity import (
+    CREDENTIAL_HEADERS,
+    SCOPE_HEADERS,
+    ClientIdentity,
+    assert_no_reserved_headers,
+    reserved_headers,
+    resolve_identity,
+)
+from ._operations import OPERATIONS, Operation
+from ._response import APIResponse, AsyncAPIResponse
+from ._streaming import SSEBytesDecoder, SSEDecoder
+from ._types import DEFAULT_MAX_RETRIES as DEFAULT_MAX_RETRIES
+from ._types import AsyncBinaryTypes, BinaryTypes, RequestFiles
+from ._types import RequestOptions as RequestOptions
 
-log: logging.Logger = logging.getLogger(__name__)
+ResponseT = TypeVar("ResponseT")
 
-# TODO: make base page type vars covariant
-SyncPageT = TypeVar("SyncPageT", bound="BaseSyncPage[Any]")
-AsyncPageT = TypeVar("AsyncPageT", bound="BaseAsyncPage[Any]")
+_RETRYABLE_STATUSES = frozenset({408, 409, 429})
+_IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "PUT", "DELETE"})
+_DEFAULT_REQUEST_OPTIONS = RequestOptions()
+_logger = logging.getLogger("composio_client")
+_NON_REPLAYABLE_REDIRECT = "An async iterator request body cannot be replayed across a redirect."
+
+#: A request body or query may be passed as a generated pydantic model or as a
+#: plain mapping (the relaxed contract).
+BodyParam = BaseModel | Mapping[str, object]
+QueryParam = BaseModel | Mapping[str, object]
+
+#: The header parameters an operation declares, placed by the caller.
+#:
+#: A mapping rather than an argument each, because a header name is not a Python
+#: identifier (``x-user-api-key``). A ``None`` value deletes a client default of
+#: that name, which is what :func:`_merge_headers` means by ``None`` everywhere
+#: else.
+HeaderParam = Mapping[str, str | None]
+
+#: The generated request model an endpoint's body is shaped by. Resource methods
+#: pass theirs to ``_request`` so a plain-mapping body gets the same alias
+#: treatment as a model-typed one.
+BodyModel = type[BaseModel]
+
+# The element type httpx accepts for `params` as a list of pairs.
+_QueryPairs = list[tuple[str, str | int | float | bool | None]]
 
 
-_T = TypeVar("_T")
-_T_co = TypeVar("_T_co", covariant=True)
+def _safe_log(level: int, message: str, *args: object) -> None:
+    """Emit an advisory lifecycle record without changing request behavior."""
+    try:
+        _logger.log(level, message, *args)
+    except Exception:
+        pass
 
-_StreamT = TypeVar("_StreamT", bound=Stream[Any])
-_AsyncStreamT = TypeVar("_AsyncStreamT", bound=AsyncStream[Any])
 
-if TYPE_CHECKING:
-    from httpx._config import (
-        DEFAULT_TIMEOUT_CONFIG,  # pyright: ignore[reportPrivateImportUsage]
+def _as_mapping(value: BodyParam | None, model: BodyModel | None = None) -> dict[str, Any] | None:
+    """Serialize a request payload into the JSON object that goes on the wire.
+
+    TS parity (``JSON.stringify``): fields never set are omitted (like
+    ``undefined``), fields explicitly set to ``None`` are kept as JSON null.
+
+    A plain mapping is routed through ``model`` — the generated request model
+    for that endpoint — so the spec's wire aliases reach a dict body exactly as
+    they already do a model-typed one (``auth_scheme`` -> ``authScheme``,
+    ``your_domain`` -> ``your-domain``, ...). That routing is a **key rename and
+    nothing else** (:mod:`._aliasing`): both the pythonic and the wire spelling
+    are accepted on input, unknown keys — top-level or nested — are forwarded
+    verbatim, and every *value* the caller wrote reaches the wire byte for byte.
+
+    This client performs no request validation, matching the Stainless oracle it
+    is pinned against, whose ``maybe_transform`` likewise walks annotations to
+    remap aliases and nothing more. The rename cannot fail on a caller's body,
+    so there is no error path to be lenient about; the server stays the authority
+    on what a valid body is. See :mod:`._aliasing` for why validate-and-dump was
+    not good enough — it coerced ``3600`` into ``3600.0``, ``"20000"`` into
+    ``20000.0`` and ``https://example.com`` into ``https://example.com/``.
+
+    ``model=None`` (the query path, and any endpoint without a body model) sends
+    the mapping as-is.
+    """
+    if value is None:
+        return None
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json", by_alias=True, exclude_unset=True)
+    mapping = dict(value)
+    if model is None:
+        return mapping
+    return rename_to_wire_names(model, mapping)
+
+
+def _scalar(item: Any) -> str:
+    """One array element, with JS ``Array.prototype.join`` semantics:
+    ``None`` renders as the empty string, booleans lowercase."""
+    if item is None:
+        return ""
+    if isinstance(item, bool):
+        return "true" if item else "false"
+    return str(item)
+
+
+def _encode_query(query: Mapping[str, Any]) -> _QueryPairs:
+    """Stainless-flavored query serialization: arrays comma-joined, ``None``
+    dropped, nested mappings expanded qs-style into ``key[sub]`` — mirrors
+    ``stringifyQuery`` in the TS kernel."""
+    parts: _QueryPairs = []
+
+    def append(key: str, value: Any) -> None:
+        if value is None:
+            return
+        if isinstance(value, Mapping):
+            for sub_key, sub_value in value.items():
+                append(f"{key}[{sub_key}]", sub_value)
+        elif isinstance(value, (list, tuple)):
+            parts.append((key, ",".join(_scalar(item) for item in value)))
+        elif isinstance(value, bool):
+            parts.append((key, "true" if value else "false"))
+        else:
+            parts.append((key, str(value)))
+
+    for key, value in query.items():
+        append(key, value)
+    return parts
+
+
+def _merge_headers(
+    sources: list[Mapping[str, str | None] | None],
+) -> dict[str, str]:
+    """Merge header sources in precedence order (later wins); ``None`` deletes,
+    missing leaves untouched. Header names are matched case-insensitively."""
+    headers: dict[str, str] = {}
+    lowered: dict[str, str] = {}  # lowercase name -> stored name
+    for source in sources:
+        if not source:
+            continue
+        for name, value in source.items():
+            key = name.lower()
+            existing = lowered.get(key)
+            if value is None:
+                if existing is not None:
+                    headers.pop(existing, None)
+                    lowered.pop(key, None)
+                continue
+            if existing is not None:
+                headers[existing] = value
+            else:
+                headers[name] = value
+                lowered[key] = name
+    return headers
+
+
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+
+#: How many hops one attempt will follow before giving up. Twenty is what the
+#: Fetch spec budgets and what every browser and httpx enforce, so a chain this
+#: kernel refuses is one the stack would have refused too.
+MAX_REDIRECTS = 20
+
+_TOO_MANY_REDIRECTS = f"The API redirected more than {MAX_REDIRECTS} times; the chain was abandoned."
+
+
+def _redirect_target(location: str, from_url: str) -> str | None:
+    """The ``Location`` a hop points at, resolved against the URL it arrived on,
+    or ``None`` when there is nothing followable there — unparseable, or a
+    scheme this client does not speak. ``None`` hands the 3xx back as the
+    response it is, which is what a redirect-following stack does with a
+    ``Location`` it cannot use."""
+    try:
+        target = urljoin(from_url, location)
+    except ValueError:
+        return None
+    scheme = urlsplit(target).scheme.lower()
+    return target if scheme in ("http", "https") else None
+
+
+def _rewrite_for_redirect(status_code: int, method: str) -> bool:
+    """The standard method rewrite (Fetch §4.4 "HTTP-redirect fetch", step 13,
+    and RFC 9110 §15.4): a 303 turns any non-GET into a GET, and a 301/302 does
+    the same to a POST — both dropping the body. 307 and 308 preserve the method
+    and the body, which is what they exist for. Following by hand means
+    reproducing this, or a caller's POST silently becomes a POST to somewhere it
+    was never sent before."""
+    return (status_code == 303 and method not in ("GET", "HEAD")) or (
+        status_code in (301, 302) and method == "POST"
     )
 
-    HTTPX_DEFAULT_TIMEOUT = DEFAULT_TIMEOUT_CONFIG
-else:
+
+def _should_retry(response: httpx.Response) -> bool:
+    explicit = response.headers.get("x-should-retry")
+    if explicit == "true":
+        return True
+    if explicit == "false":
+        return False
+    return response.status_code in _RETRYABLE_STATUSES or response.status_code >= 500
+
+
+def _model_type(type_: Any) -> type[BaseModel] | None:
     try:
-        from httpx._config import DEFAULT_TIMEOUT_CONFIG as HTTPX_DEFAULT_TIMEOUT
-    except ImportError:
-        # taken from https://github.com/encode/httpx/blob/3ba5fe0d7ac70222590e759c31442b1cab263791/httpx/_config.py#L366
-        HTTPX_DEFAULT_TIMEOUT = Timeout(5.0)
+        return type_ if issubclass(type_, BaseModel) else None
+    except TypeError:
+        return None
 
 
-class PageInfo:
-    """Stores the necessary information to build the request to retrieve the next page.
+def _literal_annotation(annotation: Any) -> Any:
+    """A field annotation with ``Annotated`` and ``Optional`` peeled off.
 
-    Either `url` or `params` must be set.
+    A tag is still a tag when the field may be absent: the class a legacy
+    response collapses into declares ``Optional[Literal[...]]`` so a payload
+    that predates the tag still validates, and a payload that carries it must
+    still select that class.
     """
-
-    url: URL | NotGiven
-    params: Query | NotGiven
-    json: Body | NotGiven
-
-    @overload
-    def __init__(
-        self,
-        *,
-        url: URL,
-    ) -> None: ...
-
-    @overload
-    def __init__(
-        self,
-        *,
-        params: Query,
-    ) -> None: ...
-
-    @overload
-    def __init__(
-        self,
-        *,
-        json: Body,
-    ) -> None: ...
-
-    def __init__(
-        self,
-        *,
-        url: URL | NotGiven = not_given,
-        json: Body | NotGiven = not_given,
-        params: Query | NotGiven = not_given,
-    ) -> None:
-        self.url = url
-        self.json = json
-        self.params = params
-
-    @override
-    def __repr__(self) -> str:
-        if self.url:
-            return f"{self.__class__.__name__}(url={self.url})"
-        if self.json:
-            return f"{self.__class__.__name__}(json={self.json})"
-        return f"{self.__class__.__name__}(params={self.params})"
+    if get_origin(annotation) is Annotated:
+        return _literal_annotation(get_args(annotation)[0])
+    if get_origin(annotation) in (Union, UnionType):
+        present = [arg for arg in get_args(annotation) if arg is not type(None)]
+        if len(present) == 1:
+            return _literal_annotation(present[0])
+    return annotation
 
 
-class BasePage(GenericModel, Generic[_T]):
+def _discriminated_variant(type_: Any, value: Any) -> Any | None:
+    if not isinstance(value, Mapping):
+        return None
+    for variant in get_args(type_):
+        model = _model_type(variant)
+        if model is None:
+            continue
+        for name, field in model.model_fields.items():
+            annotation = _literal_annotation(field.annotation)
+            key = field.alias or name
+            if get_origin(annotation) is Literal and value.get(key) in get_args(annotation):
+                return variant
+    return None
+
+
+# Bounded so a caller minting dynamic `cast_to` types through the raw HTTP
+# escape hatch cannot grow it without limit. The generated surface resolves to
+# roughly 160 distinct annotations, so the cap is never approached in ordinary
+# use; past it, adapters are built per call rather than cached.
+_ADAPTER_CACHE_MAX = 2048
+_ADAPTERS: dict[int, tuple[Any, TypeAdapter[Any]]] = {}
+
+
+def _adapter(type_: Any) -> TypeAdapter[Any]:
+    """A memoized ``TypeAdapter`` for a response annotation.
+
+    Building the adapter is the expensive half of both branches that use one.
+    The generated response models declare 5,722 ``Optional[...]`` fields and two
+    ``datetime`` ones inside list element types, so without memoization a large
+    response rebuilds the same adapter once per field per item.
+
+    Keyed on **identity**, because neither of the obvious keys is sound:
+
+    * The annotation itself compares unions by member *set*, so ``A | B`` and
+      ``B | A`` are equal and hash alike -- while pydantic's smart-union
+      tiebreak reads them in order and returns different models for a value
+      satisfying both, which ``extra="allow"`` makes easy to hit. That key hands
+      whichever spelling arrived second the first one's adapter.
+    * The annotation's ``repr`` distinguishes those, but two distinct classes
+      sharing a module and name have one ``repr`` between them, so that key
+      answers for the wrong type.
+
+    Identity has neither failure, and the hot path is identity-stable: a field's
+    annotation is one object on its ``FieldInfo``, and ``typing`` interns its
+    own generics. The annotation is retained beside the adapter both to keep the
+    entry alive -- an id is only unique while its object is -- and to verify the
+    match, so a recycled id cannot answer for a later annotation. An equal but
+    distinct annotation simply misses and builds its own, which is correct if
+    not maximally frugal.
     """
-    Defines the core interface for pagination.
+    key = id(type_)
+    cached = _ADAPTERS.get(key)
+    if cached is not None and cached[0] is type_:
+        return cached[1]
+    adapter = TypeAdapter(type_)
+    if len(_ADAPTERS) < _ADAPTER_CACHE_MAX or key in _ADAPTERS:
+        _ADAPTERS[key] = (type_, adapter)
+    return adapter
 
-    Type Args:
-        ModelT: The pydantic model that represents an item in the response.
 
-    Methods:
-        has_next_page(): Check if there is another page available
-        next_page_info(): Get the necessary information to make a request for the next page
+def _construct_response(value: Any, type_: Any) -> Any:
+    """Recursively construct response models without enforcing their schema.
+
+    This is the Pydantic v2 equivalent of Stainless's ``construct_type``:
+    callers still receive the expected model tree when the API returns a value
+    that its declared schema would reject. Strict parsing is handled separately
+    by ``TypeAdapter``.
     """
+    origin = get_origin(type_)
+    args = get_args(type_)
 
-    _options: FinalRequestOptions = PrivateAttr()
-    _model: Type[_T] = PrivateAttr()
+    if origin is Annotated:
+        return _construct_response(value, args[0])
+    if origin in (Union, UnionType):
+        try:
+            return _adapter(type_).validate_python(value)
+        except ValidationError:
+            variant = _discriminated_variant(type_, value)
+            candidates = (variant,) if variant is not None else args
+            for candidate in candidates:
+                if candidate is type(None) and value is not None:
+                    continue
+                return _construct_response(value, candidate)
+            return value
+    if origin is list and isinstance(value, list):
+        item_type = args[0] if args else Any
+        return [_construct_response(item, item_type) for item in value]
+    if origin is dict and isinstance(value, Mapping):
+        item_type = args[1] if len(args) > 1 else Any
+        return {key: _construct_response(item, item_type) for key, item in value.items()}
 
-    def has_next_page(self) -> bool:
-        items = self._get_page_items()
-        if not items:
-            return False
-        return self.next_page_info() is not None
-
-    def next_page_info(self) -> Optional[PageInfo]: ...
-
-    def _get_page_items(self) -> Iterable[_T]:  # type: ignore[empty-body]
-        ...
-
-    def _params_from_url(self, url: URL) -> httpx.QueryParams:
-        # TODO: do we have to preprocess params here?
-        return httpx.QueryParams(cast(Any, self._options.params)).merge(url.params)
-
-    def _info_to_options(self, info: PageInfo) -> FinalRequestOptions:
-        options = model_copy(self._options)
-        options._strip_raw_response_header()
-
-        if not isinstance(info.params, NotGiven):
-            options.params = {**options.params, **info.params}
-            return options
-
-        if not isinstance(info.url, NotGiven):
-            params = self._params_from_url(info.url)
-            url = info.url.copy_with(params=params)
-            options.params = dict(url.params)
-            options.url = str(url)
-            return options
-
-        if not isinstance(info.json, NotGiven):
-            if not is_mapping(info.json):
-                raise TypeError("Pagination is only supported with mappings")
-
-            if not options.json_data:
-                options.json_data = {**info.json}
-            else:
-                if not is_mapping(options.json_data):
-                    raise TypeError("Pagination is only supported with mappings")
-
-                options.json_data = {**options.json_data, **info.json}
-            return options
-
-        raise ValueError("Unexpected PageInfo state")
+    model = _model_type(type_)
+    if model is not None and issubclass(model, RootModel):
+        root_type = model.model_fields["root"].annotation
+        return model.model_construct(_construct_response(value, root_type))
+    if model is not None and isinstance(value, Mapping):
+        fields: dict[str, Any] = {}
+        consumed: set[str] = set()
+        for name, field in model.model_fields.items():
+            key = field.alias if field.alias is not None and field.alias in value else name
+            if key in value:
+                fields[name] = _construct_response(value[key], field.annotation)
+                consumed.add(key)
+        fields.update((key, item) for key, item in value.items() if key not in consumed)
+        return model.model_construct(_fields_set=set(fields), **fields)
+    if type_ in (date, datetime):
+        try:
+            return _adapter(type_).validate_python(value)
+        except ValidationError:
+            return value
+    if type_ is float and isinstance(value, int):
+        converted = float(value)
+        return converted if converted == value else value
+    return value
 
 
-class BaseSyncPage(BasePage[_T], Generic[_T]):
-    _client: SyncAPIClient = pydantic.PrivateAttr()
-
-    def _set_private_attributes(
-        self,
-        client: SyncAPIClient,
-        model: Type[_T],
-        options: FinalRequestOptions,
-    ) -> None:
-        if (not PYDANTIC_V1) and getattr(self, "__pydantic_private__", None) is None:
-            self.__pydantic_private__ = {}
-
-        self._model = model
-        self._client = client
-        self._options = options
-
-    # Pydantic uses a custom `__iter__` method to support casting BaseModels
-    # to dictionaries. e.g. dict(model).
-    # As we want to support `for item in page`, this is inherently incompatible
-    # with the default pydantic behaviour. It is not possible to support both
-    # use cases at once. Fortunately, this is not a big deal as all other pydantic
-    # methods should continue to work as expected as there is an alternative method
-    # to cast a model to a dictionary, model.dict(), which is used internally
-    # by pydantic.
-    def __iter__(self) -> Iterator[_T]:  # type: ignore
-        for page in self.iter_pages():
-            for item in page._get_page_items():
-                yield item
-
-    def iter_pages(self: SyncPageT) -> Iterator[SyncPageT]:
-        page = self
-        while True:
-            yield page
-            if page.has_next_page():
-                page = page.get_next_page()
-            else:
-                return
-
-    def get_next_page(self: SyncPageT) -> SyncPageT:
-        info = self.next_page_info()
-        if not info:
-            raise RuntimeError(
-                "No next page expected; please check `.has_next_page()` before calling `.get_next_page()`."
-            )
-
-        options = self._info_to_options(info)
-        return self._client._request_api_list(self._model, page=self.__class__, options=options)
+def _header_retry_delay_seconds(headers: httpx.Headers | None) -> float | None:
+    """The server-requested delay: ``retry-after-ms`` (milliseconds), then
+    ``retry-after`` (seconds or HTTP-date); ``None`` when absent/unparseable."""
+    if headers is None:
+        return None
+    retry_after_ms = headers.get("retry-after-ms")
+    if retry_after_ms is not None:
+        try:
+            return float(retry_after_ms) / 1000
+        except ValueError:
+            pass
+    retry_after = headers.get("retry-after")
+    if retry_after is not None:
+        try:
+            return float(retry_after)
+        except ValueError:
+            try:
+                parsed = email.utils.parsedate_to_datetime(retry_after)
+            except (ValueError, TypeError):
+                parsed = None
+            if parsed is not None:
+                return parsed.timestamp() - time.time()
+    return None
 
 
-class AsyncPaginator(Generic[_T, AsyncPageT]):
-    def __init__(
-        self,
-        client: AsyncAPIClient,
-        options: FinalRequestOptions,
-        page_cls: Type[AsyncPageT],
-        model: Type[_T],
-    ) -> None:
-        self._model = model
-        self._client = client
-        self._options = options
-        self._page_cls = page_cls
+def _retry_delay_seconds(num_retries: int, headers: httpx.Headers | None) -> float:
+    """Seconds to wait before retry ``num_retries + 1``: a header-derived delay
+    (``retry-after-ms``, then ``retry-after`` as seconds or HTTP-date) is
+    honored only when it is finite and ``0 <= delay < 60`` seconds; anything
+    else falls back to exponential backoff ``min(0.5 * 2**n, 8)`` with up to
+    25% downward jitter."""
+    delay = _header_retry_delay_seconds(headers)
+    if delay is not None and 0 <= delay < 60:  # NaN/inf fail the comparison too
+        return delay
+    backoff = min(0.5 * (2.0**num_retries), 8.0)
+    return backoff * (1 - random.random() * 0.25)
 
-    def __await__(self) -> Generator[Any, None, AsyncPageT]:
-        return self._get_page().__await__()
 
-    async def _get_page(self) -> AsyncPageT:
-        def _parser(resp: AsyncPageT) -> AsyncPageT:
-            resp._set_private_attributes(
-                model=self._model,
-                options=self._options,
-                client=self._client,
-            )
-            return resp
+def _safe_json(response: httpx.Response) -> object:
+    try:
+        return response.json()
+    except ValueError:
+        return response.text
 
-        self._options.post_parser = _parser
 
-        return await self._client.request(self._page_cls, self._options)
+@dataclass
+class _Prepared:
+    method: str
+    url: str
+    #: Built once the credential is known (after a provider is called).
+    headers: dict[str, str]
+    params: _QueryPairs
+    json_body: dict[str, Any] | None
+    form_body: dict[str, Any] | None
+    content: BinaryTypes | AsyncBinaryTypes | None
+    files: RequestFiles | None
+    stream: bool
+    replayable_content: bool
+    #: Carried rather than baked into ``headers``: ``_headers_for`` runs again on every redirect hop.
+    method_headers: HeaderParam | None
+    #: The credential-safe label lifecycle logs print: the matched operation's
+    #: path template, or ``<custom>`` when nothing matched. Derived from the
+    #: same ``match_operation`` call the scheme selector and the deprecated-
+    #: input check read, so logging never re-runs the match.
+    log_path: str
+    operation: Operation | None
+    #: ``(header, key)``, resolved once and reused by every attempt and hop.
+    credential: tuple[str, str] | None
+    #: ``(header, provider)`` still to be called, once.
+    provider: tuple[str, Callable[[], Any]] | None
+    scope_headers: Mapping[str, str]
 
-    async def __aiter__(self) -> AsyncIterator[_T]:
-        # https://github.com/microsoft/pyright/issues/3464
-        page = cast(
-            AsyncPageT,
-            await self,  # type: ignore
+
+_SCHEME_OF_MODE = {"project": "ApiKeyAuth", "user": "UserApiKeyAuth", "organization": "OrgApiKeyAuth"}
+
+_SCOPE_FIELDS = (("organization_id", "x-org-id"), ("project_id", "x-project-id"))
+
+_PROVIDER_FAILED = "The `auth` credential provider failed."
+
+
+def _usable(header: str, key: object) -> tuple[str, str]:
+    if not is_sendable_key(key):
+        raise ComposioError(
+            f"The `{header}` credential is not a usable key: it must be a string with a non-whitespace "
+            "character and no line break, NUL or character outside Latin-1."
         )
-        async for item in page:
-            yield item
+    return (header, cast(str, key))
 
 
-class BaseAsyncPage(BasePage[_T], Generic[_T]):
-    _client: AsyncAPIClient = pydantic.PrivateAttr()
+def _is_async_provider(credential: object) -> bool:
+    call = getattr(credential, "__call__", None)  # noqa: B004
+    return inspect.iscoroutinefunction(credential) or inspect.iscoroutinefunction(call)
 
-    def _set_private_attributes(
-        self,
-        model: Type[_T],
-        client: AsyncAPIClient,
-        options: FinalRequestOptions,
-    ) -> None:
-        if (not PYDANTIC_V1) and getattr(self, "__pydantic_private__", None) is None:
-            self.__pydantic_private__ = {}
 
-        self._model = model
-        self._client = client
-        self._options = options
+def _credentials_by_mode(auth: Auth) -> dict[str, object]:
+    if isinstance(auth, NoAuth):
+        return {}
+    if not isinstance(auth, AutoAuth):
+        return {auth.mode: auth.credential}
+    given = {"project": auth.project, "user": auth.user, "organization": auth.organization}
+    return {mode: value for mode, value in given.items() if value is not None}
 
-    async def __aiter__(self) -> AsyncIterator[_T]:
-        async for page in self.iter_pages():
-            for item in page._get_page_items():
-                yield item
 
-    async def iter_pages(self: AsyncPageT) -> AsyncIterator[AsyncPageT]:
-        page = self
-        while True:
-            yield page
-            if page.has_next_page():
-                page = await page.get_next_page()
-            else:
-                return
+def _credential_source(auth: Auth, operation: Operation | None) -> tuple[str, object] | None:
+    """``(header, key or provider)``; a fixed mode never consults the operation table."""
+    if isinstance(auth, NoAuth):
+        return None
+    if not isinstance(auth, AutoAuth):
+        return (CREDENTIAL_SCHEME_HEADERS[_SCHEME_OF_MODE[auth.mode]], auth.credential)
+    credentials = Credentials(auth.project, auth.user, auth.organization)
+    scheme = "ApiKeyAuth"
+    if has_alternate_credential(credentials):
+        scheme = select_scheme(None if operation is None else operation.schemes, credentials)
+    value = credentials.value_for(scheme)
+    if value is None:
+        return None
+    return (CREDENTIAL_SCHEME_HEADERS[scheme], value)
 
-    async def get_next_page(self: AsyncPageT) -> AsyncPageT:
-        info = self.next_page_info()
-        if not info:
-            raise RuntimeError(
-                "No next page expected; please check `.has_next_page()` before calling `.get_next_page()`."
+
+def _split_operation_headers(
+    operation_headers: Mapping[str, str | None] | None,
+) -> tuple[tuple[str, str] | None, dict[str, str], dict[str, str | None]]:
+    """The operation credential, the operation scope ids, and the declared headers the client does not own."""
+    credential: tuple[str, str] | None = None
+    scope: dict[str, str] = {}
+    rest: dict[str, str | None] = {}
+    for name, value in (operation_headers or {}).items():
+        lowered = name.lower()
+        if lowered in SCOPE_HEADERS:
+            if value is not None:
+                scope[lowered] = value
+        elif lowered in CREDENTIAL_HEADERS:
+            if value is not None:
+                credential = _usable(lowered, value)
+        else:
+            rest[name] = value
+    return credential, scope, rest
+
+
+def _split_source(
+    source: tuple[str, object] | None,
+) -> tuple[tuple[str, str] | None, tuple[str, Callable[[], Any]] | None]:
+    """A key is checked now; a provider is called later, once."""
+    if source is None:
+        return None, None
+    header, value = source
+    if isinstance(value, str):
+        return _usable(header, value), None
+    return None, (header, cast(Callable[[], Any], value))
+
+
+def _scope_headers(scope: Scope | None, operation_scope: Mapping[str, str]) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    for field_name, header in _SCOPE_FIELDS:
+        value = None if scope is None else getattr(scope, field_name)
+        if value is not None:
+            headers[header] = value
+    for header, value in operation_scope.items():
+        configured = headers.get(header)
+        if configured is not None and configured != value:
+            raise ComposioError(
+                f"The `{header}` parameter disagrees with the client's `scope`. "
+                "Derive a client with `with_options(scope=...)` to address another one."
             )
-
-        options = self._info_to_options(info)
-        return await self._client._request_api_list(self._model, page=self.__class__, options=options)
-
-
-_HttpxClientT = TypeVar("_HttpxClientT", bound=Union[httpx.Client, httpx.AsyncClient])
-_DefaultStreamT = TypeVar("_DefaultStreamT", bound=Union[Stream[Any], AsyncStream[Any]])
+        headers[header] = value
+    return headers
 
 
-class BaseClient(Generic[_HttpxClientT, _DefaultStreamT]):
-    _client: _HttpxClientT
-    _version: str
-    _base_url: URL
-    max_retries: int
-    timeout: Union[float, Timeout, None]
-    _strict_response_validation: bool
-    _idempotency_header: str | None
-    _default_stream_cls: type[_DefaultStreamT] | None = None
+class BaseClient:
+    _accepts_async_credentials: ClassVar[bool] = False
 
     def __init__(
         self,
         *,
-        version: str,
-        base_url: str | URL,
-        _strict_response_validation: bool,
-        max_retries: int = DEFAULT_MAX_RETRIES,
-        timeout: float | Timeout | None = DEFAULT_TIMEOUT,
-        custom_headers: Mapping[str, str] | None = None,
-        custom_query: Mapping[str, object] | None = None,
+        base_url: str,
+        auth: Auth,
+        scope: Scope | None = None,
+        max_retries: int,
+        timeout: float | httpx.Timeout | None,
+        user_agent: str,
+        default_headers: Mapping[str, str | None] | None = None,
+        identity: ClientIdentity | None = None,
+        _strict_response_validation: bool = False,
     ) -> None:
-        self._version = version
-        self._base_url = self._enforce_trailing_slash(URL(base_url))
-        self.max_retries = max_retries
-        self.timeout = timeout
-        self._custom_headers = custom_headers or {}
-        self._custom_query = custom_query or {}
-        self._strict_response_validation = _strict_response_validation
-        self._idempotency_header = None
-        self._platform: Platform | None = None
-
-        if max_retries is None:  # pyright: ignore[reportUnnecessaryComparison]
+        if not isinstance(auth, AUTH_TYPES):
             raise TypeError(
-                "max_retries cannot be None. If you want to disable retries, pass `0`; if you want unlimited retries, pass `math.inf` or a very high number; if you want the default behavior, pass `composio_client.DEFAULT_MAX_RETRIES`"
+                "`auth` must be `NoAuth()`, `ProjectAuth(key)`, `UserAuth(key)`, "
+                "`OrganizationAuth(key)` or `AutoAuth(...)`."
             )
+        if scope is not None and not isinstance(scope, Scope):
+            raise TypeError("`scope` must be a `Scope` or `None`.")
+        providers = _credentials_by_mode(auth).values()
+        if not self._accepts_async_credentials and any(map(_is_async_provider, providers)):
+            raise TypeError(
+                "An async credential provider needs `AsyncComposio`; `Composio` calls providers directly."
+            )
+        self._auth = auth
+        self._scope = scope
+        self._identity = identity
+        self._identity_headers = resolve_identity(identity)
+        self._reserved = reserved_headers(
+            self._identity_headers,
+            credentialed=not isinstance(auth, NoAuth),
+            scoped=scope is not None,
+        )
+        assert_no_reserved_headers(default_headers or (), self._reserved, "default_headers")
+        self._base_url = base_url.rstrip("/")
+        assert_credential_transport(self._base_url, not isinstance(auth, NoAuth))
+        self._configured_max_retries = max_retries
+        self._configured_timeout = timeout
+        self.user_agent = user_agent
+        self._default_headers = default_headers
+        self._strict_response_validation = _strict_response_validation
+        # The (operation, notice) pairs this instance has already warned about,
+        # so a deprecated endpoint called in a loop announces itself once --
+        # while a *revised* notice from that same endpoint, say once a `Sunset`
+        # date is committed, still gets through. Per instance, not per process,
+        # and independent of the `warnings` filters in force.
+        self._deprecation_seen: set[str] = set()
 
-    def _enforce_trailing_slash(self, url: URL) -> URL:
-        if url.raw_path.endswith(b"/"):
-            return url
-        return url.copy_with(raw_path=url.raw_path + b"/")
+    @property
+    def default_headers(self) -> dict[str, str]:
+        """The caller-provided client defaults, with deleted values omitted."""
+        return _merge_headers([self._default_headers])
 
-    def _make_status_error_from_response(
+    @property
+    def base_url(self) -> str:
+        return self._base_url
+
+    @property
+    def max_retries(self) -> int:
+        return self._configured_max_retries
+
+    @property
+    def timeout(self) -> float | httpx.Timeout | None:
+        return self._configured_timeout
+
+    @property
+    def auth_mode(self) -> AuthMode:
+        return self._auth.mode
+
+    @property
+    def scope(self) -> Scope | None:
+        return self._scope
+
+    def _note_deprecation(
         self,
         response: httpx.Response,
-    ) -> APIStatusError:
-        if response.is_closed and not response.is_stream_consumed:
-            # We can't read the response body as it has been closed
-            # before it was read. This can happen if an event hook
-            # raises a status error.
-            body = None
-            err_msg = f"Error code: {response.status_code}"
-        else:
-            err_text = response.text.strip()
-            body = err_text
+        method: str,
+        path: str,
+        operation: Operation | None,
+    ) -> None:
+        """The single response exit's deprecation check, run after the retry
+        decision has settled and before the body is parsed or an error raised.
 
-            try:
-                body = json.loads(err_text)
-                err_msg = f"Error code: {response.status_code} - {body}"
-            except Exception:
-                err_msg = err_text or f"Error code: {response.status_code}"
+        Advisory by construction: a bug here must not fail a call that the
+        server answered.
 
-        return self._make_status_error(err_msg, body=body, response=response)
+        The one way a notice can reach the caller as an exception is the one the
+        caller configured: under ``-W error`` / ``filterwarnings = ["error"]``,
+        :func:`warnings.warn` raises. That intent is honored, but only for a
+        response that *succeeded*. On an error response the warning is swallowed
+        so ``_process`` still raises the real ``NotFoundError`` /
+        ``RateLimitError`` / etc. -- an advisory notice must never displace the
+        error that actually explains the failure.
+        """
+        try:
+            inspect_deprecation(
+                response,
+                method=method,
+                path=path,
+                base_url=self.base_url,
+                seen=self._deprecation_seen,
+                operation=operation,
+                # Frames above `warnings.warn`, which is called inside
+                # `inspect_deprecation`:
+                #   1 inspect_deprecation -> 2 _note_deprecation
+                #   -> 3 _request_response -> 4 _request / _request_raw
+                #   -> 5 resource or raw verb -> 6 the caller's own line
+                stacklevel=6,
+            )
+        except ComposioDeprecationWarning:
+            if response.is_success:
+                raise
+        except Exception:  # noqa: BLE001 - an observer never fails the call it observed
+            pass
+
+    def _note_deprecated_inputs(
+        self,
+        operation: Operation | None,
+        query: Mapping[str, Any],
+        body: Mapping[str, Any] | None,
+        headers: Mapping[str, str],
+    ) -> None:
+        """The static parameter-level check, run inside ``_prepare`` before
+        dispatch -- unlike ``_note_deprecation``, no response is involved.
+
+        Under ``-W error`` the warning is allowed to raise: there is no real
+        API error here for it to displace, since the request has not even
+        gone out yet.
+        """
+        try:
+            inspect_deprecated_inputs(
+                operation=operation,
+                query=query,
+                body=body,
+                headers=headers,
+                seen=self._deprecation_seen,
+                # Frames above `warnings.warn`, which is called inside
+                # `inspect_deprecated_inputs`:
+                #   1 inspect_deprecated_inputs -> 2 _note_deprecated_inputs
+                #   -> 3 _prepare -> 4 _request_response
+                #   -> 5 _request / _request_raw -> 6 resource or raw verb
+                #   -> 7 the caller's own line
+                stacklevel=7,
+            )
+        except ComposioDeprecationWarning:
+            raise
+        except Exception:  # noqa: BLE001 - an observer never fails the call it observed
+            pass
+
+    def _prepare(
+        self,
+        method: str,
+        path: str,
+        *,
+        body: BodyParam | None,
+        body_model: BodyModel | None,
+        query: QueryParam | None,
+        headers: HeaderParam | None,
+        options: RequestOptions | None,
+        operation: Operation | None = None,
+        operation_headers: HeaderParam | None = None,
+        content: BinaryTypes | AsyncBinaryTypes | None = None,
+        files: RequestFiles | None = None,
+        stream: bool = False,
+    ) -> _Prepared:
+        options = options or RequestOptions()
+        mapped_body = _as_mapping(body, body_model)
+        extra_json = options.get("extra_json")
+        if extra_json:
+            mapped_body = {**(mapped_body or {}), **extra_json}
+        form_body = mapped_body if files is not None else None
+        json_body = mapped_body if files is None and content is None else None
+
+        merged_query: dict[str, Any] = {}
+        # No query model on this surface declares a field alias, so the query
+        # path needs no model routing; a mapping is already the wire shape.
+        query_map = _as_mapping(query)
+        if query_map:
+            merged_query.update(query_map)
+        option_query = options.get("params") or options.get("query")
+        if option_query:
+            merged_query.update(option_query)
+
+        url = f"{self.base_url}{path}"
+        # Matched once per logical call, not per attempt or per hop, and
+        # shared by both consumers below: a retry re-issues the same caller's
+        # request, so it authenticates the same way and reports the same
+        # deprecated inputs.
+        resolved_operation = operation if operation is not None else match_operation(method, path, OPERATIONS)
+        operation_credential, operation_scope, declared_rest = _split_operation_headers(operation_headers)
+        method_headers: HeaderParam | None = headers
+        if declared_rest:
+            method_headers = {**dict(headers or {}), **declared_rest}
+        option_headers = options.get("headers")
+        assert_no_reserved_headers(method_headers or (), self._reserved, "headers")
+        assert_no_reserved_headers(option_headers or (), self._reserved, "headers")
+        scope_headers = _scope_headers(self._scope, operation_scope)
+        # Caller-set headers only -- client defaults, the method's declared
+        # headers, then the per-call override -- never the kernel's own
+        # accept/user-agent/credential headers, which a caller never set.
+        caller_headers = _merge_headers([self._default_headers, headers, operation_headers, option_headers])
+        self._note_deprecated_inputs(resolved_operation, merged_query, mapped_body, caller_headers)
+
+        # An operation credential replaces `auth`; off the API origin there is nothing to resolve.
+        source = operation_credential or _credential_source(self._auth, resolved_operation)
+        if source is not None and not credential_destination(self.base_url, url):
+            source = None
+        credential, provider = _split_source(source)
+
+        prepared = _Prepared(
+            method=method.upper(),
+            url=url,
+            headers={},
+            params=_encode_query(merged_query),
+            json_body=json_body,
+            form_body=form_body,
+            content=content,
+            files=files,
+            stream=stream,
+            replayable_content=not isinstance(content, AsyncIterator),
+            method_headers=method_headers,
+            log_path="<custom>" if resolved_operation is None else resolved_operation.path,
+            operation=resolved_operation,
+            credential=credential,
+            provider=provider,
+            scope_headers=scope_headers,
+        )
+        if provider is None:
+            prepared.headers = self._first_headers(prepared, options)
+        return prepared
+
+    def _first_headers(self, prepared: _Prepared, options: RequestOptions) -> dict[str, str]:
+        return self._headers_for(
+            prepared.url,
+            json_body=prepared.json_body,
+            method_headers=prepared.method_headers,
+            options=options,
+            withdrawn=False,
+            credential=prepared.credential,
+            scope_headers=prepared.scope_headers,
+        )
+
+    def _accept_provided(self, prepared: _Prepared, value: object, options: RequestOptions | None) -> None:
+        assert prepared.provider is not None
+        prepared.credential = _usable(prepared.provider[0], value)
+        prepared.provider = None
+        prepared.headers = self._first_headers(prepared, options or RequestOptions())
+
+    def _headers_for(
+        self,
+        url: str,
+        *,
+        json_body: dict[str, Any] | None,
+        method_headers: HeaderParam | None,
+        options: RequestOptions,
+        withdrawn: bool,
+        credential: tuple[str, str] | None,
+        scope_headers: Mapping[str, str],
+    ) -> dict[str, str]:
+        """The headers for one dispatch, built fresh from the URL it is going to.
+
+        This is where rule 3 mostly stops needing machinery of its own: on a
+        redirect the credential is re-derived from *that hop's* URL rather than
+        carried along, so a hop that leaves the configured API origin simply
+        does not get a key. ``withdrawn`` covers what that cannot — the caller's
+        own credential headers, legitimate on the URL the caller chose and
+        dropped once the *server* has chosen one.
+
+        The credential boundary raises when the target origin cannot carry a
+        credential at all (see :mod:`._credentials`).
+        """
+        option_headers = options.get("headers")
+        idempotency_key = options.get("idempotency_key")
+        attached = None if withdrawn else credential_for_request(self.base_url, credential, url)
+        own_origin = same_origin(url, self.base_url)
+        headers = _merge_headers(
+            [
+                # Stamped first — lowest precedence, the Stainless alpha.76 order
+                # the drop-in contract pins — so an ``idempotency-key`` the caller
+                # names anywhere later (default_headers, method headers,
+                # ``request_options.headers``) still wins. A ``None`` value would
+                # delete, so the key is only present when the option was set.
+                None if idempotency_key is None else {"idempotency-key": idempotency_key},
+                {"accept": "application/json", "user-agent": self.user_agent},
+                # Identity and scope go to this client's own API origin only, judged per hop.
+                self._identity_headers.headers if own_origin else None,
+                scope_headers if own_origin else None,
+                None if attached is None else {attached[0]: attached[1]},
+                None if json_body is None else {"content-type": "application/json"},
+                self._default_headers,
+                # A method-level header names something the *operation* declares,
+                # so it outranks a client-wide default; `request_options.headers`
+                # is the caller's general escape hatch and stays the last word.
+                method_headers,
+                option_headers,
+            ]
+        )
+        return withdraw_credentials(headers) if withdrawn else headers
+
+    def _decode(self, response: httpx.Response) -> Any:
+        """The response body as JSON, with an error status raised first.
+
+        Everything a typed call does to a response *except* handing it to a
+        model. Split out so the untyped escape hatch (:meth:`SyncAPIClient.get`
+        and friends) reaches the same error hierarchy and the same parse
+        failure as the generated surface — an escape hatch that answered a 404
+        with a dict instead of ``NotFoundError`` would be a second contract.
+        """
+        if not response.is_success:
+            raise self._status_error(response)
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise APIResponseValidationError(response, message=str(exc)) from exc
+
+    def _process(self, response: httpx.Response, cast_to: type[ResponseT]) -> ResponseT:
+        return cast(ResponseT, self._process_response(response, cast_to))
+
+    def _process_response(self, response: httpx.Response, cast_to: type[Any] | None) -> Any:
+        """Cast a low-level response without narrowing it to generated models."""
+        if cast_to is None or cast_to is object:
+            return self._decode(response)
+        if cast_to is httpx.Response:
+            if not response.is_success:
+                raise self._status_error(response)
+            return response
+        if cast_to is bytes:
+            if not response.is_success:
+                raise self._status_error(response)
+            return response.content
+        if cast_to is str:
+            if not response.is_success:
+                raise self._status_error(response)
+            return response.text
+        data = self._decode(response)
+        return self._process_response_data(data=data, cast_to=cast_to, response=response)
+
+    def _status_error(self, response: httpx.Response) -> APIStatusError:
+        return self._make_status_error(response.reason_phrase, body=_safe_json(response), response=response)
 
     def _make_status_error(
         self,
@@ -429,1703 +922,1120 @@ class BaseClient(Generic[_HttpxClientT, _DefaultStreamT]):
         *,
         body: object,
         response: httpx.Response,
-    ) -> _exceptions.APIStatusError:
-        raise NotImplementedError()
+    ) -> APIStatusError:
+        """Create an HTTP status error.
 
-    def _build_headers(self, options: FinalRequestOptions, *, retries_taken: int = 0) -> httpx.Headers:
-        custom_headers = options.headers or {}
-        headers_dict = _merge_mappings(self.default_headers, custom_headers)
-        self._validate_headers(headers_dict, custom_headers)
-
-        # headers are case-insensitive while dictionaries are not.
-        headers = httpx.Headers(headers_dict)
-
-        idempotency_header = self._idempotency_header
-        if idempotency_header and options.idempotency_key and idempotency_header not in headers:
-            headers[idempotency_header] = options.idempotency_key
-
-        # Don't set these headers if they were already set or removed by the caller. We check
-        # `custom_headers`, which can contain `Omit()`, instead of `headers` to account for the removal case.
-        lower_custom_headers = [header.lower() for header in custom_headers]
-        if "x-stainless-retry-count" not in lower_custom_headers:
-            headers["x-stainless-retry-count"] = str(retries_taken)
-        if "x-stainless-read-timeout" not in lower_custom_headers:
-            timeout = self.timeout if isinstance(options.timeout, NotGiven) else options.timeout
-            if isinstance(timeout, Timeout):
-                timeout = timeout.read
-            if timeout is not None:
-                headers["x-stainless-read-timeout"] = str(timeout)
-
-        return headers
-
-    def _prepare_url(self, url: str) -> URL:
+        This Stainless-compatible hook lets wrappers preserve their own error
+        hierarchy while the kernel keeps one error-routing path.
         """
-        Merge a URL argument together with any 'base_url' on the client,
-        to create the URL used for the outgoing request.
-        """
-        # Copied from httpx's `_merge_url` method.
-        merge_url = URL(url)
-        if merge_url.is_relative_url:
-            merge_raw_path = self.base_url.raw_path + merge_url.raw_path.lstrip(b"/")
-            return self.base_url.copy_with(raw_path=merge_raw_path)
-
-        return merge_url
-
-    def _make_sse_decoder(self) -> SSEDecoder | SSEBytesDecoder:
-        return SSEDecoder()
-
-    def _build_request(
-        self,
-        options: FinalRequestOptions,
-        *,
-        retries_taken: int = 0,
-    ) -> httpx.Request:
-        if log.isEnabledFor(logging.DEBUG):
-            log.debug(
-                "Request options: %s",
-                model_dump(
-                    options,
-                    exclude_unset=True,
-                    # Pydantic v1 can't dump every type we support in content, so we exclude it for now.
-                    exclude={
-                        "content",
-                    }
-                    if PYDANTIC_V1
-                    else {},
-                ),
-            )
-        kwargs: dict[str, Any] = {}
-
-        json_data = options.json_data
-        if options.extra_json is not None:
-            if json_data is None:
-                json_data = cast(Body, options.extra_json)
-            elif is_mapping(json_data):
-                json_data = _merge_mappings(json_data, options.extra_json)
-            else:
-                raise RuntimeError(f"Unexpected JSON data type, {type(json_data)}, cannot merge with `extra_body`")
-
-        headers = self._build_headers(options, retries_taken=retries_taken)
-        params = _merge_mappings(self.default_query, options.params)
-        content_type = headers.get("Content-Type")
-        files = options.files
-
-        # If the given Content-Type header is multipart/form-data then it
-        # has to be removed so that httpx can generate the header with
-        # additional information for us as it has to be in this form
-        # for the server to be able to correctly parse the request:
-        # multipart/form-data; boundary=---abc--
-        if content_type is not None and content_type.startswith("multipart/form-data"):
-            if "boundary" not in content_type:
-                # only remove the header if the boundary hasn't been explicitly set
-                # as the caller doesn't want httpx to come up with their own boundary
-                headers.pop("Content-Type")
-
-            # As we are now sending multipart/form-data instead of application/json
-            # we need to tell httpx to use it, https://www.python-httpx.org/advanced/clients/#multipart-file-encoding
-            if json_data:
-                if not is_dict(json_data):
-                    raise TypeError(
-                        f"Expected query input to be a dictionary for multipart requests but got {type(json_data)} instead."
-                    )
-                kwargs["data"] = self._serialize_multipartform(json_data)
-
-            # httpx determines whether or not to send a "multipart/form-data"
-            # request based on the truthiness of the "files" argument.
-            # This gets around that issue by generating a dict value that
-            # evaluates to true.
-            #
-            # https://github.com/encode/httpx/discussions/2399#discussioncomment-3814186
-            if not files:
-                files = cast(HttpxRequestFiles, ForceMultipartDict())
-
-        prepared_url = self._prepare_url(options.url)
-        # preserve hard-coded query params from the url
-        if params and prepared_url.query:
-            params = {**dict(prepared_url.params.items()), **params}
-            prepared_url = prepared_url.copy_with(raw_path=prepared_url.raw_path.split(b"?", 1)[0])
-        if "_" in prepared_url.host:
-            # work around https://github.com/encode/httpx/discussions/2880
-            kwargs["extensions"] = {"sni_hostname": prepared_url.host.replace("_", "-")}
-
-        is_body_allowed = options.method.lower() != "get"
-
-        if is_body_allowed:
-            if options.content is not None and json_data is not None:
-                raise TypeError("Passing both `content` and `json_data` is not supported")
-            if options.content is not None and files is not None:
-                raise TypeError("Passing both `content` and `files` is not supported")
-            if options.content is not None:
-                kwargs["content"] = options.content
-            elif isinstance(json_data, bytes):
-                kwargs["content"] = json_data
-            elif not files:
-                # Don't set content when JSON is sent as multipart/form-data,
-                # since httpx's content param overrides other body arguments
-                kwargs["content"] = openapi_dumps(json_data) if is_given(json_data) and json_data is not None else None
-            kwargs["files"] = files
-        else:
-            headers.pop("Content-Type", None)
-            kwargs.pop("data", None)
-
-        # TODO: report this error to httpx
-        return self._client.build_request(  # pyright: ignore[reportUnknownMemberType]
-            headers=headers,
-            timeout=self.timeout if isinstance(options.timeout, NotGiven) else options.timeout,
-            method=options.method,
-            url=prepared_url,
-            # the `Query` type that we use is incompatible with qs'
-            # `Params` type as it needs to be typed as `Mapping[str, object]`
-            # so that passing a `TypedDict` doesn't cause an error.
-            # https://github.com/microsoft/pyright/issues/3526#event-6715453066
-            params=self.qs.stringify(cast(Mapping[str, Any], params)) if params else None,
-            **kwargs,
-        )
-
-    def _serialize_multipartform(self, data: Mapping[object, object]) -> dict[str, object]:
-        items = self.qs.stringify_items(
-            # TODO: type ignore is required as stringify_items is well typed but we can't be
-            # well typed without heavy validation.
-            data,  # type: ignore
-            array_format="brackets",
-        )
-        serialized: dict[str, object] = {}
-        for key, value in items:
-            existing = serialized.get(key)
-
-            if not existing:
-                serialized[key] = value
-                continue
-
-            # If a value has already been set for this key then that
-            # means we're sending data like `array[]=[1, 2, 3]` and we
-            # need to tell httpx that we want to send multiple values with
-            # the same key which is done by using a list or a tuple.
-            #
-            # Note: 2d arrays should never result in the same key at both
-            # levels so it's safe to assume that if the value is a list,
-            # it was because we changed it to be a list.
-            if is_list(existing):
-                existing.append(value)
-            else:
-                serialized[key] = [existing, value]
-
-        return serialized
-
-    def _maybe_override_cast_to(self, cast_to: type[ResponseT], options: FinalRequestOptions) -> type[ResponseT]:
-        if not is_given(options.headers):
-            return cast_to
-
-        # make a copy of the headers so we don't mutate user-input
-        headers = dict(options.headers)
-
-        # we internally support defining a temporary header to override the
-        # default `cast_to` type for use with `.with_raw_response` and `.with_streaming_response`
-        # see _response.py for implementation details
-        override_cast_to = headers.pop(OVERRIDE_CAST_TO_HEADER, not_given)
-        if is_given(override_cast_to):
-            options.headers = headers
-            return cast(Type[ResponseT], override_cast_to)
-
-        return cast_to
-
-    def _should_stream_response_body(self, request: httpx.Request) -> bool:
-        return request.headers.get(RAW_RESPONSE_HEADER) == "stream"  # type: ignore[no-any-return]
+        del err_msg
+        return status_error(response, body)
 
     def _process_response_data(
         self,
         *,
         data: object,
-        cast_to: type[ResponseT],
+        cast_to: type[Any],
         response: httpx.Response,
-    ) -> ResponseT:
-        if data is None:
-            return cast(ResponseT, None)
-
-        if cast_to is object:
-            return cast(ResponseT, data)
-
+    ) -> Any:
+        if data is None or cast_to is object:
+            return data
         try:
-            if inspect.isclass(cast_to) and issubclass(cast_to, ModelBuilderProtocol):
-                return cast(ResponseT, cast_to.build(response=response, data=data))
-
             if self._strict_response_validation:
-                return cast(ResponseT, validate_type(type_=cast_to, value=data))
+                model = _model_type(cast_to)
+                if model is not None:
+                    return model.model_validate(data)
+                return _adapter(cast_to).validate_python(data)
+            return _construct_response(data, cast_to)
+        except ValidationError as exc:
+            raise APIResponseValidationError(response, body=data) from exc
 
-            return cast(ResponseT, construct_type(type_=cast_to, value=data))
-        except pydantic.ValidationError as err:
-            raise APIResponseValidationError(response=response, body=data) from err
+    def _make_sse_decoder(self) -> SSEDecoder | SSEBytesDecoder:
+        return SSEDecoder()
 
-    @property
-    def qs(self) -> Querystring:
-        return Querystring()
+    def _timeout(self, options: RequestOptions | None) -> float | httpx.Timeout | None:
+        if options is not None and "timeout" in options:
+            return options["timeout"]
+        return self.timeout
 
-    @property
-    def custom_auth(self) -> httpx.Auth | None:
-        return None
-
-    @property
-    def auth_headers(self) -> dict[str, str]:
-        return {}
-
-    @property
-    def default_headers(self) -> dict[str, str | Omit]:
-        return {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "User-Agent": self.user_agent,
-            **self.platform_headers(),
-            **self.auth_headers,
-            **self._custom_headers,
-        }
-
-    @property
-    def default_query(self) -> dict[str, object]:
-        return {
-            **self._custom_query,
-        }
-
-    def _validate_headers(
-        self,
-        headers: Headers,  # noqa: ARG002
-        custom_headers: Headers,  # noqa: ARG002
-    ) -> None:
-        """Validate the given default headers and custom headers.
-
-        Does nothing by default.
-        """
-        return
-
-    @property
-    def user_agent(self) -> str:
-        return f"{self.__class__.__name__}/Python {self._version}"
-
-    @property
-    def base_url(self) -> URL:
-        return self._base_url
-
-    @base_url.setter
-    def base_url(self, url: URL | str) -> None:
-        self._base_url = self._enforce_trailing_slash(url if isinstance(url, URL) else URL(url))
-
-    def platform_headers(self) -> Dict[str, str]:
-        # the actual implementation is in a separate `lru_cache` decorated
-        # function because adding `lru_cache` to methods will leak memory
-        # https://github.com/python/cpython/issues/88476
-        return platform_headers(self._version, platform=self._platform)
-
-    def _parse_retry_after_header(self, response_headers: Optional[httpx.Headers] = None) -> float | None:
-        """Returns a float of the number of seconds (not milliseconds) to wait after retrying, or None if unspecified.
-
-        About the Retry-After header: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
-        See also  https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After#syntax
-        """
-        if response_headers is None:
-            return None
-
-        # First, try the non-standard `retry-after-ms` header for milliseconds,
-        # which is more precise than integer-seconds `retry-after`
-        try:
-            retry_ms_header = response_headers.get("retry-after-ms", None)
-            return float(retry_ms_header) / 1000
-        except (TypeError, ValueError):
-            pass
-
-        # Next, try parsing `retry-after` header as seconds (allowing nonstandard floats).
-        retry_header = response_headers.get("retry-after")
-        try:
-            # note: the spec indicates that this should only ever be an integer
-            # but if someone sends a float there's no reason for us to not respect it
-            return float(retry_header)
-        except (TypeError, ValueError):
-            pass
-
-        # Last, try parsing `retry-after` as a date.
-        retry_date_tuple = email.utils.parsedate_tz(retry_header)
-        if retry_date_tuple is None:
-            return None
-
-        retry_date = email.utils.mktime_tz(retry_date_tuple)
-        return float(retry_date - time.time())
-
-    def _calculate_retry_timeout(
-        self,
-        remaining_retries: int,
-        options: FinalRequestOptions,
-        response_headers: Optional[httpx.Headers] = None,
-    ) -> float:
-        max_retries = options.get_max_retries(self.max_retries)
-
-        # If the API asks us to wait a certain amount of time (and it's a reasonable amount), just do what it says.
-        retry_after = self._parse_retry_after_header(response_headers)
-        if retry_after is not None and 0 < retry_after <= 60:
-            return retry_after
-
-        # Also cap retry count to 1000 to avoid any potential overflows with `pow`
-        nb_retries = min(max_retries - remaining_retries, 1000)
-
-        # Apply exponential backoff, but not more than the max.
-        sleep_seconds = min(INITIAL_RETRY_DELAY * pow(2.0, nb_retries), MAX_RETRY_DELAY)
-
-        # Apply some jitter, plus-or-minus half a second.
-        jitter = 1 - 0.25 * random()
-        timeout = sleep_seconds * jitter
-        return timeout if timeout >= 0 else 0
-
-    def _should_retry(self, response: httpx.Response) -> bool:
-        # Note: this is not a standard header
-        should_retry_header = response.headers.get("x-should-retry")
-
-        # If the server explicitly says whether or not to retry, obey.
-        if should_retry_header == "true":
-            log.debug("Retrying as header `x-should-retry` is set to `true`")
-            return True
-        if should_retry_header == "false":
-            log.debug("Not retrying as header `x-should-retry` is set to `false`")
-            return False
-
-        # Retry on request timeouts.
-        if response.status_code == 408:
-            log.debug("Retrying due to status code %i", response.status_code)
-            return True
-
-        # Retry on lock timeouts.
-        if response.status_code == 409:
-            log.debug("Retrying due to status code %i", response.status_code)
-            return True
-
-        # Retry on rate limits.
-        if response.status_code == 429:
-            log.debug("Retrying due to status code %i", response.status_code)
-            return True
-
-        # Retry internal errors.
-        if response.status_code >= 500:
-            log.debug("Retrying due to status code %i", response.status_code)
-            return True
-
-        log.debug("Not retrying")
-        return False
-
-    def _idempotency_key(self) -> str:
-        return f"stainless-python-retry-{uuid.uuid4()}"
+    def _max_retries(self, method: str, options: RequestOptions | None) -> int:
+        if options is not None and "max_retries" in options:
+            return options["max_retries"]
+        return self.max_retries if method.upper() in _IDEMPOTENT_METHODS else 0
 
 
-class _DefaultHttpxClient(httpx.Client):
-    def __init__(self, **kwargs: Any) -> None:
-        kwargs.setdefault("timeout", DEFAULT_TIMEOUT)
-        kwargs.setdefault("limits", DEFAULT_CONNECTION_LIMITS)
-        kwargs.setdefault("follow_redirects", True)
-        super().__init__(**kwargs)
+# The retry loop, once for sync and once for async. Injectable sleep functions
+# keep the tests fast (a ``retry-after: 0`` header drives the delay to zero).
+def _sleep(seconds: float) -> None:
+    if seconds > 0:
+        time.sleep(seconds)
 
 
-if TYPE_CHECKING:
-    DefaultHttpxClient = httpx.Client
-    """An alias to `httpx.Client` that provides the same defaults that this SDK
-    uses internally.
-
-    This is useful because overriding the `http_client` with your own instance of
-    `httpx.Client` will result in httpx's defaults being used, not ours.
-    """
-else:
-    DefaultHttpxClient = _DefaultHttpxClient
-
-
-class SyncHttpxClientWrapper(DefaultHttpxClient):
-    def __del__(self) -> None:
-        if self.is_closed:
-            return
-
-        try:
-            self.close()
-        except Exception:
-            pass
-
-
-class SyncAPIClient(BaseClient[httpx.Client, Stream[Any]]):
+class SyncAPIClient(BaseClient):
     _client: httpx.Client
-    _default_stream_cls: type[Stream[Any]] | None = None
 
-    def __init__(
-        self,
-        *,
-        version: str,
-        base_url: str | URL,
-        max_retries: int = DEFAULT_MAX_RETRIES,
-        timeout: float | Timeout | None | NotGiven = not_given,
-        http_client: httpx.Client | None = None,
-        custom_headers: Mapping[str, str] | None = None,
-        custom_query: Mapping[str, object] | None = None,
-        _strict_response_validation: bool,
-    ) -> None:
-        if not is_given(timeout):
-            # if the user passed in a custom http client with a non-default
-            # timeout set then we use that timeout.
-            #
-            # note: there is an edge case here where the user passes in a client
-            # where they've explicitly set the timeout to match the default timeout
-            # as this check is structural, meaning that we'll think they didn't
-            # pass in a timeout and will ignore it
-            if http_client and http_client.timeout != HTTPX_DEFAULT_TIMEOUT:
-                timeout = http_client.timeout
-            else:
-                timeout = DEFAULT_TIMEOUT
+    def __init__(self, *, http_client: httpx.Client | None = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._client = http_client if http_client is not None else httpx.Client()
 
-        if http_client is not None and not isinstance(http_client, httpx.Client):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise TypeError(
-                f"Invalid `http_client` argument; Expected an instance of `httpx.Client` but got {type(http_client)}"
+    def _resolve_credential(self, prepared: _Prepared, options: RequestOptions | None) -> None:
+        assert prepared.provider is not None
+        try:
+            value = prepared.provider[1]()
+        except Exception as exc:
+            raise ComposioError(_PROVIDER_FAILED) from exc
+        if inspect.isawaitable(value):
+            close = getattr(value, "close", None)
+            if callable(close):
+                close()
+            raise ComposioError(
+                "The `auth` credential provider returned an awaitable; use `AsyncComposio` to await one."
             )
-
-        super().__init__(
-            version=version,
-            # cast to a valid type because mypy doesn't understand our type narrowing
-            timeout=cast(Timeout, timeout),
-            base_url=base_url,
-            max_retries=max_retries,
-            custom_query=custom_query,
-            custom_headers=custom_headers,
-            _strict_response_validation=_strict_response_validation,
-        )
-        self._client = http_client or SyncHttpxClientWrapper(
-            base_url=base_url,
-            # cast to a valid type because mypy doesn't understand our type narrowing
-            timeout=cast(Timeout, timeout),
-        )
-
-    def is_closed(self) -> bool:
-        return self._client.is_closed
-
-    def close(self) -> None:
-        """Close the underlying HTTPX client.
-
-        The client will *not* be usable after this.
-        """
-        # If an error is thrown while constructing a client, self._client
-        # may not be present
-        if hasattr(self, "_client"):
-            self._client.close()
-
-    def __enter__(self: _T) -> _T:
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        self.close()
-
-    def _prepare_options(
-        self,
-        options: FinalRequestOptions,  # noqa: ARG002
-    ) -> FinalRequestOptions:
-        """Hook for mutating the given options"""
-        return options
-
-    def _prepare_request(
-        self,
-        request: httpx.Request,  # noqa: ARG002
-    ) -> None:
-        """This method is used as a callback for mutating the `Request` object
-        after it has been constructed.
-        This is useful for cases where you want to add certain headers based off of
-        the request properties, e.g. `url`, `method` etc.
-        """
-        return None
+        self._accept_provided(prepared, value, options)
 
     @overload
-    def request(
+    def _request(
         self,
-        cast_to: Type[ResponseT],
-        options: FinalRequestOptions,
+        method: str,
+        path: str,
         *,
-        stream: Literal[True],
-        stream_cls: Type[_StreamT],
-    ) -> _StreamT: ...
-
-    @overload
-    def request(
-        self,
-        cast_to: Type[ResponseT],
-        options: FinalRequestOptions,
-        *,
-        stream: Literal[False] = False,
+        cast_to: type[ResponseT],
+        body: BodyParam | None = ...,
+        body_model: BodyModel | None = ...,
+        query: QueryParam | None = ...,
+        headers: HeaderParam | None = ...,
+        options: RequestOptions | None = ...,
+        operation: Operation | None = ...,
+        operation_headers: HeaderParam | None = ...,
+        content: BinaryTypes | None = ...,
+        files: RequestFiles | None = ...,
+        stream: bool = ...,
     ) -> ResponseT: ...
 
     @overload
-    def request(
+    def _request(
         self,
-        cast_to: Type[ResponseT],
-        options: FinalRequestOptions,
+        method: str,
+        path: str,
         *,
-        stream: bool = False,
-        stream_cls: Type[_StreamT] | None = None,
-    ) -> ResponseT | _StreamT: ...
+        cast_to: None,
+        body: BodyParam | None = ...,
+        body_model: BodyModel | None = ...,
+        query: QueryParam | None = ...,
+        headers: HeaderParam | None = ...,
+        options: RequestOptions | None = ...,
+        operation: Operation | None = ...,
+        operation_headers: HeaderParam | None = ...,
+        content: BinaryTypes | None = ...,
+        files: RequestFiles | None = ...,
+        stream: bool = ...,
+    ) -> Any: ...
 
-    def request(
+    def _request(
         self,
-        cast_to: Type[ResponseT],
-        options: FinalRequestOptions,
+        method: str,
+        path: str,
         *,
+        cast_to: type[ResponseT] | None,
+        body: BodyParam | None = None,
+        body_model: BodyModel | None = None,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+        options: RequestOptions | None = None,
+        operation: Operation | None = None,
+        operation_headers: HeaderParam | None = None,
+        content: BinaryTypes | None = None,
+        files: RequestFiles | None = None,
         stream: bool = False,
-        stream_cls: type[_StreamT] | None = None,
-    ) -> ResponseT | _StreamT:
-        cast_to = self._maybe_override_cast_to(cast_to, options)
+    ) -> Any:
+        """One logical request: prepare, dispatch, retry, decode.
 
-        # create a copy of the options we were given so that if the
-        # options are mutated later & we then retry, the retries are
-        # given the original options
-        input_options = model_copy(options)
-        if input_options.idempotency_key is None and input_options.method.lower() != "get":
-            # ensure the idempotency key is reused between requests
-            input_options.idempotency_key = self._idempotency_key()
+        ``cast_to=None`` is the untyped path the escape hatch takes — it decodes
+        the body and hands it back rather than validating it into a model. The
+        overloads keep that from leaking into the generated surface, where every
+        call names a model and must still be typed as returning one.
 
-        response: httpx.Response | None = None
-        max_retries = input_options.get_max_retries(self.max_retries)
+        The escape-hatch methods below call this directly rather than through a
+        helper, which is what keeps ``_note_deprecation``'s ``stacklevel`` right
+        for both: ``client.get(...)`` and a generated resource method sit at the
+        same depth above it.
+        """
+        response, _ = self._request_response(
+            method,
+            path,
+            body=body,
+            body_model=body_model,
+            query=query,
+            headers=headers,
+            options=options,
+            operation=operation,
+            operation_headers=operation_headers,
+            content=content,
+            files=files,
+            stream=stream,
+        )
+        return self._decode(response) if cast_to is None else self._process(response, cast_to)
 
-        retries_taken = 0
-        for retries_taken in range(max_retries + 1):
-            options = model_copy(input_options)
-            options = self._prepare_options(options)
+    def _request_response(
+        self,
+        method: str,
+        path: str,
+        *,
+        body: BodyParam | None = None,
+        body_model: BodyModel | None = None,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+        options: RequestOptions | None = None,
+        operation: Operation | None = None,
+        operation_headers: HeaderParam | None = None,
+        content: BinaryTypes | None = None,
+        files: RequestFiles | None = None,
+        stream: bool = False,
+    ) -> tuple[httpx.Response, int]:
+        prepared = self._prepare(
+            method,
+            path,
+            body=body,
+            body_model=body_model,
+            query=query,
+            headers=headers,
+            options=options,
+            operation=operation,
+            operation_headers=operation_headers,
+            content=content,
+            files=files,
+            stream=stream,
+        )
+        if prepared.provider is not None:
+            self._resolve_credential(prepared, options)
+        max_retries = self._max_retries(method, options)
+        timeout = self._timeout(options)
+        info_enabled = _logger.isEnabledFor(logging.INFO)
+        debug_enabled = _logger.isEnabledFor(logging.DEBUG)
+        log_path = prepared.log_path if info_enabled else ""
 
-            remaining_retries = max_retries - retries_taken
-            request = self._build_request(options, retries_taken=retries_taken)
-            self._prepare_request(request)
-
-            kwargs: HttpxSendArgs = {}
-            if self.custom_auth is not None:
-                kwargs["auth"] = self.custom_auth
-
-            if options.follow_redirects is not None:
-                kwargs["follow_redirects"] = options.follow_redirects
-
-            log.debug("Sending HTTP Request: %s %s", request.method, request.url)
-
-            response = None
-            try:
-                response = self._client.send(
-                    request,
-                    stream=stream or self._should_stream_response_body(request=request),
-                    **kwargs,
+        for num_retries in range(max_retries + 1):
+            remaining = max_retries - num_retries
+            if debug_enabled:
+                _safe_log(
+                    logging.DEBUG,
+                    "request attempt method=%s path=%s attempt=%d/%d",
+                    prepared.method,
+                    log_path,
+                    num_retries + 1,
+                    max_retries + 1,
                 )
-            except httpx.TimeoutException as err:
-                log.debug("Encountered httpx.TimeoutException", exc_info=True)
-
-                if remaining_retries > 0:
-                    self._sleep_for_retry(
-                        retries_taken=retries_taken,
-                        max_retries=max_retries,
-                        options=input_options,
-                        response=None,
-                    )
-                    continue
-
-                log.debug("Raising timeout error")
-                raise APITimeoutError(request=request) from err
-            except Exception as err:
-                log.debug("Encountered Exception", exc_info=True)
-
-                if remaining_retries > 0:
-                    self._sleep_for_retry(
-                        retries_taken=retries_taken,
-                        max_retries=max_retries,
-                        options=input_options,
-                        response=None,
-                    )
-                    continue
-
-                log.debug("Raising connection error")
-                raise APIConnectionError(request=request) from err
-
-            log.debug(
-                'HTTP Response: %s %s "%i %s" %s',
-                request.method,
-                request.url,
-                response.status_code,
-                response.reason_phrase,
-                response.headers,
-            )
-
+            started_at = time.perf_counter() if info_enabled else 0.0
             try:
-                response.raise_for_status()
-            except httpx.HTTPStatusError as err:  # thrown on 4xx and 5xx status code
-                log.debug("Encountered httpx.HTTPStatusError", exc_info=True)
-
-                if remaining_retries > 0 and self._should_retry(err.response):
-                    err.response.close()
-                    self._sleep_for_retry(
-                        retries_taken=retries_taken,
-                        max_retries=max_retries,
-                        options=input_options,
-                        response=response,
+                response = self._dispatch(prepared, timeout=timeout, options=options)
+            except httpx.TimeoutException as exc:
+                if info_enabled:
+                    _safe_log(
+                        logging.INFO,
+                        "request failed method=%s path=%s reason=timeout duration_ms=%.2f",
+                        prepared.method,
+                        log_path,
+                        (time.perf_counter() - started_at) * 1000,
                     )
+                if remaining > 0:
+                    if info_enabled:
+                        _safe_log(
+                            logging.INFO,
+                            "request retry method=%s path=%s reason=timeout next_attempt=%d remaining=%d",
+                            prepared.method,
+                            log_path,
+                            num_retries + 2,
+                            remaining,
+                        )
+                    _sleep(_retry_delay_seconds(num_retries, None))
                     continue
+                raise APITimeoutError(exc.request) from exc
+            except httpx.RequestError as exc:
+                if info_enabled:
+                    _safe_log(
+                        logging.INFO,
+                        "request failed method=%s path=%s reason=connection duration_ms=%.2f",
+                        prepared.method,
+                        log_path,
+                        (time.perf_counter() - started_at) * 1000,
+                    )
+                if remaining > 0:
+                    if info_enabled:
+                        _safe_log(
+                            logging.INFO,
+                            "request retry method=%s path=%s reason=connection next_attempt=%d remaining=%d",
+                            prepared.method,
+                            log_path,
+                            num_retries + 2,
+                            remaining,
+                        )
+                    _sleep(_retry_delay_seconds(num_retries, None))
+                    continue
+                raise APIConnectionError(request=exc.request) from exc
 
-                # If the response is streamed then we need to explicitly read the response
-                # to completion before attempting to access the response text.
-                if not err.response.is_closed:
-                    err.response.read()
+            if info_enabled:
+                _safe_log(
+                    logging.INFO,
+                    "request response method=%s path=%s status=%d outcome=%s duration_ms=%.2f",
+                    prepared.method,
+                    log_path,
+                    response.status_code,
+                    "success" if response.is_success else "http_error",
+                    (time.perf_counter() - started_at) * 1000,
+                )
+            if response.is_success or remaining <= 0:
+                self._note_deprecation(response, method, path, prepared.operation)
+                return response, num_retries
+            retryable = _should_retry(response)
+            if not retryable:
+                self._note_deprecation(response, method, path, prepared.operation)
+                return response, num_retries
+            if info_enabled:
+                _safe_log(
+                    logging.INFO,
+                    "request retry method=%s path=%s reason=status_%d next_attempt=%d remaining=%d",
+                    prepared.method,
+                    log_path,
+                    response.status_code,
+                    num_retries + 2,
+                    remaining,
+                )
 
-                log.debug("Re-raising status error")
-                raise self._make_status_error_from_response(err.response) from None
+            response.close()
+            _sleep(_retry_delay_seconds(num_retries, response.headers))
 
-            break
+        raise RuntimeError("unreachable: retry loop exited without returning")  # pragma: no cover
 
-        assert response is not None, "could not resolve response (should never happen)"
-        return self._process_response(
-            cast_to=cast_to,
-            options=options,
-            response=response,
-            stream=stream,
-            stream_cls=stream_cls,
-            retries_taken=retries_taken,
-        )
-
-    def _sleep_for_retry(
-        self, *, retries_taken: int, max_retries: int, options: FinalRequestOptions, response: httpx.Response | None
-    ) -> None:
-        remaining_retries = max_retries - retries_taken
-        if remaining_retries == 1:
-            log.debug("1 retry left")
-        else:
-            log.debug("%i retries left", remaining_retries)
-
-        timeout = self._calculate_retry_timeout(remaining_retries, options, response.headers if response else None)
-        log.info("Retrying request to %s in %f seconds", options.url, timeout)
-
-        time.sleep(timeout)
-
-    def _process_response(
+    def _request_raw(
         self,
+        method: str,
+        path: str,
         *,
-        cast_to: Type[ResponseT],
-        options: FinalRequestOptions,
-        response: httpx.Response,
-        stream: bool,
-        stream_cls: type[Stream[Any]] | type[AsyncStream[Any]] | None,
-        retries_taken: int = 0,
-    ) -> ResponseT:
-        origin = get_origin(cast_to) or cast_to
-
-        if (
-            inspect.isclass(origin)
-            and issubclass(origin, BaseAPIResponse)
-            # we only want to actually return the custom BaseAPIResponse class if we're
-            # returning the raw response, or if we're not streaming SSE, as if we're streaming
-            # SSE then `cast_to` doesn't actively reflect the type we need to parse into
-            and (not stream or bool(response.request.headers.get(RAW_RESPONSE_HEADER)))
-        ):
-            if not issubclass(origin, APIResponse):
-                raise TypeError(f"API Response types must subclass {APIResponse}; Received {origin}")
-
-            response_cls = cast("type[BaseAPIResponse[Any]]", cast_to)
-            return cast(
-                ResponseT,
-                response_cls(
-                    raw=response,
-                    client=self,
-                    cast_to=extract_response_type(response_cls),
-                    stream=stream,
-                    stream_cls=stream_cls,
-                    options=options,
-                    retries_taken=retries_taken,
-                ),
-            )
-
-        if cast_to == httpx.Response:
-            return cast(ResponseT, response)
-
-        api_response = APIResponse(
+        cast_to: type[ResponseT] | None,
+        body: BodyParam | None = None,
+        body_model: BodyModel | None = None,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+        options: RequestOptions | None = None,
+        operation: Operation | None = None,
+        operation_headers: HeaderParam | None = None,
+        content: BinaryTypes | None = None,
+        files: RequestFiles | None = None,
+        stream: bool = False,
+    ) -> APIResponse[ResponseT | Any]:
+        response, retries_taken = self._request_response(
+            method,
+            path,
+            body=body,
+            body_model=body_model,
+            query=query,
+            headers=headers,
+            options=options,
+            operation=operation,
+            operation_headers=operation_headers,
+            content=content,
+            files=files,
+            stream=stream,
+        )
+        return APIResponse(
             raw=response,
+            cast_to=cast_to,
             client=self,
-            cast_to=cast("type[ResponseT]", cast_to),  # pyright: ignore[reportUnnecessaryCast]
             stream=stream,
-            stream_cls=stream_cls,
-            options=options,
+            stream_cls=None,
+            options=options or RequestOptions(),
             retries_taken=retries_taken,
         )
-        if bool(response.request.headers.get(RAW_RESPONSE_HEADER)):
-            return cast(ResponseT, api_response)
 
-        return api_response.parse()
+    def _parse_response(self, response: httpx.Response, cast_to: type[Any] | None) -> Any:
+        if not response.is_stream_consumed:
+            response.read()
+        return self._process_response(response, cast_to)
 
-    def _request_api_list(
+    # ── the raw HTTP escape hatch ────────────────────────────────────────────
+    #
+    # The same five verbs the TypeScript client exposes (`src/compat/client.ts`)
+    # and the pinned Stainless Python client exposes. They are not a
+    # convenience: four operations downstream calls have no typed method on the
+    # Stainless surface at all — the three `webhook_subscriptions` operations
+    # and `tool_router.session.delete` — so this is the only surface a consumer
+    # has for them, and the only one a differential comparison can run them on.
+    #
+    # `cast_to` is optional here and required on the Stainless client: omit it
+    # and the decoded JSON comes back as-is. That is the same relaxed-types
+    # widening the rest of this package takes, and it is a superset — a
+    # Stainless-shaped call that names a model still returns that model.
+    #
+    # Each verb calls `_request` directly rather than delegating to a shared
+    # one. Delegating would add a frame between the caller and the deprecation
+    # warning, and `_note_deprecation` counts frames.
+
+    def request(
         self,
-        model: Type[object],
-        page: Type[SyncPageT],
-        options: FinalRequestOptions,
-    ) -> SyncPageT:
-        def _parser(resp: SyncPageT) -> SyncPageT:
-            resp._set_private_attributes(
+        cast_to: type[ResponseT],
+        options: Mapping[str, Any],
+        *,
+        stream: bool = False,
+        stream_cls: type[Any] | None = None,
+    ) -> Any:
+        method = str(options.get("method", "get"))
+        path = str(options.get("url", options.get("path", "")))
+        request_options = cast(RequestOptions, options)
+        raw = self._request_raw(
+            method,
+            path,
+            cast_to=cast_to,
+            body=cast(BodyParam | None, options.get("json_data", options.get("body"))),
+            query=cast(QueryParam | None, options.get("params", options.get("query"))),
+            headers=cast(HeaderParam | None, options.get("headers")),
+            options=request_options,
+            content=cast(BinaryTypes | None, options.get("content")),
+            files=cast(RequestFiles | None, options.get("files")),
+            stream=stream,
+        )
+        if stream and stream_cls is not None:
+            return stream_cls(
+                cast_to=cast_to,
+                response=raw.http_response,
                 client=self,
-                model=model,
-                options=options,
+                options=request_options,
             )
-            return resp
-
-        options.post_parser = _parser
-
-        return self.request(page, options, stream=False)
-
-    @overload
-    def get(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        options: RequestOptions = {},
-        stream: Literal[False] = False,
-    ) -> ResponseT: ...
-
-    @overload
-    def get(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        options: RequestOptions = {},
-        stream: Literal[True],
-        stream_cls: type[_StreamT],
-    ) -> _StreamT: ...
-
-    @overload
-    def get(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        options: RequestOptions = {},
-        stream: bool,
-        stream_cls: type[_StreamT] | None = None,
-    ) -> ResponseT | _StreamT: ...
+        return raw.parse()
 
     def get(
         self,
         path: str,
         *,
-        cast_to: Type[ResponseT],
-        options: RequestOptions = {},
+        cast_to: type[ResponseT] | None = None,
+        options: RequestOptions = _DEFAULT_REQUEST_OPTIONS,
         stream: bool = False,
-        stream_cls: type[_StreamT] | None = None,
-    ) -> ResponseT | _StreamT:
-        opts = FinalRequestOptions.construct(method="get", url=path, **options)
-        # cast is required because mypy complains about returning Any even though
-        # it understands the type variables
-        return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
-
-    @overload
-    def post(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
-        content: BinaryTypes | None = None,
-        options: RequestOptions = {},
-        files: RequestFiles | None = None,
-        stream: Literal[False] = False,
-    ) -> ResponseT: ...
-
-    @overload
-    def post(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
-        content: BinaryTypes | None = None,
-        options: RequestOptions = {},
-        files: RequestFiles | None = None,
-        stream: Literal[True],
-        stream_cls: type[_StreamT],
-    ) -> _StreamT: ...
-
-    @overload
-    def post(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
-        content: BinaryTypes | None = None,
-        options: RequestOptions = {},
-        files: RequestFiles | None = None,
-        stream: bool,
-        stream_cls: type[_StreamT] | None = None,
-    ) -> ResponseT | _StreamT: ...
+        stream_cls: type[Any] | None = None,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+    ) -> Any:
+        raw = self._request_raw(
+            "get", path, cast_to=cast_to, query=query, headers=headers, options=options, stream=stream
+        )
+        if stream and stream_cls is not None:
+            return stream_cls(
+                cast_to=cast_to or object, response=raw.http_response, client=self, options=options
+            )
+        return raw.parse()
 
     def post(
         self,
         path: str,
         *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
+        cast_to: type[ResponseT] | None = None,
+        body: BodyParam | None = None,
         content: BinaryTypes | None = None,
-        options: RequestOptions = {},
+        options: RequestOptions = _DEFAULT_REQUEST_OPTIONS,
         files: RequestFiles | None = None,
         stream: bool = False,
-        stream_cls: type[_StreamT] | None = None,
-    ) -> ResponseT | _StreamT:
-        if body is not None and content is not None:
-            raise TypeError("Passing both `body` and `content` is not supported")
-        if files is not None and content is not None:
-            raise TypeError("Passing both `files` and `content` is not supported")
-        if isinstance(body, bytes):
-            warnings.warn(
-                "Passing raw bytes as `body` is deprecated and will be removed in a future version. "
-                "Please pass raw bytes via the `content` parameter instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        opts = FinalRequestOptions.construct(
-            method="post", url=path, json_data=body, content=content, files=to_httpx_files(files), **options
+        stream_cls: type[Any] | None = None,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+    ) -> Any:
+        raw = self._request_raw(
+            "post",
+            path,
+            cast_to=cast_to,
+            body=body,
+            query=query,
+            headers=headers,
+            options=options,
+            content=content,
+            files=files,
+            stream=stream,
         )
-        return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
-
-    def patch(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
-        content: BinaryTypes | None = None,
-        files: RequestFiles | None = None,
-        options: RequestOptions = {},
-    ) -> ResponseT:
-        if body is not None and content is not None:
-            raise TypeError("Passing both `body` and `content` is not supported")
-        if files is not None and content is not None:
-            raise TypeError("Passing both `files` and `content` is not supported")
-        if isinstance(body, bytes):
-            warnings.warn(
-                "Passing raw bytes as `body` is deprecated and will be removed in a future version. "
-                "Please pass raw bytes via the `content` parameter instead.",
-                DeprecationWarning,
-                stacklevel=2,
+        if stream and stream_cls is not None:
+            return stream_cls(
+                cast_to=cast_to or object, response=raw.http_response, client=self, options=options
             )
-        opts = FinalRequestOptions.construct(
-            method="patch", url=path, json_data=body, content=content, files=to_httpx_files(files), **options
-        )
-        return self.request(cast_to, opts)
+        return raw.parse()
 
     def put(
         self,
         path: str,
         *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
+        cast_to: type[ResponseT] | None = None,
+        body: BodyParam | None = None,
         content: BinaryTypes | None = None,
         files: RequestFiles | None = None,
-        options: RequestOptions = {},
-    ) -> ResponseT:
-        if body is not None and content is not None:
-            raise TypeError("Passing both `body` and `content` is not supported")
-        if files is not None and content is not None:
-            raise TypeError("Passing both `files` and `content` is not supported")
-        if isinstance(body, bytes):
-            warnings.warn(
-                "Passing raw bytes as `body` is deprecated and will be removed in a future version. "
-                "Please pass raw bytes via the `content` parameter instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        opts = FinalRequestOptions.construct(
-            method="put", url=path, json_data=body, content=content, files=to_httpx_files(files), **options
+        options: RequestOptions = _DEFAULT_REQUEST_OPTIONS,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+    ) -> Any:
+        raw = self._request_raw(
+            "put",
+            path,
+            cast_to=cast_to,
+            body=body,
+            query=query,
+            headers=headers,
+            options=options,
+            content=content,
+            files=files,
         )
-        return self.request(cast_to, opts)
+        return raw.parse()
+
+    def patch(
+        self,
+        path: str,
+        *,
+        cast_to: type[ResponseT] | None = None,
+        body: BodyParam | None = None,
+        content: BinaryTypes | None = None,
+        files: RequestFiles | None = None,
+        options: RequestOptions = _DEFAULT_REQUEST_OPTIONS,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+    ) -> Any:
+        raw = self._request_raw(
+            "patch",
+            path,
+            cast_to=cast_to,
+            body=body,
+            query=query,
+            headers=headers,
+            options=options,
+            content=content,
+            files=files,
+        )
+        return raw.parse()
 
     def delete(
         self,
         path: str,
         *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
+        cast_to: type[ResponseT] | None = None,
+        body: BodyParam | None = None,
         content: BinaryTypes | None = None,
-        options: RequestOptions = {},
-    ) -> ResponseT:
-        if body is not None and content is not None:
-            raise TypeError("Passing both `body` and `content` is not supported")
-        if isinstance(body, bytes):
-            warnings.warn(
-                "Passing raw bytes as `body` is deprecated and will be removed in a future version. "
-                "Please pass raw bytes via the `content` parameter instead.",
-                DeprecationWarning,
-                stacklevel=2,
+        options: RequestOptions = _DEFAULT_REQUEST_OPTIONS,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+    ) -> Any:
+        return self._request_raw(
+            "delete",
+            path,
+            cast_to=cast_to,
+            body=body,
+            query=query,
+            headers=headers,
+            options=options,
+            content=content,
+        ).parse()
+
+    def _dispatch(
+        self,
+        prepared: _Prepared,
+        *,
+        timeout: float | httpx.Timeout | None,
+        options: RequestOptions | None,
+    ) -> httpx.Response:
+        """One attempt: the request, plus however many redirects it takes to
+        land on a non-3xx response.
+
+        The whole chain sits **inside one attempt** — one entry in the retry
+        budget. That follows from what a redirect is: the caller made one
+        logical request, so a chain must not consume ``max_retries`` (a 3xx is
+        not a failure to retry), and a retry re-issues the *original* request,
+        chain and all. It also keeps the deprecation interceptor's
+        once-per-logical-call guarantee intact, since the single response exit
+        is still reached once.
+
+        Everything the server chose is re-derived rather than carried: the
+        headers (:meth:`_headers_for`), the method and body (the standard
+        301/302/303 rewrite), and the query, which is left to the ``Location``
+        URL because the server picked it.
+        """
+        opts = options or RequestOptions()
+        url = prepared.url
+        method = prepared.method
+        json_body = prepared.json_body
+        form_body = prepared.form_body
+        content = prepared.content
+        files = prepared.files
+        headers = prepared.headers
+        params: _QueryPairs | None = prepared.params
+        withdrawn = False
+
+        for hop in range(MAX_REDIRECTS + 1):
+            request = self._client.build_request(
+                method,
+                url,
+                headers=headers,
+                params=params,
+                json=json_body,
+                data=cast(Any, form_body),
+                content=cast(Any, content),
+                files=cast(Any, files),
+                timeout=timeout,
             )
-        opts = FinalRequestOptions.construct(method="delete", url=path, json_data=body, content=content, **options)
-        return self.request(cast_to, opts)
+            response = self._client.send(
+                request,
+                stream=prepared.stream,
+                follow_redirects=False,
+            )
+            if response.status_code not in _REDIRECT_STATUSES or opts.get("follow_redirects") is False:
+                return response
+            location = response.headers.get("location")
+            if location is None:
+                return response
+            target = _redirect_target(location, url)
+            if target is None:
+                return response
+            if hop >= MAX_REDIRECTS:
+                raise APIConnectionError(message=_TOO_MANY_REDIRECTS, request=response.request)
 
-    def get_api_list(
-        self,
-        path: str,
-        *,
-        model: Type[object],
-        page: Type[SyncPageT],
-        body: Body | None = None,
-        options: RequestOptions = {},
-        method: str = "get",
-    ) -> SyncPageT:
-        opts = FinalRequestOptions.construct(method=method, url=path, json_data=body, **options)
-        return self._request_api_list(model, page, opts)
-
-
-class _DefaultAsyncHttpxClient(httpx.AsyncClient):
-    def __init__(self, **kwargs: Any) -> None:
-        kwargs.setdefault("timeout", DEFAULT_TIMEOUT)
-        kwargs.setdefault("limits", DEFAULT_CONNECTION_LIMITS)
-        kwargs.setdefault("follow_redirects", True)
-        super().__init__(**kwargs)
-
-
-try:
-    import httpx_aiohttp
-except ImportError:
-
-    class _DefaultAioHttpClient(httpx.AsyncClient):
-        def __init__(self, **_kwargs: Any) -> None:
-            raise RuntimeError("To use the aiohttp client you must have installed the package with the `aiohttp` extra")
-else:
-
-    class _DefaultAioHttpClient(httpx_aiohttp.HttpxAiohttpClient):  # type: ignore
-        def __init__(self, **kwargs: Any) -> None:
-            kwargs.setdefault("timeout", DEFAULT_TIMEOUT)
-            kwargs.setdefault("limits", DEFAULT_CONNECTION_LIMITS)
-            kwargs.setdefault("follow_redirects", True)
-
-            super().__init__(**kwargs)
-
-
-if TYPE_CHECKING:
-    DefaultAsyncHttpxClient = httpx.AsyncClient
-    """An alias to `httpx.AsyncClient` that provides the same defaults that this SDK
-    uses internally.
-
-    This is useful because overriding the `http_client` with your own instance of
-    `httpx.AsyncClient` will result in httpx's defaults being used, not ours.
-    """
-
-    DefaultAioHttpClient = httpx.AsyncClient
-    """An alias to `httpx.AsyncClient` that changes the default HTTP transport to `aiohttp`."""
-else:
-    DefaultAsyncHttpxClient = _DefaultAsyncHttpxClient
-    DefaultAioHttpClient = _DefaultAioHttpClient
-
-
-class AsyncHttpxClientWrapper(DefaultAsyncHttpxClient):
-    def __del__(self) -> None:
-        if self.is_closed:
-            return
-
-        try:
-            # TODO(someday): support non asyncio runtimes here
-            asyncio.get_running_loop().create_task(self.aclose())
-        except Exception:
-            pass
-
-
-class AsyncAPIClient(BaseClient[httpx.AsyncClient, AsyncStream[Any]]):
-    _client: httpx.AsyncClient
-    _default_stream_cls: type[AsyncStream[Any]] | None = None
-
-    def __init__(
-        self,
-        *,
-        version: str,
-        base_url: str | URL,
-        _strict_response_validation: bool,
-        max_retries: int = DEFAULT_MAX_RETRIES,
-        timeout: float | Timeout | None | NotGiven = not_given,
-        http_client: httpx.AsyncClient | None = None,
-        custom_headers: Mapping[str, str] | None = None,
-        custom_query: Mapping[str, object] | None = None,
-    ) -> None:
-        if not is_given(timeout):
-            # if the user passed in a custom http client with a non-default
-            # timeout set then we use that timeout.
-            #
-            # note: there is an edge case here where the user passes in a client
-            # where they've explicitly set the timeout to match the default timeout
-            # as this check is structural, meaning that we'll think they didn't
-            # pass in a timeout and will ignore it
-            if http_client and http_client.timeout != HTTPX_DEFAULT_TIMEOUT:
-                timeout = http_client.timeout
-            else:
-                timeout = DEFAULT_TIMEOUT
-
-        if http_client is not None and not isinstance(http_client, httpx.AsyncClient):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise TypeError(
-                f"Invalid `http_client` argument; Expected an instance of `httpx.AsyncClient` but got {type(http_client)}"
+            response.close()
+            if not same_origin(target, url):
+                withdrawn = True
+            if _rewrite_for_redirect(response.status_code, method):
+                method = "GET"
+                json_body = None
+                form_body = None
+                content = None
+                files = None
+            url = target
+            params = None
+            headers = self._headers_for(
+                url,
+                json_body=json_body,
+                method_headers=prepared.method_headers,
+                options=opts,
+                withdrawn=withdrawn,
+                credential=prepared.credential,
+                scope_headers=prepared.scope_headers,
             )
 
-        super().__init__(
-            version=version,
-            base_url=base_url,
-            # cast to a valid type because mypy doesn't understand our type narrowing
-            timeout=cast(Timeout, timeout),
-            max_retries=max_retries,
-            custom_query=custom_query,
-            custom_headers=custom_headers,
-            _strict_response_validation=_strict_response_validation,
-        )
-        self._client = http_client or AsyncHttpxClientWrapper(
-            base_url=base_url,
-            # cast to a valid type because mypy doesn't understand our type narrowing
-            timeout=cast(Timeout, timeout),
-        )
+        raise RuntimeError("unreachable: redirect loop exited without returning")  # pragma: no cover
+
+    def close(self) -> None:
+        self._client.close()
 
     def is_closed(self) -> bool:
         return self._client.is_closed
 
-    async def close(self) -> None:
-        """Close the underlying HTTPX client.
 
-        The client will *not* be usable after this.
-        """
-        await self._client.aclose()
+async def _async_sleep(seconds: float) -> None:
+    if seconds > 0:
+        import asyncio
 
-    async def __aenter__(self: _T) -> _T:
-        return self
+        await asyncio.sleep(seconds)
 
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        await self.close()
 
-    async def _prepare_options(
-        self,
-        options: FinalRequestOptions,  # noqa: ARG002
-    ) -> FinalRequestOptions:
-        """Hook for mutating the given options"""
-        return options
+class AsyncAPIClient(BaseClient):
+    _client: httpx.AsyncClient
 
-    async def _prepare_request(
-        self,
-        request: httpx.Request,  # noqa: ARG002
-    ) -> None:
-        """This method is used as a callback for mutating the `Request` object
-        after it has been constructed.
-        This is useful for cases where you want to add certain headers based off of
-        the request properties, e.g. `url`, `method` etc.
-        """
-        return None
+    def __init__(self, *, http_client: httpx.AsyncClient | None = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._client = http_client if http_client is not None else httpx.AsyncClient()
+
+    _accepts_async_credentials: ClassVar[bool] = True
+
+    async def _resolve_credential(self, prepared: _Prepared, options: RequestOptions | None) -> None:
+        assert prepared.provider is not None
+        try:
+            value = prepared.provider[1]()
+            if inspect.isawaitable(value):
+                value = await value
+        except Exception as exc:
+            raise ComposioError(_PROVIDER_FAILED) from exc
+        self._accept_provided(prepared, value, options)
 
     @overload
-    async def request(
+    async def _request(
         self,
-        cast_to: Type[ResponseT],
-        options: FinalRequestOptions,
+        method: str,
+        path: str,
         *,
-        stream: Literal[False] = False,
+        cast_to: type[ResponseT],
+        body: BodyParam | None = ...,
+        body_model: BodyModel | None = ...,
+        query: QueryParam | None = ...,
+        headers: HeaderParam | None = ...,
+        options: RequestOptions | None = ...,
+        operation: Operation | None = ...,
+        operation_headers: HeaderParam | None = ...,
+        content: AsyncBinaryTypes | None = ...,
+        files: RequestFiles | None = ...,
+        stream: bool = ...,
     ) -> ResponseT: ...
 
     @overload
-    async def request(
+    async def _request(
         self,
-        cast_to: Type[ResponseT],
-        options: FinalRequestOptions,
+        method: str,
+        path: str,
         *,
-        stream: Literal[True],
-        stream_cls: type[_AsyncStreamT],
-    ) -> _AsyncStreamT: ...
+        cast_to: None,
+        body: BodyParam | None = ...,
+        body_model: BodyModel | None = ...,
+        query: QueryParam | None = ...,
+        headers: HeaderParam | None = ...,
+        options: RequestOptions | None = ...,
+        operation: Operation | None = ...,
+        operation_headers: HeaderParam | None = ...,
+        content: AsyncBinaryTypes | None = ...,
+        files: RequestFiles | None = ...,
+        stream: bool = ...,
+    ) -> Any: ...
 
-    @overload
-    async def request(
+    async def _request(
         self,
-        cast_to: Type[ResponseT],
-        options: FinalRequestOptions,
+        method: str,
+        path: str,
         *,
-        stream: bool,
-        stream_cls: type[_AsyncStreamT] | None = None,
-    ) -> ResponseT | _AsyncStreamT: ...
-
-    async def request(
-        self,
-        cast_to: Type[ResponseT],
-        options: FinalRequestOptions,
-        *,
+        cast_to: type[ResponseT] | None,
+        body: BodyParam | None = None,
+        body_model: BodyModel | None = None,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+        options: RequestOptions | None = None,
+        operation: Operation | None = None,
+        operation_headers: HeaderParam | None = None,
+        content: AsyncBinaryTypes | None = None,
+        files: RequestFiles | None = None,
         stream: bool = False,
-        stream_cls: type[_AsyncStreamT] | None = None,
-    ) -> ResponseT | _AsyncStreamT:
-        if self._platform is None:
-            # `get_platform` can make blocking IO calls so we
-            # execute it earlier while we are in an async context
-            self._platform = await asyncify(get_platform)()
-
-        cast_to = self._maybe_override_cast_to(cast_to, options)
-
-        # create a copy of the options we were given so that if the
-        # options are mutated later & we then retry, the retries are
-        # given the original options
-        input_options = model_copy(options)
-        if input_options.idempotency_key is None and input_options.method.lower() != "get":
-            # ensure the idempotency key is reused between requests
-            input_options.idempotency_key = self._idempotency_key()
-
-        response: httpx.Response | None = None
-        max_retries = input_options.get_max_retries(self.max_retries)
-
-        retries_taken = 0
-        for retries_taken in range(max_retries + 1):
-            options = model_copy(input_options)
-            options = await self._prepare_options(options)
-
-            remaining_retries = max_retries - retries_taken
-            request = self._build_request(options, retries_taken=retries_taken)
-            await self._prepare_request(request)
-
-            kwargs: HttpxSendArgs = {}
-            if self.custom_auth is not None:
-                kwargs["auth"] = self.custom_auth
-
-            if options.follow_redirects is not None:
-                kwargs["follow_redirects"] = options.follow_redirects
-
-            log.debug("Sending HTTP Request: %s %s", request.method, request.url)
-
-            response = None
-            try:
-                response = await self._client.send(
-                    request,
-                    stream=stream or self._should_stream_response_body(request=request),
-                    **kwargs,
-                )
-            except httpx.TimeoutException as err:
-                log.debug("Encountered httpx.TimeoutException", exc_info=True)
-
-                if remaining_retries > 0:
-                    await self._sleep_for_retry(
-                        retries_taken=retries_taken,
-                        max_retries=max_retries,
-                        options=input_options,
-                        response=None,
-                    )
-                    continue
-
-                log.debug("Raising timeout error")
-                raise APITimeoutError(request=request) from err
-            except Exception as err:
-                log.debug("Encountered Exception", exc_info=True)
-
-                if remaining_retries > 0:
-                    await self._sleep_for_retry(
-                        retries_taken=retries_taken,
-                        max_retries=max_retries,
-                        options=input_options,
-                        response=None,
-                    )
-                    continue
-
-                log.debug("Raising connection error")
-                raise APIConnectionError(request=request) from err
-
-            log.debug(
-                'HTTP Response: %s %s "%i %s" %s',
-                request.method,
-                request.url,
-                response.status_code,
-                response.reason_phrase,
-                response.headers,
-            )
-
-            try:
-                response.raise_for_status()
-            except httpx.HTTPStatusError as err:  # thrown on 4xx and 5xx status code
-                log.debug("Encountered httpx.HTTPStatusError", exc_info=True)
-
-                if remaining_retries > 0 and self._should_retry(err.response):
-                    await err.response.aclose()
-                    await self._sleep_for_retry(
-                        retries_taken=retries_taken,
-                        max_retries=max_retries,
-                        options=input_options,
-                        response=response,
-                    )
-                    continue
-
-                # If the response is streamed then we need to explicitly read the response
-                # to completion before attempting to access the response text.
-                if not err.response.is_closed:
-                    await err.response.aread()
-
-                log.debug("Re-raising status error")
-                raise self._make_status_error_from_response(err.response) from None
-
-            break
-
-        assert response is not None, "could not resolve response (should never happen)"
-        return await self._process_response(
-            cast_to=cast_to,
+    ) -> Any:
+        """See :meth:`SyncAPIClient._request` — the same loop, awaited."""
+        response, _ = await self._request_response(
+            method,
+            path,
+            body=body,
+            body_model=body_model,
+            query=query,
+            headers=headers,
             options=options,
-            response=response,
-            stream=stream,
-            stream_cls=stream_cls,
-            retries_taken=retries_taken,
-        )
-
-    async def _sleep_for_retry(
-        self, *, retries_taken: int, max_retries: int, options: FinalRequestOptions, response: httpx.Response | None
-    ) -> None:
-        remaining_retries = max_retries - retries_taken
-        if remaining_retries == 1:
-            log.debug("1 retry left")
-        else:
-            log.debug("%i retries left", remaining_retries)
-
-        timeout = self._calculate_retry_timeout(remaining_retries, options, response.headers if response else None)
-        log.info("Retrying request to %s in %f seconds", options.url, timeout)
-
-        await anyio.sleep(timeout)
-
-    async def _process_response(
-        self,
-        *,
-        cast_to: Type[ResponseT],
-        options: FinalRequestOptions,
-        response: httpx.Response,
-        stream: bool,
-        stream_cls: type[Stream[Any]] | type[AsyncStream[Any]] | None,
-        retries_taken: int = 0,
-    ) -> ResponseT:
-        origin = get_origin(cast_to) or cast_to
-
-        if (
-            inspect.isclass(origin)
-            and issubclass(origin, BaseAPIResponse)
-            # we only want to actually return the custom BaseAPIResponse class if we're
-            # returning the raw response, or if we're not streaming SSE, as if we're streaming
-            # SSE then `cast_to` doesn't actively reflect the type we need to parse into
-            and (not stream or bool(response.request.headers.get(RAW_RESPONSE_HEADER)))
-        ):
-            if not issubclass(origin, AsyncAPIResponse):
-                raise TypeError(f"API Response types must subclass {AsyncAPIResponse}; Received {origin}")
-
-            response_cls = cast("type[BaseAPIResponse[Any]]", cast_to)
-            return cast(
-                "ResponseT",
-                response_cls(
-                    raw=response,
-                    client=self,
-                    cast_to=extract_response_type(response_cls),
-                    stream=stream,
-                    stream_cls=stream_cls,
-                    options=options,
-                    retries_taken=retries_taken,
-                ),
-            )
-
-        if cast_to == httpx.Response:
-            return cast(ResponseT, response)
-
-        api_response = AsyncAPIResponse(
-            raw=response,
-            client=self,
-            cast_to=cast("type[ResponseT]", cast_to),  # pyright: ignore[reportUnnecessaryCast]
-            stream=stream,
-            stream_cls=stream_cls,
-            options=options,
-            retries_taken=retries_taken,
-        )
-        if bool(response.request.headers.get(RAW_RESPONSE_HEADER)):
-            return cast(ResponseT, api_response)
-
-        return await api_response.parse()
-
-    def _request_api_list(
-        self,
-        model: Type[_T],
-        page: Type[AsyncPageT],
-        options: FinalRequestOptions,
-    ) -> AsyncPaginator[_T, AsyncPageT]:
-        return AsyncPaginator(client=self, options=options, page_cls=page, model=model)
-
-    @overload
-    async def get(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        options: RequestOptions = {},
-        stream: Literal[False] = False,
-    ) -> ResponseT: ...
-
-    @overload
-    async def get(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        options: RequestOptions = {},
-        stream: Literal[True],
-        stream_cls: type[_AsyncStreamT],
-    ) -> _AsyncStreamT: ...
-
-    @overload
-    async def get(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        options: RequestOptions = {},
-        stream: bool,
-        stream_cls: type[_AsyncStreamT] | None = None,
-    ) -> ResponseT | _AsyncStreamT: ...
-
-    async def get(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        options: RequestOptions = {},
-        stream: bool = False,
-        stream_cls: type[_AsyncStreamT] | None = None,
-    ) -> ResponseT | _AsyncStreamT:
-        opts = FinalRequestOptions.construct(method="get", url=path, **options)
-        return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
-
-    @overload
-    async def post(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
-        content: AsyncBinaryTypes | None = None,
-        files: RequestFiles | None = None,
-        options: RequestOptions = {},
-        stream: Literal[False] = False,
-    ) -> ResponseT: ...
-
-    @overload
-    async def post(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
-        content: AsyncBinaryTypes | None = None,
-        files: RequestFiles | None = None,
-        options: RequestOptions = {},
-        stream: Literal[True],
-        stream_cls: type[_AsyncStreamT],
-    ) -> _AsyncStreamT: ...
-
-    @overload
-    async def post(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
-        content: AsyncBinaryTypes | None = None,
-        files: RequestFiles | None = None,
-        options: RequestOptions = {},
-        stream: bool,
-        stream_cls: type[_AsyncStreamT] | None = None,
-    ) -> ResponseT | _AsyncStreamT: ...
-
-    async def post(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
-        content: AsyncBinaryTypes | None = None,
-        files: RequestFiles | None = None,
-        options: RequestOptions = {},
-        stream: bool = False,
-        stream_cls: type[_AsyncStreamT] | None = None,
-    ) -> ResponseT | _AsyncStreamT:
-        if body is not None and content is not None:
-            raise TypeError("Passing both `body` and `content` is not supported")
-        if files is not None and content is not None:
-            raise TypeError("Passing both `files` and `content` is not supported")
-        if isinstance(body, bytes):
-            warnings.warn(
-                "Passing raw bytes as `body` is deprecated and will be removed in a future version. "
-                "Please pass raw bytes via the `content` parameter instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        opts = FinalRequestOptions.construct(
-            method="post", url=path, json_data=body, content=content, files=await async_to_httpx_files(files), **options
-        )
-        return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
-
-    async def patch(
-        self,
-        path: str,
-        *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
-        content: AsyncBinaryTypes | None = None,
-        files: RequestFiles | None = None,
-        options: RequestOptions = {},
-    ) -> ResponseT:
-        if body is not None and content is not None:
-            raise TypeError("Passing both `body` and `content` is not supported")
-        if files is not None and content is not None:
-            raise TypeError("Passing both `files` and `content` is not supported")
-        if isinstance(body, bytes):
-            warnings.warn(
-                "Passing raw bytes as `body` is deprecated and will be removed in a future version. "
-                "Please pass raw bytes via the `content` parameter instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        opts = FinalRequestOptions.construct(
-            method="patch",
-            url=path,
-            json_data=body,
+            operation=operation,
+            operation_headers=operation_headers,
             content=content,
-            files=await async_to_httpx_files(files),
-            **options,
+            files=files,
+            stream=stream,
         )
-        return await self.request(cast_to, opts)
+        if not response.is_stream_consumed:
+            await response.aread()
+        return self._decode(response) if cast_to is None else self._process(response, cast_to)
+
+    async def _request_response(
+        self,
+        method: str,
+        path: str,
+        *,
+        body: BodyParam | None = None,
+        body_model: BodyModel | None = None,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+        options: RequestOptions | None = None,
+        operation: Operation | None = None,
+        operation_headers: HeaderParam | None = None,
+        content: AsyncBinaryTypes | None = None,
+        files: RequestFiles | None = None,
+        stream: bool = False,
+    ) -> tuple[httpx.Response, int]:
+        prepared = self._prepare(
+            method,
+            path,
+            body=body,
+            body_model=body_model,
+            query=query,
+            headers=headers,
+            options=options,
+            operation=operation,
+            operation_headers=operation_headers,
+            content=content,
+            files=files,
+            stream=stream,
+        )
+        if prepared.provider is not None:
+            await self._resolve_credential(prepared, options)
+        max_retries = self._max_retries(method, options)
+        timeout = self._timeout(options)
+        info_enabled = _logger.isEnabledFor(logging.INFO)
+        debug_enabled = _logger.isEnabledFor(logging.DEBUG)
+        log_path = prepared.log_path if info_enabled else ""
+
+        for num_retries in range(max_retries + 1):
+            remaining = max_retries - num_retries
+            if debug_enabled:
+                _safe_log(
+                    logging.DEBUG,
+                    "request attempt method=%s path=%s attempt=%d/%d",
+                    prepared.method,
+                    log_path,
+                    num_retries + 1,
+                    max_retries + 1,
+                )
+            started_at = time.perf_counter() if info_enabled else 0.0
+            try:
+                response = await self._dispatch(prepared, timeout=timeout, options=options)
+            except httpx.TimeoutException as exc:
+                if info_enabled:
+                    _safe_log(
+                        logging.INFO,
+                        "request failed method=%s path=%s reason=timeout duration_ms=%.2f",
+                        prepared.method,
+                        log_path,
+                        (time.perf_counter() - started_at) * 1000,
+                    )
+                if remaining > 0 and prepared.replayable_content:
+                    if info_enabled:
+                        _safe_log(
+                            logging.INFO,
+                            "request retry method=%s path=%s reason=timeout next_attempt=%d remaining=%d",
+                            prepared.method,
+                            log_path,
+                            num_retries + 2,
+                            remaining,
+                        )
+                    await _async_sleep(_retry_delay_seconds(num_retries, None))
+                    continue
+                raise APITimeoutError(exc.request) from exc
+            except httpx.RequestError as exc:
+                if info_enabled:
+                    _safe_log(
+                        logging.INFO,
+                        "request failed method=%s path=%s reason=connection duration_ms=%.2f",
+                        prepared.method,
+                        log_path,
+                        (time.perf_counter() - started_at) * 1000,
+                    )
+                if remaining > 0 and prepared.replayable_content:
+                    if info_enabled:
+                        _safe_log(
+                            logging.INFO,
+                            "request retry method=%s path=%s reason=connection next_attempt=%d remaining=%d",
+                            prepared.method,
+                            log_path,
+                            num_retries + 2,
+                            remaining,
+                        )
+                    await _async_sleep(_retry_delay_seconds(num_retries, None))
+                    continue
+                raise APIConnectionError(request=exc.request) from exc
+
+            if info_enabled:
+                _safe_log(
+                    logging.INFO,
+                    "request response method=%s path=%s status=%d outcome=%s duration_ms=%.2f",
+                    prepared.method,
+                    log_path,
+                    response.status_code,
+                    "success" if response.is_success else "http_error",
+                    (time.perf_counter() - started_at) * 1000,
+                )
+            if response.is_success or remaining <= 0:
+                self._note_deprecation(response, method, path, prepared.operation)
+                return response, num_retries
+            retryable = _should_retry(response) and prepared.replayable_content
+            if not retryable:
+                self._note_deprecation(response, method, path, prepared.operation)
+                return response, num_retries
+            if info_enabled:
+                _safe_log(
+                    logging.INFO,
+                    "request retry method=%s path=%s reason=status_%d next_attempt=%d remaining=%d",
+                    prepared.method,
+                    log_path,
+                    response.status_code,
+                    num_retries + 2,
+                    remaining,
+                )
+
+            await response.aclose()
+            await _async_sleep(_retry_delay_seconds(num_retries, response.headers))
+
+        raise RuntimeError("unreachable: retry loop exited without returning")  # pragma: no cover
+
+    async def _request_raw(
+        self,
+        method: str,
+        path: str,
+        *,
+        cast_to: type[ResponseT] | None,
+        body: BodyParam | None = None,
+        body_model: BodyModel | None = None,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+        options: RequestOptions | None = None,
+        operation: Operation | None = None,
+        operation_headers: HeaderParam | None = None,
+        content: AsyncBinaryTypes | None = None,
+        files: RequestFiles | None = None,
+        stream: bool = False,
+    ) -> AsyncAPIResponse[ResponseT | Any]:
+        response, retries_taken = await self._request_response(
+            method,
+            path,
+            body=body,
+            body_model=body_model,
+            query=query,
+            headers=headers,
+            options=options,
+            operation=operation,
+            operation_headers=operation_headers,
+            content=content,
+            files=files,
+            stream=stream,
+        )
+        if not stream and not response.is_stream_consumed:
+            await response.aread()
+        return AsyncAPIResponse(
+            raw=response,
+            cast_to=cast_to,
+            client=self,
+            stream=stream,
+            stream_cls=None,
+            options=options or RequestOptions(),
+            retries_taken=retries_taken,
+        )
+
+    def _parse_response(self, response: httpx.Response, cast_to: type[Any] | None) -> Any:
+        return self._process_response(response, cast_to)
+
+    # The raw escape hatch, awaited. See :class:`SyncAPIClient` for why each verb
+    # calls ``_request_raw`` itself and why ``cast_to`` is optional.
+
+    async def request(
+        self,
+        cast_to: type[ResponseT],
+        options: Mapping[str, Any],
+        *,
+        stream: bool = False,
+        stream_cls: type[Any] | None = None,
+    ) -> Any:
+        method = str(options.get("method", "get"))
+        path = str(options.get("url", options.get("path", "")))
+        request_options = cast(RequestOptions, options)
+        raw = await self._request_raw(
+            method,
+            path,
+            cast_to=cast_to,
+            body=cast(BodyParam | None, options.get("json_data", options.get("body"))),
+            query=cast(QueryParam | None, options.get("params", options.get("query"))),
+            headers=cast(HeaderParam | None, options.get("headers")),
+            options=request_options,
+            content=cast(AsyncBinaryTypes | None, options.get("content")),
+            files=cast(RequestFiles | None, options.get("files")),
+            stream=stream,
+        )
+        if stream and stream_cls is not None:
+            return stream_cls(
+                cast_to=cast_to,
+                response=raw.http_response,
+                client=self,
+                options=request_options,
+            )
+        return await raw.parse()
+
+    async def get(
+        self,
+        path: str,
+        *,
+        cast_to: type[ResponseT] | None = None,
+        options: RequestOptions = _DEFAULT_REQUEST_OPTIONS,
+        stream: bool = False,
+        stream_cls: type[Any] | None = None,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+    ) -> Any:
+        raw = await self._request_raw(
+            "get", path, cast_to=cast_to, query=query, headers=headers, options=options, stream=stream
+        )
+        if stream and stream_cls is not None:
+            return stream_cls(
+                cast_to=cast_to or object, response=raw.http_response, client=self, options=options
+            )
+        return await raw.parse()
+
+    async def post(
+        self,
+        path: str,
+        *,
+        cast_to: type[ResponseT] | None = None,
+        body: BodyParam | None = None,
+        content: AsyncBinaryTypes | None = None,
+        files: RequestFiles | None = None,
+        options: RequestOptions = _DEFAULT_REQUEST_OPTIONS,
+        stream: bool = False,
+        stream_cls: type[Any] | None = None,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+    ) -> Any:
+        raw = await self._request_raw(
+            "post",
+            path,
+            cast_to=cast_to,
+            body=body,
+            query=query,
+            headers=headers,
+            options=options,
+            content=content,
+            files=files,
+            stream=stream,
+        )
+        if stream and stream_cls is not None:
+            return stream_cls(
+                cast_to=cast_to or object, response=raw.http_response, client=self, options=options
+            )
+        return await raw.parse()
 
     async def put(
         self,
         path: str,
         *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
+        cast_to: type[ResponseT] | None = None,
+        body: BodyParam | None = None,
         content: AsyncBinaryTypes | None = None,
         files: RequestFiles | None = None,
-        options: RequestOptions = {},
-    ) -> ResponseT:
-        if body is not None and content is not None:
-            raise TypeError("Passing both `body` and `content` is not supported")
-        if files is not None and content is not None:
-            raise TypeError("Passing both `files` and `content` is not supported")
-        if isinstance(body, bytes):
-            warnings.warn(
-                "Passing raw bytes as `body` is deprecated and will be removed in a future version. "
-                "Please pass raw bytes via the `content` parameter instead.",
-                DeprecationWarning,
-                stacklevel=2,
+        options: RequestOptions = _DEFAULT_REQUEST_OPTIONS,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+    ) -> Any:
+        return await (
+            await self._request_raw(
+                "put",
+                path,
+                cast_to=cast_to,
+                body=body,
+                query=query,
+                headers=headers,
+                options=options,
+                content=content,
+                files=files,
             )
-        opts = FinalRequestOptions.construct(
-            method="put", url=path, json_data=body, content=content, files=await async_to_httpx_files(files), **options
-        )
-        return await self.request(cast_to, opts)
+        ).parse()
+
+    async def patch(
+        self,
+        path: str,
+        *,
+        cast_to: type[ResponseT] | None = None,
+        body: BodyParam | None = None,
+        content: AsyncBinaryTypes | None = None,
+        files: RequestFiles | None = None,
+        options: RequestOptions = _DEFAULT_REQUEST_OPTIONS,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+    ) -> Any:
+        return await (
+            await self._request_raw(
+                "patch",
+                path,
+                cast_to=cast_to,
+                body=body,
+                query=query,
+                headers=headers,
+                options=options,
+                content=content,
+                files=files,
+            )
+        ).parse()
 
     async def delete(
         self,
         path: str,
         *,
-        cast_to: Type[ResponseT],
-        body: Body | None = None,
+        cast_to: type[ResponseT] | None = None,
+        body: BodyParam | None = None,
         content: AsyncBinaryTypes | None = None,
-        options: RequestOptions = {},
-    ) -> ResponseT:
-        if body is not None and content is not None:
-            raise TypeError("Passing both `body` and `content` is not supported")
-        if isinstance(body, bytes):
-            warnings.warn(
-                "Passing raw bytes as `body` is deprecated and will be removed in a future version. "
-                "Please pass raw bytes via the `content` parameter instead.",
-                DeprecationWarning,
-                stacklevel=2,
+        options: RequestOptions = _DEFAULT_REQUEST_OPTIONS,
+        query: QueryParam | None = None,
+        headers: HeaderParam | None = None,
+    ) -> Any:
+        return await (
+            await self._request_raw(
+                "delete",
+                path,
+                cast_to=cast_to,
+                body=body,
+                query=query,
+                headers=headers,
+                options=options,
+                content=content,
             )
-        opts = FinalRequestOptions.construct(method="delete", url=path, json_data=body, content=content, **options)
-        return await self.request(cast_to, opts)
+        ).parse()
 
-    def get_api_list(
+    async def _dispatch(
         self,
-        path: str,
+        prepared: _Prepared,
         *,
-        model: Type[_T],
-        page: Type[AsyncPageT],
-        body: Body | None = None,
-        options: RequestOptions = {},
-        method: str = "get",
-    ) -> AsyncPaginator[_T, AsyncPageT]:
-        opts = FinalRequestOptions.construct(method=method, url=path, json_data=body, **options)
-        return self._request_api_list(model, page, opts)
+        timeout: float | httpx.Timeout | None,
+        options: RequestOptions | None,
+    ) -> httpx.Response:
+        """See :meth:`SyncAPIClient._dispatch` — the same hop loop, awaited.
+        Duplicated across sync/async like the retry loop above it."""
+        opts = options or RequestOptions()
+        url = prepared.url
+        method = prepared.method
+        json_body = prepared.json_body
+        form_body = prepared.form_body
+        content = prepared.content
+        files = prepared.files
+        headers = prepared.headers
+        params: _QueryPairs | None = prepared.params
+        withdrawn = False
 
+        for hop in range(MAX_REDIRECTS + 1):
+            request = self._client.build_request(
+                method,
+                url,
+                headers=headers,
+                params=params,
+                json=json_body,
+                data=cast(Any, form_body),
+                content=cast(Any, content),
+                files=cast(Any, files),
+                timeout=timeout,
+            )
+            response = await self._client.send(
+                request,
+                stream=prepared.stream,
+                follow_redirects=False,
+            )
+            if response.status_code not in _REDIRECT_STATUSES or opts.get("follow_redirects") is False:
+                return response
+            location = response.headers.get("location")
+            if location is None:
+                return response
+            target = _redirect_target(location, url)
+            if target is None:
+                return response
+            if hop >= MAX_REDIRECTS:
+                raise APIConnectionError(message=_TOO_MANY_REDIRECTS, request=response.request)
 
-def make_request_options(
-    *,
-    query: Query | None = None,
-    extra_headers: Headers | None = None,
-    extra_query: Query | None = None,
-    extra_body: Body | None = None,
-    idempotency_key: str | None = None,
-    timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    post_parser: PostParser | NotGiven = not_given,
-) -> RequestOptions:
-    """Create a dict of type RequestOptions without keys of NotGiven values."""
-    options: RequestOptions = {}
-    if extra_headers is not None:
-        options["headers"] = extra_headers
+            rewrite = _rewrite_for_redirect(response.status_code, method)
+            await response.aclose()
+            if not prepared.replayable_content and not rewrite:
+                raise APIConnectionError(message=_NON_REPLAYABLE_REDIRECT, request=response.request)
+            if not same_origin(target, url):
+                withdrawn = True
+            if rewrite:
+                method = "GET"
+                json_body = None
+                form_body = None
+                content = None
+                files = None
+            url = target
+            params = None
+            headers = self._headers_for(
+                url,
+                json_body=json_body,
+                method_headers=prepared.method_headers,
+                options=opts,
+                withdrawn=withdrawn,
+                credential=prepared.credential,
+                scope_headers=prepared.scope_headers,
+            )
 
-    if extra_body is not None:
-        options["extra_json"] = cast(AnyMapping, extra_body)
+        raise RuntimeError("unreachable: redirect loop exited without returning")  # pragma: no cover
 
-    if query is not None:
-        options["params"] = query
+    async def aclose(self) -> None:
+        await self._client.aclose()
 
-    if extra_query is not None:
-        options["params"] = {**options.get("params", {}), **extra_query}
+    async def close(self) -> None:
+        await self.aclose()
 
-    if not isinstance(timeout, NotGiven):
-        options["timeout"] = timeout
-
-    if idempotency_key is not None:
-        options["idempotency_key"] = idempotency_key
-
-    if is_given(post_parser):
-        # internal
-        options["post_parser"] = post_parser  # type: ignore
-
-    return options
-
-
-class ForceMultipartDict(Dict[str, None]):
-    def __bool__(self) -> bool:
-        return True
-
-
-class OtherPlatform:
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-    @override
-    def __str__(self) -> str:
-        return f"Other:{self.name}"
-
-
-Platform = Union[
-    OtherPlatform,
-    Literal[
-        "MacOS",
-        "Linux",
-        "Windows",
-        "FreeBSD",
-        "OpenBSD",
-        "iOS",
-        "Android",
-        "Unknown",
-    ],
-]
-
-
-def get_platform() -> Platform:
-    try:
-        system = platform.system().lower()
-        platform_name = platform.platform().lower()
-    except Exception:
-        return "Unknown"
-
-    if "iphone" in platform_name or "ipad" in platform_name:
-        # Tested using Python3IDE on an iPhone 11 and Pythonista on an iPad 7
-        # system is Darwin and platform_name is a string like:
-        # - Darwin-21.6.0-iPhone12,1-64bit
-        # - Darwin-21.6.0-iPad7,11-64bit
-        return "iOS"
-
-    if system == "darwin":
-        return "MacOS"
-
-    if system == "windows":
-        return "Windows"
-
-    if "android" in platform_name:
-        # Tested using Pydroid 3
-        # system is Linux and platform_name is a string like 'Linux-5.10.81-android12-9-00001-geba40aecb3b7-ab8534902-aarch64-with-libc'
-        return "Android"
-
-    if system == "linux":
-        # https://distro.readthedocs.io/en/latest/#distro.id
-        distro_id = distro.id()
-        if distro_id == "freebsd":
-            return "FreeBSD"
-
-        if distro_id == "openbsd":
-            return "OpenBSD"
-
-        return "Linux"
-
-    if platform_name:
-        return OtherPlatform(platform_name)
-
-    return "Unknown"
-
-
-@lru_cache(maxsize=None)
-def platform_headers(version: str, *, platform: Platform | None) -> Dict[str, str]:
-    return {
-        "X-Stainless-Lang": "python",
-        "X-Stainless-Package-Version": version,
-        "X-Stainless-OS": str(platform or get_platform()),
-        "X-Stainless-Arch": str(get_architecture()),
-        "X-Stainless-Runtime": get_python_runtime(),
-        "X-Stainless-Runtime-Version": get_python_version(),
-    }
-
-
-class OtherArch:
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-    @override
-    def __str__(self) -> str:
-        return f"other:{self.name}"
-
-
-Arch = Union[OtherArch, Literal["x32", "x64", "arm", "arm64", "unknown"]]
-
-
-def get_python_runtime() -> str:
-    try:
-        return platform.python_implementation()
-    except Exception:
-        return "unknown"
-
-
-def get_python_version() -> str:
-    try:
-        return platform.python_version()
-    except Exception:
-        return "unknown"
-
-
-def get_architecture() -> Arch:
-    try:
-        machine = platform.machine().lower()
-    except Exception:
-        return "unknown"
-
-    if machine in ("arm64", "aarch64"):
-        return "arm64"
-
-    # TODO: untested
-    if machine == "arm":
-        return "arm"
-
-    if machine == "x86_64":
-        return "x64"
-
-    # TODO: untested
-    if sys.maxsize <= 2**32:
-        return "x32"
-
-    if machine:
-        return OtherArch(machine)
-
-    return "unknown"
-
-
-def _merge_mappings(
-    obj1: Mapping[_T_co, Union[_T, Omit]],
-    obj2: Mapping[_T_co, Union[_T, Omit]],
-) -> Dict[_T_co, _T]:
-    """Merge two mappings of the same type, removing any values that are instances of `Omit`.
-
-    In cases with duplicate keys the second mapping takes precedence.
-    """
-    merged = {**obj1, **obj2}
-    return {key: value for key, value in merged.items() if not isinstance(value, Omit)}
+    def is_closed(self) -> bool:
+        return self._client.is_closed

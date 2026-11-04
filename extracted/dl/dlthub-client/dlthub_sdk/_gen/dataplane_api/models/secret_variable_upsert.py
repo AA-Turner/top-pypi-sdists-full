@@ -18,12 +18,13 @@ T = TypeVar("T", bound="SecretVariableUpsert")
 class SecretVariableUpsert:
     """
     Attributes:
-        name (str): Environment variable name. Names the runtime sets are rejected on write:
-            DASHBOARD__SYNC_FROM_RUNTIME, HOME, PATH, PORT, PYTHONHOME, PYTHONPATH, PYTHONUNBUFFERED, RUNTIME__API_BASE_URL,
-            RUNTIME__AUTH_TOKEN, RUNTIME__DATAPLANE_BASE_URL, RUNTIME__ORGANIZATION_ID, RUNTIME__RUN_ID,
-            RUNTIME__WORKSPACE_ID, WORKSPACE__PROFILE, and anything starting with SEND__ARTIFACTS__, SYNC__ARTIFACTS__,
-            DESTINATION__PLAYGROUND__, RUNTIME__DLTHUB_
-        type_ (Literal['secret']): Write-only, never shown again
+        name (str): Environment variable name: letters, digits and `_`, not starting with a digit, up to 256 characters.
+            Names the runtime sets are rejected on write, compared case-insensitively: DASHBOARD__SYNC_FROM_RUNTIME, HOME,
+            PATH, PORT, PYTHONHOME, PYTHONPATH, PYTHONUNBUFFERED, RUNTIME__API_BASE_URL, RUNTIME__AUTH_TOKEN,
+            RUNTIME__DATAPLANE_BASE_URL, RUNTIME__ORGANIZATION_ID, RUNTIME__RUN_ID, RUNTIME__WORKSPACE_ID,
+            WORKSPACE__PROFILE, and anything starting with SEND__ARTIFACTS__, SYNC__ARTIFACTS__, DESTINATION__PLAYGROUND__,
+            RUNTIME__DLTHUB_
+        type_ (Literal['secret']): `secret`: write-only; listing returns `value: null`, but runs still receive it.
         value (str): Value exported into the run environment; must not be empty
     """
 

@@ -18,7 +18,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 from fivetran_connector_sdk_common import __version__, constants
 from fivetran_connector_sdk_common.logger import Logging
-from fivetran_connector_sdk_common.helpers import config_root_dir, print_library_log
+from fivetran_connector_sdk_common.helpers import config_root_dir, format_naming_for_display, print_library_log
 from fivetran_connector_sdk_cli.cli_helpers import (
     telemetry,
     get_input_from_cli,
@@ -402,7 +402,8 @@ def _detect_default_proxy_host_key(configuration):
             return key
     return _fail_proxy_validation(
         "Unable to determine the endpoint to proxy. "
-        "Please specify the configuration key containing the host details using --proxy-host-config-key "
+        "Please specify the configuration key containing the host details using the --proxy-host-config-key flag, "
+        "the options file, or the [tool.package-metadata] section of pyproject.toml, "
         "or add a 'host' or 'hosts' entry in configuration.json.")
 
 
@@ -942,7 +943,7 @@ def log_connection_success(response: rq.Response, is_new_connection: bool, conne
     print_library_log(f"connection id: {conn_id}", indent=True)
     print_library_log(f"runtime python version: {data['config']['python_version']}",
                       level=Logging.Level.INFO, indent=True)
-    print_library_log(f"naming strategy: {data['destination_schema_names']}",
+    print_library_log(f"naming strategy: {format_naming_for_display(data['destination_schema_names'])}",
                       level=Logging.Level.INFO, indent=True)
     print_library_log(f"visit the Fivetran dashboard {dashboard_action}:")
     print_library_log(f"https://fivetran.com/dashboard/connections/{conn_id}/status")
@@ -1883,7 +1884,8 @@ def validate_connection_package_update(
     """Exits before an existing connection's package is changed, if that's not needed or safe:
 
     - Without --package-id: exits(1) if the current package is shared with other
-      connections, so a standard deploy never silently overwrites a shared package.
+      connections or is visible (is_visible=true), so a standard deploy never
+      silently overwrites a shared/visible package.
     - With --package-id: exits(0) as a no-op if the connection already uses that package.
     """
     if target_package_id:
@@ -1893,10 +1895,29 @@ def validate_connection_package_update(
             sys.exit(0)
         return
 
-    if current_package_id and is_package_shared(current_package_id, deploy_key):
+    if not current_package_id:
+        return
+
+    package = get_package(current_package_id, deploy_key)
+    if package is None:
+        return
+
+    is_shared = _package_connection_count(package) > 1
+    is_visible = bool(package.get("visible"))
+
+    if is_shared:
         print_library_log(
             f"cannot update connection '{connection}'; its package '{current_package_id}' is "
             "shared with other connections. Run 'fivetran deploy --connection <name> "
+            "--destination <destination> --package-id <package-id>' to rebind a connection to a "
+            "different package.",
+            level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+        sys.exit(1)
+
+    if is_visible:
+        print_library_log(
+            f"cannot update connection '{connection}'; its package '{current_package_id}' is "
+            "visible. Run 'fivetran deploy --connection <name> "
             "--destination <destination> --package-id <package-id>' to rebind a connection to a "
             "different package.",
             level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
@@ -1973,18 +1994,42 @@ def _package_connection_count(package: dict) -> int:
 
 
 def _format_package_table(packages: list) -> str:
-    """Formats packages into a left-aligned PACKAGE ID / CONNECTIONS table.
+    """Formats packages into a left-aligned table of PACKAGE ID / CONNECTIONS columns.
 
-    Column width is derived from the longest package ID (or the header, if longer),
-    so IDs of any length stay aligned with the CONNECTIONS column.
+    The PACKAGE NAME and VISIBLE columns are only included when the response carries those
+    fields (the feature flag that populates them is enabled); otherwise they are omitted so the
+    table does not show empty/placeholder values. Each column's width is derived from the longest
+    value in it (or its header, if longer), so values of any length stay aligned.
     """
-    header_id, header_count = "PACKAGE ID", "CONNECTIONS"
-    rows = [(pkg.get("id", ""), str(_package_connection_count(pkg))) for pkg in packages]
+    show_name_and_visible = any(
+        "package_name" in pkg or "visible" in pkg for pkg in packages)
 
-    id_column_width = max([len(header_id)] + [len(package_id) for package_id, _ in rows]) + 4
-    lines = [f"{header_id:<{id_column_width}}{header_count}"]
-    lines.extend(f"{package_id:<{id_column_width}}{count}" for package_id, count in rows)
-    return "\n".join(lines)
+    headers = ["PACKAGE ID"]
+    if show_name_and_visible:
+        headers += ["PACKAGE NAME", "VISIBLE"]
+    headers.append("CONNECTIONS")
+
+    rows = []
+    for pkg in packages:
+        row = [pkg.get("id", "")]
+        if show_name_and_visible:
+            row.append(pkg.get("package_name") or pkg.get("id", ""))
+            row.append("true" if pkg.get("visible") else "false")
+        row.append(str(_package_connection_count(pkg)))
+        rows.append(row)
+
+    # Every column except the last is padded to its widest value (or header) plus 4 spaces.
+    widths = [
+        max([len(headers[col])] + [len(row[col]) for row in rows]) + 4
+        for col in range(len(headers) - 1)
+    ]
+
+    def format_row(cells: list) -> str:
+        return "".join(
+            f"{cell:<{widths[col]}}" if col < len(widths) else cell
+            for col, cell in enumerate(cells))
+
+    return "\n".join([format_row(headers)] + [format_row(row) for row in rows])
 
 
 def package_list(api_key: str, limit: Optional[int] = None) -> None:

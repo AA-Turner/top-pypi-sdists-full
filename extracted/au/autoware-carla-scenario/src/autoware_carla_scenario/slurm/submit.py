@@ -43,7 +43,13 @@ from .scripts import _expand_ranges as _expand_ranges
 from .scripts import _shell_path as _shell_path
 from .scripts import relative_batch_dir as relative_batch_dir
 from .scripts import sbatch_command as sbatch_command
-from .settings import SlurmSettings, require_sbatch, snapshot_environment
+from .settings import (
+    DEFAULT_MAX_ARRAY_SIZE,
+    SlurmSettings,
+    parse_max_array_size,
+    require_sbatch,
+    snapshot_environment,
+)
 
 if TYPE_CHECKING:
     from omegaconf import DictConfig
@@ -110,15 +116,30 @@ def submit_batch(
     output_dir: Path,
     build_scenario_fn: Callable[..., Any] | None = None,
     wait: bool | None = None,
+    batch_settings: dict[str, Any] | None = None,
 ) -> int:
     """Submit a built and checked batch as a SLURM array; the exit status.
 
     *cases*, *labels*, *case_overrides* and *configs* are what ``run_batch``
     made of the command line, one per case, and *scenario_classes* the class
     of the scenario each built.  The outputs go to *output_dir* as a local
-    batch's would.  *wait* overrides ``launcher.wait``.
+    batch's would.  *wait* overrides ``launcher.wait``.  *batch_settings* is
+    which cases decide the batch-level settings
+    (``examples.run.batch_settings_cases``): every task decides them from
+    those, as a local batch does, whichever cases it runs.
     """
     from omegaconf import OmegaConf  # noqa: PLC0415
+
+    layout = BatchLayout(output_dir)
+    if layout.manifest.exists():
+        # A fresh batch only: a resubmit adds a submission to the existing
+        # manifest (submit_cases), and never comes here.  Writing over another
+        # batch's manifest would hand its tasks this batch's cases (#1223).
+        raise FileExistsError(
+            f"{output_dir} already holds a SLURM batch ({layout.manifest}); "
+            "a new batch needs a directory of its own (to run some of that "
+            f"batch's cases again: scenario-slurm resubmit {output_dir})"
+        )
 
     launchers = [
         OmegaConf.to_container(cfg.launcher, resolve=True) if "launcher" in cfg else {}
@@ -136,7 +157,6 @@ def submit_batch(
     if wait is not None:
         settings = settings.replace(wait=wait)
 
-    layout = BatchLayout(output_dir)
     stems = sequential_stems(scenario_classes)
     resolved = [_resolved(cfg) for cfg in configs]
     digests: dict[str, str] = {}
@@ -166,6 +186,10 @@ def submit_batch(
         "env": snapshot_environment(
             settings.env_passthrough, explicit=settings.env.keys()
         ),
+        # Which cases decide the batch's queue, Rerun converter, canvas and
+        # metrics (examples.run.batch_settings_cases).  An older worker
+        # ignores it, and decides them from its own cases as it always did.
+        **({} if batch_settings is None else {"batch_settings": batch_settings}),
         "cases": [
             {
                 "index": index,
@@ -198,7 +222,14 @@ def submit_batch(
 def after_submit(layout: BatchLayout, index: int, settings: SlurmSettings) -> int:
     """Follow submission *index* to its end and collect (``wait``), or say
     how to; the exit status."""
-    submission = layout.read_submission(index)
+    submission = layout.submission_record(index)
+    if submission is None:
+        print(  # noqa: T201
+            f"Error: the submission record {layout.submission(index)} cannot be "
+            f"read; see the batch with: scenario-slurm status {layout.batch_dir}",
+            file=sys.stderr,
+        )
+        return 1
     if settings.wait:
         return follow(layout, index, settings)
     if submission.get("collect_error"):
@@ -293,7 +324,9 @@ def _run_sbatch(command: list[str]) -> str:
     """Run *command* (an ``sbatch --parsable``); the job id it printed."""
     command = [require_sbatch(), *command[1:]]
     logger.info("Submitting: %s", shlex.join(command))
-    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    completed = subprocess.run(
+        command, capture_output=True, encoding="utf-8", errors="replace", check=False
+    )
     if completed.returncode != 0:
         raise RuntimeError(
             f"sbatch failed ({completed.returncode}): "
@@ -304,6 +337,41 @@ def _run_sbatch(command: list[str]) -> str:
     if not job:
         raise RuntimeError(f"sbatch printed no job id: {completed.stdout!r}")
     return job
+
+
+def max_array_size() -> int:
+    """The cluster's ``MaxArraySize`` (``scontrol show config``): an array
+    holds at most this many tasks.  SLURM's default, 1001, when ``scontrol``
+    cannot be asked or names none (#1347)."""
+    try:
+        completed = subprocess.run(
+            ["scontrol", "show", "config"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        logger.debug("scontrol show config failed (%s): MaxArraySize 1001", exc)
+        return DEFAULT_MAX_ARRAY_SIZE
+    limit = None
+    if completed.returncode == 0:
+        limit = parse_max_array_size(completed.stdout)
+    if limit is None:
+        logger.debug(
+            "scontrol show config (exit %d) named no MaxArraySize: 1001",
+            completed.returncode,
+        )
+        return DEFAULT_MAX_ARRAY_SIZE
+    return limit
+
+
+def _array_refused(message: str) -> bool:
+    """Whether sbatch's *message* refuses an array's size (SLURM's "Invalid
+    job array specification", or one naming MaxArraySize)."""
+    lowered = message.lower()
+    return "invalid job array" in lowered or "maxarraysize" in lowered
 
 
 def _write_script(path: Path, text: str) -> None:
@@ -321,24 +389,43 @@ def submit_cases(
     manifest: dict[str, Any],
     settings: SlurmSettings,
     case_indices: list[int],
+    before_sbatch: Callable[[int], None] | None = None,
 ) -> int:
     """Submit *case_indices* of the batch as one array; the submission's index.
 
+    The submission's index is reserved first, its record created exclusively
+    (:meth:`BatchLayout.reserve_submission`), so that two submitters of one
+    batch at once each get their own (#1352).  *before_sbatch*, given that
+    index, runs next; should it raise, nothing is submitted.  A resubmit
+    checks there that no other submission of the batch is in flight
+    (``scenario-slurm resubmit``).  Whatever fails before the job id is
+    known removes the record, and with it the reservation.
+
     The cases are split into tasks of ``launcher.cases_per_task`` (in order),
-    which SLURM runs at most ``launcher.array_parallelism`` at a time.
+    which SLURM runs at most ``launcher.array_parallelism`` at a time.  Without
+    ``cases_per_task``, into no more tasks than the cluster's ``MaxArraySize``
+    (:func:`max_array_size`).
+
+    Raises:
+        RuntimeError: ``launcher.cases_per_task`` makes more tasks than
+            ``MaxArraySize`` allows (nothing is submitted), or sbatch refused
+            the array.
     """
     if not case_indices:
         raise ValueError("no case to submit")
-    index = layout.next_submission()
-    chunks = _chunks(list(case_indices), settings.chunk_size(len(case_indices)))
-    script = layout.job_script(index)
-    _write_script(script, job_script(layout, manifest, settings, index))
-    layout.logs.mkdir(parents=True, exist_ok=True)
-    (layout.root / "tasks").mkdir(parents=True, exist_ok=True)
-    (layout.root / "results").mkdir(parents=True, exist_ok=True)
-
+    limit = max_array_size()
+    size = settings.chunk_size(len(case_indices), limit)
+    chunks = _chunks(list(case_indices), size)
+    if len(chunks) > limit:
+        least = -(-len(case_indices) // limit)
+        raise RuntimeError(
+            f"{len(case_indices)} case(s) at launcher.cases_per_task={size} make "
+            f"{len(chunks)} array tasks, more than the cluster's MaxArraySize "
+            f"({limit}) allows: set launcher.cases_per_task to at least {least}, "
+            "or unset it to have the cases spread within the limit (docs/slurm.md)"
+        )
     submission: dict[str, Any] = {
-        "index": index,
+        "index": None,
         "created": _now(),
         "submitted_at": time.time(),
         "cases": list(case_indices),
@@ -348,11 +435,32 @@ def submit_cases(
         "collect_job_id": None,
     }
     # Written before sbatch: a task that starts at once reads its chunk here.
-    write_json(layout.submission(index), submission)
-    command = sbatch_command(layout, settings, script, len(chunks))
-    submission["sbatch"] = command
+    # Created exclusively, which reserves the index; job_id None until
+    # sbatch returns marks it in flight (manifest.sbatch_in_flight).
+    index = layout.reserve_submission(submission)
     try:
+        script = layout.job_script(index)
+        _write_script(script, job_script(layout, manifest, settings, index))
+        layout.logs.mkdir(parents=True, exist_ok=True)
+        (layout.root / "tasks").mkdir(parents=True, exist_ok=True)
+        (layout.root / "results").mkdir(parents=True, exist_ok=True)
+        if before_sbatch is not None:
+            before_sbatch(index)
+        command = sbatch_command(layout, settings, script, len(chunks))
+        submission["sbatch"] = command
         submission["job_id"] = _run_sbatch(command)
+    except RuntimeError as exc:
+        layout.submission(index).unlink(missing_ok=True)
+        if not _array_refused(str(exc)):
+            raise
+        # The limit scontrol did not tell (#1347): say what to change.
+        raise RuntimeError(
+            f"{exc}\n  The array has {len(chunks)} task(s) of up to {size} "
+            f"case(s); a cluster's MaxArraySize (`scontrol show config`, "
+            f"{DEFAULT_MAX_ARRAY_SIZE} by default) caps an array's tasks: set "
+            "launcher.cases_per_task so that fewer tasks run the cases "
+            "(docs/slurm.md)"
+        ) from exc
     except BaseException:
         layout.submission(index).unlink(missing_ok=True)
         raise
@@ -429,7 +537,8 @@ def squeue_states(job: str) -> dict[int, str] | None:
         completed = subprocess.run(
             ["squeue", "-h", "-r", "-j", str(job), "-o", "%i %T"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
             timeout=60,
         )
@@ -447,7 +556,15 @@ def follow(layout: BatchLayout, index: int, settings: SlurmSettings) -> int:
     collect the batch; the exit status (0 when every case passed)."""
     from .collect import collect  # noqa: PLC0415
 
-    submission = layout.read_submission(index)
+    submission = layout.submission_record(index)
+    if submission is None:
+        print(  # noqa: T201
+            f"Error: the submission record {layout.submission(index)} is missing "
+            "or cannot be read; collect the batch with: "
+            f"scenario-slurm collect {layout.batch_dir}",
+            file=sys.stderr,
+        )
+        return 1
     job = str(submission["job_id"])
     cases = [case for chunk in submission["chunks"] for case in chunk]
     last = ""
@@ -537,7 +654,11 @@ def cancel_jobs(jobs: Sequence[str]) -> bool:
         return True
     try:
         completed = subprocess.run(
-            ["scancel", *jobs], capture_output=True, text=True, check=False
+            ["scancel", *jobs],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
         )
     except OSError as exc:
         print(f"[slurm] could not run scancel: {exc}", file=sys.stderr)  # noqa: T201

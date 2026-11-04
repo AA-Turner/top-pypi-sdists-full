@@ -40,7 +40,12 @@ from mistralai.vibe_agents.sdk.client.records import (
     TurnState,
 )
 from mistralai.vibe_agents.sdk.client.turn_reads import read_turn, read_turn_and_start
-from mistralai.vibe_agents.sdk.transport.client_tools import NO_CLIENT_TOOLS, ClientToolRegistry
+from mistralai.vibe_agents.sdk.transport.client_tools import (
+    NO_CLIENT_TOOLS,
+    ClientToolRegistry,
+    left_open,
+    watching_left_open,
+)
 
 __all__ = ["WaitBudget", "wait_for_turn"]
 
@@ -129,7 +134,6 @@ class _Wait:
         after: TurnState[object] | str | None,
         approvals: Approvals | None = None,
         *,
-        bind: Callable[[str], SessionTransport],
         tools: Mapping[str, _Tool] = NO_TOOLS,
         client_tools: ClientToolRegistry = NO_CLIENT_TOOLS,
     ) -> None:
@@ -153,8 +157,6 @@ class _Wait:
         self.opened: set[tuple[str, str]] = set()
         # An approval that a handler answers is not a reason to return.
         self.approvals = approvals
-        # Binds another session of the host by id: a subagent's, to read its running turn.
-        self.bind = bind
         # The agent's tool objects by tool id, for the requests of approvals.
         self.tools = tools
         # The client tools, by the name the host gives them, that a client attached in this process
@@ -185,9 +187,11 @@ class _Wait:
 
     def _answered(self, callback: OpenCallback) -> bool:
         if isinstance(callback, OpenClientToolCall):
-            # The caller's client answers the client tools of the whole tree, its subagents' too.
+            # The caller's client answers the client tools of the whole tree, its subagents' too, but
+            # not a provided tool's call, such as the connector sign-in: that one returns. One its
+            # answer left open with agents.KeepCallbackOpen() is not answered.
             registry = self.client_tools
-            return registry.on_client_tool is not None or callback.call.name in registry.answers
+            return registry.covers(callback.call.name) and not left_open(registry, callback.session_id, callback.id)
         return self.approvals is not None and self.approvals.answers(callback.kind, callback.session_id, callback.id)
 
 
@@ -206,20 +210,18 @@ async def wait_for_turn(
     on_event: EventHandler | None = None,
     start: str | None = None,
     approvals: Approvals | None = None,
-    bind: Callable[[str], SessionTransport],
     tools: Mapping[str, _Tool] = NO_TOOLS,
     client_tools: ClientToolRegistry = NO_CLIENT_TOOLS,
 ) -> TurnState[str]:
     """Return the turn's record at its end, or at a callback opened after ``after``.
 
-    ``raw`` and the event stream share ``transport``; ``bind`` binds another session of the host
-    by id; ``tools`` are the agent's tool objects by tool id. Without ``after``, the first read returns any
-    ``Blocked``. After a position, a callback of the turn whose opening the events show wakes the
-    wait, and the wait returns only if the host still lists it as open: one another client already
-    answered does not. A subagent's callback returns while open, unless a ``Blocked`` given as
-    ``after`` lists it. ``timeout`` bounds the first read and the wait; one more read then returns
-    the record as the host has it. A ``WaitBudget`` bounds them by the time spent waiting for the
-    host only.
+    ``raw`` and the event stream share ``transport``; ``tools`` are the agent's tool objects by tool
+    id. Without ``after``, the first read returns any ``Blocked``. After a position, a callback of
+    the turn whose opening the events show wakes the wait, and the wait returns only if the host
+    still lists it as open: one another client already answered does not. A subagent's callback
+    returns while open, unless a ``Blocked`` given as ``after`` lists it. ``timeout`` bounds the
+    first read and the wait; one more read then returns the record as the host has it. A
+    ``WaitBudget`` bounds them by the time spent waiting for the host only.
 
     ``on_event`` gets the turn's events after ``after`` up to the record returned, at the timeout
     too: without ``after``, after ``start`` (a cursor read before the turn started), else from the
@@ -228,57 +230,71 @@ async def wait_for_turn(
     With ``approvals``, which the caller serves while the call waits, a ``Blocked`` returns only on a
     callback its handler does not answer, or an approval it leaves open. A client tool call
     that ``client_tools`` answers, by its answers or its ``on_client_tool``, does not return
-    either: a client attached in this process answers it, in the session or its subagents.
+    either: a client attached in this process answers it, in the session or its subagents. One
+    whose answer returned ``agents.KeepCallbackOpen()`` does.
 
     Raises:
         ObservationLost: The session's events, or its subagents' callbacks, could not be read, and
             the turn has not ended.
         Exception: The approval handler raised this error; its approval stays open.
     """
-    wait = _Wait(session_id, turn_id, after, approvals, bind=bind, tools=tools, client_tools=client_tools)
+    wait = _Wait(session_id, turn_id, after, approvals, tools=tools, client_tools=client_tools)
     if on_event is not None and start is not None and after is None:
         wait.seen = start
     # A notebook's stop must land while the turn is quiet: see ``waking``.
     budget = timeout if isinstance(timeout, WaitBudget) else WaitBudget(timeout)
     budget.start()
     with waking():
-        if approvals is None:
+        if approvals is None and not client_tools:
             return await _wait_for_turn(raw, transport, wait, after=after, budget=budget, on_event=on_event)
-        return await _wait_answering(raw, transport, wait, approvals, after=after, budget=budget, on_event=on_event)
+        with watching_left_open(client_tools) as left:
+            return await _wait_answering(
+                raw, transport, wait, approvals, left, after=after, budget=budget, on_event=on_event
+            )
 
 
 async def _wait_answering(
     raw: _RawSession,
     transport: SessionTransport,
     wait: _Wait,
-    approvals: Approvals,
+    approvals: Approvals | None,
+    left: asyncio.Event,
     *,
     after: TurnState[object] | str | None,
     budget: WaitBudget,
     on_event: EventHandler | None,
 ) -> TurnState[str]:
-    """Wait as ``_wait_for_turn`` does while the handler answers approvals.
+    """Wait as ``_wait_for_turn`` does while the handlers answer approvals and client tool calls.
 
-    When the handler leaves an approval open, the wait starts again from the position it reached,
-    within the same budget, so it returns ``Blocked`` on that approval. When the handler raises,
-    the wait stops and raises its error.
+    When the approval handler leaves an approval open, or an answer leaves a client tool call open
+    (``left`` is set), the wait starts again from the position it reached, within the same budget,
+    so it returns ``Blocked`` on that callback. When the approval handler raises, the wait stops and
+    raises its error.
     """
     while True:
         waiting = asyncio.ensure_future(
             _wait_for_turn(raw, transport, wait, after=after, budget=budget, on_event=on_event)
         )
-        changed = asyncio.ensure_future(approvals.changed())
+        changes = [asyncio.ensure_future(_set_and_cleared(left))]
+        if approvals is not None:
+            changes.append(asyncio.ensure_future(approvals.changed()))
         try:
-            await asyncio.wait({waiting, changed}, return_when=asyncio.FIRST_COMPLETED)
+            await asyncio.wait({waiting, *changes}, return_when=asyncio.FIRST_COMPLETED)
             # Start again between two events, so that ``on_event`` gets each one once, in full.
             while wait.delivering and not waiting.done():
                 wait.delivered.clear()
                 await wait.delivered.wait()
         finally:
-            await cancel(changed, *(() if waiting.done() else (waiting,)))
-        approvals.raise_error()
+            await cancel(*changes, *(() if waiting.done() else (waiting,)))
+        if approvals is not None:
+            approvals.raise_error()
         if not waiting.cancelled():
             return waiting.result()
+
+
+async def _set_and_cleared(event: asyncio.Event) -> None:
+    await event.wait()
+    event.clear()
 
 
 async def _wait_for_turn(
@@ -325,8 +341,8 @@ async def _read_from_start(raw: _RawSession, wait: _Wait, *, on_event: EventHand
     Without one, the events are read from the session's start, and the other turns' are skipped.
     """
     if on_event is None or wait.seen is not None:
-        return await read_turn(raw, wait.session_id, wait.turn_id, bind=wait.bind, tools=wait.tools)
-    state, start = await read_turn_and_start(raw, wait.session_id, wait.turn_id, bind=wait.bind, tools=wait.tools)
+        return await read_turn(raw, wait.session_id, wait.turn_id, tools=wait.tools)
+    state, start = await read_turn_and_start(raw, wait.session_id, wait.turn_id, tools=wait.tools)
     wait.seen = start
     return state
 
@@ -378,9 +394,7 @@ async def _follow(
                     ends[wait.turn_id] = state  # Its TurnEnded needs no second read.
             else:
                 # The stream ended: the session may have ended with the turn.
-                if _ended(
-                    state := await read_turn(raw, wait.session_id, wait.turn_id, bind=wait.bind, tools=wait.tools)
-                ):
+                if _ended(state := await read_turn(raw, wait.session_id, wait.turn_id, tools=wait.tools)):
                     return state
                 raise ObservationLost(wait.session_id, wait.seen)
         # The next leg reads after the record's position: give every event up to it first.
@@ -503,7 +517,7 @@ async def _read_opened(raw: _RawSession, wait: _Wait, opened: frozenset[tuple[st
         listed = await _still_open(raw, wait, opened)
         if listed is not None and not listed:
             return None
-        state = await read_turn(raw, wait.session_id, wait.turn_id, bind=wait.bind, tools=wait.tools)
+        state = await read_turn(raw, wait.session_id, wait.turn_id, tools=wait.tools)
         if _ended(state) or (isinstance(state, Blocked) and _lists(state, opened)):
             return state
         if listed is None:
@@ -520,11 +534,8 @@ def _lists(state: Blocked, opened: frozenset[tuple[str, str]]) -> bool:
 
 
 def _the_turns(wait: _Wait, listed: Iterable[harness_session.TreeCallback] | None) -> bool:
-    """Whether ``listed`` has a callback of the session's own that is the waited turn's: one that
-    names it, or no turn."""
-    return any(
-        item.session_id == wait.session_id and item.callback.turn_id in (None, wait.turn_id) for item in listed or ()
-    )
+    """Whether ``listed`` has a callback of the session's own that is the waited turn's."""
+    return any(item.session_id == wait.session_id and item.callback.turn_id == wait.turn_id for item in listed or ())
 
 
 async def _still_open(
@@ -616,7 +627,6 @@ def _events(
         ends=ends,
         reconnect=reconnect,
         reread=reread,
-        bind=wait.bind,
         tools=wait.tools,
     )
 

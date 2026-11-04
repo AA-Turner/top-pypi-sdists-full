@@ -256,6 +256,8 @@ pub struct FeatureGateEvaluationOptionsPy {
 pub struct DynamicConfigEvaluationOptionsPy {
     #[pyo3(get)]
     pub disable_exposure_logging: bool,
+    #[pyo3(get)]
+    pub freeze_value: bool,
 }
 
 #[gen_stub_pyclass]
@@ -292,6 +294,8 @@ pub struct BulkEvaluationOptionsPy {
     pub layer_filter: Option<Vec<String>>,
     #[pyo3(get)]
     pub include_local_override: bool,
+    #[pyo3(get)]
+    pub freeze_dynamic_configs: bool,
 }
 
 #[gen_stub_pyclass]
@@ -398,22 +402,35 @@ macro_rules! impl_new_method_with_persisted_values {
 }
 
 impl_new_method!(FeatureGateEvaluationOptionsPy);
-impl_new_method!(DynamicConfigEvaluationOptionsPy);
 impl_new_method!(ParameterStoreEvaluationOptionsPy);
 impl_new_method_with_persisted_values!(ExperimentEvaluationOptionsPy);
 impl_new_method_with_persisted_values!(LayerEvaluationOptionsPy);
 
 #[gen_stub_pymethods]
 #[pymethods]
+impl DynamicConfigEvaluationOptionsPy {
+    #[new]
+    #[pyo3(signature = (disable_exposure_logging=false, freeze_value=false))]
+    pub fn new(disable_exposure_logging: bool, freeze_value: bool) -> Self {
+        Self {
+            disable_exposure_logging,
+            freeze_value,
+        }
+    }
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
 impl BulkEvaluationOptionsPy {
     #[new]
-    #[pyo3(signature = (feature_gate_filter=None, dynamic_config_filter=None, experiment_filter=None, layer_filter=None, include_local_override=true))]
+    #[pyo3(signature = (feature_gate_filter=None, dynamic_config_filter=None, experiment_filter=None, layer_filter=None, include_local_override=true, freeze_dynamic_configs=false))]
     pub fn new(
         feature_gate_filter: Option<Vec<String>>,
         dynamic_config_filter: Option<Vec<String>>,
         experiment_filter: Option<Vec<String>>,
         layer_filter: Option<Vec<String>>,
         include_local_override: bool,
+        freeze_dynamic_configs: bool,
     ) -> Self {
         Self {
             feature_gate_filter,
@@ -421,6 +438,10 @@ impl BulkEvaluationOptionsPy {
             experiment_filter,
             layer_filter,
             include_local_override,
+            freeze_dynamic_configs,
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

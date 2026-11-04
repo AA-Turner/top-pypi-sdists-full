@@ -19,6 +19,7 @@ from anyscale.api_utils.exceptions.job_errors import NoJobRunError
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models import LogFilter
 from anyscale.client.openapi_client.models.node_type import NodeType
+from anyscale.commands import logs_query_commands
 from anyscale.commands.doc_metadata import (
     command_metadata,
     CommandExample,
@@ -88,7 +89,7 @@ option_unpack_combined_logs = click.option(
 
 option_ttl = click.option(
     "--ttl",
-    type=int,
+    type=click.IntRange(min=1),
     default=DEFAULT_TTL,
     hidden=True,
     help="TTL in seconds to pass to the service that generates presigned URL's (default: 4h).",
@@ -642,3 +643,7 @@ def convert_size(size_bytes):
     p = math.pow(1024, i)
     s = round(size_bytes / p, 2)
     return f"{s} {size_name[i]}"
+
+
+# `anyscale logs query` is defined in logs_query_commands.py; only the registration lives here.
+log_cli.add_command(logs_query_commands.query)

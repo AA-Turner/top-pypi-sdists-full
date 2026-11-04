@@ -2428,6 +2428,7 @@ def test_dispatch_smoke_sends_to_capable_different_machine(
     assert payload["type"] == "smoke"
     assert payload["system_prompt"] == SMOKE_SYSTEM_PROMPT
     assert payload["review_target"] == "issue-1-fix"
+    assert payload["target_branch"] == "issue-1-fix"
     assert payload["repo_path"] == "/d/api"
     # Briefing should mention the test_command fallback (make test).
     assert "make test" in payload["briefing"]

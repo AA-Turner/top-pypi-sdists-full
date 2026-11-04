@@ -855,7 +855,8 @@ def deployments_create(
     ),
     base: str | None = typer.Option(
         None, "--base",
-        help="Base model: pi0.5 (default), flux-3-action-base, lingbot-vla or hy-vla. "
+        help="Base model: pi0.5 (default), flux-3-action-base, lingbot-vla, hy-vla or "
+        "xiaomi-robotics-1. "
         "A folder `dreamscale train download` made needs none: its base is read from it."
     ),
     preset: str | None = typer.Option(
@@ -1374,7 +1375,8 @@ def train_create(
     dataset: list[str] | None = _TRAIN_DATASETS,
     base: str | None = typer.Option(
         None, "--base", callback=_check_base,
-        help="Start from pi0.5 (π0.5 base), flux-3-action-base (FLUX 3 Action) or "
+        help="Start from pi0.5 (π0.5 base), flux-3-action-base (FLUX 3 Action), "
+        "xiaomi-robotics-1 (Xiaomi-Robotics-1) or "
         "pi0.5-rtc-yam (π0.5 RTC YAM, our checkpoint trained on bimanual YAM; any robot) where "
         "your organization has them, one of your runs (tr_…: its latest checkpoint, or "
         "--base-step), or one of your deployments: one made from a run, or a π0.5 or FLUX 3 "

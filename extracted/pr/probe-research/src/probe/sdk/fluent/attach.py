@@ -7,6 +7,7 @@ import warnings
 from typing import TYPE_CHECKING
 
 from .. import errors
+from ...foundation.process_rank import read_process_ranks
 from ..client.client import Client
 
 if TYPE_CHECKING:
@@ -147,23 +148,6 @@ def _attach_from_env(client: Client, kw: dict) -> "Run | None":
         run.update_config(config)
     return run
 
-#: (rank, world size) environment variables naming a GLOBAL rank, most specific
-#: first: under `srun` + `torchrun`, SLURM_PROCID numbers the node while RANK
-#: numbers the worker. LOCAL_RANK is absent on purpose -- it repeats per node.
-_GLOBAL_RANK_VARS = (
-    ("RANK", "WORLD_SIZE"),
-    ("SLURM_PROCID", "SLURM_NTASKS"),
-    ("OMPI_COMM_WORLD_RANK", "OMPI_COMM_WORLD_SIZE"),
-)
-
-
-def _int_env(name: str) -> int | None:
-    try:
-        return int((os.environ.get(name) or "").strip())
-    except ValueError:
-        return None
-
-
 def _nonzero_global_rank() -> int | None:
     """The global rank of this process when it is above 0, else None.
 
@@ -171,12 +155,10 @@ def _nonzero_global_rank() -> int | None:
     scheme that numbers it agrees. A rank whose own world size says the job is
     one process (``RANK=3 WORLD_SIZE=1``, a left-over export) does not count,
     and neither does a negative one (``RANK=-1``, "not distributed")."""
-    for rank_var, size_var in _GLOBAL_RANK_VARS:
-        rank = _int_env(rank_var)
-        if rank is None or rank <= 0:
+    for found in read_process_ranks(os.environ):
+        if found.rank <= 0:
             continue
-        size = _int_env(size_var)
-        if size is not None and size <= 1:
+        if found.size is not None and found.size <= 1:
             continue
-        return rank
+        return found.rank
     return None

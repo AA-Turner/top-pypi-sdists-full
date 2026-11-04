@@ -24,6 +24,12 @@ The work around each read (setup before the control, parsing each side's
 output after it) is charged to the clock as it happens, which is why each side
 takes its share when it starts rather than up front.
 
+- The `--discover-missing-streams` DISCOVERs (target, then the reference
+  version) run before the control, and each may take the read time left when it
+  starts. One that does not finish in it, or would start with none left, stops
+  the run as a setup error, so injection cannot run the READ step past its
+  timeout. Their time comes off both reads' shares.
+
 The workflow's 170-minute budget keeps 10 minutes back and leaves 160 for
 reading:
 
@@ -87,4 +93,8 @@ class ReadBudget:
 
     def target_share_s(self) -> int:
         """The target's deadline, taken when it starts; 0 means it does not run."""
+        return self.read_time_left_s()
+
+    def setup_share_s(self) -> int:
+        """The setup deadline, taken when it starts; setup may use all time left."""
         return self.read_time_left_s()

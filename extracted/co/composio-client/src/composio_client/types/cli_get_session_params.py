@@ -1,15 +1,16 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.cli_get_session_params."""
 
 from __future__ import annotations
 
 from typing_extensions import Required, TypedDict
 
-__all__ = ["CliGetSessionParams"]
-
 
 class CliGetSessionParams(TypedDict, total=False):
     id: Required[str]
-    """CLI session ID (UUID format) or 6-character code to check.
+    "CLI session ID (UUID format) or 6-character code to check.\n\nBoth formats are supported for flexibility in client implementations."
 
-    Both formats are supported for flexibility in client implementations.
-    """
+
+__all__ = [
+    "CliGetSessionParams",
+]

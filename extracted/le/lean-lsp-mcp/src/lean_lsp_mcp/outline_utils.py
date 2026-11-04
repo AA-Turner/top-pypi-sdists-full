@@ -4,13 +4,18 @@ from hashlib import sha256
 from pathlib import Path
 from threading import Lock
 
-from leanclient.aio import AsyncLeanLSPClient, ScratchPool
+from leanclient.aio import AsyncLeanLSPClient
 from leanclient.utils import SYMBOL_KIND_MAP
 
 from lean_lsp_mcp.models import FileOutline, OutlineEntry
 
 METHOD_KIND = {6, "method"}
-KIND_TAGS = {"namespace": "Ns"}
+KIND_TAGS = {
+    "namespace": "Ns",
+    "struct": "Struct",
+    "structure": "Struct",
+    "class": "Class",
+}
 _OUTLINE_CACHE_MAX_SIZE = 32
 _OUTLINE_CACHE_LOCK = Lock()
 _OUTLINE_CACHE: "OrderedDict[tuple[str, str, str, int, int], FileOutline]" = (
@@ -65,61 +70,6 @@ def _with_max_declarations(
     return result
 
 
-async def _get_info_trees(
-    pool: ScratchPool, content: str, symbols: list[dict]
-) -> dict[str, str]:
-    """Run a scratch copy with #info_trees insertions; the real doc is untouched."""
-    if not symbols:
-        return {}
-
-    lines = content.splitlines()
-    symbol_by_line = {}
-    for i, sym in enumerate(sorted(symbols, key=lambda s: s["range"]["start"]["line"])):
-        src_line = sym["range"]["start"]["line"]
-        insert_at = src_line + i  # account for previously inserted lines
-        lines.insert(insert_at, "#info_trees in")
-        symbol_by_line[insert_at] = sym["name"]
-
-    trial = await pool.run_text("\n".join(lines) + "\n")
-
-    info_trees = {}
-    for diag in trial.diagnostics.items:
-        r = diag.get("fullRange") or diag.get("range") or {}
-        diag_line = r.get("start", {}).get("line")
-        if diag.get("severity") == 3 and diag_line in symbol_by_line:
-            info_trees[symbol_by_line[diag_line]] = diag.get("message", "")
-
-    return info_trees
-
-
-def _extract_type(info: str, name: str) -> str | None:
-    """Extract type signature from info tree message."""
-    if m := re.search(
-        rf"  • \[Term\] {re.escape(name)} \(isBinder := true\) : ([^@]+) @", info
-    ):
-        return m.group(1).strip()
-    return None
-
-
-def _extract_fields(info: str, name: str) -> list[tuple[str, str]]:
-    """Extract structure/class fields from info tree message."""
-    fields = []
-    for pattern in [rf"{re.escape(name)}\.(\w+)", rf"@{re.escape(name)}\.(\w+)"]:
-        for m in re.finditer(
-            rf"  • \[Term\] {pattern} \(isBinder := true\) : (.+?) @", info
-        ):
-            field_name, full_type = m.groups()
-            # Clean up the type signature
-            if "]" in full_type:
-                field_type = full_type[full_type.rfind("]") + 1 :].lstrip("→ ").strip()
-            elif " → " in full_type:
-                field_type = full_type.split(" → ")[-1].strip()
-            else:
-                field_type = full_type.strip()
-            fields.append((field_name, field_type))
-    return fields
-
-
 def _strip_line_comment(text: str) -> str:
     """Drop a trailing `--` comment, ignoring one inside a string literal.
 
@@ -165,6 +115,11 @@ _WHERE_RE = re.compile(r"(?<![A-Za-z0-9_\'.])where(?![A-Za-z0-9_\'])")
 # `#check` and friends count only at column 0: an indented `#` is cardinality
 # notation (`#s ≤ n`) continuing the signature.
 _HASH_COMMAND_RE = re.compile(r"^#[A-Za-z_]")
+_DECLARATION_START_RE = re.compile(
+    r"^(?:(?:@\[[^\]]*\]\s*)|"
+    r"(?:(?:private|protected|noncomputable|partial|unsafe|nonrec)\s+))*"
+    r"(?P<keyword>theorem|lemma|def|structure|class)\s+(?P<name>[^\s:]+)"
+)
 _NEXT_COMMAND_RE = re.compile(
     r"^(?:@\[|/--|"
     r"(?:(?:private|protected|noncomputable|partial|unsafe|nonrec)\s+)*"
@@ -233,41 +188,42 @@ def _signature_text(lines: list[str], start: int, end: int) -> str | None:
 
 
 def _extract_declarations(content: str, start: int, end: int) -> list[dict]:
-    """Extract theorem/lemma/def declarations from file content."""
+    """Extract outline declarations from file content."""
     lines = content.splitlines()
     decls, i = [], start
     stop = min(end, len(lines))
 
     while i < stop:
         line = lines[i].strip()
-        for keyword in ["theorem", "lemma", "def"]:
-            if line.startswith(f"{keyword} "):
-                name = line[len(keyword) :].strip().split()[0]
-                if name and not name.startswith("_"):
-                    # Each line sheds its trailing comment first: a comment
-                    # belongs to its physical line, and joining before stripping
-                    # would let it swallow the rest of the signature.
-                    header = _signature_text(lines, i, stop)
-                    type_sig = None
-                    if header is not None:
-                        # Everything before the body, minus keyword and name.
-                        sig_part = header.strip()[len(keyword) :].strip()
-                        if sig_part.startswith(name):
-                            type_sig = sig_part[len(name) :].strip()
+        declaration = _DECLARATION_START_RE.match(line)
+        if declaration:
+            keyword = declaration.group("keyword")
+            name = declaration.group("name")
+            if name and not name.startswith("_"):
+                # Each line sheds its trailing comment first: a comment
+                # belongs to its physical line, and joining before stripping
+                # would let it swallow the rest of the signature.
+                header = _signature_text(lines, i, stop)
+                type_sig = None
+                if header is not None:
+                    # Everything before the body, minus attributes, keyword,
+                    # and name.
+                    header_declaration = _DECLARATION_START_RE.match(header.strip())
+                    if header_declaration:
+                        type_sig = header.strip()[header_declaration.end() :].strip()
 
-                    decls.append(
-                        {
-                            "name": name,
-                            "kind": "method",
-                            "range": {
-                                "start": {"line": i, "character": 0},
-                                "end": {"line": i, "character": len(lines[i])},
-                            },
-                            "_keyword": keyword,
-                            "_type": type_sig,
-                        }
-                    )
-                break
+                decls.append(
+                    {
+                        "name": name,
+                        "kind": "method",
+                        "range": {
+                            "start": {"line": i, "character": 0},
+                            "end": {"line": i, "character": len(lines[i])},
+                        },
+                        "_keyword": keyword,
+                        "_type": type_sig,
+                    }
+                )
         i += 1
     return decls
 
@@ -278,6 +234,8 @@ def _flatten_symbols(
     """Recursively flatten symbol hierarchy, extracting declarations from namespaces."""
     result = []
     for sym in symbols:
+        if isinstance(sym.get("kind"), int):
+            sym["kind"] = SYMBOL_KIND_MAP.get(sym["kind"], "unknown")
         result.append((sym, indent))
         children = sym.get("children", [])
 
@@ -293,10 +251,42 @@ def _flatten_symbols(
     return result
 
 
+def _fields_from_symbols(symbols: list[dict]) -> dict[str, list[tuple[str, str]]]:
+    """Read structure/class fields and details already present in LSP symbols."""
+    fields_map: dict[str, list[tuple[str, str]]] = {}
+
+    def visit(symbol: dict) -> None:
+        fields = []
+        for child in symbol.get("children", []):
+            if child.get("kind") not in {7, 8, "property", "field"}:
+                continue
+            name = child.get("name", "").rsplit(".", 1)[-1]
+            detail = child.get("detail", "")
+            if detail.startswith(f"{name} : "):
+                detail = detail[len(name) + 3 :]
+            fields.append((name, detail))
+        if fields:
+            fields_map[symbol.get("name", "")] = fields
+        for child in symbol.get("children", []):
+            visit(child)
+
+    for symbol in symbols:
+        visit(symbol)
+    return fields_map
+
+
 def _detect_tag(
     name: str, kind: str, type_sig: str, has_fields: bool, keyword: str | None
 ) -> str:
     """Determine the appropriate tag for a symbol."""
+    if kind in {"struct", "structure"}:
+        return "Struct"
+    if kind == "class":
+        return "Class"
+    if keyword == "structure":
+        return "Struct"
+    if keyword == "class":
+        return "Class"
     if has_fields:
         return "Class" if "→" in type_sig else "Struct"
     if name == "example":
@@ -314,8 +304,8 @@ def _build_outline_entry(
     sym: dict, type_sigs: dict, fields_map: dict, indent: int
 ) -> OutlineEntry | None:
     """Build a structured outline entry for a symbol."""
-    name = sym["name"]
-    type_sig = sym.get("_type") or type_sigs.get(name, "")
+    name = sym["name"].strip()
+    type_sig = sym.get("_type") or type_sigs.get(name, "") or sym.get("detail", "")
     fields = fields_map.get(name, [])
 
     tag = _detect_tag(
@@ -347,9 +337,54 @@ def _build_outline_entry(
     )
 
 
+def _symbol_completeness(symbol: dict) -> tuple[int, int, int, int]:
+    """Rank duplicate symbol records by the information they preserve."""
+    start = symbol.get("range", {}).get("start", {}).get("line", -1)
+    end = symbol.get("range", {}).get("end", {}).get("line", start)
+    signature = symbol.get("_type") or symbol.get("detail") or ""
+    return (
+        max(0, end - start),
+        bool(signature),
+        len(signature),
+        len(symbol.get("children", [])),
+    )
+
+
+def _deduplicate_symbols(symbols: list[tuple[dict, int]]) -> list[tuple[dict, int]]:
+    """Merge duplicate symbols by name and source position, preserving detail."""
+    result: list[tuple[dict, int]] = []
+    positions: dict[tuple[str, int], int] = {}
+    for symbol, indent in symbols:
+        name = symbol.get("name", "").strip()
+        start = symbol.get("range", {}).get("start", {}).get("line", -1)
+        key = (name.rsplit(".", 1)[-1], start)
+        existing_index = positions.get(key)
+        if existing_index is None:
+            positions[key] = len(result)
+            result.append((symbol, indent))
+            continue
+
+        existing, existing_indent = result[existing_index]
+        if _symbol_completeness(symbol) > _symbol_completeness(existing):
+            preferred, fallback = symbol, existing
+            preferred_indent = indent
+        else:
+            preferred, fallback = existing, symbol
+            preferred_indent = existing_indent
+
+        merged = dict(preferred)
+        for field in ("_keyword", "_type", "detail"):
+            if not merged.get(field) and fallback.get(field):
+                merged[field] = fallback[field]
+        if not merged.get("children") and fallback.get("children"):
+            merged["children"] = fallback["children"]
+        result[existing_index] = (merged, preferred_indent)
+
+    return result
+
+
 async def generate_outline_data(
     client: AsyncLeanLSPClient,
-    pool: ScratchPool,
     path: str,
     max_declarations: int | None = None,
 ) -> FileOutline:
@@ -369,38 +404,45 @@ async def generate_outline_data(
         elif s.startswith("import "):
             imports.append(s[7:])
 
-    symbols = await client.document_symbols(path)
+    # Document-symbol requests are barrier-gated by default. Lean can answer
+    # from the current document snapshot, so don't wait for full elaboration.
+    symbols = await client.document_symbols(path, fresh=False)
     # Match legacy leanclient behavior: top-level kinds as strings.
     for symbol in symbols:
         if isinstance(symbol.get("kind"), int):
             symbol["kind"] = SYMBOL_KIND_MAP.get(symbol["kind"], "unknown")
-    if not symbols and not imports:
-        outline = FileOutline(imports=[], declarations=[])
-        _store_cached_outline(cache_key, outline)
-        return _with_max_declarations(outline, max_declarations)
-
-    # Flatten symbol tree and extract namespace declarations
+    # Flatten symbol tree and extract declarations from namespaces.
     all_symbols = _flatten_symbols(symbols, content=content)
 
-    # Get info trees only for LSP symbols (not extracted declarations)
-    lsp_methods = [
-        s
-        for s, _ in all_symbols
-        if s.get("kind") in METHOD_KIND and "_keyword" not in s
-    ]
-    info_trees = await _get_info_trees(pool, content, lsp_methods)
+    # Document symbols can omit declarations or their details while Lean is
+    # elaborating. Merge source-scan records by source range so reported LSP
+    # symbols are enriched instead of duplicated.
+    for text_decl in _extract_declarations(content, 0, len(content.splitlines())):
+        decl_line = text_decl["range"]["start"]["line"]
+        decl_name = text_decl["name"].rsplit(".", 1)[-1]
+        match = next(
+            (
+                sym
+                for sym, _ in all_symbols
+                if sym.get("kind") != "namespace"
+                and sym.get("name", "").rsplit(".", 1)[-1] == decl_name
+                and sym.get("range", {}).get("start", {}).get("line", -1)
+                <= decl_line
+                <= sym.get("range", {}).get("end", {}).get("line", -1)
+            ),
+            None,
+        )
+        if match is None:
+            all_symbols.append((text_decl, 0))
+        else:
+            match["_keyword"] = text_decl["_keyword"]
+            if text_decl["_type"]:
+                match["_type"] = text_decl["_type"]
 
-    # Extract type signatures and fields from info trees
-    type_sigs = {
-        name: sig
-        for name, info in info_trees.items()
-        if (sig := _extract_type(info, name))
-    }
-    fields_map = {
-        name: fields
-        for name, info in info_trees.items()
-        if (fields := _extract_fields(info, name))
-    }
+    all_symbols = _deduplicate_symbols(all_symbols)
+
+    type_sigs: dict[str, str] = {}
+    fields_map = _fields_from_symbols(symbols)
 
     # Build declarations list
     declarations = []
@@ -409,11 +451,28 @@ async def generate_outline_data(
             sym.get("kind") in METHOD_KIND
             or sym.get("_keyword")
             or sym.get("kind") == "namespace"
+            or sym.get("kind") in {"struct", "structure", "class"}
         ):
             entry = _build_outline_entry(sym, type_sigs, fields_map, indent)
             if entry:
                 declarations.append(entry)
 
+    declarations.sort(key=lambda entry: entry.start_line)
+
     outline = FileOutline(imports=imports, declarations=declarations)
-    _store_cached_outline(cache_key, outline)
+    # Do not freeze a syntax-only snapshot in the cache while Lean is still
+    # producing symbol details. A later call can then pick up signatures that
+    # have become available, without making the first call wait for them.
+    has_unreported_scoped_symbols = not symbols and bool(
+        re.search(
+            r"^\s*(?:namespace|class|structure|inductive|instance)\b", content, re.M
+        )
+    )
+    has_unresolved_details = any(
+        (sym.get("kind") in METHOD_KIND or sym.get("_keyword"))
+        and not (sym.get("_type") or sym.get("detail"))
+        for sym, _ in all_symbols
+    )
+    if not has_unreported_scoped_symbols and not has_unresolved_details:
+        _store_cached_outline(cache_key, outline)
     return _with_max_declarations(outline, max_declarations)

@@ -51,7 +51,11 @@ impl StatsigGlobal {
         }
 
         log_d!(TAG, "Resetting StatsigGlobal");
-        ptr.store(Arc::new(StatsigGlobal::new()));
+        let previous = ptr.swap(Arc::new(StatsigGlobal::new()));
+        #[cfg(not(feature = "custom_network_provider"))]
+        crate::networking::providers::reset_event_upload_transport(&previous);
+        // Release cached clients before dropping their runtime, including before a planned fork.
+        drop(previous);
     }
 
     fn new() -> Self {

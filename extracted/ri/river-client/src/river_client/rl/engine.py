@@ -46,7 +46,7 @@ from .env import (
 from .progress import Activities
 from .requirements import _validate_top_logprobs
 from .rendering import continuation_chunks, prompt_chunks, sample_stop
-from .trajectory import Trajectory, decode_state, encode_state
+from .trajectory import Span, Trajectory, decode_state, encode_state
 
 
 async def call(function, *args, **kwargs):
@@ -174,6 +174,68 @@ class _Member:
     # Loaded from a checkpoint but not yet restored into a live environment.
     restore_pending: bool = False
     started: float | None = None
+    # Per-turn state of a live rollout, dropped when its run of turns ends.
+    prompt: _Prompt | None = None
+    history: _History | None = None
+
+
+@dataclass
+class _Prompt:
+    """The current run's model input, kept between a rollout's turns.
+
+    A turn adds a span or two to a context that is tens of thousands of tokens
+    long, so the chunks already materialized from the trajectory's arrays are
+    reused and only the new spans are read. The spans covered are remembered by
+    identity: a run change or replaced spans start over.
+    """
+
+    run: int
+    spans: list[Span] = field(default_factory=list)
+    chunks: list[dict] = field(default_factory=list)
+
+    def current(self, traj):
+        spans = [s for s in traj.spans if s.run == traj.run]
+        if (
+            self.run != traj.run
+            or len(spans) < len(self.spans)
+            or any(a is not b for a, b in zip(self.spans, spans))
+        ):
+            self.run, self.spans, self.chunks = traj.run, [], []
+        for span in spans[len(self.spans) :]:
+            self.chunks.extend(span.chunks)
+            self.spans.append(span)
+        return list(self.chunks)
+
+
+@dataclass
+class _History:
+    """Deep copies of a rollout's messages, kept between its turns.
+
+    ``Env.on_turn`` must leave the history it is given alone, however deeply
+    it reaches; the engine compares the messages after the call with these
+    copies. Only messages appended since the last turn are copied, so a turn
+    costs its new messages rather than the whole conversation, and the
+    comparison runs in C, meeting the same string objects on both sides. The
+    messages copied are remembered by identity: a run change or a replaced
+    message starts over.
+    """
+
+    run: int
+    sources: list = field(default_factory=list)
+    copies: list = field(default_factory=list)
+
+    def current(self, traj):
+        messages = traj.messages
+        if (
+            self.run != traj.run
+            or len(messages) < len(self.sources)
+            or any(a is not b for a, b in zip(self.sources, messages))
+        ):
+            self.run, self.sources, self.copies = traj.run, [], []
+        added = messages[len(self.sources) :]
+        self.sources.extend(added)
+        self.copies.extend(copy.deepcopy(added))
+        return self.copies
 
 
 @dataclass
@@ -1189,7 +1251,9 @@ class RolloutEngine:
                         await self._finish(member, group.row, cause)
                         break
                     if traj.phase == "sample":
-                        prompt = traj.model_input()
+                        if member.prompt is None:
+                            member.prompt = _Prompt(traj.run)
+                        prompt = member.prompt.current(traj)
                         if self._image_placeholder_id is not None and any(
                             chunk["type"] == "text"
                             and self._image_placeholder_id in chunk["tokens"]
@@ -1341,7 +1405,10 @@ class RolloutEngine:
                             traj.phase = "environment"
                     if traj.phase == "environment":
                         async with member.lock:
-                            history, old_run = copy.deepcopy(traj.messages), traj.run
+                            if member.history is None:
+                                member.history = _History(traj.run)
+                            history = member.history.current(traj)
+                            old_run = traj.run
                             if member.cause:
                                 await self._finish(member, group.row, member.cause)
                                 break
@@ -1462,6 +1529,9 @@ class RolloutEngine:
                 key = hashlib.sha256(repr(group.row).encode()).hexdigest()
                 self.length_history[key] = traj.generated_tokens
             finally:
+                # Finished and dropped rollouts wait for their group with the
+                # trajectory alone.
+                member.prompt = member.history = None
                 if member.traj is not None:
                     member.traj.elapsed += time.monotonic() - started
                 member.started = None

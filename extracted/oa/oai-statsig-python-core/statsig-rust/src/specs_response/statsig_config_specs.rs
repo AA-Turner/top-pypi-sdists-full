@@ -383,6 +383,8 @@ pub enum Operator {
     ArrayContainsAll = 29,
     NotArrayContainsAll = 30,
     EncodedAny = 31,
+    /// Evaluates current time against "<five-field UTC cron>\|<duration-seconds>".
+    InCronWindow = 32,
 }
 impl Operator {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -423,6 +425,7 @@ impl Operator {
             Self::ArrayContainsAll => "OPERATOR_ARRAY_CONTAINS_ALL",
             Self::NotArrayContainsAll => "OPERATOR_NOT_ARRAY_CONTAINS_ALL",
             Self::EncodedAny => "OPERATOR_ENCODED_ANY",
+            Self::InCronWindow => "OPERATOR_IN_CRON_WINDOW",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -460,6 +463,7 @@ impl Operator {
             "OPERATOR_ARRAY_CONTAINS_ALL" => Some(Self::ArrayContainsAll),
             "OPERATOR_NOT_ARRAY_CONTAINS_ALL" => Some(Self::NotArrayContainsAll),
             "OPERATOR_ENCODED_ANY" => Some(Self::EncodedAny),
+            "OPERATOR_IN_CRON_WINDOW" => Some(Self::InCronWindow),
             _ => None,
         }
     }

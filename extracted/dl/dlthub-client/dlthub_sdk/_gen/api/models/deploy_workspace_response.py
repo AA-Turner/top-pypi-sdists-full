@@ -19,8 +19,8 @@ T = TypeVar("T", bound="DeployWorkspaceResponse")
 class DeployWorkspaceResponse:
     """
     Attributes:
-        job_receipt (JobsDeployReceipt): What the deploy did to jobs.
-        warnings (list[str]): Validation warnings.
+        job_receipt (JobsDeployReceipt):
+        warnings (list[str]): Always empty at present.
         deployment_module (None | str | Unset): The deployment module the deploy was scoped to.
     """
 

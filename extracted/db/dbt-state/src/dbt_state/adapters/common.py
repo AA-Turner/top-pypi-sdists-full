@@ -34,6 +34,9 @@ class ViewTraversalResult:
     """A set of all fully qualified and quoted table names that were seen during the traversal."""
     unresolvable_tables: set[str]
     """A subset of seen_tables whose view definition could not be fetched"""
+    unsupported_references: set[str] = field(default_factory=set)
+    """Raw text of table references that were skipped because their name is not an identifier,
+    e.g. Snowflake stage paths like '@db.schema.stage/my_file.csv'. Their freshness can't be checked."""
 
     @property
     def view_definition_sql(self) -> t.Dict[str, str]:

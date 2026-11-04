@@ -20,6 +20,6 @@ local function getRelayLastScore(key)
   local last = rcall("ZRANGE", key, -1, -1, "WITHSCORES")
   return last[2] and tonumber(last[2]) or 0
 end
-local namespaces = rcall("ZRANGEBYSCORE", KEYS[1], "(" .. getRelayTime(), "+inf")
+local namespaces = rcall("ZRANGEBYSCORE", KEYS[1], getRelayTime() + 1, "+inf")
 table.sort(namespaces)
 return namespaces

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyHanko
-Version: 0.38.0
+Version: 0.38.1
 Summary: Tools for stamping and signing PDF files
 Author-email: Matthias Valvekens <dev@mvalvekens.be>
 Maintainer-email: Matthias Valvekens <dev@mvalvekens.be>
@@ -15,14 +15,14 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: src/pyhanko/pdf_utils/LICENSE.PyPDF2
@@ -34,7 +34,7 @@ Requires-Dist: cryptography>=48.0.0
 Requires-Dist: lxml>=5.4.0
 Provides-Extra: opentype
 Requires-Dist: fonttools>=4.33.3; extra == "opentype"
-Requires-Dist: uharfbuzz<0.56.0,>=0.25.0; extra == "opentype"
+Requires-Dist: uharfbuzz<0.58.0,>=0.25.0; extra == "opentype"
 Provides-Extra: qr
 Requires-Dist: qrcode>=7.3.1; extra == "qr"
 Provides-Extra: image-support
@@ -83,4 +83,4 @@ pip install pyHanko[pkcs11,image-support,opentype,qr]
 This `pip` invocation includes the optional dependencies required for PKCS#11, image handling,
 OpenType/TrueType support and QR code generation.
 
-PyHanko requires Python 3.10 or later.
+PyHanko requires Python 3.11 or later.

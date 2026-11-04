@@ -101,15 +101,16 @@ def sync_detailed(
 ) -> Response[ErrorResponse | WorkspaceVariablesResponse]:
     """ListWorkspaceVariables
 
-     Every scope in one response, or a single scope with `scope_profile` or `is_workspace_scope=true`.
-    Secret values always come back `null`, and a scope holding nothing reads as an empty list rather
-    than a 404. Requires the `ws:variables-read` grant, which a workspace owner and a run's agent can
-    obtain.
+     Lists workspace variables: the workspace-wide scope first, then each profile scope that holds
+    variables, sorted by profile name. Pass `scope_profile` or `is_workspace_scope=true` to read one
+    scope; an empty scope returns an empty list. Secret values are always `null`. Only workspace owners,
+    and job runs in the workspace, can call this.
 
     Args:
         workspace_id (UUID):
-        scope_profile (None | str | Unset):
-        is_workspace_scope (bool | None | Unset):
+        scope_profile (None | str | Unset): Read only this profile's scope.
+        is_workspace_scope (bool | None | Unset): `true` reads only the workspace-wide scope.
+            Cannot be combined with `scope_profile`; `false` is rejected.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -140,15 +141,16 @@ def sync(
 ) -> ErrorResponse | WorkspaceVariablesResponse | None:
     """ListWorkspaceVariables
 
-     Every scope in one response, or a single scope with `scope_profile` or `is_workspace_scope=true`.
-    Secret values always come back `null`, and a scope holding nothing reads as an empty list rather
-    than a 404. Requires the `ws:variables-read` grant, which a workspace owner and a run's agent can
-    obtain.
+     Lists workspace variables: the workspace-wide scope first, then each profile scope that holds
+    variables, sorted by profile name. Pass `scope_profile` or `is_workspace_scope=true` to read one
+    scope; an empty scope returns an empty list. Secret values are always `null`. Only workspace owners,
+    and job runs in the workspace, can call this.
 
     Args:
         workspace_id (UUID):
-        scope_profile (None | str | Unset):
-        is_workspace_scope (bool | None | Unset):
+        scope_profile (None | str | Unset): Read only this profile's scope.
+        is_workspace_scope (bool | None | Unset): `true` reads only the workspace-wide scope.
+            Cannot be combined with `scope_profile`; `false` is rejected.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -174,15 +176,16 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | WorkspaceVariablesResponse]:
     """ListWorkspaceVariables
 
-     Every scope in one response, or a single scope with `scope_profile` or `is_workspace_scope=true`.
-    Secret values always come back `null`, and a scope holding nothing reads as an empty list rather
-    than a 404. Requires the `ws:variables-read` grant, which a workspace owner and a run's agent can
-    obtain.
+     Lists workspace variables: the workspace-wide scope first, then each profile scope that holds
+    variables, sorted by profile name. Pass `scope_profile` or `is_workspace_scope=true` to read one
+    scope; an empty scope returns an empty list. Secret values are always `null`. Only workspace owners,
+    and job runs in the workspace, can call this.
 
     Args:
         workspace_id (UUID):
-        scope_profile (None | str | Unset):
-        is_workspace_scope (bool | None | Unset):
+        scope_profile (None | str | Unset): Read only this profile's scope.
+        is_workspace_scope (bool | None | Unset): `true` reads only the workspace-wide scope.
+            Cannot be combined with `scope_profile`; `false` is rejected.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -211,15 +214,16 @@ async def asyncio(
 ) -> ErrorResponse | WorkspaceVariablesResponse | None:
     """ListWorkspaceVariables
 
-     Every scope in one response, or a single scope with `scope_profile` or `is_workspace_scope=true`.
-    Secret values always come back `null`, and a scope holding nothing reads as an empty list rather
-    than a 404. Requires the `ws:variables-read` grant, which a workspace owner and a run's agent can
-    obtain.
+     Lists workspace variables: the workspace-wide scope first, then each profile scope that holds
+    variables, sorted by profile name. Pass `scope_profile` or `is_workspace_scope=true` to read one
+    scope; an empty scope returns an empty list. Secret values are always `null`. Only workspace owners,
+    and job runs in the workspace, can call this.
 
     Args:
         workspace_id (UUID):
-        scope_profile (None | str | Unset):
-        is_workspace_scope (bool | None | Unset):
+        scope_profile (None | str | Unset): Read only this profile's scope.
+        is_workspace_scope (bool | None | Unset): `true` reads only the workspace-wide scope.
+            Cannot be combined with `scope_profile`; `false` is rejected.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -1,6 +1,6 @@
 import copy
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from httpx import Timeout
 from postgrest import (
@@ -31,6 +31,13 @@ class SupabaseException(Exception):
         super().__init__(self.message)
 
 
+def _validate_str_arg(name: str, value: object) -> None:
+    if value is not None and not isinstance(value, str):
+        raise SupabaseException(f"{name} must be a string, got {type(value).__name__}")
+    if not value:
+        raise SupabaseException(f"{name} is required")
+
+
 class Client:
     """Supabase client class."""
 
@@ -38,7 +45,7 @@ class Client:
         self,
         supabase_url: str,
         supabase_key: str,
-        options: Optional[ClientOptions] = None,
+        options: ClientOptions | None = None,
     ) -> None:
         """Instantiate the client.
 
@@ -53,10 +60,8 @@ class Client:
             `DEFAULT_OPTIONS` dict.
         """
 
-        if not supabase_url:
-            raise SupabaseException("supabase_url is required")
-        if not supabase_key:
-            raise SupabaseException("supabase_key is required")
+        _validate_str_arg("supabase_url", supabase_url)
+        _validate_str_arg("supabase_key", supabase_key)
 
         # Check if the url and key are valid
         if not re.match(r"^(https?)://.+", supabase_url):
@@ -93,9 +98,9 @@ class Client:
             supabase_key=self.supabase_key,
             options=self.options.realtime if self.options else None,
         )
-        self._postgrest: Optional[SyncPostgrestClient] = None
-        self._storage: Optional[SyncStorageClient] = None
-        self._functions: Optional[SyncFunctionsClient] = None
+        self._postgrest: SyncPostgrestClient | None = None
+        self._storage: SyncStorageClient | None = None
+        self._functions: SyncFunctionsClient | None = None
         self.auth.on_auth_state_change(self._listen_to_auth_events)
 
     @classmethod
@@ -103,7 +108,7 @@ class Client:
         cls,
         supabase_url: str,
         supabase_key: str,
-        options: Optional[ClientOptions] = None,
+        options: ClientOptions | None = None,
     ) -> "Client":
         auth_header = options.headers.get("Authorization") if options else None
         client = cls(supabase_url, supabase_key, options)
@@ -151,8 +156,8 @@ class Client:
     def rpc(
         self,
         fn: str,
-        params: Optional[Dict[Any, Any]] = None,
-        count: Optional[CountMethod] = None,
+        params: dict[Any, Any] | None = None,
+        count: CountMethod | None = None,
         head: bool = False,
         get: bool = False,
     ) -> SyncRPCFilterRequestBuilder:
@@ -186,6 +191,7 @@ class Client:
                 headers=self.options.headers,
                 schema=self.options.schema,
                 timeout=self.options.postgrest_client_timeout,
+                retry_enabled=self.options.postgrest_client_retry,
                 http_client=self.options.httpx_client,
             )
 
@@ -218,12 +224,12 @@ class Client:
         return self._functions
 
     def channel(
-        self, topic: str, params: Optional[RealtimeChannelOptions] = None
+        self, topic: str, params: RealtimeChannelOptions | None = None
     ) -> SyncRealtimeChannel:
         """Creates a Realtime channel with Broadcast, Presence, and Postgres Changes."""
         return self.realtime.channel(topic, params or {})
 
-    def get_channels(self) -> List[SyncRealtimeChannel]:
+    def get_channels(self) -> list[SyncRealtimeChannel]:
         """Returns all realtime channels."""
         return self.realtime.get_channels()
 
@@ -239,7 +245,7 @@ class Client:
     def _init_realtime_client(
         realtime_url: URL,
         supabase_key: str,
-        options: Optional[RealtimeClientOptions] = None,
+        options: RealtimeClientOptions | None = None,
     ) -> SyncRealtimeClient:
         realtime_options = options or {}
         """Private method for creating an instance of the realtime-py client."""
@@ -250,11 +256,11 @@ class Client:
     @staticmethod
     def _init_storage_client(
         storage_url: str,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         storage_client_timeout: int = DEFAULT_STORAGE_CLIENT_TIMEOUT,
         verify: bool = True,
-        proxy: Optional[str] = None,
-        http_client: Union[SyncHttpxClient, None] = None,
+        proxy: str | None = None,
+        http_client: SyncHttpxClient | None = None,
     ) -> SyncStorageClient:
         if http_client is not None:
             # If an http client is provided, use it
@@ -275,7 +281,7 @@ class Client:
         auth_url: str,
         client_options: ClientOptions,
         verify: bool = True,
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
     ) -> SyncSupabaseAuthClient:
         """Creates a wrapped instance of the GoTrue Client."""
         return SyncSupabaseAuthClient(
@@ -293,18 +299,23 @@ class Client:
     @staticmethod
     def _init_postgrest_client(
         rest_url: str,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         schema: str,
-        timeout: Union[int, float, Timeout] = DEFAULT_POSTGREST_CLIENT_TIMEOUT,
+        timeout: int | float | Timeout = DEFAULT_POSTGREST_CLIENT_TIMEOUT,
         verify: bool = True,
-        proxy: Optional[str] = None,
-        http_client: Union[SyncHttpxClient, None] = None,
+        proxy: str | None = None,
+        http_client: SyncHttpxClient | None = None,
+        retry_enabled: bool = True,
     ) -> SyncPostgrestClient:
         """Private helper for creating an instance of the Postgrest client."""
         if http_client is not None:
             # If an http client is provided, use it
             return SyncPostgrestClient(
-                rest_url, headers=headers, schema=schema, http_client=http_client
+                rest_url,
+                headers=headers,
+                schema=schema,
+                http_client=http_client,
+                retry_enabled=retry_enabled,
             )
         return SyncPostgrestClient(
             rest_url,
@@ -314,12 +325,13 @@ class Client:
             verify=verify,
             proxy=proxy,
             http_client=None,
+            retry_enabled=retry_enabled,
         )
 
     def _create_auth_header(self, token: str) -> str:
         return f"Bearer {token}"
 
-    def _get_auth_headers(self, authorization: Optional[str] = None) -> Dict[str, str]:
+    def _get_auth_headers(self, authorization: str | None = None) -> dict[str, str]:
         if authorization is None:
             authorization = self.options.headers.get(
                 "Authorization", self._create_auth_header(self.supabase_key)
@@ -332,15 +344,14 @@ class Client:
         }
 
     def _listen_to_auth_events(
-        self, event: AuthChangeEvent, session: Optional[Session]
+        self, event: AuthChangeEvent, session: Session | None
     ) -> None:
-        access_token = self.supabase_key
-        if event in ["SIGNED_IN", "TOKEN_REFRESHED", "SIGNED_OUT"]:
-            # reset postgrest and storage instance on event change
-            self._postgrest = None
-            self._storage = None
-            self._functions = None
-            access_token = session.access_token if session else self.supabase_key
+        # Every event except SIGNED_OUT carries the current session, including
+        # USER_UPDATED and MFA_CHALLENGE_VERIFIED, whose token can carry new claims (aal2).
+        self._postgrest = None
+        self._storage = None
+        self._functions = None
+        access_token = session.access_token if session else self.supabase_key
         auth_header = self._create_auth_header(access_token)
         self.options.headers["Authorization"] = auth_header
         self.auth._headers["Authorization"] = auth_header
@@ -349,7 +360,7 @@ class Client:
 def create_client(
     supabase_url: str,
     supabase_key: str,
-    options: Optional[ClientOptions] = None,
+    options: ClientOptions | None = None,
 ) -> Client:
     """Create client function to instantiate supabase client like JS runtime.
 

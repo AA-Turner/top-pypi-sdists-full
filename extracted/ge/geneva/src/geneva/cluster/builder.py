@@ -325,6 +325,7 @@ class KubeRayClusterBuilder:
         self._aws_region: str | None = None
         self._aws_role_name: str | None = None
         self._ray_init_kwargs: dict = {}
+        self._require_cloud_identity: bool = True
         self._worker_groups: list[WorkerGroupConfig] = []
 
         # Head group defaults
@@ -364,6 +365,22 @@ class KubeRayClusterBuilder:
         """Configure AWS settings."""
         self._aws_region = region
         self._aws_role_name = role_name
+        return self
+
+    def require_cloud_identity(self, value: bool = True) -> KubeRayClusterBuilder:
+        """Require the Ray pods' service account to carry a cloud identity
+        annotation (``iam.gke.io/gcp-service-account``,
+        ``azure.workload.identity/client-id`` or ``eks.amazonaws.com/role-arn``).
+
+        Defaults to ``True``. Pass ``False`` on a cluster with no cloud IAM
+        provider -- bare metal, on-prem -- where object storage credentials are
+        supplied through ``storage_options`` rather than by the pod's identity,
+        so no service account can carry such an annotation.
+
+        The RBAC access review is unaffected: the autoscaler must still be able
+        to list pods and patch the RayCluster either way.
+        """
+        self._require_cloud_identity = value
         return self
 
     def ray_init_kwargs(self, kwargs: dict) -> KubeRayClusterBuilder:
@@ -490,6 +507,7 @@ class KubeRayClusterBuilder:
             aws_region=self._aws_region,
             aws_role_name=self._aws_role_name,
             ray_init_kwargs=self._ray_init_kwargs,
+            require_cloud_identity=self._require_cloud_identity,
         )
 
         return GenevaCluster(

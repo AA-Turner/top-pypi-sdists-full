@@ -53,7 +53,8 @@ class WorkflowSessionV1CommandAckTaskState(BaseModel):
     """A workflow resolved a command, emitted with the command id as the task id.
 
     The control plane stores it as the command's durable outcome and never serves it
-    on ``/events``. A successful message needs none: its user entry carries the same task id.
+    on ``/events``. A successful message needs none: its user entry is published with the command
+    id as its task id, whatever its entry id.
     Failed skill preflight emits a message acknowledgement with a terminal rejection reason.
     """
 

@@ -38,11 +38,15 @@ from anyscale import (
     integrations as integrations,
     job as job,
     job_queue as job_queue,
+    logs as logs,
     metrics as metrics,
+    node as node,
     organization_invitation as organization_invitation,
     policy as policy,
     project as project,
     resource_quota as resource_quota,
+    role as role,
+    role_binding as role_binding,
     schedule as schedule,
     scheduler as scheduler,
     service as service,
@@ -70,11 +74,15 @@ from anyscale.gpus import GpusSDK
 from anyscale.image import ImageSDK
 from anyscale.job import JobSDK
 from anyscale.job_queue import JobQueueSDK
+from anyscale.logs import LogsSDK
 from anyscale.metrics import MetricsSDK
+from anyscale.node import NodeSDK
 from anyscale.organization_invitation import OrganizationInvitationSDK
 from anyscale.policy import PolicySDK
 from anyscale.project import ProjectSDK
 from anyscale.resource_quota import ResourceQuotaSDK
+from anyscale.role import RoleSDK
+from anyscale.role_binding import RoleBindingSDK
 from anyscale.schedule import ScheduleSDK
 from anyscale.scheduler import SchedulerSDK
 from anyscale.service import ServiceSDK
@@ -175,8 +183,10 @@ class Anyscale:
         self._service_sdk = ServiceSDK(client=self._anyscale_client)
         self._compute_config_sdk = ComputeConfigSDK(client=self._anyscale_client)
         self._events_sdk = EventsSDK(client=self._anyscale_client)
+        self._logs_sdk = LogsSDK(client=self._anyscale_client)
         self._gpus_sdk = GpusSDK(client=self._anyscale_client)
         self._metrics_sdk = MetricsSDK(client=self._anyscale_client)
+        self._node_sdk = NodeSDK(client=self._anyscale_client)
         self._cloud_sdk = CloudSDK(client=self._anyscale_client)
         self._schedule_sdk = ScheduleSDK(client=self._anyscale_client)
         self._scheduler_sdk = SchedulerSDK(client=self._anyscale_client)
@@ -186,6 +196,8 @@ class Anyscale:
         self._project_sdk = ProjectSDK(client=self._anyscale_client)
         self._user_group_sdk = UserGroupSDK(client=self._anyscale_client)
         self._resource_quota_sdk = ResourceQuotaSDK(client=self._anyscale_client)
+        self._role_sdk = RoleSDK(client=self._anyscale_client)
+        self._role_binding_sdk = RoleBindingSDK(client=self._anyscale_client)
         self._service_account_sdk = ServiceAccountSDK(client=self._anyscale_client)
         self._skills_sdk = SkillsSDK(client=self._anyscale_client)
         self._user_sdk = UserSDK(client=self._anyscale_client)
@@ -219,10 +231,16 @@ class Anyscale:
         obj._events_sdk = EventsSDK(  # noqa: SLF001
             client=client, logger=logger, timer=timer
         )
+        obj._logs_sdk = LogsSDK(  # noqa: SLF001
+            client=client, logger=logger, timer=timer
+        )
         obj._gpus_sdk = GpusSDK(  # noqa: SLF001
             client=client, logger=logger, timer=timer
         )
         obj._metrics_sdk = MetricsSDK(  # noqa: SLF001
+            client=client, logger=logger, timer=timer
+        )
+        obj._node_sdk = NodeSDK(  # noqa: SLF001
             client=client, logger=logger, timer=timer
         )
         obj._cloud_sdk = CloudSDK(  # noqa: SLF001
@@ -247,6 +265,8 @@ class Anyscale:
             client=client, logger=logger, timer=timer
         )
         obj._user_group_sdk = UserGroupSDK(client=client, logger=logger)  # noqa: SLF001
+        obj._role_sdk = RoleSDK(client=client, logger=logger)  # noqa: SLF001
+        obj._role_binding_sdk = RoleBindingSDK(client=client, logger=logger)  # noqa: SLF001
         obj._service_account_sdk = ServiceAccountSDK(  # noqa: SLF001
             client=client, logger=logger, timer=timer
         )
@@ -291,12 +311,20 @@ class Anyscale:
         return self._events_sdk
 
     @property
+    def logs(self) -> LogsSDK:  # noqa: F811
+        return self._logs_sdk
+
+    @property
     def gpus(self) -> GpusSDK:  # noqa: F811
         return self._gpus_sdk
 
     @property
     def metrics(self) -> MetricsSDK:  # noqa: F811
         return self._metrics_sdk
+
+    @property
+    def node(self) -> NodeSDK:  # noqa: F811
+        return self._node_sdk
 
     @property
     def cloud(self) -> CloudSDK:  # noqa: F811
@@ -333,6 +361,14 @@ class Anyscale:
     @property
     def resource_quota(self) -> ResourceQuotaSDK:  # noqa: F811
         return self._resource_quota_sdk
+
+    @property
+    def role(self) -> RoleSDK:  # noqa: F811
+        return self._role_sdk
+
+    @property
+    def role_binding(self) -> RoleBindingSDK:  # noqa: F811
+        return self._role_binding_sdk
 
     @property
     def service_account(self) -> ServiceAccountSDK:  # noqa: F811

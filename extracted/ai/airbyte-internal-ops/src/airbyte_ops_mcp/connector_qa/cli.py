@@ -155,13 +155,16 @@ async def run(
         for check_result in all_connector_check_results
         if check_result.status is CheckStatus.FAILED
     ]
+    blocking_failed_checks = [
+        check_result for check_result in failed_checks if check_result.check.blocking
+    ]
 
     if is_ci():
         summary = generate_qa_summary(failed_checks)
         write_github_summary(summary)
 
-    if failed_checks:
-        raise click.ClickException(f"{len(failed_checks)} checks failed")
+    if blocking_failed_checks:
+        raise click.ClickException(f"{len(blocking_failed_checks)} checks failed")
 
 
 @connectors_qa.command(

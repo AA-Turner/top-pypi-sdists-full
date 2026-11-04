@@ -25,7 +25,7 @@ dynamic = [
 ]
 
 dependencies = [
-    "bracex>=3.2"
+    "bracex>=3.2.1"
 ]
 
 [project.urls]
@@ -45,18 +45,17 @@ include = [
     "/docs/src/markdown/**/*.md",
     "/docs/src/markdown/**/*.gif",
     "/docs/src/markdown/**/*.png",
-    "/docs/src/markdown/dictionary/*.txt",
+    "/docs/src/dictionary/*.txt",
     "/docs/theme/**/*.css",
     "/docs/theme/**/*.js",
     "/docs/theme/**/*.html",
-    "/requirements/*.txt",
     "/wcmatch/**/*.py",
     "/wcmatch/py.typed",
     "/tests/**/*.py",
     "/tools/**/*.py",
     "/.pyspelling.yml",
     "/.coveragerc",
-    "/mkdocs.yml"
+    "/zensical.yml"
 ]
 
 [tool.mypy]

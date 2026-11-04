@@ -38,6 +38,9 @@ _MARK_EVERY_SECONDS = 30.0
 _STILL_SECONDS = 15.0
 #: A record older than this (or with no worker on its queue) is checked against the folders.
 _RECORD_STALE_SECONDS = 2.0
+#: The server said this recently that it is storing the run's queued data (I15d): the run is
+#: moving, however long that takes (no time cap, the user's decision).
+SERVER_STORING_FRESH_SECONDS = 60.0
 
 
 class DeliveryWaiter:
@@ -129,7 +132,7 @@ class DeliveryWaiter:
                 return self._result(ended, view)
             if now - self.started >= PROGRESS_EVERY_SECONDS and now - said_at >= PROGRESS_EVERY_SECONDS:
                 said_at = now
-                self.on_progress(self.line.render(view))
+                self.on_progress(self.line.render(view, is_server_storing=self._is_server_storing(view)))
             if now - marked_at >= _MARK_EVERY_SECONDS:
                 marked_at = now
                 touch_mark(root, self.run_ref)
@@ -150,7 +153,14 @@ class DeliveryWaiter:
     def _moved_recently(self, view: RunView, now: float) -> bool:
         """The record says the run moved since the last poll (a multipart slice is progress too)."""
         last = view.last_progress_at
-        return last is not None and self.wall() - last < POLL_SECONDS * 2
+        if last is not None and self.wall() - last < POLL_SECONDS * 2:
+            return True
+        return self._is_server_storing(view)
+
+    def _is_server_storing(self, view: RunView) -> bool:
+        """The server holds the run's close until its queued data is stored, and said so lately."""
+        said = view.server_storing_at
+        return said is not None and self.wall() - said < SERVER_STORING_FRESH_SECONDS
 
     def _stop_rule(self, view: RunView, now: float, moved_at: float) -> WaitOutcome | None:
         """The first rule of the outcomes table that fires, or None to keep waiting."""

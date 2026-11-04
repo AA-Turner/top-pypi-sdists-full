@@ -17,10 +17,14 @@ CHECK_NAMES = frozenset(
         "Final state per stream",
         "Field values",
         "HTTP replay coverage",
+        "Incremental cursor (new streams)",
         "Primary key integrity (control)",
         "Primary key integrity (target)",
         "Primary key presence",
+        "Primary key (new streams)",
+        "Record comparison",
         "Record counts",
+        "Record schema (new streams)",
         "Reproduction case",
         "Spec compatibility",
         "Stream coverage",
@@ -35,6 +39,10 @@ _TOP_LEVEL_KEYS = {
     "both_failed",
     "incomplete",
     "not_exercised",
+    "setup_error",
+    "could_not_test",
+    "strict_failed",
+    "comparison_errored",
     "totals",
     "checks",
 }
@@ -87,45 +95,37 @@ def _checks(report: dict[str, Any]) -> list[dict[str, Any]]:
                     control_exit is None
                     or (type(control_exit) is int and control_exit == 0)
                 ),
+                "status": (
+                    "pass"
+                    if target_exit == 0
+                    and (
+                        control_exit is None
+                        or (type(control_exit) is int and control_exit == 0)
+                    )
+                    else "fail"
+                ),
             }
         )
 
-    comparison = report.get("comparison")
-    if isinstance(comparison, dict):
-        for key, name in (
-            ("spec", "Spec compatibility"),
-            ("catalog_schema", "Catalog schema"),
-            ("final_state", "Final state per stream"),
-        ):
-            detail = comparison.get(key)
-            if isinstance(detail, dict) and type(detail.get("passed")) is bool:
-                checks.append({"check_name": name, "passed": detail["passed"]})
-
-    record_comparison = report.get("record_comparison")
-    record_checks = (
-        record_comparison.get("checks") if isinstance(record_comparison, dict) else None
-    )
-    if isinstance(record_checks, dict):
-        for key, name in (
-            ("record_counts", "Record counts"),
-            ("pk_presence", "Primary key presence"),
-            ("pk_uniqueness_control", "Primary key integrity (control)"),
-            ("pk_uniqueness_target", "Primary key integrity (target)"),
-            ("field_values", "Field values"),
-        ):
-            detail = record_checks.get(key)
-            if isinstance(detail, dict) and type(detail.get("passed")) is bool:
-                checks.append({"check_name": name, "passed": detail["passed"]})
-
-    source = report.get("checks", [])
+    source = report.get("check_results", [])
     if isinstance(source, list):
         for item in source:
             if not isinstance(item, dict):
                 continue
-            name = item.get("check_name", item.get("name"))
+            name = item.get("name")
             passed = item.get("passed")
-            if name in CHECK_NAMES and type(passed) is bool:
-                checks.append({"check_name": name, "passed": passed})
+            severity = item.get("severity")
+            if (
+                not isinstance(name, str)
+                or name not in CHECK_NAMES
+                or type(passed) is not bool
+                or not isinstance(severity, str)
+            ):
+                continue
+            status = (
+                "pass" if passed else "warn" if severity == "diagnostic" else "fail"
+            )
+            checks.append({"check_name": name, "passed": passed, "status": status})
     return checks
 
 
@@ -205,9 +205,21 @@ def build_verdict(output_dir: Path) -> dict[str, Any]:
     not_exercised = summary.get("not_exercised") is True or any(
         report.get("not_exercised") is True for _, report in reports
     )
-    success = success and not (incomplete or not_exercised)
+    setup_error = summary.get("setup_error") is True or any(
+        report.get("setup_error") is True for _, report in reports
+    )
+    could_not_test = summary.get("could_not_test") is True or any(
+        report.get("could_not_test") is True for _, report in reports
+    )
+    strict_failed = any(report.get("strict_failed") is True for _, report in reports)
+    comparison_errored = any(
+        report.get("comparison_errored") is True for _, report in reports
+    )
+    success = success and not (
+        incomplete or not_exercised or setup_error or could_not_test
+    )
     verdict = {
-        "schema_version": 2,
+        "schema_version": 3,
         "output_mode": "masked",
         "commands": commands,
         "success": success,
@@ -218,6 +230,10 @@ def build_verdict(output_dir: Path) -> dict[str, Any]:
         or any(report.get("both_failed") is True for _, report in reports),
         "incomplete": incomplete,
         "not_exercised": not_exercised,
+        "setup_error": setup_error,
+        "could_not_test": could_not_test,
+        "strict_failed": strict_failed,
+        "comparison_errored": comparison_errored,
         "totals": {
             "stream_count": stream_count,
             "control_record_count": control_record_count,
@@ -233,8 +249,8 @@ def validate_verdict(data: Any) -> None:
     """Reject free text, unknown keys, and non-metadata values."""
     if not isinstance(data, dict) or set(data) != _TOP_LEVEL_KEYS:
         raise ValueError("verdict has an invalid key set")
-    if type(data["schema_version"]) is not int or data["schema_version"] != 2:
-        raise ValueError("verdict schema_version must be 2")
+    if type(data["schema_version"]) is not int or data["schema_version"] != 3:
+        raise ValueError("verdict schema_version must be 3")
     if data["output_mode"] != "masked":
         raise ValueError("verdict output_mode must be masked")
     for key in (
@@ -243,12 +259,22 @@ def validate_verdict(data: Any) -> None:
         "both_failed",
         "incomplete",
         "not_exercised",
+        "setup_error",
+        "could_not_test",
+        "strict_failed",
+        "comparison_errored",
     ):
         if type(data[key]) is not bool:
             raise ValueError(f"verdict {key} must be boolean")
-    if data["success"] and (data["incomplete"] or data["not_exercised"]):
+    if data["success"] and (
+        data["incomplete"]
+        or data["not_exercised"]
+        or data["setup_error"]
+        or data["could_not_test"]
+    ):
         raise ValueError(
-            "verdict success cannot be true when incomplete or not_exercised"
+            "verdict success cannot be true when incomplete, not_exercised, "
+            "setup_error, or could_not_test"
         )
 
     if not isinstance(data["commands"], list):
@@ -282,9 +308,24 @@ def validate_verdict(data: Any) -> None:
     if not isinstance(data["checks"], list):
         raise ValueError("verdict checks must be a list")
     for item in data["checks"]:
-        if not isinstance(item, dict) or set(item) != {"check_name", "passed"}:
+        if not isinstance(item, dict) or set(item) != {
+            "check_name",
+            "passed",
+            "status",
+        }:
             raise ValueError("verdict check has an invalid key set")
-        if item["check_name"] not in CHECK_NAMES:
+        if (
+            not isinstance(item["check_name"], str)
+            or item["check_name"] not in CHECK_NAMES
+        ):
             raise ValueError("verdict check name is not allowed")
         if type(item["passed"]) is not bool:
             raise ValueError("verdict check passed must be boolean")
+        if not isinstance(item["status"], str) or item["status"] not in {
+            "pass",
+            "warn",
+            "fail",
+        }:
+            raise ValueError("verdict check status is not allowed")
+        if item["passed"] is not (item["status"] == "pass"):
+            raise ValueError("verdict check passed and status disagree")

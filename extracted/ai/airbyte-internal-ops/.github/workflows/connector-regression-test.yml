@@ -1199,10 +1199,10 @@ jobs:
               echo "| \`READ\` | _(skipped)_ |"
             fi
             echo ""
-            echo "Legend: ✅ = passed, ❌ = failed (a regression, a one-sided failure, or both versions failing); ❌ (stopped early — incomplete) = the read hit max_records or its budget; ❌ (stopped early — regression detected) = the read stopped early and what it read already shows a regression; compare what was read, it is neither a pass nor a regression; ❌ (setup error) = the target does not define a target-only stream; ❌ (could not test — config error) = target config errors prevented the read; ❌ (not exercised) = a target-only stream returned no records; the PR's new code path was never proven; neither a pass nor a regression"
+            echo "Legend: ✅ = passed, ❌ = failed (a regression, a one-sided failure, or both versions failing); ❌ (stopped early — incomplete) = the read hit max_records or its budget; ❌ (stopped early — regression detected) = the read stopped early and what it read already shows a regression; compare what was read, it is neither a pass nor a regression; ❌ (setup error) = the target does not define a target-only stream, or the READ could not be set up (stream injection failed before READ); ❌ (could not test — config error) = target config errors prevented the read; ❌ (not exercised) = a target-only stream returned no records; the PR's new code path was never proven; neither a pass nor a regression"
             if [ "${{ steps.run-read.outputs.setup_error }}" = "true" ]; then
               echo ""
-              echo "READ context: SETUP ERROR — a target-only stream is not defined by the target."
+              echo "READ context: SETUP ERROR — the target does not define a target-only stream, or stream injection failed before READ."
             fi
             if [ "${{ steps.run-read.outputs.could_not_test }}" = "true" ]; then
               echo ""
@@ -1633,6 +1633,8 @@ jobs:
           both_failed=false
           incomplete=false
           not_exercised=false
+          setup_error=false
+          could_not_test=false
           stream_injection=""
           regression_detected=false
           if [[ "$CANCELLED" != "true" && -f "$VERDICT_PATH" ]]; then
@@ -1649,10 +1651,23 @@ jobs:
           except Exception:
               sys.exit(1)
 
-          print(" ".join(str(verdict[key]).lower() for key in ("success", "both_failed", "incomplete", "not_exercised", "regression_detected")))
+          print(
+              " ".join(
+                  str(verdict[key]).lower()
+                  for key in (
+                      "success",
+                      "both_failed",
+                      "incomplete",
+                      "not_exercised",
+                      "regression_detected",
+                      "setup_error",
+                      "could_not_test",
+                  )
+              )
+          )
           PY
             )"; then
-              read -r success both_failed incomplete not_exercised regression_detected <<< "$verdict_flags"
+              read -r success both_failed incomplete not_exercised regression_detected setup_error could_not_test <<< "$verdict_flags"
               internal_failure=false
             fi
           fi
@@ -1677,13 +1692,18 @@ jobs:
             printf 'incomplete=%s\n' "$incomplete"
             printf 'regression_detected=%s\n' "$regression_detected"
             printf 'not_exercised=%s\n' "$not_exercised"
-            # The EU verdict has no setup_error or could_not_test keys yet.
-            printf 'setup_error=false\n'
-            printf 'could_not_test=false\n'
+            printf 'setup_error=%s\n' "$setup_error"
+            printf 'could_not_test=%s\n' "$could_not_test"
             printf 'stream_injection=%s\n' "$stream_injection"
             printf 'summary_url=%s\n' "$summary_url"
             printf 'report_url=%s\n' "$report_url"
           } | tee -a "$GITHUB_OUTPUT"
+          if [ "$setup_error" = "true" ]; then
+            echo "::error::SETUP ERROR"
+          fi
+          if [ "$could_not_test" = "true" ]; then
+            echo "::error::COULD NOT TEST (config error)"
+          fi
           if [ "$success" = "true" ] && [ "$incomplete" != "true" ] && [ "$internal_failure" != "true" ]; then
             : "${RUN_PREFIX:?RUN_PREFIX must be set}"
             run_prefix_root="gs://internal-airbyte-ai-infra-connector-regression-eu/gh/"

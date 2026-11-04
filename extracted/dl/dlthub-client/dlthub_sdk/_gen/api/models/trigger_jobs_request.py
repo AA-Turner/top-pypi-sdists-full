@@ -16,16 +16,19 @@ T = TypeVar("T", bound="TriggerJobsRequest")
 class TriggerJobsRequest:
     """
     Attributes:
-        dry_run (bool | Unset): If true, return the receipt the trigger would produce without creating runs. Default:
-            False.
+        dry_run (bool | Unset): Preview which jobs match and pass the freshness check, without creating runs. Limits
+            checked only when a run starts (concurrency, trial, compute minutes, interval bounds) are not evaluated.
+            Default: False.
         job_ids (list[UUID] | None | Unset): Jobs to trigger, each fired via its `default_trigger` (or `manual:<ref>`
             when it has none). At least one of `job_ids` or `selectors` must be non-empty.
         profile (None | str | Unset): Profile override for all triggered runs.
-        refresh (bool | Unset): When true, every triggered job eagerly clears its prev_completed_run cascade and ships a
-            refresh signal to the launcher. Skipped jobs are not refreshed. Default: False.
-        selectors (list[str] | None | Unset): Trigger selectors (fnmatch patterns) matched against each job's triggers;
-            a matching job fires the trigger it matched. Examples: 'tag:backfill', 'schedule:*', 'batch',
-            'manual:jobs.mod.*'. At least one of `job_ids` or `selectors` must be non-empty.
+        refresh (bool | Unset): Start each triggered job as a refresh, as `refresh` does for `create_job_run`; the
+            progress of the jobs downstream of them is reset too. Ignored for a job whose `refresh_propagation` is `block`.
+            Skipped jobs are not refreshed. Default: False.
+        selectors (list[str] | None | Unset): Selectors matched against each job's triggers with shell-style wildcards;
+            a matching job fires the trigger it matched. A bare trigger type like `schedule` means `schedule:*`; `batch` (or
+            `job`), `interactive` and `stream` select every trigger of jobs of that type. Examples: `tag:backfill`,
+            `schedule:*`, `batch`, `manual:jobs.my_module.*`. At least one of `job_ids` or `selectors` must be non-empty.
     """
 
     dry_run: bool | Unset = False

@@ -11,6 +11,7 @@ from contextlib import AbstractAsyncContextManager
 from dataclasses import replace
 from datetime import timedelta
 from enum import Enum
+from types import MappingProxyType
 from typing import Literal, assert_never
 from uuid import UUID, uuid4
 
@@ -21,6 +22,7 @@ from pydantic import JsonValue, ValidationError
 from temporalio.exceptions import ApplicationError, TemporalError
 
 import mistralai.workflows as workflows
+from mistralai.vibe.harness.app_server import session as harness_session
 from mistralai.vibe.harness.app_server.session.models.common import HistoryEntryId
 from mistralai.vibe.harness.core import protocol as core_protocol
 from mistralai.vibe.harness.runtime.agents.commands import SESSION_FAILED_ERROR_CODE, session_end_message
@@ -64,6 +66,7 @@ from mistralai.vibe.harness.runtime.session.active_turn import (
 )
 from mistralai.vibe.harness.runtime.session.callbacks import public_callback_id
 from mistralai.vibe.harness.runtime.session.commands import (
+    TURN_NOT_ACTIVE_CODE,
     AgentMessageCommand,
     ContextMessage,
     InterruptTurnCommand,
@@ -127,9 +130,16 @@ from mistralai.vibe_agents.sdk.authoring.errors import (
     UnsupportedAgentFeatureError,
 )
 from mistralai.vibe_agents.sdk.sandbox.koyeb import open_borrowed_koyeb_sandbox
+from mistralai.vibe_agents.sdk.sandbox.refusal import sandbox_create_refusal
 from mistralai.vibe_agents.session_workflow import session_v1_wire
+from mistralai.vibe_agents.session_workflow.command_ids import message_command_id
 from mistralai.vibe_agents.session_workflow.initial_turn import build_start_input_turn_command
-from mistralai.vibe_agents.session_workflow.send_message import SendMessageInput
+from mistralai.vibe_agents.session_workflow.update_inputs import (
+    MessageUpdateInput,
+    SendMessageInput,
+    StartTurnInput,
+    SteerTurnInput,
+)
 from mistralai.vibe_agents.session_workflow.user_message import read_user_message
 from mistralai.workflows.core.config.config import config as workflow_config
 
@@ -159,8 +169,19 @@ def _limit_cause(command: wire.SystemCommand) -> wire.SessionLimitCause | None:
         return None
 
 
+def _interrupt_cause(command: wire.SystemCommand) -> str | None:
+    """Return the cause a command gives the Turn it interrupts.
+
+    A stop ends the session, so its Turn reads "cancelled", or the Session limit the stop names.
+    """
+    if command.action != "stop":
+        return None
+    return _limit_cause(command) or "cancelled"
+
+
 _BACKGROUND_PROCESSES_PATCH = "agents-sdk.background-processes.v1"
 _LARGE_OUTPUT_PATCH = "agents-sdk.large-output-files.v1"
+_IDLE_STOP_PATCH = "agents-sdk.idle-stop-ends-session.v1"
 
 AdmittedWorkflowMessage = continuation.AdmittedWorkflowMessage
 CommandPublication = continuation.CommandPublication
@@ -191,6 +212,11 @@ def _background_processes_enabled() -> bool:
 
 def _large_output_enabled() -> bool:
     return not temporalio.workflow.in_workflow() or temporalio.workflow.patched(_LARGE_OUTPUT_PATCH)
+
+
+def _idle_stop_ends_session() -> bool:
+    # An earlier worker handed an idle stop to the Runtime, which refused it; its histories replay that way.
+    return not temporalio.workflow.in_workflow() or temporalio.workflow.patched(_IDLE_STOP_PATCH)
 
 
 class SessionInputsUnresolvedError(ValueError):
@@ -638,7 +664,7 @@ class WorkflowSessionBinding:
                 command_id,
                 expected_turn_id=command.expected_turn_id,
                 reason=command.reason,
-                cause=_limit_cause(command),
+                cause=_interrupt_cause(command),
             )
             publication = (
                 ScopedInterruptPublication() if command.expected_turn_id is not None else UnscopedInterruptPublication()
@@ -649,47 +675,141 @@ class WorkflowSessionBinding:
             self.publications.commands.setdefault(command_id, publication)
         return command_id, portable
 
-    async def send_message(
+    async def receive_message(
         self,
-        message: SendMessageInput,
+        message: MessageUpdateInput,
         *,
         content: list[core_protocol.ContentBlock],
         context_messages: list[ContextMessage],
         command_id: str,
         message_entry_id: HistoryEntryId,
     ) -> SessionCommandResult | wire.SessionCommandVerdictReason:
-        """Let Harness start a Turn or steer the active one with one user message.
+        """Hand Harness one message Update's message and wait for its admission.
 
         ``content`` and ``context_messages`` are the message's blocks, already converted to Runtime
         content. ``command_id`` names any Turn the message starts. Returns the Runtime's admission,
-        or why full intake refused the message. The receipt row is published once, when the Runtime admits the
-        message, for a start and a steer alike, from the content of the admitted command.
+        or why full intake refused the message. Joins the command that already holds ``command_id``,
+        if any. The receipt row is published once, when the Runtime admits the message, from the
+        content of the admitted command.
         """
 
         known = self.runtime.has_command(command_id)
-        self._sandbox_coordinator.command_received(starts_turn=self.runtime.get_command_result(command_id) is None)
-        portable = SendMessageCommand(
-            new_turn_id=command_id,
+        # A steer, or a retry the Runtime already answered, starts no Turn, so it never replaces the sandbox.
+        self._sandbox_coordinator.command_received(
+            starts_turn=not isinstance(message, SteerTurnInput) and self.runtime.get_command_result(command_id) is None
+        )
+        portable = self._message_command(
+            message,
             content=content,
+            command_id=command_id,
             message_entry_id=message_entry_id,
             context_messages=[
                 *context_messages,
                 *(self._sandbox_coordinator.context_messages() if not known else []),
             ],
-            idempotency_key=command_id,
-            genai_trace_parent=_genai_trace_parent(message.metadata, self.session_id, command_id, self._genai_agent),
         )
         if not known:
             self.publications.commands.setdefault(command_id, UserMessagePublication())
-        try:
-            return await self.runtime.receive_command(command_id, portable)
-        except SessionCommandQueueFullError:
+        result = await self.runtime.receive_command(command_id, portable)
+        if isinstance(result, SessionCommandRejected) and isinstance(
+            result.rejection, core_protocol.QueueFullRejection
+        ):
+            # The Runtime answers a full intake, or a message over its byte budget, with a queue-full
+            # rejection it does not retain, so nothing of the message is held.
             self.publications.commands.pop(command_id, None)
             return await self._publish_overload(command_id, portable)
+        return result
 
-    def submit_callback_result(self, command: wire.CallbackResultCommand) -> bool:
+    async def steer_active_turn(
+        self,
+        message: SteerTurnInput,
+        *,
+        content: list[core_protocol.ContentBlock],
+        context_messages: list[ContextMessage],
+        command_id: str,
+        message_entry_id: HistoryEntryId,
+    ) -> SessionCommandResult | wire.SessionCommandVerdictReason:
+        """Steer the Turn ``message`` names only while it is active, then publish its user row.
+
+        The Runtime compares and commits under its input lock, so a Turn that ends first is
+        rejected with ``turn_not_active`` and nothing is applied. A direct commit runs no command
+        observer, so this publishes the row; a replayed commit publishes it again under the same
+        task id. Raises ``ActivityError`` when the row is not published: the steer is committed.
+        """
+
         self._sandbox_coordinator.command_received()
-        return self.callbacks.submit_result(command)
+        command = _steer_command(
+            message,
+            content=content,
+            command_id=command_id,
+            message_entry_id=message_entry_id,
+            context_messages=[*context_messages, *self._sandbox_coordinator.context_messages()],
+        )
+        if self._exceeds_intake_budget(command_id, command):
+            # Bounded as a buffered message is, though nothing is buffered.
+            return wire.SessionCommandVerdictReason.MESSAGE_TOO_LARGE
+        async with self._turn_scope(message.expected_turn_id):
+            result = await self.runtime.submit_active_turn_command(command)
+        if isinstance(result, SessionCommandAccepted):
+            self._sandbox_coordinator.context_accepted(command)
+            await lifecycle.emit_v1_message_receipt(
+                message_entry_id,
+                task_id=command_id,
+                turn_id=message.expected_turn_id,
+                content=to_session_content(command.content),
+                annotations={},
+                session_id=self.session_id,
+            )
+        return result
+
+    def _message_command(
+        self,
+        message: MessageUpdateInput,
+        *,
+        content: list[core_protocol.ContentBlock],
+        command_id: str,
+        message_entry_id: HistoryEntryId,
+        context_messages: list[ContextMessage],
+    ) -> SendMessageCommand | StartTurnCommand | SteerTurnCommand:
+        match message:
+            case SteerTurnInput():
+                return _steer_command(
+                    message,
+                    content=content,
+                    command_id=command_id,
+                    message_entry_id=message_entry_id,
+                    context_messages=context_messages,
+                )
+            case StartTurnInput():
+                return StartTurnCommand(
+                    turn_id=command_id,
+                    content=content,
+                    message_entry_id=message_entry_id,
+                    context_messages=context_messages,
+                    idempotency_key=command_id,
+                    genai_trace_parent=_genai_trace_parent(
+                        message.metadata, self.session_id, command_id, self._genai_agent
+                    ),
+                )
+            case SendMessageInput():
+                return SendMessageCommand(
+                    new_turn_id=command_id,
+                    content=content,
+                    message_entry_id=message_entry_id,
+                    context_messages=context_messages,
+                    idempotency_key=command_id,
+                    genai_trace_parent=_genai_trace_parent(
+                        message.metadata, self.session_id, command_id, self._genai_agent
+                    ),
+                )
+            case _:
+                assert_never(message)
+
+    def submit_callback_result(
+        self, result: harness_session.CallbackResult
+    ) -> worker_callbacks.CallbackSubmission | worker_callbacks.CallbackRejection:
+        self._sandbox_coordinator.command_received()
+        return self.callbacks.submit_result(result)
 
     async def receive_agent_command(
         self, command_id: str, command: AgentMessageCommand | InterruptTurnCommand
@@ -786,10 +906,9 @@ class WorkflowSessionBinding:
         command_id: str,
         command: StartTurnCommand | SteerTurnCommand | InterruptTurnCommand | SendMessageCommand,
     ) -> wire.SessionCommandVerdictReason:
-        # Measured as the Runtime measures it. A command over the byte budget on its own can
-        # never fit, so it is refused for good rather than as a retryable overload.
-        size = pending_command_bytes(PendingSessionCommand(command_id=command_id, command=command))
-        too_large = size > self._intake_limits.pending_bytes
+        # A command over the byte budget on its own can never fit, so it is refused for good
+        # rather than as a retryable overload.
+        too_large = self._exceeds_intake_budget(command_id, command)
         reason = (
             wire.SessionCommandVerdictReason.MESSAGE_TOO_LARGE
             if too_large
@@ -804,6 +923,15 @@ class WorkflowSessionBinding:
             retryable=not too_large,
         )
         return reason
+
+    def _exceeds_intake_budget(
+        self,
+        command_id: str,
+        command: StartTurnCommand | SteerTurnCommand | InterruptTurnCommand | SendMessageCommand,
+    ) -> bool:
+        # Measured as the Runtime measures a pending command.
+        size = pending_command_bytes(PendingSessionCommand(command_id=command_id, command=command))
+        return size > self._intake_limits.pending_bytes
 
     async def _publish_command_result(self, entry: PendingSessionCommand, result: SessionCommandResult) -> None:
         if isinstance(result, SessionCommandAccepted):
@@ -822,12 +950,14 @@ class WorkflowSessionBinding:
             )
         elif isinstance(result, SessionCommandAccepted) and isinstance(publication, UserMessagePublication):
             if not isinstance(entry.command, SendMessageCommand | StartTurnCommand):
-                # Only `send_message` and the first Turn publish a user message row. Any other command here is a bug.
+                # Only `send_message`, `start_turn` and the first Turn publish a user message row.
+                # Any other command here is a bug.
                 raise RuntimeError(
                     f"Command {command_id!r} publishes a user message row but holds a {entry.command.type} command"
                 )
             await lifecycle.emit_v1_message_receipt(
                 command_id if entry.command.message_entry_id is None else entry.command.message_entry_id,
+                task_id=command_id,
                 turn_id=result.turn_id,
                 content=to_session_content(entry.command.content),
                 annotations={},
@@ -893,15 +1023,19 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
         self._end_cause: wire.SessionLimitCause | None = None
         self._phase = _WorkflowPhase.STARTING
         self._single_turn = False
-        # Counted apart from command handlers: continuation waits for these only after closing
-        # the binding, which ends their wait for admission.
-        self._send_message_handlers_in_flight = 0
-        # Serializes the receipt lookup, the Runtime admission, and the receipt update, so a
-        # concurrent retry of one command sees the first receipt instead of admitting again.
+        # The message Updates in flight, counted apart from command handlers: continuation waits
+        # for these only after closing the binding, which ends their wait for admission.
+        self._message_handlers_in_flight = 0
+        # Serializes the receipt lookup, the Runtime admission, and the receipt update of
+        # send_message, so a concurrent retry of one command sees the first receipt instead of
+        # admitting again.
         self._send_message_lock = asyncio.Lock()
         self._message_receipts = message_receipts.MessageReceiptLedger()
         # Names each send_message after its idempotency key. Kept past the binding, as receipts are.
         self._session_id: str | None = None
+        # The binding's carried processed callback ids, kept past the binding, so a retry of an
+        # accepted answer is answered after the Session ends.
+        self._processed_callback_ids: list[str] = []
 
     @workflows.workflow.query(name="sandbox_durability")
     def sandbox_durability(self) -> dict[str, JsonValue] | None:
@@ -1057,31 +1191,68 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
         refuses every message, steers included.
         """
 
-        digest = message_receipts.build_message_digest(message)
+        return await self._take_message(message)
+
+    @workflows.workflow.update(name=wire.START_TURN_UPDATE_NAME)
+    async def start_turn(self, message: StartTurnInput) -> wire.SessionMessageVerdict:
+        """Start a Turn named after ``command_id``, only while no Turn runs.
+
+        The Runtime decides at admission, so a running Turn answers ``turn_active`` and nothing
+        is kept: the same id starts the Turn once the running one ends, as a strict local start
+        does. A retry of an accepted start replays its Turn, as does a start the ``/commands``
+        path took under the same id.
+        """
+
+        return await self._take_message(message)
+
+    @workflows.workflow.update(name=wire.STEER_TURN_UPDATE_NAME)
+    async def steer_turn(self, message: SteerTurnInput) -> wire.SessionMessageVerdict:
+        """Steer ``expected_turn_id``, only while it is the active Turn.
+
+        The Runtime compares and commits under its input lock, so a Turn that ends first answers
+        ``stale_turn`` and nothing is applied. While Harness cannot take user input, it answers
+        ``session_busy`` at once, as the local runtime does. A retry of an accepted steer replays
+        it, as does a steer the ``/commands`` path took under the same id.
+        """
+
+        return await self._take_message(message)
+
+    async def _take_message(self, message: MessageUpdateInput) -> wire.SessionMessageVerdict:
+        # Every outcome is a verdict: an ApplicationError would read as the input schema's refusal,
+        # which the control plane takes as nothing applied.
         # Counted from the start, so the Workflow does not return before this Update answers.
-        self._send_message_handlers_in_flight += 1
+        self._message_handlers_in_flight += 1
         try:
             while self._phase is _WorkflowPhase.STARTING:
                 await workflows.workflow.wait_condition(lambda: self._phase is not _WorkflowPhase.STARTING)
             if self._session_id is None:
                 # The Session failed before it could take commands.
                 return _refuse_message(wire.SessionCommandVerdictReason.SESSION_NOT_ACCEPTING_COMMANDS)
-            command_id = message_receipts.message_command_id(self._session_id, message.idempotency_key)
+            # Taken before the lock, so the lock wait counts against the SDK's busy wait too.
             busy_deadline = asyncio.get_running_loop().time() + wire.SEND_MESSAGE_BUSY_WAIT_SECONDS
-            # Holding the lock while busy keeps concurrent messages in arrival order.
-            async with self._send_message_lock:
-                return await self._send_message_locked(
-                    message, command_id=command_id, digest=digest, busy_deadline=busy_deadline
-                )
+            if isinstance(message, SendMessageInput):
+                command_id = message_command_id(self._session_id, message.idempotency_key)
+                digest = message_receipts.build_message_digest(message)
+                # Holding the lock while busy keeps concurrent messages in arrival order.
+                async with self._send_message_lock:
+                    return await self._decide_message(
+                        message, command_id=command_id, digest=digest, busy_deadline=busy_deadline
+                    )
+            # Start and steer replay by id alone (ADR 0038) and never wait, so they skip the lock a
+            # busy send_message holds, as on the local runtime. The Runtime dedupes a concurrent
+            # retry by id.
+            return await self._decide_message(
+                message, command_id=str(message.command_id), digest=None, busy_deadline=busy_deadline
+            )
         finally:
-            self._send_message_handlers_in_flight -= 1
+            self._message_handlers_in_flight -= 1
 
-    async def _send_message_locked(
+    async def _decide_message(
         self,
-        message: SendMessageInput,
+        message: MessageUpdateInput,
         *,
         command_id: str,
-        digest: str,
+        digest: str | None,
         busy_deadline: float,
     ) -> wire.SessionMessageVerdict:
         message_entry_id = command_id if message.message_entry_id is None else message.message_entry_id
@@ -1104,7 +1275,7 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
                 if receipt.rejected:
                     return _refuse_message(wire.SessionCommandVerdictReason.MESSAGE_REJECTED)
                 if receipt.turn_id is not None:
-                    return _accept_message(message_entry_id, turn_id=receipt.turn_id)
+                    return _accept_message(message_entry_id, turn_id=receipt.turn_id, steered=receipt.steered)
             binding = self._binding
             # A single-turn Session admits only its initial message, before any handler runs.
             if binding is None or self._session_stopping or self._single_turn:
@@ -1123,14 +1294,17 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
                 receipt.rejected = True
                 return _refuse_message(wire.SessionCommandVerdictReason.MESSAGE_REJECTED)
             if receipt is None and _command_was_observed(binding, command_id):
-                # Another command path took this id, so there is no content to compare.
-                return _refuse_message(wire.SessionCommandVerdictReason.IDEMPOTENCY_CONFLICT)
+                if digest is not None:
+                    # Another command path took this id, so there is no content to compare.
+                    return _refuse_message(wire.SessionCommandVerdictReason.IDEMPOTENCY_CONFLICT)
+                # The same start or steer, sent first through /commands or before Continue-As-New:
+                # join it for its answer.
+                break
             if self._phase is _WorkflowPhase.CONTINUING:
                 return _refuse_message(wire.SessionCommandVerdictReason.SESSION_CONTINUING)
-            if (
-                determine_active_turn_command_admission(binding.runtime.inspection)
-                is not ActiveTurnCommandAdmission.INTERRUPT_ONLY
-            ):
+            # Only send_message waits: a start would be refused while a Turn runs, and a steer
+            # answers busy at once, as the local runtime does.
+            if not isinstance(message, SendMessageInput) or not _session_is_busy(binding):
                 break
             # Busy: nothing is buffered, so a refusal leaves no trace.
             if not await self._wait_out_busy_session(binding, busy_deadline):
@@ -1139,8 +1313,20 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
         if receipt is None:
             # Stored before admission, so a message carried across Continue-As-New keeps its digest.
             receipt = self._message_receipts.begin(command_id, digest=digest)
+        if isinstance(message, SteerTurnInput) and not binding.runtime.has_command(command_id):
+            # One the Runtime holds, buffered by /commands in this run or carried from the last, is
+            # joined below instead, so it applies once.
+            return await self._commit_steer(
+                binding,
+                message,
+                content=content,
+                context_messages=context_messages,
+                command_id=command_id,
+                message_entry_id=message_entry_id,
+                receipt=receipt,
+            )
         try:
-            result = await binding.send_message(
+            result = await binding.receive_message(
                 message,
                 content=content,
                 context_messages=context_messages,
@@ -1155,10 +1341,36 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
             if self._phase is _WorkflowPhase.TERMINAL:
                 return _refuse_message(wire.SessionCommandVerdictReason.SESSION_NOT_ACCEPTING_COMMANDS)
             raise
+        except temporalio.exceptions.ActivityError as error:
+            # A row of the admission pass failed to publish: this message's or another command's.
+            # The Runtime keeps an admitted message pending and publishes its row in the driver's
+            # next admission pass; a retry with the same id replays the admission.
+            logger.warning(
+                "Message receipt row not published; a retry replays the admission",
+                command_id=command_id,
+                error_type=type(error).__name__,
+            )
+            return _refuse_message(wire.SessionCommandVerdictReason.RECEIPT_UNPUBLISHED)
         if isinstance(result, wire.SessionCommandVerdictReason):
             # Full intake took nothing, so the same message can be sent again.
-            self._message_receipts.discard(command_id)
-            return _refuse_message(result)
+            return self._refuse_unapplied(command_id, result)
+        if isinstance(result, SessionCommandRejected) and isinstance(message, StartTurnInput):
+            if _is_running_start_refusal(result.rejection):
+                # Named so the caller can wait for that Turn and retry. The Runtime took it at
+                # admission: the Turn can end before this handler resumes.
+                active_turn_id = result.active_turn_id
+                if active_turn_id is None:
+                    # A refusal replayed from its receipt names no Turn. The replay did not yield,
+                    # so the running Turn read now is the one that blocks this id, as on /commands.
+                    active_turn_id = binding.runtime.inspection.active_turn_id
+                # The caller is told now, so the id starts a Turn once the running one ends.
+                await binding.runtime.forget_running_start_refusal(command_id)
+                return self._refuse_unapplied(
+                    command_id, wire.SessionCommandVerdictReason.TURN_ACTIVE, active_turn_id=active_turn_id
+                )
+        if isinstance(result, SessionCommandRejected) and isinstance(message, SteerTurnInput):
+            # Only a steer /commands took gets here; that path reports Core's refusal as stale too.
+            return self._refuse_unapplied(command_id, wire.SessionCommandVerdictReason.STALE_TURN)
         if not isinstance(result, SessionCommandAccepted):
             # Harness applied nothing and keeps this answer for the command id, so a retry is
             # rejected the same way rather than refused as an id another command took. Only
@@ -1166,15 +1378,136 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
             # picks the start or steer the Session state allows.
             receipt.rejected = True
             return _refuse_message(wire.SessionCommandVerdictReason.MESSAGE_REJECTED)
-        if self._session_stopping:
-            # The Session ended while the message was admitted, so no Turn will run it. Its
-            # receipt row may already be published, as on the signal path. A retry stays refused.
+        return self._accept_admitted(message, command_id, result, message_entry_id=message_entry_id, receipt=receipt)
+
+    async def _commit_steer(
+        self,
+        binding: WorkflowSessionBinding,
+        message: SteerTurnInput,
+        *,
+        content: list[core_protocol.ContentBlock],
+        context_messages: list[ContextMessage],
+        command_id: str,
+        message_entry_id: HistoryEntryId,
+        receipt: continuation.MessageReceiptRecord,
+    ) -> wire.SessionMessageVerdict:
+        """Steer the named Turn under the Runtime's input lock, and answer the commit.
+
+        The Runtime keeps no answer for a steer it refuses here, so the ledger keeps none either.
+        A committed steer keeps its receipt, even when its row is not published.
+        """
+
+        try:
+            result = await binding.steer_active_turn(
+                message,
+                content=content,
+                context_messages=context_messages,
+                command_id=command_id,
+                message_entry_id=message_entry_id,
+            )
+        except RuntimeError:
+            # Closing the binding refuses the commit. Nothing was buffered, so no run holds the steer.
+            if self._phase is _WorkflowPhase.CONTINUING:
+                return self._refuse_unapplied(command_id, wire.SessionCommandVerdictReason.SESSION_CONTINUING)
+            if self._phase is _WorkflowPhase.TERMINAL:
+                return self._refuse_unapplied(
+                    command_id, wire.SessionCommandVerdictReason.SESSION_NOT_ACCEPTING_COMMANDS
+                )
+            raise
+        except temporalio.exceptions.ActivityError as error:
+            # The steer is committed but its row is not. The receipt stays, so /commands sees the
+            # id as taken: the Runtime keys a direct commit apart from what has_command reads. Its
+            # Turn stays unset, so a retry commits again, which the Runtime replays, and publishes
+            # the row.
+            receipt.committed = True
+            self._message_receipts.keep(command_id, receipt)
+            logger.warning(
+                "Steer receipt row not published; a retry publishes it",
+                command_id=command_id,
+                error_type=type(error).__name__,
+            )
+            return _refuse_message(wire.SessionCommandVerdictReason.RECEIPT_UNPUBLISHED)
+        if isinstance(result, wire.SessionCommandVerdictReason):
+            return self._refuse_unapplied(command_id, result)
+        if isinstance(result, SessionCommandAccepted):
+            return self._accept_admitted(
+                message, command_id, result, message_entry_id=message_entry_id, receipt=receipt
+            )
+        if (
+            isinstance(result, SessionCommandRejected)
+            and isinstance(result.rejection, core_protocol.InvalidCommandRejection)
+            and result.rejection.error.code == TURN_NOT_ACTIVE_CODE
+        ):
+            return self._refuse_unapplied(command_id, wire.SessionCommandVerdictReason.STALE_TURN)
+        if _session_is_busy(binding):
+            # A pre-agent Hook started after the busy check: refused for now only.
+            return self._refuse_unapplied(command_id, wire.SessionCommandVerdictReason.SESSION_BUSY)
+        return self._refuse_unapplied(command_id, wire.SessionCommandVerdictReason.MESSAGE_REJECTED)
+
+    def _accept_admitted(
+        self,
+        message: MessageUpdateInput,
+        command_id: str,
+        result: SessionCommandAccepted,
+        *,
+        message_entry_id: HistoryEntryId,
+        receipt: continuation.MessageReceiptRecord,
+    ) -> wire.SessionMessageVerdict:
+        # A concurrent copy of this start or steer may have been refused and dropped the receipt.
+        self._message_receipts.keep(command_id, receipt)
+        # A steer, or a send the Runtime joined to the active Turn, is committed into that running
+        # Turn and its row is published, so it stays accepted while the Session stops: the
+        # controller reads that row once the Session ended and accepts it too.
+        joined_running_turn = isinstance(message, SteerTurnInput) or result.steered
+        if self._session_stopping and not joined_running_turn:
+            # The Session began to stop while the message that starts a Turn was admitted. The
+            # Runtime may already have started that Turn and published its rows, as on the signal
+            # path, but the stopping Session does not run it to its end. A retry stays refused.
             receipt.refused = True
             return _refuse_message(wire.SessionCommandVerdictReason.SESSION_NOT_ACCEPTING_COMMANDS)
         if result.turn_id is None:
             raise RuntimeError("Runtime accepted a message without a Turn identity")
         receipt.turn_id = result.turn_id
-        return _accept_message(message_entry_id, turn_id=result.turn_id)
+        receipt.steered = joined_running_turn
+        return _accept_message(message_entry_id, turn_id=result.turn_id, steered=joined_running_turn)
+
+    def _refuse_unapplied(
+        self, command_id: str, reason: wire.SessionCommandVerdictReason, *, active_turn_id: str | None = None
+    ) -> wire.SessionMessageVerdict:
+        """Refuse a message that left no answer behind, dropping its receipt so a retry starts over."""
+
+        self._message_receipts.discard_unanswered(command_id)
+        return _refuse_message(reason, active_turn_id=active_turn_id)
+
+    @workflows.workflow.update(name=wire.SUBMIT_CALLBACK_RESULT_UPDATE_NAME)
+    async def submit_callback_result(self, result: harness_session.CallbackResult) -> wire.SessionCommandVerdict:
+        """Answer one callback, named by its public id, and say what became of the answer.
+
+        The callback id names the answer (ADR 0038): an id already accepted replays as accepted,
+        also after the Session ended, and outputs are not compared. Otherwise the callback store
+        decides. Every outcome is a verdict, as for the message Updates. Once the Session started,
+        nothing awaits between the checks, so the handler needs no lock and no handler count.
+        """
+
+        while self._phase is _WorkflowPhase.STARTING:
+            await workflows.workflow.wait_condition(lambda: self._phase is not _WorkflowPhase.STARTING)
+        if result.callback_id in self._processed_callback_ids:
+            return wire.SessionCommandVerdict(accepted=True, reason=wire.SessionCommandVerdictReason.ALREADY_OBSERVED)
+        binding = self._binding
+        if binding is None or self._phase is _WorkflowPhase.TERMINAL:
+            return wire.SessionCommandVerdict(
+                accepted=False, reason=wire.SessionCommandVerdictReason.SESSION_NOT_ACCEPTING_COMMANDS
+            )
+        submission = binding.submit_callback_result(result)
+        if isinstance(submission, worker_callbacks.CallbackRejection):
+            return wire.SessionCommandVerdict(
+                accepted=False, reason=wire.SessionCommandVerdictReason.CALLBACK_REJECTED, message=submission.reason
+            )
+        if submission is not worker_callbacks.CallbackSubmission.ACCEPTED:
+            return wire.SessionCommandVerdict(accepted=False, reason=_CALLBACK_REFUSAL_REASONS[submission])
+        # Session v1 publishes no receipt row for an answer: the Runtime publishes its resolution.
+        _record_processed_callback(self._processed_callback_ids, result.callback_id)
+        return wire.SessionCommandVerdict(accepted=True)
 
     async def _wait_out_busy_session(self, binding: WorkflowSessionBinding, deadline: float) -> bool:
         """Return True if the busy wait ended before ``deadline``.
@@ -1191,8 +1524,7 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
                 lambda: (
                     self._phase is not _WorkflowPhase.ACCEPTING_COMMANDS
                     or self._stop_requested
-                    or determine_active_turn_command_admission(binding.runtime.inspection)
-                    is not ActiveTurnCommandAdmission.INTERRUPT_ONLY
+                    or not _session_is_busy(binding)
                 ),
                 timeout=remaining,
             )
@@ -1250,7 +1582,18 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
             processed = binding.publications.processed_callback_ids
             if command_id is not None and command_id in processed:
                 return None
-            if not binding.submit_callback_result(command):
+            try:
+                result = worker_callbacks.callback_result_from_command(command)
+            except ValueError as error:
+                # An answer with an invalid content block is refused; a signal has no reply, so the reason is logged.
+                logger.warning(
+                    "Refused a callback result; the callback stays open",
+                    callback_id=str(command.callback_id),
+                    reason=str(error),
+                )
+                return None
+            submission = binding.submit_callback_result(result)
+            if submission is not worker_callbacks.CallbackSubmission.ACCEPTED:
                 return None
 
             await lifecycle.emit_command_receipt(
@@ -1259,8 +1602,18 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
                 session_v1=binding.session_v1,
             )
             if command_id is not None:
-                processed.append(command_id)
-                del processed[:-_MAX_CARRIED_COMMAND_IDS]
+                _record_processed_callback(processed, command_id)
+            return None
+        if (
+            stopping
+            and isinstance(command, wire.SystemCommand)
+            and command.expected_turn_id is None
+            and self._phase is _WorkflowPhase.ACCEPTING_COMMANDS
+            and not binding.runtime.turn_in_progress
+            and _idle_stop_ends_session()
+        ):
+            # No Turn to interrupt: the stop ends the serve loop and is accepted, as a stop at a limit is.
+            binding.condition_waiter.notify_changed()
             return None
         if self._phase is _WorkflowPhase.CONTINUING:
             refusal = await binding.buffer_command(command)
@@ -1312,6 +1665,7 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
         self._session_id = binding.session_id
         # Kept past the binding, so a retry of an accepted message is answered after the Session ends.
         self._message_receipts = message_receipts.MessageReceiptLedger(binding.publications.message_receipts)
+        self._processed_callback_ids = binding.publications.processed_callback_ids
         self._phase = _WorkflowPhase.ACCEPTING_COMMANDS
 
     def mark_terminal(self) -> None:
@@ -1334,8 +1688,8 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
         await workflows.workflow.wait_condition(lambda: self.command_handlers_idle)
 
     @property
-    def send_message_handlers_idle(self) -> bool:
-        return self._send_message_handlers_in_flight == 0
+    def message_handlers_idle(self) -> bool:
+        return self._message_handlers_in_flight == 0
 
     @property
     def _session_stopping(self) -> bool:
@@ -1365,13 +1719,55 @@ def _runtime_refusal(
         # A Start is refused because a Turn is running, or otherwise for good.
         reason = (
             wire.SessionCommandVerdictReason.TURN_ACTIVE
-            if isinstance(result.rejection, core_protocol.InvalidStateRejection) and result.rejection.state == "running"
+            if _is_running_start_refusal(result.rejection)
             else wire.SessionCommandVerdictReason.MESSAGE_REJECTED
         )
     return wire.SessionCommandVerdict(
         accepted=False,
         reason=reason,
         active_turn_id=binding.runtime.inspection.active_turn_id,
+    )
+
+
+def _steer_command(
+    message: SteerTurnInput,
+    *,
+    content: list[core_protocol.ContentBlock],
+    command_id: str,
+    message_entry_id: HistoryEntryId,
+    context_messages: list[ContextMessage],
+) -> SteerTurnCommand:
+    return SteerTurnCommand(
+        turn_id=message.expected_turn_id,
+        content=content,
+        message_entry_id=message_entry_id,
+        context_messages=context_messages,
+        idempotency_key=command_id,
+    )
+
+
+def _is_running_start_refusal(rejection: core_protocol.CommandRejection) -> bool:
+    return isinstance(rejection, core_protocol.InvalidStateRejection) and rejection.state == "running"
+
+
+_CALLBACK_REFUSAL_REASONS: dict[worker_callbacks.CallbackSubmission, wire.SessionCommandVerdictReason] = {
+    worker_callbacks.CallbackSubmission.SETTLED: wire.SessionCommandVerdictReason.CALLBACK_SETTLED,
+    worker_callbacks.CallbackSubmission.UNKNOWN: wire.SessionCommandVerdictReason.CALLBACK_UNKNOWN,
+}
+
+
+def _record_processed_callback(processed: list[str], callback_id: str) -> None:
+    """Remember an accepted answer by its id, within the carried window, so a retry replays."""
+
+    processed.append(callback_id)
+    del processed[:-_MAX_CARRIED_COMMAND_IDS]
+
+
+def _session_is_busy(binding: WorkflowSessionBinding) -> bool:
+    """Whether Harness takes no user input now, while a pre-agent Hook runs."""
+
+    return (
+        determine_active_turn_command_admission(binding.runtime.inspection) is ActiveTurnCommandAdmission.INTERRUPT_ONLY
     )
 
 
@@ -1449,6 +1845,7 @@ def build_workflow_class(
             frozen_sandbox,
             params,
             settings,
+            session_input_classes=frozen_assembly.session_input_classes,
             skills=frozen_skills,
             subagent_policy=subagent_policy,
             control_plane_binding_id=name if session_control_plane else None,
@@ -1731,6 +2128,8 @@ async def _serve(
     params: wire.SessionWorkflowStartInput,
     settings: config.AppSettings,
     *,
+    # Empty for a data-only Agent, which has no Session input classes.
+    session_input_classes: Mapping[str, type[contracts.SessionInput]] = MappingProxyType({}),
     skills: sandbox_skills.SandboxSkillFiles | None = None,
     subagent_policy: SubagentPolicy | None = None,
     control_plane_binding_id: str | None = None,
@@ -1812,7 +2211,9 @@ async def _serve(
             sandbox=sandbox,
             principal=params.principal,
             session_id=str(params.session_id),
-            session_inputs=params.session_inputs,
+            session_inputs=session_input_assembly.with_omitted_optional_inputs(
+                session_input_classes, params.session_inputs or {}
+            ),
             restored=restored,
             skills=skills,
             event_publisher=_build_event_publisher(params, session_v1=session_v1),
@@ -1921,8 +2322,8 @@ async def _serve(
                 idle_since_unix_ms=limit_clock.idle_since_unix_ms,
                 end_cause=workflow._end_cause,
             )
-            # Closing ended every send_message wait for admission; each Update answers in this run.
-            await _drain_send_message_handlers(workflow)
+            # Closing ended every message Update's wait for admission; each one answers in this run.
+            await _drain_message_handlers(workflow)
             workflows.workflow.continue_as_new(continuation.build_continue_as_new_input(params, state))
             raise RuntimeError("continue_as_new returned instead of restarting the Workflow")
         if result == "forced_end":
@@ -1967,12 +2368,20 @@ async def _serve(
             )
     except Exception as error:
         primary_error = error
-        if _ends_workflow_through_temporal(error):
+        sandbox_refusal = sandbox_create_refusal(error)
+        if sandbox_refusal is not None:
+            # No retry creates the sandbox, and the refusal says what to fix: the Session's
+            # error carries it, where Temporal would give only "Activity task failed".
+            if not workflow_is_replaying():
+                logger.warning(
+                    "session_sandbox_create_refused", session_id=str(params.session_id), error_message=sandbox_refusal
+                )
+        elif _ends_workflow_through_temporal(error):
             raise
-        # Temporal would retry the Workflow task until the execution timeout, holding the
-        # child's slot and ignoring interrupts. End the Session failed instead.
-        # Rendering a traceback on the workflow thread can outlast Temporal's 2s deadlock check.
-        if not workflow_is_replaying():
+        elif not workflow_is_replaying():
+            # Temporal would retry the Workflow task until the execution timeout, holding the
+            # child's slot and ignoring interrupts. End the Session failed instead.
+            # Rendering a traceback on the workflow thread can outlast Temporal's 2s deadlock check.
             logger.error(
                 "session_workflow_failed_unexpectedly",
                 session_id=str(params.session_id),
@@ -1981,7 +2390,7 @@ async def _serve(
             )
         termination = wire.TerminationReason.FAILED
         # The Session's error is the plain reason; the parent's results word it.
-        failure_message = str(error) or None
+        failure_message = sandbox_refusal or str(error) or None
         if binding is not None:
             await binding.runtime.report_session_failure_to_parent(
                 ProtocolError(message=session_end_message("failed", failure_message), code=SESSION_FAILED_ERROR_CODE)
@@ -1997,9 +2406,9 @@ async def _serve(
             if binding is not None:
                 await _close_workflow_binding(binding, primary_error=primary_error)
         finally:
-            # After the close, which ends every send_message wait for admission, so none waits forever.
+            # After the close, which ends every message Update's wait for admission, so none waits forever.
             try:
-                await _drain_send_message_handlers(workflow)
+                await _drain_message_handlers(workflow)
             except asyncio.CancelledError:
                 pass  # A late cancel keeps the termination already chosen.
     end_cause = workflow._end_cause if termination is wire.TerminationReason.STOPPED else None
@@ -2106,9 +2515,9 @@ async def _close_workflow_binding(
         primary_error.add_note(f"Workflow binding cleanup failed: {cleanup_error!r}")
 
 
-async def _drain_send_message_handlers(workflow: _UnifiedHarnessControlPlaneWorkflow) -> None:
-    if not workflow.send_message_handlers_idle:
-        await workflows.workflow.wait_condition(lambda: workflow.send_message_handlers_idle)
+async def _drain_message_handlers(workflow: _UnifiedHarnessControlPlaneWorkflow) -> None:
+    if not workflow.message_handlers_idle:
+        await workflows.workflow.wait_condition(lambda: workflow.message_handlers_idle)
 
 
 def _public_final_message(reason: wire.TerminationReason, end_cause: wire.SessionLimitCause | None = None) -> str:
@@ -2123,12 +2532,16 @@ def _public_final_message(reason: wire.TerminationReason, end_cause: wire.Sessio
     return "This session completed."
 
 
-def _accept_message(message_entry_id: HistoryEntryId, *, turn_id: str) -> wire.SessionMessageVerdict:
-    return wire.SessionMessageVerdict(accepted=True, message_entry_id=message_entry_id, turn_id=turn_id)
+def _accept_message(message_entry_id: HistoryEntryId, *, turn_id: str, steered: bool) -> wire.SessionMessageVerdict:
+    return wire.SessionMessageVerdict(
+        accepted=True, message_entry_id=message_entry_id, turn_id=turn_id, steered=steered
+    )
 
 
-def _refuse_message(reason: wire.SessionCommandVerdictReason) -> wire.SessionMessageVerdict:
-    return wire.SessionMessageVerdict(accepted=False, reason=reason)
+def _refuse_message(
+    reason: wire.SessionCommandVerdictReason, *, active_turn_id: str | None = None
+) -> wire.SessionMessageVerdict:
+    return wire.SessionMessageVerdict(accepted=False, reason=reason, active_turn_id=active_turn_id)
 
 
 def _command_id(command: wire.SessionWorkflowCommand) -> str | None:

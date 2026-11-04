@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import re
 import subprocess
+import tomllib
 from collections.abc import Callable, Mapping, Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 from uuid import UUID
 
 import httpx
+from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, ConfigDict
 
+from mistralai.vibe_agents import __version__ as _CLI_SDK_VERSION
 from mistralai.vibe_agents.agents_client import AgentsClient, ManagedAgentResponse, api_models
 from mistralai.vibe_agents.agents_client.api_models import (
     BashkitNetworkInput,
@@ -196,10 +200,11 @@ async def create_managed_deployment(
     connectors: list[ConnectorInput] | None = None,
     secret_bindings: list[SecretBindingInput] | None = None,
     connector_selection: ConnectorSelectionInput | None = None,
-    required_session_inputs: SessionInputSchemas | None = None,
+    session_input_schemas: SessionInputSchemas | None = None,
     default_subagent_policy: SubagentPolicy | None = None,
     sandbox_config: SandboxConfigInput | None = None,
     mcp_servers: list[PlainMCPServerInput] | None = None,
+    sdk_version: str | None = None,
 ) -> ManagedAgentResponse:
     async with AgentsClient(
         base_url=server_url,
@@ -220,10 +225,11 @@ async def create_managed_deployment(
                 connectors=connectors,
                 secret_bindings=secret_bindings,
                 connector_selection=connector_selection,
-                required_session_inputs=required_session_inputs,
+                session_input_schemas=session_input_schemas,
                 default_subagent_policy=default_subagent_policy,
                 sandbox_config=sandbox_config,
                 mcp_servers=mcp_servers,
+                sdk_version=sdk_version,
             )
         except httpx.HTTPStatusError as exc:
             await telemetry.agent_registration_failed(
@@ -272,7 +278,7 @@ class PublishedConfig(AgentConfiguration):
 
 
 class DeployConfig(PublishedConfig):
-    required_session_inputs: SessionInputSchemas
+    session_input_schemas: SessionInputSchemas
     default_subagent_policy: SubagentPolicy | None
 
 
@@ -398,7 +404,7 @@ def build_deploy_config(app: AgentApp) -> DeployConfig:
     """
     return {
         **published_config(app),
-        "required_session_inputs": declared_session_input_schemas(app.agent, app.harness),
+        "session_input_schemas": declared_session_input_schemas(app.agent, app.harness),
         "default_subagent_policy": declared_subagent_policy(app.agent),
     }
 
@@ -414,6 +420,51 @@ class DeployPlan(BaseModel):
     settings: config.DeploySettings
     hardened: bool
     warnings: list[str] = []
+    # The Agents SDK release the image installs, or None when the project has no uv.lock that names it.
+    sdk_version: str | None = None
+
+
+_SDK_DISTRIBUTION = "mistralai-agents"
+
+
+def locked_sdk_version(project: Path, built: Path) -> str | None:
+    """The Agents SDK release the image installs, whatever release runs `agents deploy`; None when unknown.
+
+    Only the generated Dockerfile is known to install from uv.lock: another Dockerfile may install any
+    release. The platform builds the pushed commit, so the lock is read from HEAD, not from the checkout.
+    """
+    if "uv.lock" not in dockerfile_build_inputs(built):
+        return None
+    committed = _run_git(project, ["show", "HEAD:./uv.lock"], check=False)
+    if committed.returncode != 0:
+        return None
+    try:
+        lock = tomllib.loads(committed.stdout)
+    except tomllib.TOMLDecodeError:
+        return None
+    for package in lock.get("package", []):
+        if package.get("name") != _SDK_DISTRIBUTION:
+            continue
+        try:
+            return str(Version(str(package.get("version"))))
+        except InvalidVersion:
+            return None
+    return None
+
+
+def sdk_version_mismatch(locked: str | None) -> str | None:
+    """A warning when the image runs another Agents SDK release than the one that deploys it."""
+    if locked is None:
+        return None
+    cli = Version(_CLI_SDK_VERSION)
+    # A build from an untagged checkout reports a 0.0.0 release, which names no release to compare.
+    if not any(cli.release) or cli == Version(locked):
+        return None
+    return (
+        f"This CLI is {_SDK_DISTRIBUTION} {_CLI_SDK_VERSION}, but the project's uv.lock installs "
+        f"{locked}: the deployed agent runs {locked}. "
+        "Run `uv run agents deploy` to deploy with the locked release."
+    )
 
 
 def resolve_hardened(app: AgentApp, hardened: bool | None) -> bool:
@@ -425,6 +476,16 @@ def resolve_hardened(app: AgentApp, hardened: bool | None) -> bool:
     if hardened is not None:
         return hardened
     return contracts.requires_on_behalf_of(app.harness, app.agent.subagents)
+
+
+def unhardened_on_behalf_of_warning(app: AgentApp, hardened: bool | None) -> str | None:
+    """Warn when `--no-hardened` turns off the hardening an on-behalf-of agent needs."""
+    if hardened is not False or not contracts.requires_on_behalf_of(app.harness, app.agent.subagents):
+        return None
+    return (
+        "--no-hardened: the agent acts on behalf of the session user, so its worker cannot register "
+        "on an unhardened deployment and the deployment will not come up."
+    )
 
 
 def plan_deploy(
@@ -470,13 +531,21 @@ def plan_deploy(
     spec = build_deploy_spec(git, dockerfile).model_copy(update={"agent_name": agent_name, "workflow_name": app.name})
     harness = app.agent._resolve_harness(app.harness)
     resolved_bindings = resolve_secret_bindings(harness.secrets, bindings)
+    locked = locked_sdk_version(path, path / built)
+    mismatch = sdk_version_mismatch(locked)
+    unhardened = unhardened_on_behalf_of_warning(app, hardened)
     return DeployPlan(
         spec=spec,
         secret_bindings=resolved_bindings,
         deploy_config=build_deploy_config(app),
         settings=settings,
         hardened=resolve_hardened(app, hardened),
-        warnings=unbound_mcp_credential_warnings(harness, app.agent.subagents, resolved_bindings),
+        warnings=[
+            *unbound_mcp_credential_warnings(harness, app.agent.subagents, resolved_bindings),
+            *([] if mismatch is None else [mismatch]),
+            *([] if unhardened is None else [unhardened]),
+        ],
+        sdk_version=locked,
     )
 
 
@@ -530,6 +599,7 @@ async def create_deployment(plan: DeployPlan) -> ManagedAgentResponse:
         server_url=plan.settings.deploy_control_plane_url,
         is_hardened=plan.hardened,
         secret_bindings=plan.secret_bindings,
+        sdk_version=plan.sdk_version,
         **plan.deploy_config,
     )
 
@@ -538,6 +608,7 @@ async def wait_until_live(
     plan: DeployPlan,
     agent_id: UUID,
     *,
+    requested_at: datetime,
     on_progress: Callable[[DeployProgress, float], None],
 ) -> float:
     """Wait until the created agent's worker is live; return the seconds it took."""
@@ -550,6 +621,8 @@ async def wait_until_live(
         timeout_seconds=plan.settings.deploy_wait_timeout_seconds,
         poll_interval_seconds=plan.settings.deploy_poll_interval_seconds,
         on_progress=on_progress,
+        revision=plan.spec.revision,
+        requested_at=requested_at,
     )
 
 

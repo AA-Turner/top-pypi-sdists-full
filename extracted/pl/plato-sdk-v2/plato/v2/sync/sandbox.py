@@ -7,21 +7,24 @@ creating sandboxes, managing SSH, syncing files, running flows, etc.
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import os
 import shutil
-import signal
 import subprocess
 import tempfile
 import time
+import uuid
+from collections.abc import Mapping
+from contextlib import suppress
 from pathlib import Path
 from typing import Literal, cast
 from urllib.parse import quote
 
 import httpx
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue, ValidationError
 from rich.console import Console
 
 from plato._generated.api.v1.cluster import prefetch_snapshot
@@ -37,39 +40,73 @@ from plato._generated.api.v1.sandbox import start_worker
 from plato._generated.api.v1.simulator import get_env_flows as simulator_get_env_flows
 from plato._generated.api.v1.simulator import get_plato_config as simulator_get_plato_config
 from plato._generated.api.v1.simulator import get_simulator_versions as simulator_get_simulator_versions
+from plato._generated.api.v2.jobs import add_ssh_key as jobs_add_ssh_key
 from plato._generated.api.v2.jobs import checkpoint as jobs_checkpoint
 from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
 from plato._generated.api.v2.jobs import get_job_info as jobs_get_job_info
+from plato._generated.api.v2.jobs import public_url as jobs_public_url
+from plato._generated.api.v2.jobs import rdp_url as jobs_rdp_url
+from plato._generated.api.v2.jobs import reset as jobs_reset
+from plato._generated.api.v2.jobs import snapshot as jobs_snapshot
 from plato._generated.api.v2.jobs import state as jobs_state
+from plato._generated.api.v2.jobs import wait_for_ready as jobs_wait_for_ready
+from plato._generated.api.v2.sessions import add_job as sessions_add_job
 from plato._generated.api.v2.sessions import add_ssh_key as sessions_add_ssh_key
 from plato._generated.api.v2.sessions import close as sessions_close
 from plato._generated.api.v2.sessions import connect_network as sessions_connect_network
 from plato._generated.api.v2.sessions import get_public_url as sessions_get_public_url
 from plato._generated.api.v2.sessions import get_session_details
+from plato._generated.api.v2.sessions import remove_job as sessions_remove_job
 from plato._generated.api.v2.sessions import reset as sessions_reset
 from plato._generated.api.v2.sessions import snapshot as sessions_snapshot
 from plato._generated.api.v2.sessions import state as sessions_state
 from plato._generated.models import (
+    AddJobRequest,
     AddSSHKeyRequest,
+    AppApiV2SchemasSessionCreateSnapshotRequest,
     AppApiV2SchemasSessionCreateSnapshotResponse,
     AppSchemasBuildModelsSimConfigDataset,
+    ArtifactCredentials,
+    ArtifactMcpConfig,
+    BearerCredential,
     CloseSessionResponse,
     CreateCheckpointRequest,
     CreateCheckpointResult,
+    CreateSnapshotResult,
     DatabaseMutationListenerConfig,
+    EmailCredential,
     EnvCleanupResponse,
     Flow,
+    PasswordCredential,
     PrefetchRequest,
+    RemoveJobRequest,
+    RemoveJobResponse,
+    ResetJobResult,
+    ResetSessionRequest,
     ResetSessionResponse,
+    ResolvedMcpConfig,
+    Roles,
     SessionDetailsResponse,
     SessionStateResponse,
+    SessionStateResult,
+    UsernameCredential,
     VMManagementRequest,
 )
+from plato.chronos.api.sessions import get_session_envs as chronos_get_session_envs
+from plato.utils.ssh import gateway_proxy_command
 from plato.utils.subprocess import ssh_user_for_provider
 from plato.v1.models.sandbox import PlatoConfig
 from plato.v2._wait_for_ready import is_terminal_status, poll_until_ready_sync
 from plato.v2.async_.flow_executor import FlowExecutor
 from plato.v2.models import SandboxState
+from plato.v2.sandbox_store import (
+    HEARTBEAT_PROC_MARKER,
+    SandboxStore,
+    heartbeat_log_path,
+    slugify,
+    stop_heartbeat,
+)
+from plato.v2.sync.artifact import ArtifactManager
 from plato.v2.types import Env, EnvFromArtifact, EnvFromResource, EnvFromSimulator, SimConfigCompute
 
 logger = logging.getLogger(__name__)
@@ -137,14 +174,25 @@ def _generate_ssh_config(
     working_dir: Path | None = None,
     ssh_host: str = "sandbox",
     provider: str | None = None,
+    mesh_ip: str | None = None,
+    name: str | None = None,
 ) -> str:
     """Generate SSH config file for easy access via gateway.
 
     Args:
         job_id: The job ID for routing.
         private_key_path: Path to private key (absolute or relative).
+        mesh_ip: WireGuard mesh IP of the VM. When set (attached sandboxes,
+            where the caller runs on a VM inside the same session mesh), the
+            config connects to it directly — in-VPC, no gateway ProxyCommand,
+            no NAT round-trip.
         working_dir: Working directory for .plato/.
         ssh_host: Host alias in config.
+        name: Sandbox slot name. When given, the config is written to
+            ``.plato/ssh_config_<name>`` (so sibling sandboxes in one working
+            directory don't overwrite each other's) and ``.plato/ssh_config``
+            is pointed at it, keeping the documented
+            ``ssh -F .plato/ssh_config sandbox`` working for the current slot.
         provider: Hypervisor backing the job ("firecracker", "qemu", or None
             when unknown). Determines the ``User`` line — see
             :func:`~plato.utils.subprocess.ssh_user_for_provider`. ``None`` falls back to ``root``.
@@ -171,25 +219,47 @@ def _generate_ssh_config(
     ssh_port = 22
     sni = f"{job_id}--{ssh_port}.{gateway_host}"
     ssh_user = ssh_user_for_provider(provider)
+    # Both aliases resolve to the same VM, so `ssh -F .plato/ssh_config sandbox`
+    # (documented everywhere) and `ssh -F .plato/ssh_config_<name> <name>` work.
+    host_aliases = f"{ssh_host} {name}" if name and name != ssh_host else ssh_host
 
-    config_content = f"""# Plato Sandbox SSH Config
+    if mesh_ip:
+        config_content = f"""# Plato Sandbox SSH Config (mesh-direct)
+# Generated for job: {job_id}
+# Connects to the VM's WireGuard mesh IP directly (same-session mesh).
+# NOTE: Run SSH commands from workspace root for relative paths to resolve
+
+Host {host_aliases}
+    HostName {mesh_ip}
+    Port {ssh_port}
+    User {ssh_user}
+    IdentityFile {relative_key_path}
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR
+"""
+    else:
+        config_content = f"""# Plato Sandbox SSH Config
 # Generated for job: {job_id}
 # NOTE: Run SSH commands from workspace root for relative paths to resolve
 
-Host {ssh_host}
+Host {host_aliases}
     HostName {job_id}
     User {ssh_user}
     IdentityFile {relative_key_path}
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
     LogLevel ERROR
-    ProxyCommand openssl s_client -quiet -connect {gateway_host}:443 -servername {sni} 2>/dev/null
+    ProxyCommand {gateway_proxy_command(gateway_host, sni)}
 """
 
-    plato_dir = _get_plato_dir(working_dir)
-    plato_dir.mkdir(mode=0o700, exist_ok=True)
+    store = SandboxStore(working_dir or Path.cwd())
+    store.plato_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
 
-    config_path = plato_dir / "ssh_config"
+    # Per-slot file; `.plato/ssh_config` is a symlink the store repoints at
+    # whichever slot is current (on save, on `use`, and on stop), so it never
+    # drifts to a sandbox you did not select or one that is gone.
+    config_path = store.ssh_config_path(name) if name else store.ssh_config_file
     config_path.write_text(config_content)
 
     return str(config_path)
@@ -222,28 +292,81 @@ def _run_ssh_command(
     return result.returncode, result.stdout, result.stderr
 
 
+#: PowerShell run on Windows guests by ``SandboxClient.enable_manual_control``.
+#: Clears Winlogon ``ForceAutoLogon`` (the console auto-logon reclaim that
+#: bounces human RDP sessions) and verifies the write; ``AutoAdminLogon`` is
+#: left untouched so the agent user still auto-logs on at boot. Sent via
+#: ``powershell -EncodedCommand`` so no quoting survives the ssh → cmd.exe →
+#: powershell chain.
+_MANUAL_CONTROL_PS = """
+$winlogon = 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon'
+Set-ItemProperty -Path $winlogon -Name ForceAutoLogon -Value '0' -Type String
+$value = (Get-ItemProperty -Path $winlogon).ForceAutoLogon
+if ($value -ne '0') { Write-Error "ForceAutoLogon is '$value' after update"; exit 1 }
+Write-Output 'ForceAutoLogon=0'
+""".strip()
+
+
 # =============================================================================
 # HEARTBEAT UTILITIES
 # =============================================================================
 
 
-def _start_heartbeat_process(session_id: str, api_key: str) -> int | None:
+#: A session that answers 404/410 is gone for good, so the heartbeat exits
+#: instead of POSTing into the void forever. Small enough that a clobbered or
+#: crashed CLI leaks a process for minutes rather than days, large enough to
+#: ride out a backend blip.
+_HEARTBEAT_GONE_STREAK = 5
+#: Failures of any other kind (network down, 5xx) get a much longer rope —
+#: killing a heartbeat over a flaky wifi hop would take the VM down with it.
+_HEARTBEAT_ERROR_STREAK = 120
+#: Seconds between beats. The backend expires a session after ~2 minutes
+#: without one, so this only ever wants shortening (tests do exactly that).
+_HEARTBEAT_INTERVAL_ENV = "PLATO_HEARTBEAT_INTERVAL_SECONDS"
+_HEARTBEAT_INTERVAL_DEFAULT = 30.0
+
+
+def _start_heartbeat_process(session_id: str, api_key: str, slot_path: str | Path) -> int | None:
     """Start a background process that sends heartbeats.
 
     Uses only stdlib (urllib) to work on any machine without dependencies.
 
+    The process is detached (survives the terminal) but it is *owned by its
+    slot file*, which it re-reads before every beat, and it exits on its own
+    when any of these say the sandbox is over:
+
+    - the slot file is gone or records ``stopped_at`` (a ``stop``, a
+      ``--remove``, even an ``rm -rf`` of the working directory)
+    - the slot's ``session_id`` changed (the name was reused)
+    - the slot's ``expires_at`` has passed — the idle lease. Commands that use
+      the sandbox push ``expires_at`` forward, so an actively-used sandbox
+      stays alive and an abandoned one dies at most ``--timeout`` after the
+      last touch. An immortal orphan is impossible by construction.
+    - the backend answers 404/410 repeatedly (the session is already gone)
+
+    Because the slot file is the kill switch, stopping a sandbox never
+    requires *finding* this process; the recorded pid is only used to kill it
+    a beat sooner than it would exit anyway.
+
     Returns:
         PID of the background process, or None if failed.
     """
-    log_file = f"/tmp/plato_heartbeat_{session_id}.log"
+    log_file = str(heartbeat_log_path(session_id))
     base_url = os.getenv("PLATO_BASE_URL", "https://plato.so")
     # Strip trailing /api if present to avoid double /api/api in URL
     if base_url.endswith("/api"):
         base_url = base_url[:-4]
     base_url = base_url.rstrip("/")
+    try:
+        interval = float(os.getenv(_HEARTBEAT_INTERVAL_ENV, _HEARTBEAT_INTERVAL_DEFAULT))
+    except ValueError:
+        interval = _HEARTBEAT_INTERVAL_DEFAULT
 
     # Use only stdlib - no external dependencies
     heartbeat_script = f"""
+# {HEARTBEAT_PROC_MARKER}: identifies this process as a Plato sandbox heartbeat.
+import os
+import sys
 import time
 import json
 import urllib.request
@@ -251,9 +374,15 @@ import urllib.error
 from datetime import datetime
 
 session_id = "{session_id}"
-api_key = "{api_key}"
+# Read from the environment rather than the script body: argv is world-readable
+# in `ps`, and this key would otherwise be printed to every user on the box.
+api_key = os.environ.pop("PLATO_HEARTBEAT_API_KEY", "")
 base_url = "{base_url}"
 log_file = "{log_file}"
+slot_path = {json.dumps(str(slot_path))}
+GONE_STREAK = {_HEARTBEAT_GONE_STREAK}
+ERROR_STREAK = {_HEARTBEAT_ERROR_STREAK}
+INTERVAL = {interval}
 
 def log(msg):
     timestamp = datetime.now().isoformat()
@@ -261,11 +390,45 @@ def log(msg):
         f.write(f"[{{timestamp}}] {{msg}}\\n")
         f.flush()
 
+def slot_verdict(missing_streak):
+    # The slot file owns this process. Only a *definitive* signal may end it:
+    # the file being gone twice in a row (writes are atomic renames, but be
+    # cheap insurance against an unlink+rewrite editor), a recorded stop, the
+    # name now holding a different session, or the lease running out. An
+    # unreadable or corrupt file keeps the sandbox alive — never kill a VM
+    # over a parse error.
+    try:
+        with open(slot_path) as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return ("slot file gone" if missing_streak + 1 >= 2 else None), missing_streak + 1
+    except Exception:
+        return None, 0
+    if not isinstance(data, dict):
+        return None, 0
+    if data.get("stopped_at"):
+        return "slot stopped", 0
+    sid = data.get("session_id")
+    if sid and sid != session_id:
+        return "slot reused for another session", 0
+    expires_at = data.get("expires_at")
+    if expires_at and time.time() >= float(expires_at):
+        return "lease expired (idle past --timeout; any sandbox command renews it)", 0
+    return None, 0
+
 log(f"Heartbeat process started for session {{session_id}}")
 log(f"URL: {{base_url}}/api/v2/sessions/{{session_id}}/heartbeat")
+log(f"Owned by slot file: {{slot_path}}")
 
 heartbeat_count = 0
+gone_streak = 0
+error_streak = 0
+missing_streak = 0
 while True:
+    reason, missing_streak = slot_verdict(missing_streak)
+    if reason:
+        log(f"{{reason}} - exiting; the backend reaps the session on heartbeat loss")
+        sys.exit(0)
     heartbeat_count += 1
     try:
         url = f"{{base_url}}/api/v2/sessions/{{session_id}}/heartbeat"
@@ -281,11 +444,27 @@ while True:
             result = json.loads(body)
             success = result.get("success", False)
             log(f"Heartbeat #{{heartbeat_count}}: status={{status}}, success={{success}}")
+        gone_streak = 0
+        error_streak = 0
     except urllib.error.HTTPError as e:
         log(f"Heartbeat #{{heartbeat_count}}: HTTP {{e.code}} - {{e.reason}}")
+        error_streak += 1
+        # 404/410 mean the session no longer exists: nothing left to keep
+        # alive, so exit instead of outliving the sandbox forever.
+        if e.code in (404, 410):
+            gone_streak += 1
+            if gone_streak >= GONE_STREAK:
+                log(f"Session gone ({{e.code}}) {{gone_streak}}x in a row - exiting")
+                sys.exit(0)
+        else:
+            gone_streak = 0
     except Exception as e:
         log(f"Heartbeat #{{heartbeat_count}} EXCEPTION: {{type(e).__name__}}: {{e}}")
-    time.sleep(30)
+        error_streak += 1
+    if error_streak >= ERROR_STREAK:
+        log(f"{{error_streak}} consecutive failures - exiting")
+        sys.exit(0)
+    time.sleep(INTERVAL)
 """
 
     try:
@@ -295,25 +474,18 @@ while True:
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
             start_new_session=True,
+            env={**os.environ, "PLATO_HEARTBEAT_API_KEY": api_key},
         )
         return process.pid
     except Exception:
         return None
 
 
-def _stop_heartbeat_process(pid: int) -> bool:
-    """Stop the heartbeat process.
-
-    Returns:
-        True if stopped successfully.
-    """
-    try:
-        os.kill(pid, signal.SIGTERM)
-        return True
-    except ProcessLookupError:
-        return True
-    except Exception:
-        return False
+#: Killing a heartbeat is :func:`plato.v2.sandbox_store.stop_heartbeat` — a
+#: verified SIGTERM (the pid must carry the heartbeat marker in its argv, so a
+#: recycled pid is never killed). It is a courtesy for immediacy only: the
+#: heartbeat's slot file is its kill switch and it exits on its own within a
+#: beat of the slot being stopped or removed.
 
 
 class SyncResult(BaseModel):
@@ -420,7 +592,7 @@ Host sandbox
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
     LogLevel ERROR
-    ProxyCommand openssl s_client -quiet -connect {gateway_host}:443 -servername {sni} 2>/dev/null
+    ProxyCommand {gateway_proxy_command(gateway_host, sni)}
 """
     return config_content
 
@@ -487,8 +659,20 @@ def _forward_data(src, dst, name: str = "") -> None:
             pass
 
 
+#: How long ``Tunnel``'s accept loop blocks before re-checking ``_running``.
+#: This is what bounds ``Tunnel.stop()``: a blocked ``accept()`` does not wake
+#: when the listening socket is closed from another thread, so stop() waits out
+#: at most one poll interval.
+_TUNNEL_ACCEPT_POLL_S = 0.2
+
+
 class Tunnel:
-    """A TCP tunnel to a remote port on a sandbox VM via the TLS gateway."""
+    """A TCP tunnel to a remote port on a sandbox VM.
+
+    Goes via the TLS gateway by default; when ``mesh_ip`` is set (attached
+    sandboxes, caller on a VM inside the same session mesh) it forwards
+    directly to the mesh IP — in-VPC, no gateway NAT round-trip.
+    """
 
     def __init__(
         self,
@@ -497,12 +681,14 @@ class Tunnel:
         local_port: int | None = None,
         bind_address: str = "127.0.0.1",
         verify_ssl: bool = True,
+        mesh_ip: str | None = None,
     ):
         self.job_id = job_id
         self.remote_port = remote_port
         self.local_port = local_port or remote_port
         self.bind_address = bind_address
         self.verify_ssl = verify_ssl
+        self.mesh_ip = mesh_ip
 
         self._server = None
         self._thread = None
@@ -530,15 +716,18 @@ class Tunnel:
 
         def handle_client(client_sock, client_addr):
             try:
-                gateway_sock = _create_tls_connection(gateway_host, gateway_port, sni, verify_ssl=self.verify_ssl)
+                if self.mesh_ip:
+                    upstream_sock = socket.create_connection((self.mesh_ip, self.remote_port), timeout=30)
+                else:
+                    upstream_sock = _create_tls_connection(gateway_host, gateway_port, sni, verify_ssl=self.verify_ssl)
                 t1 = threading.Thread(
                     target=_forward_data,
-                    args=(client_sock, gateway_sock, "client->gateway"),
+                    args=(client_sock, upstream_sock, "client->upstream"),
                     daemon=True,
                 )
                 t2 = threading.Thread(
                     target=_forward_data,
-                    args=(gateway_sock, client_sock, "gateway->client"),
+                    args=(upstream_sock, client_sock, "upstream->client"),
                     daemon=True,
                 )
                 t1.start()
@@ -558,7 +747,7 @@ class Tunnel:
             assert server is not None, "Server must be initialized before accept_loop"
             while self._running:
                 try:
-                    server.settimeout(1.0)
+                    server.settimeout(_TUNNEL_ACCEPT_POLL_S)
                     client_sock, client_addr = server.accept()
                     threading.Thread(
                         target=handle_client,
@@ -599,6 +788,319 @@ class Tunnel:
 # SANDBOX CLIENT
 # =============================================================================
 
+DEFAULT_CHRONOS_URL = "https://chronos.plato.so"
+
+
+def resolve_chronos_plato_session_id(
+    chronos_session_id: str,
+    api_key: str,
+    chronos_url: str | None = None,
+) -> str:
+    """Resolve a Chronos session public id to its backing Plato session id.
+
+    Chronos tracks envs by reading them off the Plato session it launched
+    (``GET /api/sessions/{id}/envs`` joins on ``plato_session_id``), so
+    attaching a sandbox to a Chronos session means adding its job to that
+    Plato session.
+    """
+    base = (chronos_url or os.environ.get("CHRONOS_URL") or DEFAULT_CHRONOS_URL).rstrip("/")
+    with httpx.Client(base_url=base, timeout=httpx.Timeout(30)) as client:
+        envs_response = chronos_get_session_envs.sync(
+            client,
+            public_id=chronos_session_id,
+            x_api_key=api_key,
+        )
+    if not envs_response.plato_session_id:
+        raise RuntimeError(f"Chronos session {chronos_session_id} has no backing Plato session to attach envs to")
+    return envs_response.plato_session_id
+
+
+def dataset_config_from_plato_config(
+    plato_config: object, dataset: str, *, source: str
+) -> AppSchemasBuildModelsSimConfigDataset:
+    """Validate one dataset of a plato-config through the generated backend-schema model.
+
+    This is the model to use whenever the config is *serialised* (config-mode
+    snapshots, start-worker): it is regenerated from the backend's
+    ``SimConfigDataset`` and therefore carries every field the backend knows —
+    ``audit_ignore_tables``, ``native_worker``, ... The hand-maintained
+    :class:`plato.v1.models.sandbox.PlatoConfig` declares neither and silently
+    dropped both from the ``plato_config`` stored on every config-mode snapshot.
+    """
+    if not isinstance(plato_config, dict):
+        raise ValueError(f"Invalid plato config in {source}: expected a top-level mapping")
+    config = cast(dict[str, object], plato_config)
+    datasets = config.get("datasets")
+    if isinstance(datasets, dict):
+        datasets = cast(dict[str, object], datasets)
+        dataset_config = datasets.get(dataset)
+        if dataset_config is None:
+            available_datasets = sorted(str(name) for name in datasets.keys())
+            raise ValueError(f"Dataset '{dataset}' not found in {source}. Available datasets: {available_datasets}")
+    else:
+        # Config without a datasets wrapper — treat the top-level mapping as the
+        # dataset config directly (some artifacts store it this way).
+        dataset_config = config
+    return AppSchemasBuildModelsSimConfigDataset.model_validate(dataset_config)
+
+
+# Variable names (metadata.variables[].name) that identify the login credential.
+_USER_VARIABLES = ("username", "user", "email", "login")
+_PASSWORD_VARIABLES = ("password", "pass")
+_TOKEN_VARIABLES = ("token", "api_key", "api_token", "secret")
+
+# metadata.credentials keys. ``primary``/``login`` and mapping-valued roles are the
+# pre-2026-09 spelling (plato#3817 replaced it); they are converted, never sent.
+_CREDENTIALS_KEYS = ("default_role", "roles", "primary", "login")
+_LEGACY_ACCOUNT_KEYS = ("kind", "user", "password", "secret", "email", "token")
+_LEGACY_KINDS = ("password", "email_only", "token", "none")
+_CREDENTIAL_SPELLING = "{type: email|username|password|bearer, text: <non-empty string>}"
+
+
+def _identity_credential(user: str) -> Roles:
+    """The account's identity: an email when it contains ``@``, else a username."""
+    if "@" in user:
+        return Roles(root=EmailCredential(text=user))
+    return Roles(root=UsernameCredential(text=user))
+
+
+def _present(value: str | None) -> str | None:
+    """The value when it carries text, else None (blank values are not credentials)."""
+    return value if value is not None and value.strip() else None
+
+
+def _declared_credential(item: object, *, where: str) -> Roles:
+    """One user-written ``{type, text}`` entry, validated through the generated model.
+
+    The pydantic error is never re-raised or chained: it quotes its input, and
+    the input here is a password.
+    """
+    if not isinstance(item, dict):
+        raise ValueError(f"{where} must be a mapping {_CREDENTIAL_SPELLING}")
+    unknown = sorted(str(key) for key in item if key not in ("type", "text"))
+    if unknown:
+        raise ValueError(f"{where} has unknown key(s) {', '.join(unknown)}; expected {_CREDENTIAL_SPELLING}")
+    try:
+        return Roles.model_validate(item)
+    except ValidationError as error:
+        problems = sorted({str(problem["type"]) for problem in error.errors(include_input=False)})
+        raise ValueError(
+            f"{where} is not a valid credential ({', '.join(problems)}); expected {_CREDENTIAL_SPELLING}"
+        ) from None
+
+
+def _legacy_account_credentials(account: Mapping[object, object], *, where: str) -> list[Roles]:
+    """A pre-2026-09 ``{kind, user, password | secret}`` account as the API's credential list.
+
+    Mirrors ``_Account.items()`` of the backend migration that rewrote the stored
+    rows (``c3817creds01_migrate_artifact_credentials_to_roles``) so a config
+    converts to exactly what its already-published artifacts were migrated to.
+    """
+    unknown = sorted(str(key) for key in account if key not in _LEGACY_ACCOUNT_KEYS)
+    if unknown:
+        raise ValueError(f"{where} has unknown key(s) {', '.join(unknown)}; allowed: {', '.join(_LEGACY_ACCOUNT_KEYS)}")
+    fields: dict[str, str | None] = {}
+    for key in _LEGACY_ACCOUNT_KEYS:
+        value = account.get(key)
+        if value is not None and not isinstance(value, str):
+            raise ValueError(f"{where}.{key} must be a string (quote it in YAML)")
+        fields[key] = value
+    kind = fields["kind"]
+    if kind is not None and kind not in _LEGACY_KINDS:
+        raise ValueError(f"{where}.kind must be one of {', '.join(_LEGACY_KINDS)}")
+    if kind == "none":
+        return []
+
+    # The migration picks the {email, password, token} form when either key is merely
+    # present. A config is hand-written, so a BLANK ``email:``/``token:`` next to a real
+    # ``user``/``secret`` must not discard them (the account would be stored without its
+    # identity, or as "no sign-in"): the form is chosen by which keys carry text. Every
+    # account whose email/token does carry text converts exactly as the migration did.
+    credentials: list[Roles] = []
+    if _present(fields["email"]) is not None or _present(fields["token"]) is not None:
+        email, password, bearer = _present(fields["email"]), _present(fields["password"]), _present(fields["token"])
+        if email is not None:
+            credentials.append(Roles(root=EmailCredential(text=email)))
+    else:
+        user = _present(fields["user"])
+        password = _present(fields["password"]) if kind in (None, "password") else None
+        bearer = _present(fields["secret"]) if kind == "token" else None
+        if user is not None:
+            credentials.append(_identity_credential(user))
+    if password is not None:
+        credentials.append(Roles(root=PasswordCredential(text=password)))
+    if bearer is not None:
+        credentials.append(Roles(root=BearerCredential(text=bearer)))
+    return credentials
+
+
+def _account_credentials(account: object, *, where: str) -> list[Roles]:
+    """Credential list for one declared account, in either accepted spelling.
+
+    * a LIST is the API shape (``[{type: username, text: admin}, {type: password, text: ...}]``);
+      an empty list records an account that needs no sign-in;
+    * a MAPPING is the pre-2026-09 shape (``{kind, user, password | secret}``), converted.
+    """
+    if isinstance(account, list):
+        return [_declared_credential(item, where=f"{where}[{index}]") for index, item in enumerate(account)]
+    if isinstance(account, dict):
+        return _legacy_account_credentials(cast("Mapping[object, object]", account), where=where)
+    raise ValueError(
+        f"{where} must be a credential list ([{_CREDENTIAL_SPELLING}, ...]) or a mapping with kind/user/password"
+    )
+
+
+def _declared_artifact_credentials(explicit: object) -> ArtifactCredentials | None:
+    """``metadata.credentials`` as the API shape; same merge order as the backend migration's ``convert``."""
+    if not isinstance(explicit, dict):
+        raise ValueError("metadata.credentials must be a mapping with 'roles' (and optional 'default_role')")
+    explicit = cast("Mapping[object, object]", explicit)
+    unknown = sorted(str(key) for key in explicit if key not in _CREDENTIALS_KEYS)
+    if unknown:
+        raise ValueError(
+            f"metadata.credentials has unknown key(s) {', '.join(unknown)}; allowed: {', '.join(_CREDENTIALS_KEYS)}"
+        )
+    declared = explicit.get("roles")
+    if declared is None:
+        declared = {}
+    if not isinstance(declared, dict):
+        raise ValueError("metadata.credentials.roles must map a role name to its credentials")
+    roles: dict[str, list[Roles]] = {}
+    for name, account in declared.items():
+        # YAML reads an unquoted ``on:``/``no:``/``1:`` key as a bool or int; str() would rename
+        # the role ("True") or collapse ``1`` and ``"1"`` into one account without a word.
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError(
+                f"metadata.credentials.roles has a role name that is not a non-empty string ({name!r}); quote it in YAML"
+            )
+        roles[name] = _account_credentials(account, where=f"metadata.credentials.roles.{name}")
+    default_role = explicit.get("default_role")
+    if default_role is not None and not isinstance(default_role, str):
+        raise ValueError("metadata.credentials.default_role must be a role name (string)")
+    for key in ("login", "primary"):
+        account = explicit.get(key)
+        if account is None:
+            continue
+        if not isinstance(account, dict):
+            raise ValueError(f"metadata.credentials.{key} must be a mapping with kind/user/password")
+        name, attempt = "default", 1
+        while name in roles:
+            name = "default_login" if attempt == 1 else f"default_login_{attempt}"
+            attempt += 1
+        roles[name] = _legacy_account_credentials(
+            cast("Mapping[object, object]", account), where=f"metadata.credentials.{key}"
+        )
+        if default_role is None:
+            default_role = name
+    if not roles:
+        if default_role is not None:
+            raise ValueError(f"metadata.credentials.default_role names {default_role!r} but no roles are declared")
+        return None
+    if default_role is None and len(roles) == 1:
+        default_role = next(iter(roles))
+    if default_role is not None and default_role not in roles:
+        raise ValueError(
+            f"metadata.credentials.default_role {default_role!r} is not one of the declared roles: "
+            f"{', '.join(sorted(roles))}"
+        )
+    return ArtifactCredentials(default_role=default_role, roles=roles)
+
+
+def credentials_from_dataset_config(
+    dataset_config: AppSchemasBuildModelsSimConfigDataset,
+) -> ArtifactCredentials | None:
+    """Login credentials to store on the artifact, read from plato-config metadata.
+
+    The artifact stores structured credentials next to its flows so consumers
+    (task cards, ``Session.login``) never have to parse ``flows.yml``. The API
+    shape is a role dictionary: ``roles[<name>]`` is that account's ordered
+    credential list (``{type: email|username|password|bearer, text}``; an empty
+    list means no sign-in) and ``default_role`` names the account a task
+    addresses by default. Two sources, explicit first:
+
+    * ``metadata.credentials`` — either the API shape (``roles`` of credential
+      lists, optional ``default_role``) or the older ``primary`` + ``roles``
+      mappings (``{kind, user, password | secret}``) existing plato-config.yml
+      files use. The older spelling is converted the way the backend migrated
+      its stored rows: ``primary`` becomes the ``default`` role.
+    * ``metadata.variables`` — the login variables the flows fill:
+      ``username``/``user``/``email``/``login`` + ``password`` → the ``default``
+      role with a password; a user alone → identity only; a token/secret alone
+      → a bearer credential.
+
+    Returns None when neither is declared — the backend then carries the parent
+    artifact's credentials forward, and a first snapshot stores none.
+
+    Raises ValueError naming the offending key for a malformed
+    ``metadata.credentials``; the message never quotes a credential value.
+    """
+    metadata = dataset_config.metadata
+    if metadata is None:
+        return None
+    explicit = (metadata.model_extra or {}).get("credentials")
+    if explicit is not None:
+        return _declared_artifact_credentials(explicit)
+
+    values: dict[str, str] = {}
+    for variable in metadata.variables or []:
+        name = str(variable.get("name", "")).strip().lower()
+        value = variable.get("value")
+        if name and value is not None:
+            values[name] = str(value)
+    user = _present(next((values[n] for n in _USER_VARIABLES if n in values), None))
+    password = _present(next((values[n] for n in _PASSWORD_VARIABLES if n in values), None))
+    token = _present(next((values[n] for n in _TOKEN_VARIABLES if n in values), None))
+    credentials: list[Roles]
+    if user is not None:
+        credentials = [_identity_credential(user)]
+        if password is not None:
+            credentials.append(Roles(root=PasswordCredential(text=password)))
+    elif token is not None:
+        credentials = [Roles(root=BearerCredential(text=token))]
+    else:
+        return None
+    return ArtifactCredentials(default_role="default", roles={"default": credentials})
+
+
+def describe_credentials(credentials: ArtifactCredentials | None) -> str:
+    """One-line, secret-free summary for console output.
+
+    ``default: username=admin +password; viewer: no sign-in`` — default role
+    first; identities are shown, a password or bearer only as a marker.
+    """
+    if credentials is None or not credentials.roles:
+        return "none"
+    parts: list[str] = []
+    for name in sorted(credentials.roles, key=lambda role: (role != credentials.default_role, role)):
+        shown: list[str] = []
+        for item in credentials.roles[name]:
+            credential = item.root
+            if isinstance(credential, (EmailCredential, UsernameCredential)):
+                shown.append(f"{credential.type}={credential.text}")
+            else:
+                shown.append(f"+{credential.type}")
+        parts.append(f"{name}: {' '.join(shown) if shown else 'no sign-in'}")
+    return "; ".join(parts)
+
+
+def describe_mcp_config(mcp: ArtifactMcpConfig | ResolvedMcpConfig | None) -> str:
+    """One-line summary for console output (``enabled=True port=3000 path=/mcp``).
+
+    ``none`` = nothing stored on the artifact; ``inherit`` = a config whose
+    every field is unset — :meth:`SandboxClient._build_checkpoint_request` drops
+    such a config from the request, so the backend inherits the parent
+    artifact's rather than being handed an empty override.
+    """
+    if mcp is None:
+        return "none"
+    # port/path are root models on the stored config, plain scalars on the resolved one
+    parts = [
+        f"{name}={getattr(value, 'root', value)}"
+        for name, value in (("enabled", mcp.enabled), ("port", mcp.port), ("path", mcp.path))
+        if value is not None
+    ]
+    return " ".join(parts) or "inherit"
+
 
 class SandboxClient:
     """Synchronous client for sandbox development workflows.
@@ -631,6 +1133,7 @@ class SandboxClient:
         base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         console: Console = Console(),
+        sandbox_name: str | None = None,
     ):
         self.api_key = api_key or os.environ.get("PLATO_API_KEY")
         if not self.api_key:
@@ -642,11 +1145,16 @@ class SandboxClient:
         self.base_url = url.rstrip("/")
         self.console = console
         self.working_dir = working_dir
+        self.store = SandboxStore(working_dir)
+        # Slot these operations act on (``--name`` / ``$PLATO_SANDBOX``);
+        # None means whichever slot ``.plato/current`` points at.
+        self.sandbox_name = sandbox_name
 
         self._http = httpx.Client(
             base_url=self.base_url,
             timeout=httpx.Timeout(timeout),
         )
+        self.artifacts = ArtifactManager(self._http, self.api_key)
 
     def _get_plato_dir(self) -> Path:
         return Path(self.working_dir) / self.PLATO_DIR
@@ -667,6 +1175,7 @@ class SandboxClient:
         artifact_id: str | None = None,
         dataset: str = "base",
         tag: str | None = None,
+        restore_memory: bool = True,
         # blankl or plato-config mode
         cpus: int = 1,
         memory: int = 2048,
@@ -677,17 +1186,27 @@ class SandboxClient:
         connect_network: bool = True,
         timeout: int = 1800,
         provider: str | None = None,
+        chronos_session_id: str | None = None,
+        attach_strict: bool = True,
+        name: str | None = None,
     ) -> SandboxState:
         """Start a sandbox environment.
 
         Uses Plato SDK v2 internally for session creation.
 
         Args:
+            name: Slot to store this sandbox under in ``.plato/sandboxes/``.
+                Defaults to the simulator name, suffixed if that slot is taken,
+                so a second start in the same working directory gets its own
+                slot instead of overwriting the first one.
             mode: Start mode - "blank", "simulator", or "artifact".
             simulator_name: Simulator name.
             artifact_id: Artifact UUID.
             dataset: Dataset name.
             tag: Artifact tag.
+            restore_memory: Artifact/simulator modes. True (default) resumes
+                the memory snapshot; False cold-boots the VM from the
+                snapshot's disk only (nothing restored from memory).
             cpus: Number of CPUs.
             memory: Memory in MB.
             disk: Disk in MB.
@@ -695,6 +1214,16 @@ class SandboxClient:
             messaging_port: Messaging port.
             connect_network: Whether to connect WireGuard network.
             provider: VM provider for blank/config resource VMs. Use "qemu" for Windows VMs.
+            chronos_session_id: When set, attach the sandbox to this Chronos
+                session instead of creating a standalone Plato session: the env
+                is added as a job on the session's backing Plato session, so
+                Chronos tracks it and its lifetime is bound to that session.
+            attach_strict: When False, a failure to resolve the Chronos
+                session's backing Plato session falls back to a standalone
+                sandbox with a warning instead of raising. The CLI uses this
+                for the ambient env-var default so legacy flows on sessions
+                without a plato_session_id keep working; explicit
+                --chronos-session stays strict.
 
         Returns:
             SandboxState with sandbox info.
@@ -720,11 +1249,13 @@ class SandboxClient:
         config_messaging_port: int | None = None
 
         if mode == "artifact" and artifact_id:
-            self.console.print(f"[cyan]Mode:[/cyan] artifact ({artifact_id})")
-            env_config = Env.artifact(artifact_id)
+            boot = "" if restore_memory else ", cold boot from disk"
+            self.console.print(f"[cyan]Mode:[/cyan] artifact ({artifact_id}{boot})")
+            env_config = Env.artifact(artifact_id, restore_memory=restore_memory)
         elif mode == "simulator" and simulator_name:
-            self.console.print(f"[cyan]Mode:[/cyan] simulator ({simulator_name}:{tag})")
-            env_config = Env.simulator(simulator_name, tag=tag, dataset=dataset)
+            boot = "" if restore_memory else ", cold boot from disk"
+            self.console.print(f"[cyan]Mode:[/cyan] simulator ({simulator_name}:{tag}{boot})")
+            env_config = Env.simulator(simulator_name, tag=tag, dataset=dataset, restore_memory=restore_memory)
         elif mode == "blank":
             # Use provided simulator_name or default to "sandbox"
             sim_name = simulator_name or "sandbox"
@@ -774,113 +1305,248 @@ class SandboxClient:
         from plato._generated.api.v2.sessions import wait_for_ready as sessions_wait_for_ready
         from plato._generated.models import CreateSessionFromEnvs, Envs, RunSessionSource
 
-        # Step 1: Create session
-        self.console.print("[yellow]Creating session...[/yellow]")
-        step_start = time.time()
-        request_body = CreateSessionFromEnvs(
-            envs=[Envs(root=env_config)],
-            timeout=timeout,
-            source=RunSessionSource.SDK,
-        )
-        response = sessions_make.sync(
-            client=self._http,
-            body=request_body,
-            x_api_key=self.api_key,
-        )
-        session_id = response.session_id
-        elapsed = time.time() - step_start
-        self.console.print(f"[green]Session created:[/green] {session_id} [dim]({elapsed:.1f}s)[/dim]")
+        attached = chronos_session_id is not None
+        attach_plato_session_id: str | None = None
+        sandbox_mesh_ip: str | None = None
+        if attached:
+            assert chronos_session_id is not None
+            self.console.print(f"[cyan]Attaching to Chronos session:[/cyan] {chronos_session_id}")
+            try:
+                attach_plato_session_id = resolve_chronos_plato_session_id(chronos_session_id, self.api_key)
+            except Exception as exc:
+                if attach_strict:
+                    raise
+                self.console.print(
+                    f"[yellow]Could not attach to Chronos session {chronos_session_id} ({exc}); "
+                    "starting a standalone sandbox instead[/yellow]"
+                )
+                attached = False
 
-        # Check if any envs failed to create
-        if response.envs:
-            for env_result in response.envs:
-                if not env_result.success:
-                    raise RuntimeError(f"Failed to create environment: {env_result.error}")
-                if env_result.job_id:
-                    self.console.print(f"[dim]  Job: {env_result.job_id}[/dim]")
-        else:
-            raise RuntimeError("No environments created in session")
-
-        # Step 2: Wait for VM
-        self.console.print("[yellow]Waiting for VM to start...[/yellow]")
-        step_start = time.time()
-        ready_response = poll_until_ready_sync(
-            lambda per_call: sessions_wait_for_ready.sync(
-                client=self._http,
-                session_id=session_id,
-                timeout=per_call,
-                x_api_key=self.api_key,
-            ),
-            timeout=timeout,
-        )
-        if not ready_response.ready:
-            errors = []
-            if ready_response.results:
-                for jid, result in ready_response.results.items():
-                    if not result.ready:
-                        errors.append(f"{jid}: {result.error or 'Unknown error'}")
-            reason = (
-                ", ".join(errors)
-                if errors
-                else ("terminal status" if is_terminal_status(ready_response) else "timeout")
-            )
-            raise RuntimeError(f"VM failed to start: {reason}")
-
-        job_id = response.envs[0].job_id if response.envs else None
-        if not job_id:
-            raise ValueError("No job ID found")
-        elapsed = time.time() - step_start
-        self.console.print(f"[green]VM ready:[/green] {job_id} [dim]({elapsed:.1f}s)[/dim]")
-
-        # Step 3: Connect network
-        network_connected = False
-        if connect_network:
-            self.console.print("[yellow]Connecting network...[/yellow]")
+        if attached:
+            assert attach_plato_session_id is not None
+            # Step 1 (attached): add the env as a job on the Plato session
+            # backing the Chronos session, so Chronos tracks and manages it.
+            session_id = attach_plato_session_id
+            if env_config.alias is None:
+                env_config.alias = f"sandbox-{simulator_name or mode}-{uuid.uuid4().hex[:8]}"
+            self.console.print("[yellow]Adding env to session...[/yellow]")
             step_start = time.time()
-            connect_response = sessions_connect_network.sync(
+            add_response = sessions_add_job.sync(
                 client=self._http,
                 session_id=session_id,
+                body=AddJobRequest(env=env_config, timeout=timeout),
                 x_api_key=self.api_key,
             )
-            network_connected = connect_response.get("success", False)
-            elapsed = time.time() - step_start
-            self.console.print(f"[green]Network connected:[/green] {network_connected} [dim]({elapsed:.1f}s)[/dim]")
-        else:
-            self.console.print("[dim]Skipping network connection (--no-network)[/dim]")
-
-        # For artifact mode, we need to get simulator_name from session details BEFORE generating public URL
-        # Note: get_session_details returns a dict, not a Pydantic model
-        if not simulator_name:
-            session_details = get_session_details.sync(
-                client=self._http,
-                session_id=session_id,
-                x_api_key=self.api_key,
-            )
-            jobs = (
-                session_details.get("jobs")
-                if isinstance(session_details, dict)
-                else getattr(session_details, "jobs", None)
-            )
-            if jobs:
-                for j in jobs:
-                    service = j.get("service") if isinstance(j, dict) else getattr(j, "service", None)
-                    if service:
-                        simulator_name = service
-                        break
+            if not add_response.env.success:
+                raise RuntimeError(f"Failed to add environment to session {session_id}: {add_response.env.error}")
+            if not add_response.env.job_id:
+                raise ValueError("No job ID found")
+            # Dedicated str-typed local: `job_id` is also assigned in the other
+            # branch, which voids narrowing inside the wait lambda's closure.
+            added_job_id: str = add_response.env.job_id
+            job_id = added_job_id
             if not simulator_name:
-                raise ValueError(f"No simulator name found in session details for job ID {job_id}")
-
-        # Get public URL with router target formatting (logic inlined)
-        public_url = None
-        try:
-            url_response = sessions_get_public_url.sync(
+                simulator_name = add_response.env.simulator
+            elapsed = time.time() - step_start
+            self.console.print(
+                f"[green]Env added:[/green] {job_id} (alias={env_config.alias}) [dim]({elapsed:.1f}s)[/dim]"
+            )
+        else:
+            # Step 1: Create session
+            self.console.print("[yellow]Creating session...[/yellow]")
+            step_start = time.time()
+            request_body = CreateSessionFromEnvs(
+                envs=[Envs(root=env_config)],
+                timeout=timeout,
+                source=RunSessionSource.SDK,
+            )
+            response = sessions_make.sync(
                 client=self._http,
-                session_id=session_id,
+                body=request_body,
                 x_api_key=self.api_key,
             )
-            if url_response and url_response.results:
-                for result in url_response.results.values():
-                    url = result.url if hasattr(result, "url") else str(result)
+            session_id = response.session_id
+            elapsed = time.time() - step_start
+            self.console.print(f"[green]Session created:[/green] {session_id} [dim]({elapsed:.1f}s)[/dim]")
+
+            # Check if any envs failed to create
+            if response.envs:
+                for env_result in response.envs:
+                    if not env_result.success:
+                        raise RuntimeError(f"Failed to create environment: {env_result.error}")
+                    if env_result.job_id:
+                        self.console.print(f"[dim]  Job: {env_result.job_id}[/dim]")
+            else:
+                raise RuntimeError("No environments created in session")
+
+            job_id = response.envs[0].job_id if response.envs else None
+            if not job_id:
+                raise ValueError("No job ID found")
+
+        # The session (and its job) now exists remotely — record it locally
+        # *before* the long wait for the VM. The slot is a write-ahead intent
+        # record: from this point there is no window in which a running VM has
+        # no local trace, so a crash anywhere below leaves a slot that `list`
+        # shows, `stop -n` tears down, and whose heartbeat exits on its own.
+        # Failure handling collapses to the one shared teardown path.
+        slot_name: str | None = None
+        heartbeat_pid: int | None = None
+        try:
+            if not simulator_name and mode == "artifact":
+                # Best-effort, purely for a friendlier slot name: the job
+                # record carries its service from creation, but if the lookup
+                # fails the slot is just named after the mode.
+                with suppress(Exception):
+                    simulator_name = self._lookup_simulator_name(session_id, job_id, attached)
+            slot_name = self.store.claim(slugify(name) if name else slugify(simulator_name or mode))
+            if name and slot_name != slugify(name):
+                self.console.print(
+                    f"[yellow]Slot '{slugify(name)}' was claimed by a concurrent start; using '{slot_name}'[/yellow]"
+                )
+            started_at = time.time()
+            # make_current=False: the slot must be findable (list, stop -n,
+            # the heartbeat) from the moment the session exists, but `current`
+            # — what another terminal's bare `ssh`/`stop`/`status` acts on —
+            # must keep meaning the previous, *usable* sandbox until this one
+            # is ready. The final save below flips it.
+            self.store.save(
+                slot_name,
+                {
+                    "session_id": session_id,
+                    "job_id": job_id,
+                    "mode": mode,
+                    "simulator_name": simulator_name,
+                    "dataset": dataset,
+                    "attached": attached,
+                    "chronos_session_id": chronos_session_id if attached else None,
+                    "created_at": started_at,
+                    "expires_at": started_at + timeout,
+                    "timeout": timeout,
+                },
+                make_current=False,
+            )
+
+            # Start the heartbeat now, so even the boot wait is covered.
+            # Attached sandboxes skip it: the Chronos runtime already
+            # heartbeats the shared session, and their lifetime should be
+            # bound to that session, not to a local process.
+            if attached:
+                self.console.print("[dim]Skipping local heartbeat — lifecycle owned by the Chronos session[/dim]")
+            else:
+                heartbeat_pid = _start_heartbeat_process(session_id, self.api_key, self.store.path(slot_name))
+                if heartbeat_pid:
+                    self.store.update(slot_name, heartbeat_pid=heartbeat_pid)
+                    self.console.print(f"[green]Heartbeat started[/green] (pid={heartbeat_pid})")
+                else:
+                    self.console.print("[dim]Heartbeat failed to start[/dim]")
+
+            # Step 2: wait for the VM. Attached waits on just our job — the
+            # shared session's other envs are none of our business.
+            self.console.print("[yellow]Waiting for VM to start...[/yellow]")
+            step_start = time.time()
+            if attached:
+                # Dedicated str-typed local: `job_id` is assigned in both
+                # branches, which voids narrowing inside the lambda's closure.
+                wait_job_id: str = str(job_id)
+                job_ready_response = poll_until_ready_sync(
+                    lambda per_call: jobs_wait_for_ready.sync(
+                        client=self._http,
+                        job_id=wait_job_id,
+                        timeout=per_call,
+                        x_api_key=self.api_key,
+                    ),
+                    timeout=timeout,
+                )
+                if not job_ready_response.ready:
+                    reason = job_ready_response.error or (
+                        "terminal status" if is_terminal_status(job_ready_response) else "timeout"
+                    )
+                    raise RuntimeError(f"VM failed to start: {reason}")
+                # The backend adds the job to the session mesh and ready-wait
+                # blocks until it has joined, so the mesh IP is usable now.
+                sandbox_mesh_ip = job_ready_response.mesh_ip
+            else:
+                ready_response = poll_until_ready_sync(
+                    lambda per_call: sessions_wait_for_ready.sync(
+                        client=self._http,
+                        session_id=session_id,
+                        timeout=per_call,
+                        x_api_key=self.api_key,
+                    ),
+                    timeout=timeout,
+                )
+                if not ready_response.ready:
+                    errors = []
+                    if ready_response.results:
+                        for jid, result in ready_response.results.items():
+                            if not result.ready:
+                                errors.append(f"{jid}: {result.error or 'Unknown error'}")
+                    reason = (
+                        ", ".join(errors)
+                        if errors
+                        else ("terminal status" if is_terminal_status(ready_response) else "timeout")
+                    )
+                    raise RuntimeError(f"VM failed to start: {reason}")
+
+            elapsed = time.time() - step_start
+            self.console.print(f"[green]VM ready:[/green] {job_id} [dim]({elapsed:.1f}s)[/dim]")
+
+            # Step 3: Connect network
+            network_connected = False
+            if attached:
+                # The backend auto-joined the job to the session's WireGuard mesh
+                # (Chronos sessions always have one); a session-level connect here
+                # would mutate network state for every env in the shared session.
+                network_connected = sandbox_mesh_ip is not None
+                if sandbox_mesh_ip:
+                    self.console.print(f"[green]Joined session mesh:[/green] {sandbox_mesh_ip}")
+                else:
+                    self.console.print("[dim]No mesh IP reported; session network may be absent[/dim]")
+            elif connect_network:
+                self.console.print("[yellow]Connecting network...[/yellow]")
+                step_start = time.time()
+                connect_response = sessions_connect_network.sync(
+                    client=self._http,
+                    session_id=session_id,
+                    x_api_key=self.api_key,
+                )
+                network_connected = connect_response.get("success", False)
+                elapsed = time.time() - step_start
+                self.console.print(f"[green]Network connected:[/green] {network_connected} [dim]({elapsed:.1f}s)[/dim]")
+            else:
+                self.console.print("[dim]Skipping network connection (--no-network)[/dim]")
+
+            # Artifact mode needs simulator_name for the public URL; required
+            # from here even if the best-effort lookup above was skipped.
+            if not simulator_name:
+                simulator_name = self._lookup_simulator_name(session_id, job_id, attached)
+                if not simulator_name:
+                    raise ValueError(f"No simulator name found in session details for job ID {job_id}")
+
+            # Get public URL with router target formatting (logic inlined)
+            public_url = None
+            try:
+                urls: list[str | None] = []
+                if attached:
+                    job_url_response = jobs_public_url.sync(
+                        client=self._http,
+                        job_id=job_id,
+                        x_api_key=self.api_key,
+                    )
+                    if job_url_response:
+                        urls.append(job_url_response.url)
+                else:
+                    url_response = sessions_get_public_url.sync(
+                        client=self._http,
+                        session_id=session_id,
+                        x_api_key=self.api_key,
+                    )
+                    if url_response and url_response.results:
+                        urls.extend(
+                            result.url if hasattr(result, "url") else str(result)
+                            for result in url_response.results.values()
+                        )
+                for url in urls:
                     if not url:
                         raise ValueError(f"No public URL found in result dict for job ID {job_id}")
                     if "_plato_router_target=" not in url and simulator_name:
@@ -890,130 +1556,293 @@ class SandboxClient:
                         else:
                             url = f"{url}?{target_param}"
                     public_url = url
-            elapsed = time.time() - step_start
-            self.console.print(f"[green]Public URL:[/green] {public_url} [dim]({elapsed:.1f}s)[/dim]")
-        except Exception as e:
-            self.console.print(f"[dim]Public URL not available: {e}[/dim]")
+                elapsed = time.time() - step_start
+                self.console.print(f"[green]Public URL:[/green] {public_url} [dim]({elapsed:.1f}s)[/dim]")
+            except Exception as e:
+                self.console.print(f"[dim]Public URL not available: {e}[/dim]")
 
-        # Setup SSH. Look up provider so the generated ssh_config uses the
-        # right User — root for firecracker/Linux, plato for QEMU/Windows.
-        # Falls back to root when the field is missing (older API rollouts),
-        # which keeps the legacy firecracker path working.
-        # If the caller passed --provider explicitly, use that; otherwise look
-        # it up from job info (covers artifact/simulator modes where the
-        # provider is determined by the backend).
-        self.console.print("[yellow]Setting up SSH...[/yellow]")
-        step_start = time.time()
-        ssh_config_path = None
-        try:
-            if provider is None:
-                try:
-                    job_info = jobs_get_job_info.sync(
+            # Setup SSH. Look up provider so the generated ssh_config uses the
+            # right User — root for firecracker/Linux, plato for QEMU/Windows.
+            # Falls back to root when the field is missing (older API rollouts),
+            # which keeps the legacy firecracker path working.
+            # If the caller passed --provider explicitly, use that; otherwise look
+            # it up from job info (covers artifact/simulator modes where the
+            # provider is determined by the backend).
+            private_key_path: str | None = None
+            ssh_config_path: str | None = None
+            self.console.print("[yellow]Setting up SSH...[/yellow]")
+            step_start = time.time()
+            try:
+                if provider is None:
+                    try:
+                        job_info = jobs_get_job_info.sync(
+                            client=self._http,
+                            job_id=job_id,
+                            x_api_key=self.api_key,
+                        )
+                        provider = getattr(job_info, "provider", None) or (
+                            job_info.model_dump().get("provider") if hasattr(job_info, "model_dump") else None
+                        )
+                    except Exception as e:
+                        # Non-fatal: provider lookup failure → fall through with root user.
+                        self.console.print(f"[dim]Provider lookup failed (defaulting to firecracker): {e}[/dim]")
+
+                install_user = ssh_user_for_provider(provider)
+                public_key, private_key_path = _generate_ssh_key_pair(
+                    f"{slot_name}_{job_id[:8]}", Path(self.working_dir)
+                )
+
+                # ``username`` is advisory — the v2 add_ssh_key endpoint enforces
+                # the correct user server-side, but we send the right value so
+                # audit logs match what actually gets provisioned on the guest.
+                add_key_request = AddSSHKeyRequest(public_key=public_key, username=install_user)
+                if attached:
+                    # Job-scoped: the session-level endpoint would install the key
+                    # on every VM in the shared session.
+                    key_response = jobs_add_ssh_key.sync(
                         client=self._http,
                         job_id=job_id,
+                        body=add_key_request,
                         x_api_key=self.api_key,
                     )
-                    provider = getattr(job_info, "provider", None) or (
-                        job_info.model_dump().get("provider") if hasattr(job_info, "model_dump") else None
+                    key_added = key_response.success
+                else:
+                    add_response = sessions_add_ssh_key.sync(
+                        client=self._http,
+                        session_id=session_id,
+                        body=add_key_request,
+                        x_api_key=self.api_key,
                     )
-                except Exception as e:
-                    # Non-fatal: provider lookup failure → fall through with root user.
-                    self.console.print(f"[dim]Provider lookup failed (defaulting to firecracker): {e}[/dim]")
+                    key_added = add_response.success
 
-            install_user = ssh_user_for_provider(provider)
-            public_key, private_key_path = _generate_ssh_key_pair(session_id[:8], Path(self.working_dir))
+                if key_added:
+                    ssh_config_path = _generate_ssh_config(
+                        job_id,
+                        private_key_path,
+                        Path(self.working_dir),
+                        provider=provider,
+                        mesh_ip=sandbox_mesh_ip,
+                        name=slot_name,
+                    )
+                    elapsed = time.time() - step_start
+                    self.console.print(
+                        f"[green]SSH configured:[/green] ssh -F .plato/ssh_config {slot_name} [dim]({elapsed:.1f}s)[/dim]"
+                    )
+                else:
+                    self.console.print("[dim]SSH key upload failed[/dim]")
+            except Exception as e:
+                self.console.print(f"[dim]SSH setup failed: {e}[/dim]")
 
-            # ``username`` is advisory — the v2 add_ssh_key endpoint enforces
-            # the correct user server-side, but we send the right value so
-            # audit logs match what actually gets provisioned on the guest.
-            add_key_request = AddSSHKeyRequest(public_key=public_key, username=install_user)
-            add_response = sessions_add_ssh_key.sync(
-                client=self._http,
+            # Convert absolute paths to relative for state storage
+            def _to_relative(abs_path: str | None) -> str | None:
+                if not abs_path or not self.working_dir:
+                    return abs_path
+                try:
+                    return str(Path(abs_path).relative_to(self.working_dir))
+                except ValueError:
+                    return abs_path  # Keep absolute if not relative to working_dir
+
+            # Update internal state. created_at/expires_at come from the intent
+            # record written before the boot wait, so the lease starts counting
+            # from creation — using commands push expires_at forward from here.
+            rel_ssh_config = _to_relative(ssh_config_path)
+            ssh_host = "sandbox" if ssh_config_path else None
+            sandbox_state = SandboxState(
+                name=slot_name,
                 session_id=session_id,
-                body=add_key_request,
-                x_api_key=self.api_key,
+                job_id=job_id,
+                public_url=public_url,
+                mode=mode,
+                ssh_config_path=rel_ssh_config,
+                ssh_host=ssh_host,
+                ssh_command=f"ssh -F {rel_ssh_config} {ssh_host}" if rel_ssh_config else None,
+                ssh_key_path=_to_relative(private_key_path),
+                heartbeat_pid=heartbeat_pid,
+                simulator_name=simulator_name,
+                dataset=dataset,
+                provider=provider,
+                network_connected=network_connected,
+                attached=attached,
+                chronos_session_id=chronos_session_id if attached else None,
+                mesh_ip=sandbox_mesh_ip,
+                created_at=started_at,
+                expires_at=started_at + timeout,
+                timeout=timeout,
+            )
+            if mode == "artifact":
+                sandbox_state.artifact_id = artifact_id
+            elif mode == "simulator":
+                sandbox_state.tag = tag
+            elif mode == "blank":
+                sandbox_state.cpus = cpus
+                sandbox_state.memory = memory
+                sandbox_state.disk = disk
+                sandbox_state.app_port = app_port
+                sandbox_state.messaging_port = messaging_port
+            elif mode == "config":
+                assert config_cpus is not None
+                assert config_memory is not None
+                assert config_disk is not None
+                assert config_app_port is not None
+                assert config_messaging_port is not None
+                sandbox_state.cpus = config_cpus
+                sandbox_state.memory = config_memory
+                sandbox_state.disk = config_disk
+                sandbox_state.app_port = config_app_port
+                sandbox_state.messaging_port = config_messaging_port
+
+            # Save into the named slot; this also repoints .plato/state.json at
+            # it and keeps this directory in the machine-wide index so
+            # `list --all` and `gc` can find it from anywhere.
+            self.store.save(slot_name, sandbox_state.model_dump())
+
+            total_elapsed = time.time() - total_start
+            self.console.print("")
+            self.console.print(
+                f"[bold green]Sandbox ready![/bold green] [dim](slot: {slot_name}, total: {total_elapsed:.1f}s)[/dim]"
             )
 
-            if add_response.success:
-                ssh_config_path = _generate_ssh_config(
-                    job_id, private_key_path, Path(self.working_dir), provider=provider
-                )
-                elapsed = time.time() - step_start
-                self.console.print(
-                    f"[green]SSH configured:[/green] ssh -F .plato/ssh_config sandbox [dim]({elapsed:.1f}s)[/dim]"
-                )
-            else:
-                self.console.print("[dim]SSH key upload failed[/dim]")
-        except Exception as e:
-            self.console.print(f"[dim]SSH setup failed: {e}[/dim]")
+            return sandbox_state
+        except BaseException:
+            self._teardown_failed_start(slot_name, session_id, job_id, attached)
+            raise
 
-        # Start heartbeat
-        self.console.print("[yellow]Starting heartbeat...[/yellow]")
-        step_start = time.time()
-        heartbeat_pid = _start_heartbeat_process(session_id, self.api_key)
-        elapsed = time.time() - step_start
-        if heartbeat_pid:
-            self.console.print(f"[green]Heartbeat started[/green] (pid={heartbeat_pid}) [dim]({elapsed:.1f}s)[/dim]")
-        else:
-            self.console.print("[dim]Heartbeat failed to start[/dim]")
+    def _teardown_failed_start(
+        self,
+        slot_name: str | None,
+        session_id: str | None,
+        job_id: str | None,
+        attached: bool,
+    ) -> None:
+        """Undo a start that failed (or was Ctrl-C'd) after the session existed.
 
-        # Convert absolute paths to relative for state storage
-        def _to_relative(abs_path: str | None) -> str | None:
-            if not abs_path or not self.working_dir:
-                return abs_path
+        Because the slot was written before anything slow happened, this is
+        just the ordinary teardown: close the remote half, then run the same
+        local cleanup `stop` uses. Best-effort throughout — a cleanup error
+        must not replace the failure the caller actually needs to see — and
+        anything it misses self-resolves: the heartbeat exits on its own once
+        the slot is gone (or its lease runs out), and the next command's
+        reconcile clears the rest.
+        """
+        self.console.print("[yellow]Start failed — cleaning up the partially created sandbox[/yellow]")
+        if session_id:
             try:
-                return str(Path(abs_path).relative_to(self.working_dir))
-            except ValueError:
-                return abs_path  # Keep absolute if not relative to working_dir
+                if attached and job_id:
+                    # Closing the shared session would take the owning Chronos
+                    # session's other envs down with it.
+                    self.remove_env(session_id=session_id, job_id=job_id)
+                elif not attached:
+                    sessions_close.sync(client=self._http, session_id=session_id, x_api_key=self.api_key)
+            except Exception as exc:
+                self.console.print(
+                    f"[red]Could not close session {session_id}: {exc}. "
+                    f"Stop it with `plato sandbox stop --session-id {session_id}`[/red]"
+                )
+        if slot_name:
+            with suppress(Exception):
+                self.store.stop_local(slot_name, remove=True)
 
-        # Update internal state
-        rel_ssh_config = _to_relative(ssh_config_path)
-        ssh_host = "sandbox" if ssh_config_path else None
-        sandbox_state = SandboxState(
+    def _lookup_simulator_name(self, session_id: str, job_id: str | None, attached: bool) -> str | None:
+        """Our job's service name from session details (artifact mode learns it late)."""
+        # Note: get_session_details returns a dict, not a Pydantic model
+        session_details = get_session_details.sync(
+            client=self._http,
             session_id=session_id,
-            job_id=job_id,
-            public_url=public_url,
-            mode=mode,
-            ssh_config_path=rel_ssh_config,
-            ssh_host=ssh_host,
-            ssh_command=f"ssh -F {rel_ssh_config} {ssh_host}" if rel_ssh_config else None,
-            heartbeat_pid=heartbeat_pid,
-            simulator_name=simulator_name,
-            dataset=dataset,
-            provider=provider,
-            network_connected=network_connected,
+            x_api_key=self.api_key,
         )
-        if mode == "artifact":
-            sandbox_state.artifact_id = artifact_id
-        elif mode == "simulator":
-            sandbox_state.tag = tag
-        elif mode == "blank":
-            sandbox_state.cpus = cpus
-            sandbox_state.memory = memory
-            sandbox_state.disk = disk
-            sandbox_state.app_port = app_port
-            sandbox_state.messaging_port = messaging_port
-        elif mode == "config":
-            assert config_cpus is not None
-            assert config_memory is not None
-            assert config_disk is not None
-            assert config_app_port is not None
-            assert config_messaging_port is not None
-            sandbox_state.cpus = config_cpus
-            sandbox_state.memory = config_memory
-            sandbox_state.disk = config_disk
-            sandbox_state.app_port = config_app_port
-            sandbox_state.messaging_port = config_messaging_port
+        jobs = (
+            session_details.get("jobs") if isinstance(session_details, dict) else getattr(session_details, "jobs", None)
+        )
+        for j in jobs or []:
+            if isinstance(j, dict):
+                jid = j.get("job_id") or j.get("public_id")
+                service = j.get("service")
+            else:
+                jid = getattr(j, "job_id", None) or getattr(j, "public_id", None)
+                service = getattr(j, "service", None)
+            if attached:
+                # A shared session has other envs, so "first job with a
+                # service" would pick someone else's — match ours by id.
+                if jid == job_id and service:
+                    return str(service)
+            elif service:
+                return str(service)
+        return None
 
-        # Save state to working_dir/.plato/state.json
-        with open(self.working_dir / self.PLATO_DIR / "state.json", "w") as f:
-            json.dump(sandbox_state.model_dump(), f)
+    def enable_manual_control(self, state: SandboxState, wait_seconds: int = 300) -> str:
+        """Prepare a Windows (qemu) sandbox for a human RDP session.
 
-        total_elapsed = time.time() - total_start
-        self.console.print("")
-        self.console.print(f"[bold green]Sandbox ready![/bold green] [dim](total: {total_elapsed:.1f}s)[/dim]")
+        Windows sandbox images auto-logon the agent user at the console with
+        Winlogon ``ForceAutoLogon=1`` so the desktop agent always has a live
+        interactive session. On a client-SKU guest (one active session), that
+        same setting re-logs the console back on the moment an RDP client
+        takes over the session — bouncing the human off seconds after the
+        "Welcome" screen. This waits until the guest is SSH-reachable, clears
+        ``ForceAutoLogon`` (``AutoAdminLogon`` stays on, so boot behavior is
+        unchanged), then resolves and returns the browser RDP viewer URL.
 
-        return sandbox_state
+        Args:
+            state: The started sandbox's state (needs SSH configured and
+                provider ``qemu``).
+            wait_seconds: How long to keep retrying SSH before giving up —
+                snapshot-resumed Windows guests can take a while to accept
+                connections.
+
+        Returns:
+            The browser RDP viewer URL for the sandbox's job.
+
+        Raises:
+            ValueError: If the sandbox is not a qemu (Windows) VM.
+            RuntimeError: If SSH was never configured, the registry update
+                fails on the guest, or the RDP URL lookup fails.
+            TimeoutError: If the guest is not SSH-reachable in time.
+        """
+        assert self.api_key is not None
+        if state.provider != "qemu":
+            raise ValueError(
+                f"--manual-control needs a Windows (qemu) VM; this sandbox's provider is {state.provider or 'unknown'}"
+            )
+        if not state.ssh_config_path or not state.ssh_host:
+            raise RuntimeError("--manual-control needs SSH, but SSH setup did not complete for this sandbox")
+
+        encoded = base64.b64encode(_MANUAL_CONTROL_PS.encode("utf-16-le")).decode("ascii")
+        remote_cmd = f"powershell -NoProfile -EncodedCommand {encoded}"
+
+        self.console.print("[yellow]Enabling manual control (waiting for guest SSH)...[/yellow]")
+        step_start = time.time()
+        deadline = step_start + wait_seconds
+        while True:
+            returncode, stdout, stderr = _run_ssh_command(
+                state.ssh_config_path, state.ssh_host, remote_cmd, cwd=self.working_dir
+            )
+            if returncode == 0:
+                break
+            # 255 is ssh's own "could not connect / transport failed" code;
+            # anything else means the command ran on the guest and failed.
+            if returncode != 255:
+                raise RuntimeError(
+                    f"manual-control registry update failed on the guest (exit {returncode}): "
+                    f"{stderr.strip() or stdout.strip()}"
+                )
+            if time.time() >= deadline:
+                raise TimeoutError(f"guest not SSH-reachable within {wait_seconds}s; last ssh error: {stderr.strip()}")
+            time.sleep(5)
+
+        elapsed = time.time() - step_start
+        self.console.print(
+            f"[green]Manual control enabled:[/green] console auto-logon reclaim disabled "
+            f"(ForceAutoLogon=0) [dim]({elapsed:.1f}s)[/dim]"
+        )
+
+        rdp_response = jobs_rdp_url.sync(client=self._http, job_id=state.job_id, x_api_key=self.api_key)
+        if not rdp_response.success or not rdp_response.url:
+            raise RuntimeError(f"RDP URL lookup failed for job {state.job_id}: {rdp_response.error}")
+        state.rdp_url = rdp_response.url
+        if state.name:
+            with suppress(Exception):
+                self.store.update(state.name, rdp_url=rdp_response.url)
+        self.console.print(f"[bold green]RDP URL:[/bold green] {rdp_response.url}")
+        return rdp_response.url
 
     def pull_config(self, artifact_id: str, dataset: str) -> dict[str, bool]:
         """Download plato-config.yml and flows.yml from the artifact API.
@@ -1100,11 +1929,18 @@ class SandboxClient:
 
     def reset(self, session_id: str) -> ResetSessionResponse:
         """Reset all jobs in a session to initial state."""
-        from plato._generated.models import ResetSessionRequest
-
         return sessions_reset.sync(
             client=self._http,
             session_id=session_id,
+            body=ResetSessionRequest(),
+            x_api_key=self.api_key,
+        )
+
+    def reset_job(self, job_id: str) -> ResetJobResult:
+        """Reset a single job (attached sandboxes — leaves the shared session's other envs alone)."""
+        return jobs_reset.sync(
+            client=self._http,
+            job_id=job_id,
             body=ResetSessionRequest(),
             x_api_key=self.api_key,
         )
@@ -1115,14 +1951,42 @@ class SandboxClient:
         session_id: str,
         heartbeat_pid: int | None = None,
     ) -> CloseSessionResponse:
-        if heartbeat_pid:
-            _stop_heartbeat_process(heartbeat_pid)
+        """Close the session, then stop its heartbeat.
 
-        return sessions_close.sync(
+        In that order: killing the heartbeat first means a transient failure to
+        close leaves a VM that is still running with nothing keeping it alive,
+        so it dies ~2 minutes later for reasons the caller never sees.
+        """
+        response = sessions_close.sync(
             client=self._http,
             session_id=session_id,
             x_api_key=self.api_key,
         )
+        if heartbeat_pid:
+            stop_heartbeat(heartbeat_pid)
+        return response
+
+    def remove_env(self, session_id: str, job_id: str) -> RemoveJobResponse:
+        """Remove one env's job from a shared session without closing it.
+
+        This is the stop path for attached sandboxes — closing the session
+        would take down the owning Chronos session's other envs.
+        """
+        return sessions_remove_job.sync(
+            client=self._http,
+            session_id=session_id,
+            body=RemoveJobRequest(job_id=job_id),
+            x_api_key=self.api_key,
+        )
+
+    def cleanup_slot(self, name: str, remove: bool = False) -> dict[str, bool]:
+        """Local teardown after a sandbox has been stopped remotely.
+
+        Delegates to :meth:`SandboxStore.stop_local` — the one local-teardown
+        path shared by ``stop``, ``--force``, slot reuse, failed starts and
+        ``gc``.
+        """
+        return self.store.stop_local(name, remove=remove)
 
     # CHECKED
     def status(self, session_id: str) -> SessionDetailsResponse:
@@ -1132,38 +1996,71 @@ class SandboxClient:
             x_api_key=self.api_key,
         )
 
-    # CHECKED
-    def snapshot(
+    def _build_checkpoint_request(
         self,
-        session_id: str,
-        mode: str,
-        dataset: str,
-    ) -> AppApiV2SchemasSessionCreateSnapshotResponse:
-        checkpoint_request = CreateCheckpointRequest()
+        mode: str | None,
+        dataset: str | None,
+        target: str | None = None,
+        mcp: ArtifactMcpConfig | None = None,
+        description: str | None = None,
+        additional_metadata: dict[str, JsonValue] | None = None,
+    ) -> CreateCheckpointRequest:
+        """Build the checkpoint payload; config mode packs local plato-config.yml + flows.
+
+        ``target`` is the routing domain stored on the artifact (e.g.
+        ``grist.web.plato.so``); the proxy serves the artifact under it instead
+        of the sims.plato.so fallback. Independent of ``mode``; when omitted the
+        backend inherits the parent artifact's target.
+
+        ``description`` is free text stored on the artifact (shown in listings) — how a
+        throwaway or gate snapshot is told apart from a real one later.
+
+        ``additional_metadata`` is a freeform JSON object stored on the artifact
+        as-is (never inherited from the parent artifact).
+
+        ``mcp`` is the artifact-level MCP endpoint config (enabled/port/path),
+        which overrides the simulator's field by field. Also independent of
+        ``mode``; when omitted — or when every one of its fields is unset — it
+        is left off the request and the backend inherits the parent artifact's.
+        """
+        checkpoint_request = CreateCheckpointRequest.model_validate({"additional_metadata": additional_metadata})
+        if description:
+            checkpoint_request.description = description
+        if target:
+            checkpoint_request.target = target
+            self.console.print(f"[dim]Artifact target: {target}[/dim]")
+
+        if mcp is not None:
+            # An all-unset config is not an override: omit it so the backend inherits the
+            # parent artifact's, matching what mcp_config_from_flags returns for no flags.
+            if mcp.model_dump(exclude_none=True):
+                checkpoint_request.mcp_config = mcp
+            self.console.print(f"[dim]Artifact MCP: {describe_mcp_config(mcp)}[/dim]")
 
         if mode == "config":
+            if not dataset:
+                raise ValueError("dataset is required for config-mode snapshots")
             # read plato-config.yml - need parsed for extracting values
             plato_config_path = self.working_dir / "plato-config.yml"
             plato_config_raw = plato_config_path.read_text()
             plato_config = yaml.safe_load(plato_config_raw)
 
-            # New format - extract just the dataset portion
-            plato_config_model = PlatoConfig.model_validate(plato_config)
-            dataset_config = plato_config_model.datasets[dataset]
-            # Convert dataset config back to dict for YAML serialization
-            dataset_dict = dataset_config.model_dump(exclude_none=True, by_alias=True, mode="json")
+            # Validate through the generated backend-schema model, not the v1 PlatoConfig
+            # (see dataset_config_from_plato_config). exclude_unset stores exactly what
+            # the file says, without the generated model's defaults leaking in.
+            dataset_config = dataset_config_from_plato_config(plato_config, dataset, source=str(plato_config_path))
+            dataset_dict = dataset_config.model_dump(exclude_unset=True, by_alias=True, mode="json")
             checkpoint_request.plato_config = yaml.dump(dataset_dict, default_flow_style=False)
 
             dataset_compute = dataset_config.compute
-            if not dataset_compute:
-                raise ValueError(f"Compute configuration is required for dataset '{dataset}'")
             checkpoint_request.internal_app_port = dataset_compute.app_port
             checkpoint_request.messaging_port = dataset_compute.plato_messaging_port
             # we dont set target
 
             # Override service name if specified in plato-config.yml
-            if plato_config_model.service:
-                checkpoint_request.override_service = plato_config_model.service
+            service_name = plato_config.get("service") if isinstance(plato_config, dict) else None
+            if service_name:
+                checkpoint_request.override_service = str(service_name)
 
             # Read flows from the path specified in plato-config metadata
             # API expects YAML string, not parsed dict
@@ -1180,6 +2077,29 @@ class SandboxClient:
                 else:
                     self.console.print(f"[yellow]Warning: flows file not found at {flows_path}[/yellow]")
 
+            # Structured login credentials travel with the flows they belong to.
+            checkpoint_request.credentials = credentials_from_dataset_config(dataset_config)
+            self.console.print(
+                f"[dim]Artifact credentials: {describe_credentials(checkpoint_request.credentials)}[/dim]"
+            )
+
+        return checkpoint_request
+
+    # CHECKED
+    def snapshot(
+        self,
+        session_id: str,
+        mode: str,
+        dataset: str,
+        target: str | None = None,
+        mcp: ArtifactMcpConfig | None = None,
+        description: str | None = None,
+        additional_metadata: dict[str, JsonValue] | None = None,
+    ) -> AppApiV2SchemasSessionCreateSnapshotResponse:
+        checkpoint_request = self._build_checkpoint_request(
+            mode, dataset, target, mcp, description, additional_metadata
+        )
+
         response = sessions_snapshot.sync(
             client=self._http,
             session_id=session_id,
@@ -1187,18 +2107,12 @@ class SandboxClient:
             x_api_key=self.api_key,
         )
 
-        # Save artifact_id to local state.json so it can be retrieved via `plato sandbox status`
+        # Save artifact_id to the sandbox slot so it can be retrieved via `plato sandbox status`
         if response.results:
             # Get the first successful artifact_id from results
             for job_id, result in response.results.items():
                 if result.success and result.artifact_id:
-                    state_path = self.working_dir / self.PLATO_DIR / "state.json"
-                    if state_path.exists():
-                        with open(state_path) as f:
-                            state = json.load(f)
-                        state["artifact_id"] = result.artifact_id
-                        with open(state_path, "w") as f:
-                            json.dump(state, f)
+                    self._record_artifact_id(result.artifact_id)
 
                     # Prefetch snapshot to all workers so VMs can boot from it immediately
                     self.console.print("[cyan]Prefetching snapshot to workers...[/cyan]")
@@ -1216,40 +2130,92 @@ class SandboxClient:
 
         return response
 
-    def snapshot_job(
+    def _record_artifact_id(self, artifact_id: str) -> None:
+        """Record a fresh artifact on the sandbox slot this client is driving."""
+        name = self.store.resolve(self.sandbox_name)
+        if name and self.store.load(name) is not None:
+            self.store.update(name, artifact_id=artifact_id)
+
+    def _record_and_prefetch_artifact(self, artifact_id: str) -> None:
+        """Save artifact_id to the sandbox slot and prefetch it to workers."""
+        self._record_artifact_id(artifact_id)
+
+        self.console.print("[cyan]Prefetching snapshot to workers...[/cyan]")
+        try:
+            prefetch_snapshot.sync(
+                client=self._http,
+                body=PrefetchRequest(artifact_id=artifact_id),
+                x_api_key=self.api_key,
+            )
+            self.console.print("[green]Prefetch dispatched to workers[/green]")
+        except Exception as e:
+            self.console.print(f"[yellow]Prefetch failed (non-fatal): {e}[/yellow]")
+
+    def snapshot_job_full(
         self,
         job_id: str,
-    ) -> CreateCheckpointResult:
-        """Snapshot a single job (one env in a multi-env session).
+        mode: str | None = None,
+        dataset: str | None = None,
+        target: str | None = None,
+        mcp: ArtifactMcpConfig | None = None,
+        description: str | None = None,
+        additional_metadata: dict[str, JsonValue] | None = None,
+    ) -> CreateSnapshotResult:
+        """Full snapshot (disk + memory) of a single job — the per-job
+        analog of the session-level snapshot.
 
-        Used by unified datagen: one call per env, targeted at that env's job.
+        This is what attached sandboxes use: it creates a base artifact even
+        for from-scratch (config/blank) VMs, without snapshotting the shared
+        session's other envs. Contrast with :meth:`snapshot_job`, which is a
+        lightweight *checkpoint* and requires an artifact-resumed VM.
+        ``mode="config"`` packs the local plato-config.yml + flows just like
+        the session-level snapshot.
         """
-        response = jobs_checkpoint.sync(
+        checkpoint_request = self._build_checkpoint_request(
+            mode, dataset, target, mcp, description, additional_metadata
+        )
+        snapshot_request = AppApiV2SchemasSessionCreateSnapshotRequest(
+            **checkpoint_request.model_dump(exclude_none=True)
+        )
+        response = jobs_snapshot.sync(
             client=self._http,
             job_id=job_id,
-            body=CreateCheckpointRequest(),
+            body=snapshot_request,
             x_api_key=self.api_key,
         )
 
         if response.success and response.artifact_id:
-            state_path = self.working_dir / self.PLATO_DIR / "state.json"
-            if state_path.exists():
-                with open(state_path) as f:
-                    state = json.load(f)
-                state["artifact_id"] = response.artifact_id
-                with open(state_path, "w") as f:
-                    json.dump(state, f)
+            self._record_and_prefetch_artifact(response.artifact_id)
 
-            self.console.print("[cyan]Prefetching snapshot to workers...[/cyan]")
-            try:
-                prefetch_snapshot.sync(
-                    client=self._http,
-                    body=PrefetchRequest(artifact_id=response.artifact_id),
-                    x_api_key=self.api_key,
-                )
-                self.console.print("[green]Prefetch dispatched to workers[/green]")
-            except Exception as e:
-                self.console.print(f"[yellow]Prefetch failed (non-fatal): {e}[/yellow]")
+        return response
+
+    def snapshot_job(
+        self,
+        job_id: str,
+        mode: str | None = None,
+        dataset: str | None = None,
+        target: str | None = None,
+        mcp: ArtifactMcpConfig | None = None,
+        description: str | None = None,
+        additional_metadata: dict[str, JsonValue] | None = None,
+    ) -> CreateCheckpointResult:
+        """Checkpoint a single job (one env in a multi-env session).
+
+        Lightweight diff snapshot — the backend requires the VM to have been
+        resumed from a base artifact (unified datagen's per-env case). For
+        from-scratch VMs use :meth:`snapshot_job_full`. ``mode="config"``
+        packs the local plato-config.yml + flows just like the session-level
+        snapshot.
+        """
+        response = jobs_checkpoint.sync(
+            client=self._http,
+            job_id=job_id,
+            body=self._build_checkpoint_request(mode, dataset, target, mcp, description, additional_metadata),
+            x_api_key=self.api_key,
+        )
+
+        if response.success and response.artifact_id:
+            self._record_and_prefetch_artifact(response.artifact_id)
 
         return response
 
@@ -1370,25 +2336,7 @@ class SandboxClient:
             with open(config_path, "rb") as f:
                 raw_plato_config = yaml.safe_load(f) or {}
 
-        if not isinstance(raw_plato_config, dict):
-            raise ValueError(f"Invalid plato config in {config_source}: expected a top-level mapping")
-
-        plato_config = cast(dict[str, object], raw_plato_config)
-        datasets = plato_config.get("datasets")
-        if isinstance(datasets, dict):
-            datasets = cast(dict[str, object], datasets)
-            dataset_config = datasets.get(dataset)
-            if dataset_config is None:
-                available_datasets = sorted(str(name) for name in datasets.keys())
-                raise ValueError(
-                    f"Dataset '{dataset}' not found in {config_source}. Available datasets: {available_datasets}"
-                )
-        else:
-            # Config without a datasets wrapper — treat the top-level mapping as the
-            # dataset config directly (some artifacts store it this way).
-            dataset_config = plato_config
-
-        return AppSchemasBuildModelsSimConfigDataset.model_validate(dataset_config)
+        return dataset_config_from_plato_config(raw_plato_config, dataset, source=config_source)
 
     # CHECKED
     def sync(
@@ -1405,12 +2353,9 @@ class SandboxClient:
         remote_path = f"/home/plato/worktree/{simulator}"
 
         # Load SSH config from state
-        state_file = self.working_dir / ".plato" / "state.json"
-        if not state_file.exists():
-            raise ValueError("No state file found - run 'plato sandbox start' first")
-
-        with open(state_file) as f:
-            state = json.load(f)
+        state = self.store.load(self.store.resolve(self.sandbox_name))
+        if state is None:
+            raise ValueError("No sandbox state found - run 'plato sandbox start' first")
 
         ssh_config_path = state.get("ssh_config_path")
         ssh_host = state.get("ssh_host", "sandbox")
@@ -1517,12 +2462,14 @@ class SandboxClient:
         remote_port: int,
         local_port: int | None = None,
         bind_address: str = "127.0.0.1",
+        mesh_ip: str | None = None,
     ) -> Tunnel:
         return Tunnel(
             job_id=job_id,
             remote_port=remote_port,
             local_port=local_port,
             bind_address=bind_address,
+            mesh_ip=mesh_ip,
         )
 
     def get_ssh_config_for_job(self, job_id: str) -> SSHConfigInfo:
@@ -1601,6 +2548,7 @@ class SandboxClient:
         job_id: str | None = None,
         dataset: str = "base",
         no_tunnel: bool = False,
+        mesh_ip: str | None = None,
     ) -> None:
         import shutil
 
@@ -1628,7 +2576,7 @@ class SandboxClient:
 
         if db_listener and job_id and not no_tunnel:
             self.console.print(f"Starting tunnel to {db_listener.db_type} on port {db_listener.db_port}...")
-            tunnel = self.tunnel(job_id, db_listener.db_port or 0)
+            tunnel = self.tunnel(job_id, db_listener.db_port or 0, mesh_ip=mesh_ip)
             tunnel.start()
             time.sleep(1)  # Let tunnel stabilize
             self.console.print(
@@ -1776,11 +2724,23 @@ class SandboxClient:
         )
         return response
 
+    def state_job(self, job_id: str) -> SessionStateResult:
+        """Get one job's state (attached sandboxes — the session-level call
+        would return every env's mutations in the shared session)."""
+        return jobs_state.sync(
+            client=self._http,
+            job_id=job_id,
+            merge_mutations=True,
+            x_api_key=self.api_key,
+        )
+
     def clear_audit(
         self,
         job_group_id: str,
         job_id: str | None = None,
         simulator_name: str | None = None,
+        job_scoped: bool = False,
+        mesh_ip: str | None = None,
     ) -> EnvCleanupResponse:
         """Clear audit_log tables in the sandbox database(s).
 
@@ -1797,18 +2757,27 @@ class SandboxClient:
             job_group_id: Session id (same as job_group_id for v2 sessions).
             job_id: Per-env job id, used for the tunnel fallback.
             simulator_name: Used to resolve the artifact for db_config lookup.
+            job_scoped: Skip the job-group cleanup and go straight to the
+                per-job tunnel path. Attached sandboxes must set this — their
+                job_group is the shared session, and the group cleanup would
+                truncate audit_log on every sibling env.
+            mesh_ip: Mesh IP of the env's VM; when set the DB cleanup tunnel
+                goes mesh-direct instead of via the TLS gateway.
         """
-        try:
-            resp = env_cleanup.sync(
-                client=self._http,
-                job_group_id=job_group_id,
-                x_api_key=self.api_key,
-            )
-            if resp.success:
-                return resp
-            server_err = resp.error or "env_cleanup returned success=false"
-        except Exception as e:
-            server_err = str(e)
+        if job_scoped:
+            server_err = "job-group cleanup skipped (attached sandbox — group is the shared session)"
+        else:
+            try:
+                resp = env_cleanup.sync(
+                    client=self._http,
+                    job_group_id=job_group_id,
+                    x_api_key=self.api_key,
+                )
+                if resp.success:
+                    return resp
+                server_err = resp.error or "env_cleanup returned success=false"
+            except Exception as e:
+                server_err = str(e)
 
         if not job_id or not simulator_name:
             return EnvCleanupResponse(
@@ -1850,6 +2819,7 @@ class SandboxClient:
             job_id=job_id,
             alias=simulator_name,
             artifact_id=artifact_id,
+            mesh_ip=mesh_ip,
             get_state_fn=_noop,
         )
 

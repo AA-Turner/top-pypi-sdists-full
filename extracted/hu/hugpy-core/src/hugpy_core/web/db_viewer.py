@@ -230,6 +230,19 @@ def list_sources(**kwargs):
                                 for s in sources().values()]})
 
 
+def _proxied(proxied):
+    """(payload, status) from a _proxy_worker reply: a Flask Response carrying the
+    worker's own JSON, or the bare ({'error': {'message': …}}, status) tuple
+    _error() returns when the worker is unknown or unreachable. The console reads
+    `error` as a string, so the nested message is flattened (2026-10-27: the
+    worker path raised "'dict' object has no attribute 'get_json'" instead)."""
+    response, status = proxied
+    payload = response.get_json() if hasattr(response, 'get_json') else response
+    if isinstance(payload, dict) and isinstance(payload.get('error'), dict):
+        payload = {**payload, 'error': payload['error'].get('message') or str(payload['error'])}
+    return payload, status
+
+
 def read(rows=False, args=None):
     args = args or {}
     source = sources().get(args.get('source'))
@@ -242,8 +255,7 @@ def read(rows=False, args=None):
             ('table', 'limit', 'offset', 'sort', 'direction', 'q', 'column')}) if rows else '/v1/telemetry/tables'
         proxied = _proxy_worker(source['worker'], path)
         if isinstance(proxied, tuple):
-            response, status = proxied
-            return _json(response.get_json(), status)
+            return _json(*_proxied(proxied))
         return proxied
     try:
         with connection(source) as conn:
@@ -280,9 +292,9 @@ def search(**kwargs):
             key: value for key, value in kwargs.items() if key in ('q', 'cursor')})
         proxied = _proxy_worker(source['worker'], path)
         if isinstance(proxied, tuple):
-            response, status = proxied
+            response, status = _proxied(proxied)
             if status != 404:
-                return _json(response.get_json(), status)
+                return _json(response, status)
             # Workers running the previous code still expose the same read-only
             # tables/rows API. Search through that until their next restart.
             q = kwargs.get('q', '')
@@ -291,10 +303,10 @@ def search(**kwargs):
                 if not q or len(q) > 200:
                     raise ValueError('Invalid search text.')
                 index, offset = (int(x) for x in cursor.split(':')) if cursor else (0, 0)
-                catalog_response, catalog_status = _proxy_worker(source['worker'], '/v1/telemetry/tables')
+                catalog_response, catalog_status = _proxied(_proxy_worker(source['worker'], '/v1/telemetry/tables'))
                 if catalog_status != 200:
-                    return _json(catalog_response.get_json(), catalog_status)
-                catalog = catalog_response.get_json().get('tables') or []
+                    return _json(catalog_response, catalog_status)
+                catalog = catalog_response.get('tables') or []
                 if index < 0 or index > len(catalog) or offset < 0:
                     raise ValueError('Invalid search cursor.')
                 matches = []
@@ -302,10 +314,9 @@ def search(**kwargs):
                     table = catalog[index]
                     params = urllib.parse.urlencode({'table': table['name'], 'q': q,
                                                      'limit': 50 - len(matches), 'offset': offset})
-                    result_response, result_status = _proxy_worker(source['worker'], '/v1/telemetry/rows?' + params)
+                    result, result_status = _proxied(_proxy_worker(source['worker'], '/v1/telemetry/rows?' + params))
                     if result_status != 200:
-                        return _json(result_response.get_json(), result_status)
-                    result = result_response.get_json()
+                        return _json(result, result_status)
                     matches.extend({'schema': 'main', 'table': table['name'], 'row': row}
                                    for row in result.get('rows') or [])
                     if result.get('has_more'):

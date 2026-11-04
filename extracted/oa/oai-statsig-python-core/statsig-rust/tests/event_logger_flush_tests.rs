@@ -210,6 +210,12 @@ async fn test_scheduled_flush_max_time() {
         5
     );
 
+    assert_gt!(
+        logging_adapter.times_called.load(Ordering::SeqCst),
+        1,
+        "the scheduled batch must be retried after the configured failure"
+    );
+
     let req = logging_adapter.logged_payloads.lock().unwrap().remove(0);
     assert_eq!(
         req.statsig_metadata

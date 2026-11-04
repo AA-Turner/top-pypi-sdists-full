@@ -1,5 +1,7 @@
 """Workflow signal and lifecycle adapter for Harness capability callbacks."""
 
+from dataclasses import dataclass
+from enum import Enum
 from uuid import UUID
 
 import structlog
@@ -27,6 +29,22 @@ from mistralai.vibe_agents.sdk.transport import annotation_keys
 
 logger = structlog.get_logger(__name__)
 _JSON_VALUE_ADAPTER: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
+
+
+class CallbackSubmission(Enum):
+    """What the callback store made of one answer."""
+
+    ACCEPTED = "accepted"
+    # The callback closed without an answer: it timed out or was withdrawn.
+    SETTLED = "settled"
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True)
+class CallbackRejection:
+    """The answer does not fit the callback, which stays open; ``reason`` says why, for the caller."""
+
+    reason: str
 
 
 class WorkflowCallbackStore(
@@ -145,29 +163,35 @@ class WorkflowCallbackStore(
     ) -> CapabilityCallbackResult | None:
         return self._results.get(request.callback_id)
 
-    def submit_result(self, command: wire.CallbackResultCommand) -> bool:
-        """Accept the first valid result for a known open callback.
+    def submit_result(self, result: harness_session.CallbackResult) -> CallbackSubmission | CallbackRejection:
+        """Take the first valid answer to an open callback, and say what became of this one.
 
-        Refusing an invalid result leaves the callback open for another answer.
+        ``result.callback_id`` is the public callback id. Another answer to a callback that holds
+        one is accepted again without comparing outputs: the callback id names the answer (ADR
+        0038). A callback that closed without an answer is settled until consuming work retires
+        it; after that, and for an id this Session never opened, it is unknown. An answer that does
+        not fit is rejected with the Harness's reason and leaves the callback open for another one.
         """
 
-        runtime_id = self._runtime_ids.get(str(command.callback_id))
-        if runtime_id is None or runtime_id in self._terminal_reasons:
-            return False
-        request = self._requests[runtime_id]
+        runtime_id = self._runtime_ids.get(result.callback_id)
+        if runtime_id is None:
+            return CallbackSubmission.UNKNOWN
+        if runtime_id in self._results:
+            return CallbackSubmission.ACCEPTED
+        if runtime_id in self._terminal_reasons:
+            return CallbackSubmission.SETTLED
         try:
-            callback_result = _build_callback_result(request, command)
+            callback_result = build_capability_callback_result(self._requests[runtime_id], result)
         except ValueError as error:
-            # A signal has no reply, so the refusal is logged with the Harness's reason.
+            # A signal has no reply, so the reason is logged too.
             logger.warning(
                 "Refused a callback result; the callback stays open",
-                callback_id=str(command.callback_id),
+                callback_id=result.callback_id,
                 reason=str(error),
             )
-            return False
-
-        self._results.setdefault(runtime_id, callback_result)
-        return True
+            return CallbackRejection(reason=str(error))
+        self._results[runtime_id] = callback_result
+        return CallbackSubmission.ACCEPTED
 
     def retire_callbacks(self, callback_ids: frozenset[str]) -> None:
         """Forget Host memory after consuming work commits; published history is unchanged."""
@@ -188,10 +212,12 @@ def _waited_action_id(request: CapabilityCallbackRequest) -> str:
     return request.invocation.action_id
 
 
-def _build_callback_result(
-    request: CapabilityCallbackRequest,
-    command: wire.CallbackResultCommand,
-) -> CapabilityCallbackResult:
+def callback_result_from_command(command: wire.CallbackResultCommand) -> harness_session.CallbackResult:
+    """Read an answer sent through the ``submit_command`` signal, in the Nuage task result shape.
+
+    Raises ``ValueError`` when a content block is not a protocol block.
+    """
+
     output = command.result.payload.result.output
     error: harness_session.ProtocolError | None = None
     if output.status == "failed" or output.error is not None:
@@ -199,8 +225,8 @@ def _build_callback_result(
             code="callback_failed",
             message=output.error or "Callback failed",
         )
-    result = harness_session.CallbackResult(
-        callback_id=request.callback_id,
+    return harness_session.CallbackResult(
+        callback_id=str(command.callback_id),
         # A completed answer without a value carries {}; with content it means no value.
         output=None if output.content is not None and output.value == {} else output.value,
         error=error,
@@ -208,7 +234,6 @@ def _build_callback_result(
         is_error=output.is_error,
         meta=output.meta,
     )
-    return build_capability_callback_result(request, result)
 
 
 def _callback_name(request: CapabilityCallbackRequest) -> str:
@@ -231,4 +256,10 @@ def _callback_input(request: CapabilityCallbackRequest) -> JsonValue:
     )
 
 
-__all__ = ["WorkflowCallbackStore", "public_callback_id"]
+__all__ = [
+    "CallbackRejection",
+    "CallbackSubmission",
+    "WorkflowCallbackStore",
+    "callback_result_from_command",
+    "public_callback_id",
+]

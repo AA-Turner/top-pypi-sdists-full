@@ -101,15 +101,13 @@ def _window(
 
 @dataclass(frozen=True)
 class TelemetryStatus:
-    """How current the platform's telemetry is for one workspace.
-
-    Attributes:
-        updated_at: When telemetry last recorded anything, or ``None`` when it
-            never has. What separates "nothing ran" from a reading that stopped
-            being updated: a zero elsewhere means nothing while this is stale.
-    """
+    """How current the platform's telemetry is for one workspace."""
 
     updated_at: datetime | None
+    """When a pipeline run in the workspace was last recorded or updated; `None` when
+    there are none. If it is older than the time range you read, empty results may
+    mean telemetry is behind rather than that nothing ran.
+    """
 
     @staticmethod
     def _from_payload(
@@ -132,13 +130,19 @@ class Telemetry(Namespace[M]):
     def status(self: Telemetry[Async]) -> Awaitable[TelemetryStatus]: ...
 
     def status(self) -> TelemetryStatus | Awaitable[TelemetryStatus]:
-        """Return when telemetry last recorded anything for this workspace.
+        """Return when a pipeline run in this workspace was last recorded or updated.
+
+        If that is older than the window you read, empty results may mean
+        telemetry is behind rather than that nothing ran.
 
         Returns:
-            The watermark; awaitable in async mode.
+            The status; awaitable in async mode.
 
         Raises:
-            NotAuthorized: The caller may not read this workspace's telemetry.
+            DataplaneTokenRejected: The data plane rejected the token the
+                platform issued for it.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             ScopeMissing: Reached without a workspace in scope.
         """
         workspace_id = self._ctx.require_workspace()
@@ -198,6 +202,8 @@ class Telemetry(Namespace[M]):
     ) -> Iterable[PipelineActivity] | AsyncIterable[PipelineActivity]:
         """Yield one row per pipeline that ran in the window.
 
+        The window holds the pipeline runs whose start falls in ``[since, until)``.
+
         Args:
             pipeline_name: Narrow to one pipeline.
             latest_status: Narrow to pipelines whose most recent run ended this
@@ -214,6 +220,12 @@ class Telemetry(Namespace[M]):
             An iterable of per-pipeline activity; async-iterable in async mode.
 
         Raises:
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            DataplaneTokenRejected: The data plane rejected the token the
+                platform issued for it.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             ScopeMissing: Reached without a workspace in scope.
             ValueError: A status the platform cannot filter on, a naive
                 ``since`` or ``until``, or a negative ``limit`` or ``offset``.
@@ -279,6 +291,8 @@ class Telemetry(Namespace[M]):
     ) -> Iterable[DatasetActivity] | AsyncIterable[DatasetActivity]:
         """Yield one row per dataset written to in the window.
 
+        The window holds the pipeline runs whose start falls in ``[since, until)``.
+
         Args:
             dataset_name: Narrow to one dataset.
             latest_status: Narrow to datasets whose most recent run ended this
@@ -295,6 +309,12 @@ class Telemetry(Namespace[M]):
             An iterable of per-dataset activity; async-iterable in async mode.
 
         Raises:
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            DataplaneTokenRejected: The data plane rejected the token the
+                platform issued for it.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             ScopeMissing: Reached without a workspace in scope.
             ValueError: A status the platform cannot filter on, a naive
                 ``since`` or ``until``, or a negative ``limit`` or ``offset``.
@@ -325,19 +345,16 @@ class Telemetry(Namespace[M]):
 class PipelineRunStatus(StrEnum):
     """What became of one dlt pipeline run.
 
-    The platform sends this as an open string and only ever filters on
-    ``SUCCEEDED`` and ``FAILED``, so a run still going reports something this
-    does not know rather than a member of its own.
-
-    Attributes:
-        SUCCEEDED: Finished, having loaded what it extracted.
-        FAILED: Stopped on an error. ``error_step`` says where.
-        UNKNOWN: A status this SDK version does not know.
+    The platform records a run once dlt reports it finished, so only
+    ``SUCCEEDED`` and ``FAILED`` occur; ``UNKNOWN`` covers values added later.
     """
 
     SUCCEEDED = "succeeded"
+    """No dlt step raised an exception; some load jobs may still have failed."""
     FAILED = "failed"
+    """Stopped on an error. ``error_step`` says where."""
     UNKNOWN = "unknown"
+    """A status this SDK version does not know."""
 
 
 #: The only statuses the platform accepts as a filter.
@@ -346,26 +363,27 @@ FILTERABLE_STATUSES = frozenset({PipelineRunStatus.SUCCEEDED, PipelineRunStatus.
 
 @dataclass(frozen=True)
 class PipelineTable:
-    """One table a pipeline run wrote, and what reached it.
-
-    Attributes:
-        table_name: The table's name.
-        schema_name: The schema it sits in.
-        rows_extracted: Rows read for this table.
-        rows_loaded: Rows written to it. Lower than ``rows_extracted`` when its
-            load job failed part-way.
-        bytes_loaded: Bytes written.
-        load_job_state: What its load job ended as.
-        write_disposition: How it was written — append, replace or merge.
-    """
+    """One table a pipeline run wrote, and what reached it."""
 
     table_name: str
+    """Name of the table."""
     schema_name: str
+    """The schema it sits in."""
     rows_extracted: int | None
+    """Rows the extract step wrote for this table; `None` when not extracted."""
     rows_loaded: int | None
+    """Rows that dlt prepared for loading for this table (normalized rows). dlt does not
+    report per-row load counts, so this is set even when loading failed.
+    """
     bytes_loaded: int | None
+    """Bytes that dlt prepared for loading for this table (size of the normalized
+    files). dlt does not report per-row load counts, so this is set even when loading
+    failed.
+    """
     load_job_state: str | None
+    """`completed` or `failed`; `None` when the table was not loaded."""
     write_disposition: str | None
+    """From the resource hints; `None` when the extract step reported none."""
 
     @staticmethod
     def _from_payload(payload: PipelineRunTableResponse) -> PipelineTable:
@@ -386,30 +404,34 @@ class LoadPackage:
 
     A run loads in packages, so a partial failure shows up here as some
     packages complete and others not.
-
-    Attributes:
-        load_id: dlt's load id, which is how a package is identified in logs.
-        schema_name: The schema it carried.
-        load_status: What the load ended as.
-        job_count: How many load jobs it held.
-        failed_job_count: How many of them failed.
-        total_rows_loaded: Rows it wrote.
-        total_bytes_loaded: Bytes it wrote.
-        is_pending: Whether it is still waiting to be loaded.
-        has_schema_migration: Whether loading it changed the destination's schema.
-        completed_at: When it finished.
     """
 
     load_id: str
+    """dlt load id of the package."""
     schema_name: str | None
+    """dlt schema the package was created with."""
     load_status: str | None
+    """State dlt reported for the package; `loaded` means fully loaded."""
     job_count: int
+    """Number of jobs in the package."""
     failed_job_count: int
+    """Jobs that failed."""
     total_rows_loaded: int
+    """Rows that dlt prepared for loading in this package (normalized rows, or extracted
+    rows when normalize reported none). dlt does not report per-row load counts, so
+    this is set even when loading failed.
+    """
     total_bytes_loaded: int
+    """Bytes that dlt prepared for loading in this package (size of the normalized
+    files, or of the extracted files when normalize reported none). dlt does not
+    report per-row load counts, so this is set even when loading failed.
+    """
     is_pending: bool
+    """Whether it is still waiting to be loaded."""
     has_schema_migration: bool
+    """Whether loading it changed the destination's schema."""
     completed_at: datetime | None
+    """When dlt completed the package, UTC; `None` while not completed."""
 
     @staticmethod
     def _from_payload(payload: LoadPackageResponse) -> LoadPackage:
@@ -429,18 +451,16 @@ class LoadPackage:
 
 @dataclass(frozen=True)
 class PipelineRunTrace:
-    """The dlt trace one pipeline run produced.
-
-    Attributes:
-        pipeline_run_id: The pipeline run it belongs to.
-        trace: The trace exactly as dlt wrote it — per-step timings, the
-            resolved config, and the exception when a step raised. Left opaque:
-            the platform stores and returns it verbatim and declares no shape
-            for it, as with the definitions ``Jobs.deploy_manifest`` accepts.
-    """
+    """The dlt trace one pipeline run produced."""
 
     pipeline_run_id: str
+    """The pipeline run it belongs to."""
     trace: Mapping[str, Any]
+    """The trace exactly as dlt wrote it — per-step timings, the resolved config, and
+    the exception when a step raised. Left opaque: the platform stores and returns it
+    verbatim and declares no shape for it, as with the definitions
+    ``Jobs.deploy_manifest`` accepts.
+    """
 
 
 @dataclass(frozen=True, repr=False)
@@ -449,48 +469,56 @@ class PipelineRun(Entity[M]):
 
     A job run executes whatever pipelines its job calls, so one run can
     produce several of these. Addressed by its own uuid, which is *not* a job
-    run id — only :meth:`PipelineRuns.list` hands one out.
-
-    Attributes:
-        id: This pipeline run's uuid.
-        pipeline_name: The dlt pipeline's name.
-        status: What became of it.
-        dataset_name: The dataset it wrote to, when it reported one.
-        destination_name: Where it wrote.
-        started_at: When it began.
-        finished_at: When it finished.
-        duration_ms: How long it ran, in milliseconds.
-        total_rows_extracted: Rows read from the source.
-        total_rows_loaded: Rows written to the destination. Lower than
-            ``total_rows_extracted`` when a load failed part-way.
-        total_bytes_loaded: Bytes written.
-        error_step: Which dlt step failed, when one did.
-        error_message: What it said.
-        has_schema_migration: Whether the load changed the destination's schema.
-        dlt_version: The dlt that ran it.
-        tables: The tables it wrote, with rows per table. Empty on a listed row
-            — only :meth:`PipelineRuns.get` reads them.
-        load_packages: The packages it produced. Empty on a listed row, for the
-            same reason.
+    run id. Get one from :meth:`PipelineRuns.list` or
+    :attr:`PipelineRunSummary.pipeline_run_id`.
     """
 
     id: str
+    """ID of the pipeline run; not a job run ID."""
     pipeline_name: str
+    """Name of the dlt pipeline."""
     status: PipelineRunStatus
+    """`failed` when any step raised, otherwise `succeeded`."""
     dataset_name: str | None
+    """Dataset the run loaded into, from its load step; `None` when the run did not
+    reach load.
+    """
     destination_name: str | None
+    """Destination the run loaded to, from its load step; `None` when the run did not
+    reach load.
+    """
     started_at: datetime | None
+    """Start of the run from the dlt trace, UTC."""
     finished_at: datetime | None
+    """End of the run from the dlt trace, UTC."""
     duration_ms: int | None
+    """`finished_at` − `started_at` in milliseconds."""
     total_rows_extracted: int
+    """Rows written by the extract step."""
     total_rows_loaded: int
+    """Rows that dlt prepared for loading in this run (normalized rows). dlt does not
+    report per-row load counts, so this is set even when loading failed.
+    """
     total_bytes_loaded: int
+    """Bytes that dlt prepared for loading in this run (size of the normalized files).
+    dlt does not report per-row load counts, so this is set even when loading failed.
+    """
     error_step: str | None
+    """First step that raised, for example `extract`, `normalize` or `load`."""
     error_message: str | None
+    """Exception message of that step."""
     has_schema_migration: bool | None
+    """True when the load step created or changed user tables (`_dlt_*` tables are
+    ignored).
+    """
     dlt_version: str | None
+    """dlt version that ran the pipeline, from the trace's execution context."""
     tables: tuple[PipelineTable, ...]
+    """The tables it wrote, with rows per table. Empty on a listed row — only
+    :meth:`PipelineRuns.get` reads them.
+    """
     load_packages: tuple[LoadPackage, ...]
+    """The packages it produced. Empty on a listed row, for the same reason."""
 
     _identity = ("pipeline_name", "id")
     _kind = EntityKind.PIPELINE_RUN
@@ -573,43 +601,42 @@ def _count(value: Any) -> int:
 
 @dataclass(frozen=True)
 class PipelineActivity:
-    """How one pipeline has been doing over a window.
-
-    Attributes:
-        pipeline_name: The dlt pipeline's name.
-        total_pipeline_run_count: How many times it ran.
-        succeeded_pipeline_run_count: How many of those succeeded.
-        failed_pipeline_run_count: How many did not. Derived, since the platform reports the
-            successes and the total.
-        success_ratio: The platform's own figure, between 0 and 1.
-        total_rows_extracted: Rows read across every run.
-        total_rows_loaded: Rows written across every run.
-        total_bytes_loaded: Bytes written across every run.
-        average_duration_ms: Mean run length in milliseconds, or ``None`` when nothing
-            finished.
-        total_duration_ms: Milliseconds spent running, across the window.
-        latest_status: What its most recent run ended as.
-        latest_pipeline_run_at: When that run happened.
-        latest_dataset_name: The dataset it most recently wrote to.
-        latest_destination_name: The destination it most recently wrote to.
-        latest_source_names: The sources its most recent run read.
-    """
+    """How one pipeline has been doing over a window."""
 
     pipeline_name: str
+    """Name of the dlt pipeline."""
     total_pipeline_run_count: int
+    """Pipeline runs in the range."""
     succeeded_pipeline_run_count: int
+    """Pipeline runs in the range with status `succeeded`."""
     failed_pipeline_run_count: int
+    """How many did not. Derived, since the platform reports the successes and the
+    total.
+    """
     success_ratio: float
+    """Succeeded ÷ total, from 0 to 1."""
     total_rows_extracted: int
+    """Sum of extracted rows over all runs in the range."""
     total_rows_loaded: int
+    """Sum of normalized rows over succeeded runs in the time range."""
     total_bytes_loaded: int
+    """Sum of normalized bytes (size of the normalized files) over succeeded runs in the
+    time range.
+    """
     average_duration_ms: int | None
+    """Mean `duration_ms` in the range, rounded; `None` when no run has a duration."""
     total_duration_ms: int
+    """Sum of `duration_ms` over the runs in the range."""
     latest_status: str | None
+    """Status of the most recent pipeline run in the time range."""
     latest_pipeline_run_at: datetime | None
+    """When the most recent pipeline run in the time range started."""
     latest_dataset_name: str | None
+    """Dataset of the most recent pipeline run in the time range."""
     latest_destination_name: str | None
+    """Destination of the most recent pipeline run in the time range."""
     latest_source_names: tuple[str, ...]
+    """Sources read by the most recent pipeline run in the time range."""
 
     @staticmethod
     def _from_payload(
@@ -639,41 +666,38 @@ class PipelineActivity:
 
 @dataclass(frozen=True)
 class DatasetActivity:
-    """What landed in one dataset over a window.
-
-    Attributes:
-        dataset_name: The dataset's name.
-        distinct_pipeline_count: How many distinct pipelines wrote here. More than one means
-            they share it, which is worth knowing before blaming any of them.
-        total_pipeline_run_count: How many runs wrote here.
-        succeeded_pipeline_run_count: How many of those succeeded.
-        failed_pipeline_run_count: How many did not. Derived, as for a pipeline.
-        success_ratio: The platform's own figure, between 0 and 1.
-        total_rows_loaded: Rows written across every run.
-        total_bytes_loaded: Bytes written across every run.
-        schema_migration_count: How many loads changed the schema here.
-        average_duration_ms: Mean run length in milliseconds, or ``None`` when nothing
-            finished.
-        latest_status: What the most recent run ended as.
-        latest_pipeline_run_at: When that run happened.
-        latest_pipeline_name: Which pipeline wrote most recently.
-        latest_destination_name: Where it wrote.
-    """
+    """What landed in one dataset over a window."""
 
     dataset_name: str
+    """Name of the dataset, across destinations."""
     distinct_pipeline_count: int
+    """Number of distinct pipelines that ran into this dataset in the range."""
     total_pipeline_run_count: int
+    """Pipeline runs in the range."""
     succeeded_pipeline_run_count: int
+    """Pipeline runs in the range with status `succeeded`."""
     failed_pipeline_run_count: int
+    """How many did not. Derived, as for a pipeline."""
     success_ratio: float
+    """Succeeded ÷ total, from 0 to 1."""
     total_rows_loaded: int
+    """Sum of normalized rows over succeeded runs in the time range."""
     total_bytes_loaded: int
+    """Sum of normalized bytes (size of the normalized files) over succeeded runs in the
+    time range.
+    """
     schema_migration_count: int
+    """Runs in the range with `has_schema_migration`."""
     average_duration_ms: int | None
+    """Mean `duration_ms` in the range, rounded; `None` when no run has a duration."""
     latest_status: str | None
+    """Status of the most recent pipeline run in the time range."""
     latest_pipeline_run_at: datetime | None
+    """When the most recent pipeline run in the time range started."""
     latest_pipeline_name: str | None
+    """Pipeline of the most recent pipeline run in the time range."""
     latest_destination_name: str | None
+    """Destination of the most recent pipeline run in the time range."""
 
     @staticmethod
     def _from_payload(
@@ -702,9 +726,8 @@ class DatasetActivity:
 class PipelineRuns(Collection[M]):
     """The dlt pipeline runs telemetry recorded for one workspace.
 
-    Every read covers a time window, because the platform requires one. Alone
-    among the collections there is no ``count()``: the platform offers no total
-    for a window, so counting means walking :meth:`list`.
+    Every read covers a time window, which defaults to the last seven days.
+    There is no ``count()``; walk :meth:`list`.
     """
 
     _entity = PipelineRun
@@ -719,14 +742,20 @@ class PipelineRuns(Collection[M]):
         """Return one pipeline run by id, in full.
 
         Args:
-            id: The pipeline run's uuid, from :meth:`list`. A job run id will
+            id: The pipeline run's uuid, from :meth:`PipelineRuns.list` or
+                :attr:`PipelineRunSummary.pipeline_run_id`. A job run id will
                 not do — they are different things.
 
         Returns:
             The pipeline run; awaitable in async mode.
 
         Raises:
-            BadRequest: ``id`` is not a uuid.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            DataplaneTokenRejected: The data plane rejected the token the
+                platform issued for it.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             NotFound: No such pipeline run in this workspace.
             ScopeMissing: Reached without a workspace in scope.
         """
@@ -757,7 +786,8 @@ class PipelineRuns(Collection[M]):
             The trace; awaitable in async mode.
 
         Raises:
-            BadRequest: ``id`` is not a uuid.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
             NotFound: No such pipeline run, or it has no stored trace. One the
                 platform never linked to a job run has none.
             ScopeMissing: Reached without a workspace in scope.
@@ -827,7 +857,7 @@ class PipelineRuns(Collection[M]):
     ) -> Iterable[PipelineRun[Any]] | AsyncIterable[PipelineRun[Any]]:
         """Yield pipeline runs in the window, newest first.
 
-        This is the only place a pipeline run id comes from.
+        The window holds the pipeline runs whose start falls in ``[since, until)``.
 
         Args:
             job_run_id: Narrow to the pipelines one job run executed.
@@ -836,8 +866,9 @@ class PipelineRuns(Collection[M]):
                 filterable.
             dataset: Narrow to runs that wrote to one dataset.
             destination: Narrow to runs that wrote to one destination.
-            empty_only: True for runs that loaded nothing, False for those that
-                loaded something, ``None`` for both.
+            empty_only: True for succeeded runs that extracted nothing to load.
+                False for every other run, failed ones included. ``None`` for
+                both.
             since: Start of the window, zone-aware. Defaults to seven days
                 before ``until``.
             until: End of the window, zone-aware. Defaults to now.
@@ -849,6 +880,12 @@ class PipelineRuns(Collection[M]):
             An iterable of pipeline runs; async-iterable in async mode.
 
         Raises:
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            DataplaneTokenRejected: The data plane rejected the token the
+                platform issued for it.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             ScopeMissing: Reached without a workspace in scope.
             ValueError: A status the platform cannot filter on, a naive
                 ``since`` or ``until``, or a negative ``limit`` or ``offset``.

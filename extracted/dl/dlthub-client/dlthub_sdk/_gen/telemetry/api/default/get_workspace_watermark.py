@@ -77,6 +77,9 @@ def sync_detailed(
 ) -> Response[ErrorResponse | TelemetryWatermarkResponse]:
     """GetTelemetryWatermark
 
+    The most recent `updated_at` of any pipeline run in the workspace, or `null` when there are
+    none. Poll this and refetch lists only when it changes.
+
     Args:
         workspace_id (UUID):
 
@@ -105,6 +108,9 @@ def sync(
 ) -> ErrorResponse | TelemetryWatermarkResponse | None:
     """GetTelemetryWatermark
 
+    The most recent `updated_at` of any pipeline run in the workspace, or `null` when there are
+    none. Poll this and refetch lists only when it changes.
+
     Args:
         workspace_id (UUID):
 
@@ -127,6 +133,9 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
 ) -> Response[ErrorResponse | TelemetryWatermarkResponse]:
     """GetTelemetryWatermark
+
+    The most recent `updated_at` of any pipeline run in the workspace, or `null` when there are
+    none. Poll this and refetch lists only when it changes.
 
     Args:
         workspace_id (UUID):
@@ -153,6 +162,9 @@ async def asyncio(
     client: AuthenticatedClient | Client,
 ) -> ErrorResponse | TelemetryWatermarkResponse | None:
     """GetTelemetryWatermark
+
+    The most recent `updated_at` of any pipeline run in the workspace, or `null` when there are
+    none. Poll this and refetch lists only when it changes.
 
     Args:
         workspace_id (UUID):

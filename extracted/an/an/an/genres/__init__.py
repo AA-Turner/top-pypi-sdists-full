@@ -113,6 +113,10 @@ class GenreError(RegistryError):
 #: it supports" (ADR 0001 decision 8) is said without a version pin: ``an``'s
 #: version is assigned by CI at merge, so no PR can name the release it ships in.
 #:
+#: A public name a genre reads lands with a level bump and a line below naming
+#: it (an#724): a release at a level guarantees every name its lines name, unless a
+#: later line retires it (as 12 retired 1's shims).
+#:
 #: A genre package must also run against an ``an`` older than this constant:
 #: it reads ``getattr(an.genres, "API_LEVEL", 0)`` before calling
 #: :func:`require_api_level`, and raises its own typed error when it is missing.
@@ -138,7 +142,9 @@ class GenreError(RegistryError):
 #: 10 = the one asset-reference rule (an#552): ``an.stores._common.asset_references``
 #:     and ``asset_ref_problems`` (``(label, message)`` pairs) a genre's validator calls.
 #: 11 = a slot's rest world transform (an#579): ``an.stage.rig.rest_world_transforms`` and
-#:     ``RestTransform``, the builder's own rule, for a genre's placement maths.
+#:     ``RestTransform``, the builder's own rule, for a genre's placement maths. Also
+#:     guaranteed from here (an#724): ``an.stage.solve.solve_report``, which came with
+#:     an#570, merged after 10 was cut (its ``SOLVE_EXTENSION`` dates from 7).
 #: 12 = the P8 import shims are gone (an#321): no ``an`` path serves a module or name that
 #:     moved to ``cutan``, so a genre package imports its own code from ``cutan`` only.
 #: 13 = names a genre's checks and pack read, public (reeleehq/cutan#148):
@@ -146,7 +152,16 @@ class GenreError(RegistryError):
 #:     ``as_choice``, ``an.audio.loudness.voice_loudness_offset``.
 #: 14 = a kind's own shot sizes (reeleehq/cutan#106): ``EntityKind.shot_sizes(entity, mall,
 #:     box)``, which the world's framing reads instead of ``SHOT_SIZES``.
-API_LEVEL: int = 14
+#: 15 = a project's ``.gitignore`` read by git's rules (an#725): ``an.project.gitignored``
+#:     and ``gitignore_matcher``, for a genre that copies a project (cutan's projects store).
+#: 16 = names cutan's presets, checks and passes read, public (an#730): ``an.motion``'s
+#:     ``alternating``, ``require_positive``, ``rest_value``, ``settled``, ``side_sign``,
+#:     ``through`` and ``tweens_of``; ``an.ir.validate.built_node_paths``, ``rig_document``
+#:     and ``text_block_ids``; ``an.stage.rig.asset_file`` (module-level names: those two
+#:     modules have no ``__all__``).
+#: 17 = one rule of "at infinity" (an#735): ``an.ir.world.planes_at_infinity(world,
+#:     environments)`` and its record ``PlaneAtInfinity``, for a genre's far-plate critic.
+API_LEVEL: int = 17
 
 
 class GenreAPILevelError(GenreError, ImportError):
@@ -501,10 +516,12 @@ def _resolve(ep: EntryPoint) -> Genre:
     try:
         genre = ep.load()
     except Exception as e:  # noqa: BLE001 — re-raised, named
+        # A module `an` no longer has, or a name an `an` module no longer
+        # serves (a removed alias, an#709): either way, the genre is older.
         stale = (
-            " (it imports a path `an` no longer serves: upgrade the genre "
+            " (it imports a path or name `an` no longer serves: upgrade the genre "
             "package, for example `pip install -U cutan`)"
-            if isinstance(e, ModuleNotFoundError) and (e.name or "").startswith("an.")
+            if isinstance(e, ImportError) and (e.name or "").split(".")[0] == "an"
             else ""
         )
         raise GenreError(

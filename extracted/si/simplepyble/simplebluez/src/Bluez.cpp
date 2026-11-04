@@ -5,16 +5,16 @@
 
 using namespace SimpleBluez;
 
-Bluez::Bluez()
-    : _conn(std::make_shared<SimpleDBus::Connection>(Config::use_system_bus ? DBUS_BUS_SYSTEM : DBUS_BUS_SESSION)) {}
+Bluez::Bluez() {}
 
 Bluez::~Bluez() {
-    if (_conn->is_initialized()) {
+    if (_conn && _conn->is_initialized()) {
         _conn->remove_match("type='signal',sender='org.bluez'");
     }
 }
 
 void Bluez::init() {
+    _conn = std::make_shared<SimpleDBus::Connection>(Config::use_system_bus ? DBUS_BUS_SYSTEM : DBUS_BUS_SESSION);
     _conn->init();
     _conn->add_match("type='signal',sender='org.bluez'");
 
@@ -33,3 +33,7 @@ std::shared_ptr<BluezRoot> Bluez::root_bluez() { return _bluez_root; }
 std::vector<std::shared_ptr<Adapter>> Bluez::get_adapters() { return _bluez_root->get_adapters(); }
 
 void Bluez::register_agent(std::shared_ptr<Agent> agent) { _bluez_root->register_agent(agent); }
+
+void Bluez::unregister_agent(std::shared_ptr<Agent> agent) { _bluez_root->unregister_agent(agent); }
+
+void Bluez::request_default_agent(std::shared_ptr<Agent> agent) { _bluez_root->request_default_agent(agent); }

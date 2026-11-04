@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hugpy-core
-Version: 0.4.81
+Version: 0.4.82
 Summary: Hugpy Core: a small fleet API, worker console, dispatch and consolidated history.
 Author-email: putkoff <support@hugpy.ai>
 License: Proprietary
@@ -16,14 +16,14 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Requires-Dist: hugpy-resources<0.2,>=0.1.2.8
-Requires-Dist: hugpy-settings>=0.1.2
+Requires-Dist: hugpy-resources<0.2,>=0.1.5
+Requires-Dist: hugpy-settings<0.2,>=0.1.8
 Requires-Dist: aiohttp>=3.9
 Requires-Dist: flask>=2
 Requires-Dist: hugpy-storage>=0.2.17
 Requires-Dist: hugpy-engine>=0.3.14
-Requires-Dist: hugpy-wrapper>=0.1.183
-Requires-Dist: hugpy-terminal<0.2,>=0.1.23
+Requires-Dist: hugpy-wrapper>=0.1.183.5
+Requires-Dist: hugpy-terminal<0.2,>=0.1.24
 Requires-Dist: psycopg[binary]>=3
 Requires-Dist: abstract_toolserver>=0.0.106
 Requires-Dist: abstract_database>=0.0.2.199

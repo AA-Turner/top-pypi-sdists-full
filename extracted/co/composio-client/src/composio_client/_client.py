@@ -1,1002 +1,430 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+"""``Composio`` and ``AsyncComposio`` — the entry points.
+
+``Composio(auth=ProjectAuth(key)).tool_router.session.*``. ``auth`` is required
+and says how the client authenticates (:mod:`._auth`); ``scope`` optionally
+routes every request to an organization and project. The constructor reads
+nothing from the process: :meth:`Composio.from_env` is the one reader of the
+``COMPOSIO_*`` variables, and it takes the mapping as an argument.
+
+Base-URL resolution: an explicit ``base_url`` wins over ``environment``, and
+omitting both means production.
+
+Everything here is hand-written except *which* resources hang off a client:
+that inventory is generated into ``resources/_wiring.py`` from the same
+operation plan the resource classes come from, and mixed in below, so widening
+the surface never edits this module.
+"""
 
 from __future__ import annotations
 
-import os
-from typing import TYPE_CHECKING, Any, Dict, Mapping, cast
-from typing_extensions import Self, Literal, override
+import inspect
+from collections.abc import Mapping
+from types import TracebackType
+from typing import Any, Literal
 
 import httpx
+from typing_extensions import Self
 
-from . import _exceptions
-from ._qs import Querystring
-from ._types import (
-    Omit,
-    Timeout,
-    NotGiven,
-    Transport,
-    ProxiesTypes,
-    RequestOptions,
-    not_given,
-)
-from ._utils import (
-    is_given,
-    is_mapping_t,
-    get_async_library,
-)
-from ._compat import cached_property
+from ._auth import Auth, Scope, auth_from_credentials
+from ._base_client import AsyncAPIClient, SyncAPIClient
+from ._identity import ClientIdentity
+from ._types import DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT, NOT_GIVEN, NotGiven
 from ._version import __version__
-from ._streaming import Stream as Stream, AsyncStream as AsyncStream
-from ._exceptions import APIStatusError
-from ._base_client import (
-    DEFAULT_MAX_RETRIES,
-    SyncAPIClient,
-    AsyncAPIClient,
-)
+from .resources._wiring import AsyncClientResources, ClientResources
 
-if TYPE_CHECKING:
-    from .resources import (
-        cli,
-        mcp,
-        link,
-        logs,
-        files,
-        tools,
-        toolkits,
-        tool_router,
-        auth_configs,
-        triggers_types,
-        trigger_instances,
-        connected_accounts,
-    )
-    from .resources.link import LinkResource, AsyncLinkResource
-    from .resources.files import FilesResource, AsyncFilesResource
-    from .resources.tools import ToolsResource, AsyncToolsResource
-    from .resources.cli.cli import CliResource, AsyncCliResource
-    from .resources.mcp.mcp import McpResource, AsyncMcpResource
-    from .resources.toolkits import ToolkitsResource, AsyncToolkitsResource
-    from .resources.logs.logs import LogsResource, AsyncLogsResource
-    from .resources.auth_configs import AuthConfigsResource, AsyncAuthConfigsResource
-    from .resources.triggers_types import TriggersTypesResource, AsyncTriggersTypesResource
-    from .resources.connected_accounts import ConnectedAccountsResource, AsyncConnectedAccountsResource
-    from .resources.tool_router.tool_router import ToolRouterResource, AsyncToolRouterResource
-    from .resources.trigger_instances.trigger_instances import TriggerInstancesResource, AsyncTriggerInstancesResource
-
-__all__ = [
-    "ENVIRONMENTS",
-    "Timeout",
-    "Transport",
-    "ProxiesTypes",
-    "RequestOptions",
-    "Composio",
-    "AsyncComposio",
-    "Client",
-    "AsyncClient",
-]
-
-ENVIRONMENTS: Dict[str, str] = {
+ENVIRONMENTS: dict[str, str] = {
     "production": "https://backend.composio.dev",
     "staging": "https://staging-backend.composio.dev",
     "local": "http://localhost:9900",
 }
 
 
-class Composio(SyncAPIClient):
-    # client options
-    api_key: str | None
+def _parse_custom_headers(raw: str) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for line in raw.split("\n"):
+        colon = line.find(":")
+        if colon >= 0:
+            parsed[line[:colon].strip()] = line[colon + 1 :].strip()
+    return parsed
 
-    _environment: Literal["production", "staging", "local"] | NotGiven
 
+Environment = Literal["production", "staging", "local"]
+EnvironmentMap = Mapping[str, str]
+Timeout = float | httpx.Timeout | None
+
+
+# ``inspect.signature`` is the slowest call on the ``with_options()`` path by an order
+# of magnitude, and ``with_options`` is the documented in-loop idiom, so the
+# answer is memoized per class. Bounded the same way the warn-once records
+# are: test doubles create classes freely, and a cheap recompute on overflow
+# beats unbounded retention.
+_KEYWORD_CACHE: dict[tuple[type[Any], str], bool] = {}
+_KEYWORD_CACHE_LIMIT = 256
+
+
+def _accepts_keyword(client_type: type[Any], name: str) -> bool:
+    """Whether a client subclass constructor accepts an owned-only option."""
+    key = (client_type, name)
+    cached = _KEYWORD_CACHE.get(key)
+    if cached is not None:
+        return cached
+    parameters = inspect.signature(client_type.__init__).parameters.values()
+    accepts = any(
+        parameter.name == name or parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters
+    )
+    if len(_KEYWORD_CACHE) >= _KEYWORD_CACHE_LIMIT:
+        _KEYWORD_CACHE.clear()
+    _KEYWORD_CACHE[key] = accepts
+    return accepts
+
+
+def _read_env(environment: EnvironmentMap, name: str) -> str | None:
+    value = environment.get(name)
+    if value is None:
+        return None
+    return value.strip() or None
+
+
+def _resolve_base_url(base_url: str | httpx.URL | None, environment: Environment | None) -> str:
+    if base_url is not None:
+        return str(base_url)
+    if environment is not None:
+        try:
+            return ENVIRONMENTS[environment]
+        except KeyError as exc:
+            raise ValueError(f"Unknown environment: {environment}") from exc
+    return ENVIRONMENTS["production"]
+
+
+def _resolve_kwargs(
+    *,
+    platform: str,
+    auth: Auth,
+    scope: Scope | None,
+    environment: Environment | NotGiven,
+    base_url: str | httpx.URL | None | NotGiven,
+    timeout: Timeout | NotGiven,
+    max_retries: int,
+    default_headers: Mapping[str, str | None] | None,
+) -> dict[str, Any]:
+    return {
+        "base_url": _resolve_base_url(
+            None if isinstance(base_url, NotGiven) else base_url,
+            None if isinstance(environment, NotGiven) else environment,
+        ),
+        "auth": auth,
+        "scope": scope,
+        "max_retries": max_retries,
+        "timeout": DEFAULT_TIMEOUT if isinstance(timeout, NotGiven) else timeout,
+        "user_agent": f"Composio/{platform} {__version__}",
+        "default_headers": dict(default_headers) if default_headers else None,
+    }
+
+
+def _from_env_kwargs(
+    environment_variables: EnvironmentMap,
+    *,
+    auth: Auth | NotGiven,
+    scope: Scope | None | NotGiven,
+    environment: Environment | NotGiven,
+    base_url: str | httpx.URL | None | NotGiven,
+    timeout: Timeout | NotGiven,
+    max_retries: int | NotGiven,
+    default_headers: Mapping[str, str | None] | None | NotGiven,
+) -> dict[str, Any]:
+    """The constructor's keywords for a mapping; each override replaces the field it names."""
+    if not isinstance(base_url, NotGiven) and base_url is not None and not isinstance(environment, NotGiven):
+        raise ValueError("The `base_url` and `environment` options cannot be used together")
+
+    if isinstance(auth, NotGiven):
+        auth = auth_from_credentials(
+            project=_read_env(environment_variables, "COMPOSIO_API_KEY"),
+            user=_read_env(environment_variables, "COMPOSIO_USER_API_KEY"),
+            organization=_read_env(environment_variables, "COMPOSIO_ORG_API_KEY"),
+        )
+    if isinstance(default_headers, NotGiven):
+        custom = _read_env(environment_variables, "COMPOSIO_CUSTOM_HEADERS")
+        default_headers = _parse_custom_headers(custom) if custom else None
+    if isinstance(base_url, NotGiven) and isinstance(environment, NotGiven):
+        base_url = _read_env(environment_variables, "COMPOSIO_BASE_URL")
+
+    return {
+        "auth": auth,
+        "scope": None if isinstance(scope, NotGiven) else scope,
+        "environment": environment,
+        "base_url": base_url,
+        "timeout": timeout,
+        "max_retries": DEFAULT_MAX_RETRIES if isinstance(max_retries, NotGiven) else max_retries,
+        "default_headers": default_headers,
+    }
+
+
+def _derived_base_url(
+    client: Composio | AsyncComposio, environment: Environment | None, base_url: str | httpx.URL | None
+) -> str | httpx.URL | None:
+    if environment is not None:
+        return None
+    if base_url is None:
+        return client.base_url
+    return base_url
+
+
+def _copy_kwargs(
+    client: Composio | AsyncComposio,
+    *,
+    auth: Auth | NotGiven,
+    scope: Scope | None | NotGiven,
+    environment: Environment | None,
+    base_url: str | httpx.URL | None,
+    timeout: Timeout | NotGiven,
+    http_client: httpx.Client | httpx.AsyncClient | None,
+    max_retries: int | NotGiven,
+    default_headers: Mapping[str, str | None] | None,
+    set_default_headers: Mapping[str, str | None] | None,
+    identity: ClientIdentity | None,
+    extra_kwargs: Mapping[str, Any],
+) -> dict[str, Any]:
+    """The parent's keywords with the given ones laid over them; construction re-validates."""
+    headers = (
+        dict(set_default_headers)
+        if set_default_headers is not None
+        else {**dict(client._default_headers or {}), **dict(default_headers or {})}
+    )
+    kwargs: dict[str, Any] = {
+        "auth": client._auth if isinstance(auth, NotGiven) else auth,
+        "environment": environment if environment is not None else NOT_GIVEN,
+        "base_url": _derived_base_url(client, environment, base_url),
+        "timeout": client.timeout if isinstance(timeout, NotGiven) else timeout,
+        "max_retries": client.max_retries if isinstance(max_retries, NotGiven) else max_retries,
+        "default_headers": headers or None,
+        "http_client": client._client if http_client is None else http_client,
+        "_strict_response_validation": client._strict_response_validation,
+    }
+    resolved_scope = client._scope if isinstance(scope, NotGiven) else scope
+    resolved_identity = client._identity if identity is None else identity
+    # A subclass constructor without `scope` or `identity` keeps deriving unless asked to carry one.
+    for name, value in (("scope", resolved_scope), ("identity", resolved_identity)):
+        if value is not None or _accepts_keyword(type(client), name):
+            kwargs[name] = value
+    kwargs.update(extra_kwargs)
+    return kwargs
+
+
+class Composio(SyncAPIClient, ClientResources):
     def __init__(
         self,
         *,
-        api_key: str | None = None,
-        environment: Literal["production", "staging", "local"] | NotGiven = not_given,
-        base_url: str | httpx.URL | None | NotGiven = not_given,
-        timeout: float | Timeout | None | NotGiven = not_given,
+        auth: Auth,
+        scope: Scope | None = None,
+        environment: Environment | NotGiven = NOT_GIVEN,
+        base_url: str | httpx.URL | None | NotGiven = NOT_GIVEN,
+        timeout: Timeout | NotGiven = NOT_GIVEN,
         max_retries: int = DEFAULT_MAX_RETRIES,
-        default_headers: Mapping[str, str] | None = None,
-        default_query: Mapping[str, object] | None = None,
-        # Configure a custom httpx client.
-        # We provide a `DefaultHttpxClient` class that you can pass to retain the default values we use for `limits`, `timeout` & `follow_redirects`.
-        # See the [httpx documentation](https://www.python-httpx.org/api/#client) for more details.
+        default_headers: Mapping[str, str | None] | None = None,
+        identity: ClientIdentity | None = None,
         http_client: httpx.Client | None = None,
-        # Enable or disable schema validation for data returned by the API.
-        # When enabled an error APIResponseValidationError is raised
-        # if the API responds with invalid data for the expected schema.
-        #
-        # This parameter may be removed or changed in the future.
-        # If you rely on this feature, please open a GitHub issue
-        # outlining your use-case to help us decide if it should be
-        # part of our public interface in the future.
         _strict_response_validation: bool = False,
     ) -> None:
-        """Construct a new synchronous Composio client instance.
-
-        This automatically infers the `api_key` argument from the `COMPOSIO_API_KEY` environment variable if it is not provided.
-        """
-        if api_key is None:
-            api_key = os.environ.get("COMPOSIO_API_KEY")
-        self.api_key = api_key
-
-        self._environment = environment
-
-        base_url_env = os.environ.get("COMPOSIO_BASE_URL")
-        if is_given(base_url) and base_url is not None:
-            # cast required because mypy doesn't understand the type narrowing
-            base_url = cast("str | httpx.URL", base_url)  # pyright: ignore[reportUnnecessaryCast]
-        elif is_given(environment):
-            if base_url_env and base_url is not None:
-                raise ValueError(
-                    "Ambiguous URL; The `COMPOSIO_BASE_URL` env var and the `environment` argument are given. If you want to use the environment, you must pass base_url=None",
-                )
-
-            try:
-                base_url = ENVIRONMENTS[environment]
-            except KeyError as exc:
-                raise ValueError(f"Unknown environment: {environment}") from exc
-        elif base_url_env is not None:
-            base_url = base_url_env
-        else:
-            self._environment = environment = "production"
-
-            try:
-                base_url = ENVIRONMENTS[environment]
-            except KeyError as exc:
-                raise ValueError(f"Unknown environment: {environment}") from exc
-
-        custom_headers_env = os.environ.get("COMPOSIO_CUSTOM_HEADERS")
-        if custom_headers_env is not None:
-            parsed: dict[str, str] = {}
-            for line in custom_headers_env.split("\n"):
-                colon = line.find(":")
-                if colon >= 0:
-                    parsed[line[:colon].strip()] = line[colon + 1 :].strip()
-            default_headers = {**parsed, **(default_headers if is_mapping_t(default_headers) else {})}
-
         super().__init__(
-            version=__version__,
-            base_url=base_url,
-            max_retries=max_retries,
-            timeout=timeout,
             http_client=http_client,
-            custom_headers=default_headers,
-            custom_query=default_query,
+            **_resolve_kwargs(
+                platform="Python",
+                auth=auth,
+                scope=scope,
+                environment=environment,
+                base_url=base_url,
+                timeout=timeout,
+                max_retries=max_retries,
+                default_headers=default_headers,
+            ),
+            identity=identity,
+            _strict_response_validation=_strict_response_validation,
+        )
+        self._install_resources(self)
+
+    @classmethod
+    def from_env(
+        cls,
+        environment_variables: EnvironmentMap,
+        *,
+        auth: Auth | NotGiven = NOT_GIVEN,
+        scope: Scope | None | NotGiven = NOT_GIVEN,
+        environment: Environment | NotGiven = NOT_GIVEN,
+        base_url: str | httpx.URL | None | NotGiven = NOT_GIVEN,
+        timeout: Timeout | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        default_headers: Mapping[str, str | None] | None | NotGiven = NOT_GIVEN,
+        identity: ClientIdentity | None = None,
+        http_client: httpx.Client | None = None,
+        _strict_response_validation: bool = False,
+    ) -> Self:
+        """Construct from a mapping such as ``os.environ``; each keyword replaces the field it names."""
+        return cls(
+            **_from_env_kwargs(
+                environment_variables,
+                auth=auth,
+                scope=scope,
+                environment=environment,
+                base_url=base_url,
+                timeout=timeout,
+                max_retries=max_retries,
+                default_headers=default_headers,
+            ),
+            identity=identity,
+            http_client=http_client,
             _strict_response_validation=_strict_response_validation,
         )
 
-    @cached_property
-    def auth_configs(self) -> AuthConfigsResource:
-        """Authentication configuration management"""
-        from .resources.auth_configs import AuthConfigsResource
+    def __enter__(self) -> Composio:
+        return self
 
-        return AuthConfigsResource(self)
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self.close()
 
-    @cached_property
-    def connected_accounts(self) -> ConnectedAccountsResource:
-        """Connected account management"""
-        from .resources.connected_accounts import ConnectedAccountsResource
-
-        return ConnectedAccountsResource(self)
-
-    @cached_property
-    def link(self) -> LinkResource:
-        """Connected account management"""
-        from .resources.link import LinkResource
-
-        return LinkResource(self)
-
-    @cached_property
-    def toolkits(self) -> ToolkitsResource:
-        """Toolkit and tool management"""
-        from .resources.toolkits import ToolkitsResource
-
-        return ToolkitsResource(self)
-
-    @cached_property
-    def tools(self) -> ToolsResource:
-        """Tool execution endpoints"""
-        from .resources.tools import ToolsResource
-
-        return ToolsResource(self)
-
-    @cached_property
-    def trigger_instances(self) -> TriggerInstancesResource:
-        """Trigger management and execution"""
-        from .resources.trigger_instances import TriggerInstancesResource
-
-        return TriggerInstancesResource(self)
-
-    @cached_property
-    def triggers_types(self) -> TriggersTypesResource:
-        """Trigger management and execution"""
-        from .resources.triggers_types import TriggersTypesResource
-
-        return TriggersTypesResource(self)
-
-    @cached_property
-    def mcp(self) -> McpResource:
-        """MCP server management"""
-        from .resources.mcp import McpResource
-
-        return McpResource(self)
-
-    @cached_property
-    def files(self) -> FilesResource:
-        """File management"""
-        from .resources.files import FilesResource
-
-        return FilesResource(self)
-
-    @cached_property
-    def cli(self) -> CliResource:
-        from .resources.cli import CliResource
-
-        return CliResource(self)
-
-    @cached_property
-    def logs(self) -> LogsResource:
-        from .resources.logs import LogsResource
-
-        return LogsResource(self)
-
-    @cached_property
-    def tool_router(self) -> ToolRouterResource:
-        from .resources.tool_router import ToolRouterResource
-
-        return ToolRouterResource(self)
-
-    @cached_property
-    def with_raw_response(self) -> ComposioWithRawResponse:
-        return ComposioWithRawResponse(self)
-
-    @cached_property
-    def with_streaming_response(self) -> ComposioWithStreamedResponse:
-        return ComposioWithStreamedResponse(self)
-
-    @property
-    @override
-    def qs(self) -> Querystring:
-        return Querystring(array_format="comma")
-
-    @property
-    @override
-    def auth_headers(self) -> dict[str, str]:
-        api_key = self.api_key
-        if api_key is None:
-            return {}
-        return {"x-api-key": api_key}
-
-    @property
-    @override
-    def default_headers(self) -> dict[str, str | Omit]:
-        return {
-            **super().default_headers,
-            "X-Stainless-Async": "false",
-            **self._custom_headers,
-        }
-
-    def copy(
+    def with_options(
         self,
         *,
-        api_key: str | None = None,
-        environment: Literal["production", "staging", "local"] | None = None,
+        auth: Auth | NotGiven = NOT_GIVEN,
+        scope: Scope | None | NotGiven = NOT_GIVEN,
+        environment: Environment | None = None,
         base_url: str | httpx.URL | None = None,
-        timeout: float | Timeout | None | NotGiven = not_given,
+        timeout: Timeout | NotGiven = NOT_GIVEN,
         http_client: httpx.Client | None = None,
-        max_retries: int | NotGiven = not_given,
-        default_headers: Mapping[str, str] | None = None,
-        set_default_headers: Mapping[str, str] | None = None,
-        default_query: Mapping[str, object] | None = None,
-        set_default_query: Mapping[str, object] | None = None,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        default_headers: Mapping[str, str | None] | None = None,
+        set_default_headers: Mapping[str, str | None] | None = None,
+        identity: ClientIdentity | None = None,
         _extra_kwargs: Mapping[str, Any] = {},
     ) -> Self:
-        """
-        Create a new client instance re-using the same options given to the current client with optional overriding.
-        """
-        if default_headers is not None and set_default_headers is not None:
-            raise ValueError("The `default_headers` and `set_default_headers` arguments are mutually exclusive")
-
-        if default_query is not None and set_default_query is not None:
-            raise ValueError("The `default_query` and `set_default_query` arguments are mutually exclusive")
-
-        headers = self._custom_headers
-        if default_headers is not None:
-            headers = {**headers, **default_headers}
-        elif set_default_headers is not None:
-            headers = set_default_headers
-
-        params = self._custom_query
-        if default_query is not None:
-            params = {**params, **default_query}
-        elif set_default_query is not None:
-            params = set_default_query
-
-        http_client = http_client or self._client
-        return self.__class__(
-            api_key=api_key or self.api_key,
-            base_url=base_url or self.base_url,
-            environment=environment or self._environment,
-            timeout=self.timeout if isinstance(timeout, NotGiven) else timeout,
-            http_client=http_client,
-            max_retries=max_retries if is_given(max_retries) else self.max_retries,
-            default_headers=headers,
-            default_query=params,
-            **_extra_kwargs,
+        """A new client with the given options laid over this one's; ``scope=None`` clears the scope."""
+        return type(self)(
+            **_copy_kwargs(
+                self,
+                auth=auth,
+                scope=scope,
+                environment=environment,
+                base_url=base_url,
+                timeout=timeout,
+                http_client=http_client,
+                max_retries=max_retries,
+                default_headers=default_headers,
+                set_default_headers=set_default_headers,
+                identity=identity,
+                extra_kwargs=_extra_kwargs,
+            )
         )
 
-    # Alias for `copy` for nicer inline usage, e.g.
-    # client.with_options(timeout=10).foo.create(...)
-    with_options = copy
 
-    @override
-    def _make_status_error(
-        self,
-        err_msg: str,
-        *,
-        body: object,
-        response: httpx.Response,
-    ) -> APIStatusError:
-        if response.status_code == 400:
-            return _exceptions.BadRequestError(err_msg, response=response, body=body)
-
-        if response.status_code == 401:
-            return _exceptions.AuthenticationError(err_msg, response=response, body=body)
-
-        if response.status_code == 403:
-            return _exceptions.PermissionDeniedError(err_msg, response=response, body=body)
-
-        if response.status_code == 404:
-            return _exceptions.NotFoundError(err_msg, response=response, body=body)
-
-        if response.status_code == 409:
-            return _exceptions.ConflictError(err_msg, response=response, body=body)
-
-        if response.status_code == 422:
-            return _exceptions.UnprocessableEntityError(err_msg, response=response, body=body)
-
-        if response.status_code == 429:
-            return _exceptions.RateLimitError(err_msg, response=response, body=body)
-
-        if response.status_code >= 500:
-            return _exceptions.InternalServerError(err_msg, response=response, body=body)
-        return APIStatusError(err_msg, response=response, body=body)
-
-
-class AsyncComposio(AsyncAPIClient):
-    # client options
-    api_key: str | None
-
-    _environment: Literal["production", "staging", "local"] | NotGiven
-
+class AsyncComposio(AsyncAPIClient, AsyncClientResources):
     def __init__(
         self,
         *,
-        api_key: str | None = None,
-        environment: Literal["production", "staging", "local"] | NotGiven = not_given,
-        base_url: str | httpx.URL | None | NotGiven = not_given,
-        timeout: float | Timeout | None | NotGiven = not_given,
+        auth: Auth,
+        scope: Scope | None = None,
+        environment: Environment | NotGiven = NOT_GIVEN,
+        base_url: str | httpx.URL | None | NotGiven = NOT_GIVEN,
+        timeout: Timeout | NotGiven = NOT_GIVEN,
         max_retries: int = DEFAULT_MAX_RETRIES,
-        default_headers: Mapping[str, str] | None = None,
-        default_query: Mapping[str, object] | None = None,
-        # Configure a custom httpx client.
-        # We provide a `DefaultAsyncHttpxClient` class that you can pass to retain the default values we use for `limits`, `timeout` & `follow_redirects`.
-        # See the [httpx documentation](https://www.python-httpx.org/api/#asyncclient) for more details.
+        default_headers: Mapping[str, str | None] | None = None,
+        identity: ClientIdentity | None = None,
         http_client: httpx.AsyncClient | None = None,
-        # Enable or disable schema validation for data returned by the API.
-        # When enabled an error APIResponseValidationError is raised
-        # if the API responds with invalid data for the expected schema.
-        #
-        # This parameter may be removed or changed in the future.
-        # If you rely on this feature, please open a GitHub issue
-        # outlining your use-case to help us decide if it should be
-        # part of our public interface in the future.
         _strict_response_validation: bool = False,
     ) -> None:
-        """Construct a new async AsyncComposio client instance.
-
-        This automatically infers the `api_key` argument from the `COMPOSIO_API_KEY` environment variable if it is not provided.
-        """
-        if api_key is None:
-            api_key = os.environ.get("COMPOSIO_API_KEY")
-        self.api_key = api_key
-
-        self._environment = environment
-
-        base_url_env = os.environ.get("COMPOSIO_BASE_URL")
-        if is_given(base_url) and base_url is not None:
-            # cast required because mypy doesn't understand the type narrowing
-            base_url = cast("str | httpx.URL", base_url)  # pyright: ignore[reportUnnecessaryCast]
-        elif is_given(environment):
-            if base_url_env and base_url is not None:
-                raise ValueError(
-                    "Ambiguous URL; The `COMPOSIO_BASE_URL` env var and the `environment` argument are given. If you want to use the environment, you must pass base_url=None",
-                )
-
-            try:
-                base_url = ENVIRONMENTS[environment]
-            except KeyError as exc:
-                raise ValueError(f"Unknown environment: {environment}") from exc
-        elif base_url_env is not None:
-            base_url = base_url_env
-        else:
-            self._environment = environment = "production"
-
-            try:
-                base_url = ENVIRONMENTS[environment]
-            except KeyError as exc:
-                raise ValueError(f"Unknown environment: {environment}") from exc
-
-        custom_headers_env = os.environ.get("COMPOSIO_CUSTOM_HEADERS")
-        if custom_headers_env is not None:
-            parsed: dict[str, str] = {}
-            for line in custom_headers_env.split("\n"):
-                colon = line.find(":")
-                if colon >= 0:
-                    parsed[line[:colon].strip()] = line[colon + 1 :].strip()
-            default_headers = {**parsed, **(default_headers if is_mapping_t(default_headers) else {})}
-
         super().__init__(
-            version=__version__,
-            base_url=base_url,
-            max_retries=max_retries,
-            timeout=timeout,
             http_client=http_client,
-            custom_headers=default_headers,
-            custom_query=default_query,
+            **_resolve_kwargs(
+                platform="Python",
+                auth=auth,
+                scope=scope,
+                environment=environment,
+                base_url=base_url,
+                timeout=timeout,
+                max_retries=max_retries,
+                default_headers=default_headers,
+            ),
+            identity=identity,
+            _strict_response_validation=_strict_response_validation,
+        )
+        self._install_resources(self)
+
+    @classmethod
+    def from_env(
+        cls,
+        environment_variables: EnvironmentMap,
+        *,
+        auth: Auth | NotGiven = NOT_GIVEN,
+        scope: Scope | None | NotGiven = NOT_GIVEN,
+        environment: Environment | NotGiven = NOT_GIVEN,
+        base_url: str | httpx.URL | None | NotGiven = NOT_GIVEN,
+        timeout: Timeout | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        default_headers: Mapping[str, str | None] | None | NotGiven = NOT_GIVEN,
+        identity: ClientIdentity | None = None,
+        http_client: httpx.AsyncClient | None = None,
+        _strict_response_validation: bool = False,
+    ) -> Self:
+        """See :meth:`Composio.from_env`."""
+        return cls(
+            **_from_env_kwargs(
+                environment_variables,
+                auth=auth,
+                scope=scope,
+                environment=environment,
+                base_url=base_url,
+                timeout=timeout,
+                max_retries=max_retries,
+                default_headers=default_headers,
+            ),
+            identity=identity,
+            http_client=http_client,
             _strict_response_validation=_strict_response_validation,
         )
 
-    @cached_property
-    def auth_configs(self) -> AsyncAuthConfigsResource:
-        """Authentication configuration management"""
-        from .resources.auth_configs import AsyncAuthConfigsResource
+    async def __aenter__(self) -> AsyncComposio:
+        return self
 
-        return AsyncAuthConfigsResource(self)
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        await self.close()
 
-    @cached_property
-    def connected_accounts(self) -> AsyncConnectedAccountsResource:
-        """Connected account management"""
-        from .resources.connected_accounts import AsyncConnectedAccountsResource
-
-        return AsyncConnectedAccountsResource(self)
-
-    @cached_property
-    def link(self) -> AsyncLinkResource:
-        """Connected account management"""
-        from .resources.link import AsyncLinkResource
-
-        return AsyncLinkResource(self)
-
-    @cached_property
-    def toolkits(self) -> AsyncToolkitsResource:
-        """Toolkit and tool management"""
-        from .resources.toolkits import AsyncToolkitsResource
-
-        return AsyncToolkitsResource(self)
-
-    @cached_property
-    def tools(self) -> AsyncToolsResource:
-        """Tool execution endpoints"""
-        from .resources.tools import AsyncToolsResource
-
-        return AsyncToolsResource(self)
-
-    @cached_property
-    def trigger_instances(self) -> AsyncTriggerInstancesResource:
-        """Trigger management and execution"""
-        from .resources.trigger_instances import AsyncTriggerInstancesResource
-
-        return AsyncTriggerInstancesResource(self)
-
-    @cached_property
-    def triggers_types(self) -> AsyncTriggersTypesResource:
-        """Trigger management and execution"""
-        from .resources.triggers_types import AsyncTriggersTypesResource
-
-        return AsyncTriggersTypesResource(self)
-
-    @cached_property
-    def mcp(self) -> AsyncMcpResource:
-        """MCP server management"""
-        from .resources.mcp import AsyncMcpResource
-
-        return AsyncMcpResource(self)
-
-    @cached_property
-    def files(self) -> AsyncFilesResource:
-        """File management"""
-        from .resources.files import AsyncFilesResource
-
-        return AsyncFilesResource(self)
-
-    @cached_property
-    def cli(self) -> AsyncCliResource:
-        from .resources.cli import AsyncCliResource
-
-        return AsyncCliResource(self)
-
-    @cached_property
-    def logs(self) -> AsyncLogsResource:
-        from .resources.logs import AsyncLogsResource
-
-        return AsyncLogsResource(self)
-
-    @cached_property
-    def tool_router(self) -> AsyncToolRouterResource:
-        from .resources.tool_router import AsyncToolRouterResource
-
-        return AsyncToolRouterResource(self)
-
-    @cached_property
-    def with_raw_response(self) -> AsyncComposioWithRawResponse:
-        return AsyncComposioWithRawResponse(self)
-
-    @cached_property
-    def with_streaming_response(self) -> AsyncComposioWithStreamedResponse:
-        return AsyncComposioWithStreamedResponse(self)
-
-    @property
-    @override
-    def qs(self) -> Querystring:
-        return Querystring(array_format="comma")
-
-    @property
-    @override
-    def auth_headers(self) -> dict[str, str]:
-        api_key = self.api_key
-        if api_key is None:
-            return {}
-        return {"x-api-key": api_key}
-
-    @property
-    @override
-    def default_headers(self) -> dict[str, str | Omit]:
-        return {
-            **super().default_headers,
-            "X-Stainless-Async": f"async:{get_async_library()}",
-            **self._custom_headers,
-        }
-
-    def copy(
+    def with_options(
         self,
         *,
-        api_key: str | None = None,
-        environment: Literal["production", "staging", "local"] | None = None,
+        auth: Auth | NotGiven = NOT_GIVEN,
+        scope: Scope | None | NotGiven = NOT_GIVEN,
+        environment: Environment | None = None,
         base_url: str | httpx.URL | None = None,
-        timeout: float | Timeout | None | NotGiven = not_given,
+        timeout: Timeout | NotGiven = NOT_GIVEN,
         http_client: httpx.AsyncClient | None = None,
-        max_retries: int | NotGiven = not_given,
-        default_headers: Mapping[str, str] | None = None,
-        set_default_headers: Mapping[str, str] | None = None,
-        default_query: Mapping[str, object] | None = None,
-        set_default_query: Mapping[str, object] | None = None,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        default_headers: Mapping[str, str | None] | None = None,
+        set_default_headers: Mapping[str, str | None] | None = None,
+        identity: ClientIdentity | None = None,
         _extra_kwargs: Mapping[str, Any] = {},
     ) -> Self:
-        """
-        Create a new client instance re-using the same options given to the current client with optional overriding.
-        """
-        if default_headers is not None and set_default_headers is not None:
-            raise ValueError("The `default_headers` and `set_default_headers` arguments are mutually exclusive")
-
-        if default_query is not None and set_default_query is not None:
-            raise ValueError("The `default_query` and `set_default_query` arguments are mutually exclusive")
-
-        headers = self._custom_headers
-        if default_headers is not None:
-            headers = {**headers, **default_headers}
-        elif set_default_headers is not None:
-            headers = set_default_headers
-
-        params = self._custom_query
-        if default_query is not None:
-            params = {**params, **default_query}
-        elif set_default_query is not None:
-            params = set_default_query
-
-        http_client = http_client or self._client
-        return self.__class__(
-            api_key=api_key or self.api_key,
-            base_url=base_url or self.base_url,
-            environment=environment or self._environment,
-            timeout=self.timeout if isinstance(timeout, NotGiven) else timeout,
-            http_client=http_client,
-            max_retries=max_retries if is_given(max_retries) else self.max_retries,
-            default_headers=headers,
-            default_query=params,
-            **_extra_kwargs,
+        """See :meth:`Composio.with_options`."""
+        return type(self)(
+            **_copy_kwargs(
+                self,
+                auth=auth,
+                scope=scope,
+                environment=environment,
+                base_url=base_url,
+                timeout=timeout,
+                http_client=http_client,
+                max_retries=max_retries,
+                default_headers=default_headers,
+                set_default_headers=set_default_headers,
+                identity=identity,
+                extra_kwargs=_extra_kwargs,
+            )
         )
-
-    # Alias for `copy` for nicer inline usage, e.g.
-    # client.with_options(timeout=10).foo.create(...)
-    with_options = copy
-
-    @override
-    def _make_status_error(
-        self,
-        err_msg: str,
-        *,
-        body: object,
-        response: httpx.Response,
-    ) -> APIStatusError:
-        if response.status_code == 400:
-            return _exceptions.BadRequestError(err_msg, response=response, body=body)
-
-        if response.status_code == 401:
-            return _exceptions.AuthenticationError(err_msg, response=response, body=body)
-
-        if response.status_code == 403:
-            return _exceptions.PermissionDeniedError(err_msg, response=response, body=body)
-
-        if response.status_code == 404:
-            return _exceptions.NotFoundError(err_msg, response=response, body=body)
-
-        if response.status_code == 409:
-            return _exceptions.ConflictError(err_msg, response=response, body=body)
-
-        if response.status_code == 422:
-            return _exceptions.UnprocessableEntityError(err_msg, response=response, body=body)
-
-        if response.status_code == 429:
-            return _exceptions.RateLimitError(err_msg, response=response, body=body)
-
-        if response.status_code >= 500:
-            return _exceptions.InternalServerError(err_msg, response=response, body=body)
-        return APIStatusError(err_msg, response=response, body=body)
-
-
-class ComposioWithRawResponse:
-    _client: Composio
-
-    def __init__(self, client: Composio) -> None:
-        self._client = client
-
-    @cached_property
-    def auth_configs(self) -> auth_configs.AuthConfigsResourceWithRawResponse:
-        """Authentication configuration management"""
-        from .resources.auth_configs import AuthConfigsResourceWithRawResponse
-
-        return AuthConfigsResourceWithRawResponse(self._client.auth_configs)
-
-    @cached_property
-    def connected_accounts(self) -> connected_accounts.ConnectedAccountsResourceWithRawResponse:
-        """Connected account management"""
-        from .resources.connected_accounts import ConnectedAccountsResourceWithRawResponse
-
-        return ConnectedAccountsResourceWithRawResponse(self._client.connected_accounts)
-
-    @cached_property
-    def link(self) -> link.LinkResourceWithRawResponse:
-        """Connected account management"""
-        from .resources.link import LinkResourceWithRawResponse
-
-        return LinkResourceWithRawResponse(self._client.link)
-
-    @cached_property
-    def toolkits(self) -> toolkits.ToolkitsResourceWithRawResponse:
-        """Toolkit and tool management"""
-        from .resources.toolkits import ToolkitsResourceWithRawResponse
-
-        return ToolkitsResourceWithRawResponse(self._client.toolkits)
-
-    @cached_property
-    def tools(self) -> tools.ToolsResourceWithRawResponse:
-        """Tool execution endpoints"""
-        from .resources.tools import ToolsResourceWithRawResponse
-
-        return ToolsResourceWithRawResponse(self._client.tools)
-
-    @cached_property
-    def trigger_instances(self) -> trigger_instances.TriggerInstancesResourceWithRawResponse:
-        """Trigger management and execution"""
-        from .resources.trigger_instances import TriggerInstancesResourceWithRawResponse
-
-        return TriggerInstancesResourceWithRawResponse(self._client.trigger_instances)
-
-    @cached_property
-    def triggers_types(self) -> triggers_types.TriggersTypesResourceWithRawResponse:
-        """Trigger management and execution"""
-        from .resources.triggers_types import TriggersTypesResourceWithRawResponse
-
-        return TriggersTypesResourceWithRawResponse(self._client.triggers_types)
-
-    @cached_property
-    def mcp(self) -> mcp.McpResourceWithRawResponse:
-        """MCP server management"""
-        from .resources.mcp import McpResourceWithRawResponse
-
-        return McpResourceWithRawResponse(self._client.mcp)
-
-    @cached_property
-    def files(self) -> files.FilesResourceWithRawResponse:
-        """File management"""
-        from .resources.files import FilesResourceWithRawResponse
-
-        return FilesResourceWithRawResponse(self._client.files)
-
-    @cached_property
-    def cli(self) -> cli.CliResourceWithRawResponse:
-        from .resources.cli import CliResourceWithRawResponse
-
-        return CliResourceWithRawResponse(self._client.cli)
-
-    @cached_property
-    def logs(self) -> logs.LogsResourceWithRawResponse:
-        from .resources.logs import LogsResourceWithRawResponse
-
-        return LogsResourceWithRawResponse(self._client.logs)
-
-    @cached_property
-    def tool_router(self) -> tool_router.ToolRouterResourceWithRawResponse:
-        from .resources.tool_router import ToolRouterResourceWithRawResponse
-
-        return ToolRouterResourceWithRawResponse(self._client.tool_router)
-
-
-class AsyncComposioWithRawResponse:
-    _client: AsyncComposio
-
-    def __init__(self, client: AsyncComposio) -> None:
-        self._client = client
-
-    @cached_property
-    def auth_configs(self) -> auth_configs.AsyncAuthConfigsResourceWithRawResponse:
-        """Authentication configuration management"""
-        from .resources.auth_configs import AsyncAuthConfigsResourceWithRawResponse
-
-        return AsyncAuthConfigsResourceWithRawResponse(self._client.auth_configs)
-
-    @cached_property
-    def connected_accounts(self) -> connected_accounts.AsyncConnectedAccountsResourceWithRawResponse:
-        """Connected account management"""
-        from .resources.connected_accounts import AsyncConnectedAccountsResourceWithRawResponse
-
-        return AsyncConnectedAccountsResourceWithRawResponse(self._client.connected_accounts)
-
-    @cached_property
-    def link(self) -> link.AsyncLinkResourceWithRawResponse:
-        """Connected account management"""
-        from .resources.link import AsyncLinkResourceWithRawResponse
-
-        return AsyncLinkResourceWithRawResponse(self._client.link)
-
-    @cached_property
-    def toolkits(self) -> toolkits.AsyncToolkitsResourceWithRawResponse:
-        """Toolkit and tool management"""
-        from .resources.toolkits import AsyncToolkitsResourceWithRawResponse
-
-        return AsyncToolkitsResourceWithRawResponse(self._client.toolkits)
-
-    @cached_property
-    def tools(self) -> tools.AsyncToolsResourceWithRawResponse:
-        """Tool execution endpoints"""
-        from .resources.tools import AsyncToolsResourceWithRawResponse
-
-        return AsyncToolsResourceWithRawResponse(self._client.tools)
-
-    @cached_property
-    def trigger_instances(self) -> trigger_instances.AsyncTriggerInstancesResourceWithRawResponse:
-        """Trigger management and execution"""
-        from .resources.trigger_instances import AsyncTriggerInstancesResourceWithRawResponse
-
-        return AsyncTriggerInstancesResourceWithRawResponse(self._client.trigger_instances)
-
-    @cached_property
-    def triggers_types(self) -> triggers_types.AsyncTriggersTypesResourceWithRawResponse:
-        """Trigger management and execution"""
-        from .resources.triggers_types import AsyncTriggersTypesResourceWithRawResponse
-
-        return AsyncTriggersTypesResourceWithRawResponse(self._client.triggers_types)
-
-    @cached_property
-    def mcp(self) -> mcp.AsyncMcpResourceWithRawResponse:
-        """MCP server management"""
-        from .resources.mcp import AsyncMcpResourceWithRawResponse
-
-        return AsyncMcpResourceWithRawResponse(self._client.mcp)
-
-    @cached_property
-    def files(self) -> files.AsyncFilesResourceWithRawResponse:
-        """File management"""
-        from .resources.files import AsyncFilesResourceWithRawResponse
-
-        return AsyncFilesResourceWithRawResponse(self._client.files)
-
-    @cached_property
-    def cli(self) -> cli.AsyncCliResourceWithRawResponse:
-        from .resources.cli import AsyncCliResourceWithRawResponse
-
-        return AsyncCliResourceWithRawResponse(self._client.cli)
-
-    @cached_property
-    def logs(self) -> logs.AsyncLogsResourceWithRawResponse:
-        from .resources.logs import AsyncLogsResourceWithRawResponse
-
-        return AsyncLogsResourceWithRawResponse(self._client.logs)
-
-    @cached_property
-    def tool_router(self) -> tool_router.AsyncToolRouterResourceWithRawResponse:
-        from .resources.tool_router import AsyncToolRouterResourceWithRawResponse
-
-        return AsyncToolRouterResourceWithRawResponse(self._client.tool_router)
-
-
-class ComposioWithStreamedResponse:
-    _client: Composio
-
-    def __init__(self, client: Composio) -> None:
-        self._client = client
-
-    @cached_property
-    def auth_configs(self) -> auth_configs.AuthConfigsResourceWithStreamingResponse:
-        """Authentication configuration management"""
-        from .resources.auth_configs import AuthConfigsResourceWithStreamingResponse
-
-        return AuthConfigsResourceWithStreamingResponse(self._client.auth_configs)
-
-    @cached_property
-    def connected_accounts(self) -> connected_accounts.ConnectedAccountsResourceWithStreamingResponse:
-        """Connected account management"""
-        from .resources.connected_accounts import ConnectedAccountsResourceWithStreamingResponse
-
-        return ConnectedAccountsResourceWithStreamingResponse(self._client.connected_accounts)
-
-    @cached_property
-    def link(self) -> link.LinkResourceWithStreamingResponse:
-        """Connected account management"""
-        from .resources.link import LinkResourceWithStreamingResponse
-
-        return LinkResourceWithStreamingResponse(self._client.link)
-
-    @cached_property
-    def toolkits(self) -> toolkits.ToolkitsResourceWithStreamingResponse:
-        """Toolkit and tool management"""
-        from .resources.toolkits import ToolkitsResourceWithStreamingResponse
-
-        return ToolkitsResourceWithStreamingResponse(self._client.toolkits)
-
-    @cached_property
-    def tools(self) -> tools.ToolsResourceWithStreamingResponse:
-        """Tool execution endpoints"""
-        from .resources.tools import ToolsResourceWithStreamingResponse
-
-        return ToolsResourceWithStreamingResponse(self._client.tools)
-
-    @cached_property
-    def trigger_instances(self) -> trigger_instances.TriggerInstancesResourceWithStreamingResponse:
-        """Trigger management and execution"""
-        from .resources.trigger_instances import TriggerInstancesResourceWithStreamingResponse
-
-        return TriggerInstancesResourceWithStreamingResponse(self._client.trigger_instances)
-
-    @cached_property
-    def triggers_types(self) -> triggers_types.TriggersTypesResourceWithStreamingResponse:
-        """Trigger management and execution"""
-        from .resources.triggers_types import TriggersTypesResourceWithStreamingResponse
-
-        return TriggersTypesResourceWithStreamingResponse(self._client.triggers_types)
-
-    @cached_property
-    def mcp(self) -> mcp.McpResourceWithStreamingResponse:
-        """MCP server management"""
-        from .resources.mcp import McpResourceWithStreamingResponse
-
-        return McpResourceWithStreamingResponse(self._client.mcp)
-
-    @cached_property
-    def files(self) -> files.FilesResourceWithStreamingResponse:
-        """File management"""
-        from .resources.files import FilesResourceWithStreamingResponse
-
-        return FilesResourceWithStreamingResponse(self._client.files)
-
-    @cached_property
-    def cli(self) -> cli.CliResourceWithStreamingResponse:
-        from .resources.cli import CliResourceWithStreamingResponse
-
-        return CliResourceWithStreamingResponse(self._client.cli)
-
-    @cached_property
-    def logs(self) -> logs.LogsResourceWithStreamingResponse:
-        from .resources.logs import LogsResourceWithStreamingResponse
-
-        return LogsResourceWithStreamingResponse(self._client.logs)
-
-    @cached_property
-    def tool_router(self) -> tool_router.ToolRouterResourceWithStreamingResponse:
-        from .resources.tool_router import ToolRouterResourceWithStreamingResponse
-
-        return ToolRouterResourceWithStreamingResponse(self._client.tool_router)
-
-
-class AsyncComposioWithStreamedResponse:
-    _client: AsyncComposio
-
-    def __init__(self, client: AsyncComposio) -> None:
-        self._client = client
-
-    @cached_property
-    def auth_configs(self) -> auth_configs.AsyncAuthConfigsResourceWithStreamingResponse:
-        """Authentication configuration management"""
-        from .resources.auth_configs import AsyncAuthConfigsResourceWithStreamingResponse
-
-        return AsyncAuthConfigsResourceWithStreamingResponse(self._client.auth_configs)
-
-    @cached_property
-    def connected_accounts(self) -> connected_accounts.AsyncConnectedAccountsResourceWithStreamingResponse:
-        """Connected account management"""
-        from .resources.connected_accounts import AsyncConnectedAccountsResourceWithStreamingResponse
-
-        return AsyncConnectedAccountsResourceWithStreamingResponse(self._client.connected_accounts)
-
-    @cached_property
-    def link(self) -> link.AsyncLinkResourceWithStreamingResponse:
-        """Connected account management"""
-        from .resources.link import AsyncLinkResourceWithStreamingResponse
-
-        return AsyncLinkResourceWithStreamingResponse(self._client.link)
-
-    @cached_property
-    def toolkits(self) -> toolkits.AsyncToolkitsResourceWithStreamingResponse:
-        """Toolkit and tool management"""
-        from .resources.toolkits import AsyncToolkitsResourceWithStreamingResponse
-
-        return AsyncToolkitsResourceWithStreamingResponse(self._client.toolkits)
-
-    @cached_property
-    def tools(self) -> tools.AsyncToolsResourceWithStreamingResponse:
-        """Tool execution endpoints"""
-        from .resources.tools import AsyncToolsResourceWithStreamingResponse
-
-        return AsyncToolsResourceWithStreamingResponse(self._client.tools)
-
-    @cached_property
-    def trigger_instances(self) -> trigger_instances.AsyncTriggerInstancesResourceWithStreamingResponse:
-        """Trigger management and execution"""
-        from .resources.trigger_instances import AsyncTriggerInstancesResourceWithStreamingResponse
-
-        return AsyncTriggerInstancesResourceWithStreamingResponse(self._client.trigger_instances)
-
-    @cached_property
-    def triggers_types(self) -> triggers_types.AsyncTriggersTypesResourceWithStreamingResponse:
-        """Trigger management and execution"""
-        from .resources.triggers_types import AsyncTriggersTypesResourceWithStreamingResponse
-
-        return AsyncTriggersTypesResourceWithStreamingResponse(self._client.triggers_types)
-
-    @cached_property
-    def mcp(self) -> mcp.AsyncMcpResourceWithStreamingResponse:
-        """MCP server management"""
-        from .resources.mcp import AsyncMcpResourceWithStreamingResponse
-
-        return AsyncMcpResourceWithStreamingResponse(self._client.mcp)
-
-    @cached_property
-    def files(self) -> files.AsyncFilesResourceWithStreamingResponse:
-        """File management"""
-        from .resources.files import AsyncFilesResourceWithStreamingResponse
-
-        return AsyncFilesResourceWithStreamingResponse(self._client.files)
-
-    @cached_property
-    def cli(self) -> cli.AsyncCliResourceWithStreamingResponse:
-        from .resources.cli import AsyncCliResourceWithStreamingResponse
-
-        return AsyncCliResourceWithStreamingResponse(self._client.cli)
-
-    @cached_property
-    def logs(self) -> logs.AsyncLogsResourceWithStreamingResponse:
-        from .resources.logs import AsyncLogsResourceWithStreamingResponse
-
-        return AsyncLogsResourceWithStreamingResponse(self._client.logs)
-
-    @cached_property
-    def tool_router(self) -> tool_router.AsyncToolRouterResourceWithStreamingResponse:
-        from .resources.tool_router import AsyncToolRouterResourceWithStreamingResponse
-
-        return AsyncToolRouterResourceWithStreamingResponse(self._client.tool_router)
-
-
-Client = Composio
-
-AsyncClient = AsyncComposio

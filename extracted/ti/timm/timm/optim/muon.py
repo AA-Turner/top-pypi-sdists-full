@@ -493,7 +493,7 @@ def _single_tensor_muon(
 
         # Update momentum buffer
         momentum_buf.lerp_(grad, 1. - momentum)
-        update = grad.lerp_(momentum_buf, momentum) if nesterov else momentum_buf.clone()
+        update = grad.lerp(momentum_buf, momentum) if nesterov else momentum_buf.clone()
 
         # Reshape for processing (handle 3D+ tensors like conv weights)
         if update.ndim >= 3:
@@ -586,7 +586,7 @@ def _single_tensor_adamuon(
 
         # Update momentum buffer
         momentum_buf.lerp_(grad, 1. - momentum)
-        update = grad.lerp_(momentum_buf, momentum) if nesterov else momentum_buf.clone()
+        update = grad.lerp(momentum_buf, momentum) if nesterov else momentum_buf.clone()
 
         # Reshape for processing (handle 3D+ tensors like conv weights)
         if update.ndim >= 3:
@@ -714,18 +714,25 @@ class Muon(torch.optim.Optimizer):
                 tensor learning rates and requires optimizer state tensors to live on the parameter device.
             verbose: Log parameter routing decisions (Muon vs AdamW)
 
-        Example:
+        Examples:
+            Muon for 2D+ parameters and the AdamW fallback for 1D parameters, selected automatically:
+
             ```python
-            # Simple usage - automatically uses Muon for 2D+ params, AdamW for 1D
             optimizer = Muon(model.parameters(), lr=0.02)
+            ```
 
-            # Use AdaMuon algorithm for adaptive scaling
+            The AdaMuon algorithm for adaptive scaling:
+
+            ```python
             optimizer = Muon(model.parameters(), lr=6e-4, algo="adamuon")
+            ```
 
-            # Manual control over parameter groups
+            Manual control over the parameter groups, `use_fallback=True` selects AdamW for a group:
+
+            ```python
             optimizer = Muon([
                 {'params': weight_matrices, 'lr': 0.02},
-                {'params': biases, 'use_fallback': True, 'lr': 3e-4}, # use AdamW if use_fallback=True
+                {'params': biases, 'use_fallback': True, 'lr': 3e-4},
             ])
             ```
         """
@@ -780,8 +787,13 @@ class Muon(torch.optim.Optimizer):
             group.setdefault('capturable', False)
             # Migrate old adamw_lr to fallback_lr_scale for checkpoint compat
             if 'fallback_lr_scale' not in group:
-                adamw_lr = group.pop('adamw_lr', group['lr'])
-                group['fallback_lr_scale'] = adamw_lr / group['lr'] if group['lr'] != 0 else 1.0
+                adamw_lr = group.pop('adamw_lr', None)
+                # use the un-scheduled lr if a scheduler has set it, the saved lr may be mid warmup / decay
+                base_lr = group.get('initial_lr', group['lr'])
+                if adamw_lr is not None and base_lr != 0:
+                    group['fallback_lr_scale'] = adamw_lr / base_lr
+                else:
+                    group['fallback_lr_scale'] = 1.0
 
     @torch.no_grad()
     def step(self, closure=None):

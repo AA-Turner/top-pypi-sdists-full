@@ -50,6 +50,7 @@ from cyclopts import Parameter
 from fastmcp_extensions.cli import exit_with_error, print_json
 from jinja2 import Environment, PackageLoader, select_autoescape
 from rich.console import Console
+from rich.markdown import Markdown
 
 from airbyte_ops_mcp.airbyte_repo.bump_base_image import (
     BaseImageError,
@@ -108,6 +109,7 @@ from airbyte_ops_mcp.connector_metadata import (
 )
 from airbyte_ops_mcp.connector_ops.utils import Connector
 from airbyte_ops_mcp.connector_qa.checks import ENABLED_CHECKS
+from airbyte_ops_mcp.connector_qa.checks.form_ux import render_form_ux_summary
 from airbyte_ops_mcp.connector_qa.consts import CONNECTORS_QA_DOC_TEMPLATE_NAME
 from airbyte_ops_mcp.connector_qa.models import (
     Check,
@@ -1344,7 +1346,7 @@ def run_qa_checks(
     """Run QA checks on connector(s).
 
     Validates connector metadata, documentation, packaging, security, and versioning.
-    Exit code is non-zero if any checks fail.
+    Exit code is non-zero if any blocking checks fail.
     """
     # Determine which checks to run
     checks_to_run = ENABLED_CHECKS
@@ -1377,6 +1379,8 @@ def run_qa_checks(
                 status_icon = "[green]✅ PASS[/green]"
             elif result.status == CheckStatus.SKIPPED:
                 status_icon = "[yellow]🔶 SKIP[/yellow]"
+            elif result.status == CheckStatus.FAILED and not result.check.blocking:
+                status_icon = "[yellow]⚠️ WARN[/yellow]"
             else:
                 status_icon = "[red]❌ FAIL[/red]"
             console.print(
@@ -1386,13 +1390,32 @@ def run_qa_checks(
                 console.print(f"    {result.message}")
             all_results.append(result)
 
+    form_ux_summary = render_form_ux_summary(all_results)
+    if form_ux_summary:
+        form_ux_heading = "## Form UX findings"
+        form_ux_warning = (
+            "These are warnings. They don't fail the QA checks or block merge. "
+            "Fix them in a separate PR, not in an unrelated change such as a version bump."
+        )
+        console.print(
+            Markdown(f"{form_ux_heading}\n\n{form_ux_warning}\n\n{form_ux_summary}")
+        )
+        github_summary_path = os.getenv("GITHUB_STEP_SUMMARY")
+        if github_summary_path:
+            with Path(github_summary_path).open("a") as github_summary_file:
+                github_summary_file.write(
+                    f"\n{form_ux_heading}\n\n{form_ux_warning}\n\n{form_ux_summary}\n"
+                )
+
     # Write report if requested
     if report_path:
         Report(check_results=all_results).write(Path(report_path))
         console.print(f"Report written to {report_path}")
 
-    # Exit with error if any checks failed
-    failed = [r for r in all_results if r.status == CheckStatus.FAILED]
+    # Exit with error if any blocking checks failed
+    failed = [
+        r for r in all_results if r.status == CheckStatus.FAILED and r.check.blocking
+    ]
     if failed:
         exit_with_error(f"{len(failed)} check(s) failed")
 

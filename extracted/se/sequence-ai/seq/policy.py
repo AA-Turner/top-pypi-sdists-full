@@ -56,8 +56,6 @@ _ALLOWED_KWARGS = frozenset({
 
     "cpu", "memory",
 
-    "timeouts",
-
 
     "name",
 
@@ -68,9 +66,6 @@ _ALLOWED_KWARGS = frozenset({
 
 
     "gpus_per_replica", "replica_start",
-
-
-    "tensors",
 
 
 
@@ -90,6 +85,10 @@ _GONE = {
     "family": "the console draws its icon from the template it came from",
     "cuda_graphs": "its check tries CUDA graphs every time, on only when its answers stay the same, bit for bit, and its "
                    "acts get at least 10% faster",
+
+    "timeouts": "how long a worker may load, an inference may take and an episode may idle are the platform's - its "
+                "floors, raised by what its check measures and each robot's own time between its acts",
+    "tensors": "annotate infer's observation torch.Tensor (def infer(self, obs: torch.Tensor)) and it is handed tensors",
 }
 
 

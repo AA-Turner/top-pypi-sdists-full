@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import json
-import sys
 import threading
 import typing as t
 import uuid
-from concurrent.futures import Future
 from dataclasses import dataclass, replace
 from datetime import datetime
 from functools import cached_property
@@ -14,11 +11,9 @@ from time import perf_counter
 import agate
 import grpc
 import humanize
-import sqlglot
 from dbt.adapters.base.relation import BaseRelation, RelationType
 from sqlglot import exp, parse_one
 from sqlglot.errors import SqlglotError
-from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
 
 try:
     from dbt.artifacts.resources.v1.config import TestConfig
@@ -40,10 +35,8 @@ except ImportError:
     from dbt.contracts.connection import AdapterResponse  # type: ignore
     from dbt.contracts.graph.nodes import DeferRelation  # type: ignore[no-redef]
 
-from dbt.clients.jinja import get_rendered
 from dbt.config.runtime import RuntimeConfig
-from dbt.context.providers import RuntimeProvider, generate_runtime_model_context
-from dbt.contracts.graph.manifest import Manifest, SourceDefinition
+from dbt.contracts.graph.manifest import Manifest
 from dbt.contracts.graph.nodes import (
     GenericTestNode,
     ManifestNode,
@@ -68,32 +61,27 @@ from query_cache_common.models.services import (
     execution_service_models,
     sql_service_models,
 )
-from query_cache_common.models.services.clone_service_models import TableProperties
 from query_cache_common.models.services.explain_service_models import ExplainMessageEntry
 
 from dbt_state import events
 from dbt_state._typing import MODEL_OR_SNAPSHOT_OR_TEST_NODE
 from dbt_state.adapters import BaseAdapterExtension, create_adapter_extension
-from dbt_state.adapters.clock import EngineHeuristicsClock
 from dbt_state.adapters.common import ViewTraversalResult
 from dbt_state.config import RunCacheConfig
 from dbt_state.decision_logger import BaseDecisionLogger, create_decision_logger
 from dbt_state.dev_cloner import DevCloner
 from dbt_state.dispatcher import TelemetryDispatcher
+from dbt_state.freshness import Freshness
 from dbt_state.grpc.client import QueryCacheGrpcClient
-from dbt_state.node_hash_calculator import (
-    ModelNodeHashCalculator,
-    create_node_hash_calculator,
-)
+from dbt_state.hooks import Hooks
+from dbt_state.node_resolution import NodeResolution
+from dbt_state.prefetch import MetadataPrefetcher
 from dbt_state.profiles import Profiles
 from dbt_state.relation import DeferredRelationResolver
+from dbt_state.request_builder import RequestBuilder
 from dbt_state.session import SessionManager
 from dbt_state.utils import (
-    DBT_VERSION,
     get_dbt_command_name,
-    is_custom_materialization,
-    is_full_refresh,
-    is_incremental_or_snapshot,
     is_table,
     is_view,
 )
@@ -119,92 +107,6 @@ FailedToClone = bool
 class _RunResultWithStateDecisionId(t.Protocol):
     state_decision_id: t.Optional[str]
 
-
-# Semantic-extras keys used to fold a microbatch model run's whole resolved event-time
-# window into the model-level cache key, so the run's outcome is keyed to the window it
-# was computed for.
-MICROBATCH_EVENT_TIME_START_KEY = "__microbatch_event_time_start"
-MICROBATCH_EVENT_TIME_END_KEY = "__microbatch_event_time_end"
-
-# Semantic-extras key used to fold the hash of a node's persisted documentation (relation
-# and/or column descriptions, when persist_docs is enabled) into the cache key. This ensures
-# that a docs-only change triggers an execution so the new descriptions are written to the
-# target table, even when the query result is otherwise unchanged.
-PERSISTED_DOCS_HASH_KEY = "__persisted_docs_hash"
-
-
-# Additional model configs that impact data outcomes and should be included in hash calculations
-SEMANTIC_EXTRAS_CONFIG_KEYS = (
-    "on_schema_change",
-    "incremental_predicates",
-    "merge_update_columns",
-    "merge_exclude_columns",
-    "contract",
-    "constraints",
-    "cluster_by",
-    "unique_key",
-    "grants",
-    "event_time",
-    "sql_header",
-    "lookback",
-    "partition_by",
-    "table_format",
-    # Test attributes
-    "severity",
-    "limit",
-    "where",
-    "fail_calc",
-    "warn_if",
-    "error_if",
-    "store_failures",
-    "store_failures_as",
-    # Databricks attributes
-    "auto_liquid_cluster",
-    "databricks_tags",
-    "file_format",
-    "location_root",
-    "include_full_name_in_path",
-    "clustered_by",
-    "buckets",
-    "liquid_clustered_by",
-    "tblproperties",
-    # Snowflake attributes
-    "transient",
-    "target_lag",
-    "refresh_mode",
-    "immutable_where",
-    "copy_grants",
-    "tmp_relation_type",
-    # Postgres attributes
-    "unlogged",
-    "indexes",
-    # Bigquery attributes
-    "require_partition_filter",
-    "partition_expiration_days",
-    "hours_to_expiration",
-    # Redshift attributes
-    "dist",
-    "sort",
-    "sort_type",
-)
-
-
-def _serialize_semantic_extra(key: str, value: t.Any) -> str:
-    if value is None:
-        return ""
-
-    normalized_value = value.to_dict() if hasattr(value, "to_dict") else value
-    try:
-        return json.dumps(normalized_value, sort_keys=True)
-    except TypeError as e:
-        raise TypeError(f"Failed to serialize semantic extra {key}:", str(e)) from e
-
-
-SEED_SEMANTIC_EXTRAS_CONFIG_KEYS = (
-    "column_types",
-    "quote_columns",
-    "delimiter",
-)
 
 _HASH_READ_CHUNK_SIZE = 64 * 1024
 
@@ -263,22 +165,52 @@ class RunCache:
         self._run_cache_config = run_cache_config
         self._telemetry_dispatcher = telemetry_dispatcher
         self._session_manager = session_manager
-
-        self._engine_heuristics_clock = EngineHeuristicsClock(adapter_ext)
-        self._engine_heuristics_clock_disabled = False
-        self._use_heuristic_clock_for_last_modified: bool = (
-            adapter_ext.use_heuristic_clock_for_last_modified
+        self._node_resolution = NodeResolution(
+            manifest=manifest,
+            adapter_ext=adapter_ext,
+            deferred_relation_resolver=deferred_relation_resolver,
+            profiles=profiles,
+            config=config,
+            run_cache_config=run_cache_config,
+            query_cache_client=query_cache_client,
         )
 
-        self._prefetch_tables_lock = threading.Lock()
-        self._prefetch_started: bool = False
-        self._prefetch_future: t.Optional[Future[None]] = None
-        self._prefetch_done: bool = False
+        self._freshness = Freshness(
+            adapter_ext=adapter_ext,
+            node_resolution=self._node_resolution,
+            manifest=manifest,
+            config=config,
+        )
 
-        self._prefetch_schemas_lock = threading.Lock()
-        self._prefetch_schemas_started: bool = False
-        self._prefetch_schemas_future: t.Optional[Future[None]] = None
-        self._prefetch_schemas_done: bool = False
+        self._prefetcher = MetadataPrefetcher(
+            adapter_ext=adapter_ext,
+            node_resolution=self._node_resolution,
+            freshness=self._freshness,
+            manifest=manifest,
+            config=config,
+        )
+
+        self._request_builder = RequestBuilder(
+            adapter_ext=adapter_ext,
+            node_resolution=self._node_resolution,
+            freshness=self._freshness,
+            prefetcher=self._prefetcher,
+            profiles=profiles,
+            manifest=manifest,
+            config=config,
+            run_cache_config=run_cache_config,
+        )
+
+        self._hooks = Hooks(
+            adapter_ext=adapter_ext,
+            node_resolution=self._node_resolution,
+            freshness=self._freshness,
+            query_cache_client=query_cache_client,
+            run_cache_config=run_cache_config,
+            node_execution_type=self._request_builder.node_execution_type,
+            config=config,
+            manifest=manifest,
+        )
 
         self._total_cache_hits: int = 0
         self._total_time_saved_ms: int = 0
@@ -286,12 +218,6 @@ class RunCache:
         events.register_callback("run-cache", self.on_event)
 
         self._run_result = client_telemetry_service_models.ClientResult.SUCCESS
-
-        self._clone_time_travel_limit: t.Optional[int] = (
-            run_cache_config.clone_time_travel_limit
-            if self._adapter.type() in SUPPORTED_DIALECT_TIME_TRAVEL_DEFAULTS
-            else 0
-        )
 
         # map of node.unique_id -> CacheBypassedResponse
         # collected in _process_query_cache_response and published as write-only executions
@@ -431,7 +357,7 @@ class RunCache:
             return
 
         try:
-            self._start_prefetch_last_modified()
+            self._prefetcher.start_prefetch_last_modified()
         except Exception as e:
             events.fire_warn_event("Failed to prefetch last modified timestamps: {}", str(e))
 
@@ -439,7 +365,7 @@ class RunCache:
             node, MODEL_OR_SNAPSHOT_OR_TEST_NODE
         ) and self._run_cache_config.resolve_compare_selected_columns(node.config):
             try:
-                self._start_prefetch_schemas()
+                self._prefetcher.start_prefetch_schemas()
             except Exception as e:
                 events.fire_warn_event("Failed to prefetch schemas: {}", str(e))
 
@@ -459,10 +385,7 @@ class RunCache:
     def get_defer_relation(self, node: ManifestNode) -> t.Optional[DeferRelation]:
         """Returns a DeferRelation for the given node if it should be deferred.
 
-        A node is deferred when:
-        - Deferral is enabled and the target is not already the defer-to profile
-        - The node is not ephemeral
-        - The node is not in the selected resource set
+        Delegates to `NodeResolution.get_defer_relation`.
 
         Args:
             node: The manifest node to potentially defer.
@@ -470,47 +393,7 @@ class RunCache:
         Returns:
             A DeferRelation if the node should be deferred, otherwise None.
         """
-        if (
-            not self._defer_enabled
-            or self._profiles.is_defer_to_profile
-            or getattr(node, "is_ephemeral", False)
-            or node.unique_id in self._selected_resource_ids
-        ):
-            return None
-
-        assert self._deferred_relation_resolver is not None
-        compiled_code = getattr(node, "compiled_code", None)
-        dev_relation = self._adapter.Relation.create_from(self._config, node)  # type: ignore[arg-type]
-        target_relation = self._defer_relation(dev_relation, node)
-        target_relation_name = target_relation.render()
-
-        defer_rel_kwargs: t.Dict[str, t.Any] = dict(
-            database=target_relation.database or node.database,
-            schema=target_relation.schema or node.schema,
-            alias=target_relation.identifier or node.alias,
-            relation_name=target_relation_name,
-        )
-        if DBT_VERSION >= (1, 8, 0):
-            defer_rel_kwargs.update(
-                dict(
-                    resource_type=node.resource_type,
-                    name=node.name,
-                    description=node.description,
-                    compiled_code=str(compiled_code) if compiled_code is not None else None,
-                    meta=node.meta,
-                    tags=node.tags,
-                    config=node.config,
-                )
-            )
-        defer_rel = DeferRelation(**defer_rel_kwargs)
-        if self._run_cache_config.defer_logging_enabled:
-            events.fire_event(
-                self._run_cache_config.defer_log_level,
-                "Deferring relation {} to {}",
-                dev_relation.render(),
-                target_relation_name,
-            )
-        return defer_rel
+        return self._node_resolution.get_defer_relation(node)
 
     def cache_compiled_view_sql(self, node: ManifestSQLNode) -> None:
         """Pre-populate the view definition cache from a compiled dbt model node.
@@ -543,7 +426,7 @@ class RunCache:
             and getattr(node.config, "limit", None) is None
             and node.compiled_code
         ):
-            table = self._node_to_table(node)
+            table = self._node_resolution.node_to_table(node)
             self._adapter_ext.cache_view_definition(
                 table=table,
                 definition=node.compiled_code,
@@ -594,7 +477,7 @@ class RunCache:
             (where a new execution record is created). Returns None if confirmation was skipped.
         """
         target_table_type, last_modified_epoch = (
-            self._get_target_table_type_and_last_modified_epoch(node)
+            self._freshness.get_target_table_type_and_last_modified_epoch(node)
         )
         if last_modified_epoch is None:
             events.fire_debug_event(
@@ -609,7 +492,7 @@ class RunCache:
             failed_to_clone=failed_to_clone,
             table_type=target_table_type,
             execution_runtime_ms=execution_runtime_ms,
-            labels=self._get_request_labels(node),
+            labels=self._request_builder.get_request_labels(node),
         )
         response = self._query_cache_client.confirm_execution(confirmation_request)
         if response.success:
@@ -626,98 +509,6 @@ class RunCache:
             request_id,
         )
         return None
-
-    def _update_metadata_after_post_hooks(
-        self,
-        node: ModelOrSnapshotOrTestOrSeedNode,
-        execution_id: RequestId,
-        pre_hook_last_modified: t.Optional[int],
-        skip_update: bool = False,
-        warn_on_skip: bool = False,
-    ) -> None:
-        """Update metadata after post-hooks complete. Best-effort.
-
-        Args:
-            node: The node whose post-hooks just executed
-            execution_id: Execution ID from the original confirmation
-            pre_hook_last_modified: Target table timestamp before post-hooks
-            skip_update: Do not store the post-hook timestamp. Set for NO-OPs under lag
-                tolerance, where bumping the stored last_modified_epoch would reset the
-                output's age and keep a stale result eligible for reuse indefinitely
-            warn_on_skip: Warn when the update is skipped because the post-hooks modified
-                the target table, as the next run will then rebuild the model
-        """
-        try:
-            _, post_hook_last_modified = self._get_target_table_type_and_last_modified_epoch(node)
-
-            if post_hook_last_modified is None or post_hook_last_modified == pre_hook_last_modified:
-                return
-
-            if skip_update:
-                if warn_on_skip:
-                    events.fire_warn_event(
-                        "Post-hook for '{}' modified the target table after a NO-OP. The stored "
-                        "last_modified timestamp was not updated so that it does not extend the "
-                        "lag_tolerance window; as a result, this model will be rebuilt on the next "
-                        "run. To avoid this, disable execute_hooks_on_any_reuse or remove post-hook "
-                        "statements that modify the target table.",
-                        node.unique_id,
-                    )
-                return
-
-            update_request = execution_service_models.UpdateExecutionMetadataRequest(
-                execution_id=execution_id,
-                last_modified_epoch=post_hook_last_modified,
-            )
-
-            self._query_cache_client.update_execution_metadata(update_request)
-
-        except Exception as e:
-            events.fire_warn_event(
-                "Failed to update post-hook metadata for '{}': {}", node.unique_id, str(e)
-            )
-
-    def _hook_references_target_table(
-        self,
-        node: ModelOrSnapshotOrTestOrSeedNode,
-        rendered_sql: str,
-    ) -> bool:
-        """Check if a rendered post-hook references the target table.
-
-        Args:
-            node: The node being executed
-            rendered_sql: The hook SQL after Jinja rendering
-
-        Returns:
-            True if the hook references the target table (or this can't be determined),
-            False otherwise
-        """
-        try:
-            target_parts = [part.name for part in self._node_to_table(node).parts]
-        except Exception as e:
-            events.fire_debug_event("Could not resolve target table for post-hooks: {}", str(e))
-            return True
-
-        try:
-            statements = sqlglot.parse(rendered_sql, dialect=self.dialect)
-        except Exception as e:
-            events.fire_debug_event("Could not check post-hook for table reference: {}", str(e))
-            return True
-
-        for statement in statements:
-            if statement is None:
-                continue
-            for table in statement.find_all(exp.Table):
-                normalized = normalize_identifiers(table.copy(), dialect=self.dialect)
-                reference_parts = [part.name for part in normalized.parts]
-                if (
-                    reference_parts
-                    and len(reference_parts) <= len(target_parts)
-                    and reference_parts == target_parts[-len(reference_parts) :]
-                ):
-                    return True
-
-        return False
 
     def prewarm_connections(self) -> None:
         self._adapter_ext.prewarm_connections()
@@ -771,12 +562,12 @@ class RunCache:
         any dbt source freshness overrides, which the speculative build path skips and
         which a re-fetch would otherwise miss if the prefetched value has since expired.
         """
-        self._await_prefetch_last_modified()
+        self._prefetcher.await_prefetch_last_modified()
         table_names = [info.name for info in request.tables]
         if not table_names:
             return request
         overrides = (
-            self._resolve_dbt_source_freshness_overrides(node)
+            self._freshness.resolve_dbt_source_freshness_overrides(node)
             if isinstance(node, ModelNode)
             else {}
         )
@@ -792,7 +583,7 @@ class RunCache:
             return
 
         target_table_type, last_modified_epoch = (
-            self._get_target_table_type_and_last_modified_epoch(node)
+            self._freshness.get_target_table_type_and_last_modified_epoch(node)
         )
         if last_modified_epoch is None:
             events.fire_debug_event(
@@ -853,229 +644,11 @@ class RunCache:
             return
 
         try:
-            self._adapter_ext.clear_cache([self._node_to_table(node)])
+            self._adapter_ext.clear_cache([self._node_resolution.node_to_table(node)])
         except Exception as e:
             events.fire_debug_event(
                 "Failed to clear cached metadata for node {}: {}", node.unique_id, str(e)
             )
-
-    def _get_target_table_type_and_last_modified_epoch(
-        self, node: ModelOrSnapshotOrTestOrSeedNode
-    ) -> t.Tuple[t.Optional[str], t.Optional[int]]:
-        target_table = self._node_to_table(node)
-        self._adapter_ext.clear_cache([target_table])
-        last_modified_epoch = self._get_heuristic_last_modified_epoch(target_table)
-        target_table_type = self._node_table_type(node)
-
-        return target_table_type, last_modified_epoch
-
-    def _iter_selected_nodes(
-        self, selected_ids: t.Set[str]
-    ) -> t.Iterator[ModelNode | SnapshotNode]:
-        """Yield model/snapshot nodes matching selected_ids"""
-        for node in self._manifest.nodes.values():
-            if not isinstance(node, (ModelNode, SnapshotNode)):
-                continue
-            if selected_ids and node.unique_id not in selected_ids:
-                continue
-            yield node
-
-    def _collect_unselected_node_deps(
-        self, selected_ids: t.Set[str]
-    ) -> t.Tuple[t.Set[str], t.Set[str]]:
-        """Collect unselected upstream dep IDs and source IDs for selected_ids."""
-        dep_ids: t.Set[str] = set()
-        source_ids: t.Set[str] = set()
-        for node in self._iter_selected_nodes(selected_ids):
-            model_node_ids, node_source_ids = self._resolve_deps(node)
-            source_ids.update(node_source_ids)
-            if selected_ids:
-                dep_ids.update(model_node_ids - selected_ids)
-        return dep_ids, source_ids
-
-    def _collect_all_prefetch_tables(
-        self, selected_ids: t.Set[str]
-    ) -> t.Dict[str, ManifestNode | SourceDefinition]:
-        """Collect tables from selected model/snapshot nodes and their dependencies for batch prefetching.
-
-        Args:
-            selected_ids: The set of unique IDs for models/snapshots selected for this run.
-                When non-empty, only tables relevant to these nodes are collected.
-                When empty, all model/snapshot tables are collected (full-project run).
-        """
-        tables: t.Dict[str, ManifestNode | SourceDefinition] = {}
-        unselected_model_dep_ids, source_ids = self._collect_unselected_node_deps(selected_ids)
-
-        for node in self._iter_selected_nodes(selected_ids):
-            tables[self._node_to_table(node).sql(dialect=self.dialect)] = node
-
-        for source_id in source_ids:
-            source = self._manifest.sources.get(source_id)
-            if source is not None:
-                tables[self._node_to_table(source).sql(dialect=self.dialect)] = source
-
-        for dep_id in unselected_model_dep_ids:
-            dep_node = self._manifest.nodes.get(dep_id)
-            if dep_node is None:
-                continue
-            table = (
-                self._node_to_deferred_table(dep_node)
-                if self._defer_enabled
-                else self._node_to_table(dep_node)
-            )
-            tables[table.sql(dialect=self.dialect)] = dep_node
-
-        return tables
-
-    def _collect_edge_prefetch_fqns(self, selected_ids: t.Set[str]) -> t.Set[str]:
-        """FQNs of the statically known edge tables of the selected models/snapshots.
-
-        An edge is a relation a selected node reads that this invocation does not build: sources,
-        seeds, and unselected upstream nodes. Unselected nodes may be deferred, so their candidate
-        FQNs depend on the defer settings:
-        - defer disabled: the local relation
-        - defer enabled with `--favor-state`: the deferred relation only
-        - defer enabled otherwise: both, since dbt only defers when the local relation is missing,
-            and we dont know for sure if it's missing or not without an expensive metadata check
-
-        Args:
-            selected_ids: Unique IDs selected for this run. Empty means a full-project run.
-        """
-        favor_state = bool(getattr(self._config.args, "favor_state", False))
-        built_ids = {n.unique_id for n in self._iter_selected_nodes(selected_ids)}
-        fqns: t.Set[str] = set()
-
-        def add(node: ManifestNode | SourceDefinition, deferred: bool = False) -> None:
-            table = self._node_to_deferred_table(node) if deferred else self._node_to_table(node)  # ty: ignore[invalid-argument-type]
-            fqns.add(table.sql(dialect=self.dialect))
-
-        for node in self._iter_selected_nodes(selected_ids):
-            dep_ids, source_ids = self._resolve_deps(node)
-
-            # sources are always edge nodes
-            for source_id in source_ids:
-                if (source := self._manifest.sources.get(source_id)) is not None:
-                    add(source)
-
-            for dep_id in dep_ids:
-                dep = self._manifest.nodes.get(dep_id)
-                if dep is None or dep_id in built_ids:
-                    # built by this run, so isnt an edge
-                    continue
-
-                if self._defer_enabled and dep_id not in selected_ids:
-                    # there is a dependency on a deferred relation, add it as an edge
-                    add(dep, deferred=True)
-
-                    if not favor_state:
-                        # if --favor-state is not set, a local version of a deferred relation is used over the
-                        # remote one, if it exists. Since the "if it exists" check is expensive, we add it to
-                        # the list of schemas to prefetch, and if it doesnt exist the schema prefetch will
-                        # return no information for it
-                        add(dep)
-                else:
-                    add(dep)
-        return fqns
-
-    def _start_prefetch_last_modified(self) -> None:
-        """Kick off the async last-modified prefetch if not already started.
-
-        Reads the globally selected resources and collects relevant model/snapshot/source
-        FQNs, then triggers an async prefetch. Does not block on the result; use
-        `_await_prefetch_last_modified` to wait for it. Idempotent: subsequent calls
-        are no-ops.
-        """
-        with self._prefetch_tables_lock:
-            if self._prefetch_started:
-                return
-            self._prefetch_started = True
-            tables = self._collect_all_prefetch_tables(self._selected_resource_ids)
-            if not tables:
-                self._prefetch_done = True
-                return
-            events.fire_debug_event(
-                "Prefetching last modified timestamps for {} tables",
-                len(tables),
-            )
-            freshness_overrides = {
-                fqn: override
-                for fqn, node in tables.items()
-                if isinstance(node, SourceDefinition)
-                for _, override in self._resolve_dbt_source_freshness_overrides(node).items()
-            }
-            self._prefetch_future = self._adapter_ext.prefetch_last_modified_epochs(
-                tables.keys(), table_overrides=freshness_overrides
-            )
-
-    def _await_prefetch_last_modified(self) -> None:
-        """Ensure the prefetch has started, then block until it completes.
-
-        Idempotent: once the prefetch has completed, subsequent calls are no-ops.
-        """
-        if self._prefetch_done:
-            return
-        self._start_prefetch_last_modified()
-        with self._prefetch_tables_lock:
-            future = self._prefetch_future
-        if future is not None:
-            future.result()
-        self._prefetch_done = True
-
-    def _is_prefetch_ready(self) -> bool:
-        """Whether the prefetch has completed, or there is nothing to prefetch.
-
-        Returns False when the prefetch has not been started yet: callers decide whether
-        to speculate only after starting it (see ``_start_prefetch_last_modified``), so an
-        unstarted prefetch is not "ready".
-        """
-        with self._prefetch_tables_lock:
-            if not self._prefetch_started:
-                return False
-            future = self._prefetch_future
-            return self._prefetch_done or future is None or future.done()
-
-    def _start_prefetch_schemas(self) -> None:
-        """Kick off the async schema prefetch if not already started.
-
-        Mirrors `_start_prefetch_last_modified` but for schemas, and is fully decoupled from
-        it (its own lock, future and done flag).
-
-        Collects the statically known edge FQNs of the  selected models (via `_collect_edge_prefetch_fqns`),
-        then triggers an async prefetch. This is only a warm-up: edges discovered later
-        (e.g. tables reachable only through view definitions) are fetched on demand by `get_schemas`.
-
-        Does not block on the result; use `_await_prefetch_schemas` to wait for it.
-        Idempotent: subsequent calls are no-ops.
-        """
-        with self._prefetch_schemas_lock:
-            if self._prefetch_schemas_started:
-                return
-            self._prefetch_schemas_started = True
-            edge_fqns = sorted(self._collect_edge_prefetch_fqns(self._selected_resource_ids))
-            if not edge_fqns:
-                self._prefetch_schemas_done = True
-                return
-
-            events.fire_debug_event("Prefetching schemas for {} edge tables", len(edge_fqns))
-            self._prefetch_schemas_future = self._adapter_ext.prefetch_schemas(edge_fqns)
-
-    def _await_prefetch_schemas(self) -> None:
-        """Ensure the schema prefetch has started, then block until it completes.
-
-        Idempotent: once the prefetch has completed, subsequent calls are no-ops.
-        """
-        if self._prefetch_schemas_done:
-            return
-        self._start_prefetch_schemas()
-        with self._prefetch_schemas_lock:
-            future = self._prefetch_schemas_future
-        if future is not None:
-            future.result()
-        self._prefetch_schemas_done = True
-
-    def _commit_if_open(self) -> None:
-        self._adapter.connections.get_thread_connection().transaction_open = True
-        self._adapter.commit_if_has_connection()
 
     def _on_data_test_query(
         self,
@@ -1125,7 +698,7 @@ class RunCache:
                         table_type=None,
                         execution_results=results,
                         execution_runtime_ms=elapsed_ms,
-                        labels=self._get_request_labels(node),
+                        labels=self._request_builder.get_request_labels(node),
                     )
                     self._query_cache_client.confirm_execution(confirmation_request)
                     events.fire_debug_event(
@@ -1206,14 +779,7 @@ class RunCache:
 
         # Note: pre-hooks run before the try block. On clone failure, dbt's fallback
         # materialization will re-run them. This is acceptable since clone failures are exceptional.
-        context: dict[str, t.Any] | None = None
-        context_config: t.Any = None
-        hook_ctx: t.Any = None
-        if should_run_hooks:
-            context = generate_runtime_model_context(node, self._config, self._manifest)
-            context_config = context["config"]
-            hook_ctx = self._adapter.pre_model_hook(context_config)
-            self._run_hooks(getattr(node.config, "pre_hook", []), context)
+        context, context_config, hook_ctx = self._hooks.handle_pre_hooks(should_run_hooks, node)
 
         # Track the confirmed request ID for post-hook metadata updates.
         # For clones, this may differ from query_cache_response.request_id.
@@ -1239,7 +805,7 @@ class RunCache:
                     reused_message,
                 )
             if query_cache_response.clone_required_last_modified_epoch is not None:
-                current_last_modified_epoch = self._get_last_modified_epoch(
+                current_last_modified_epoch = self._freshness.get_last_modified_epoch(
                     exp.to_table(query_cache_response.clone_source, dialect=self.dialect)
                 )
                 if current_last_modified_epoch is None or (
@@ -1274,7 +840,7 @@ class RunCache:
                 else:
                     for sql in query_cache_response.clone_sqls:
                         self._adapter.execute(sql)
-            self._commit_if_open()
+            self._adapter_ext.commit_if_open()
             # when we clone a table, we put it in the relation cache so that the remainder of the
             # invocation knows it exists without hitting the db
             self._adapter_ext.cache_node_relation(node)
@@ -1303,7 +869,7 @@ class RunCache:
                 if isinstance(query_cache_response, sql_service_models.SkipExecutionResponse)
                 else confirmed_execution_id
             )
-            self._handle_post_hooks(
+            self._hooks.handle_post_hooks(
                 should_run_hooks,
                 node,
                 query_cache_response,
@@ -1312,118 +878,6 @@ class RunCache:
                 hook_ctx,
                 execution_id,
             )
-
-    def _handle_post_hooks(
-        self,
-        should_run_hooks: bool,
-        node: ModelOrSnapshotOrTestOrSeedNode,
-        query_cache_response: t.Union[
-            sql_service_models.SkipExecutionResponse,
-            clone_service_models.ReadyToCloneResponse,
-            None,
-        ],
-        context: dict[str, t.Any],
-        context_config: t.Any,
-        hook_ctx: t.Any,
-        execution_id: t.Optional[RequestId],
-    ) -> None:
-        if should_run_hooks:
-            pre_hook_last_modified = None
-            post_hooks = getattr(node.config, "post_hook", [])
-
-            if post_hooks:
-                try:
-                    _, pre_hook_last_modified = self._get_target_table_type_and_last_modified_epoch(
-                        node
-                    )
-                except Exception:
-                    events.fire_debug_event(
-                        "Skipping post-hook handle for node {} due to failure when fetching last modified epoch",
-                        node.unique_id,
-                    )
-
-            # Hooks are rendered and executed one at a time, so a hook's rendering sees the
-            # effects of the hooks before it. Each hook is rendered exactly once, and the
-            # rendered SQL is kept to check for target table references afterwards.
-            rendered_sqls = []
-            for hook in post_hooks:
-                rendered_sql = get_rendered(hook.sql, context)
-                rendered_sqls.append(rendered_sql)
-                self._execute_hook(hook, rendered_sql)
-
-            references_target_table = any(
-                self._hook_references_target_table(node, rendered_sql)
-                for rendered_sql in rendered_sqls
-            )
-
-            self._commit_if_open()
-            self._adapter.post_model_hook(context_config, hook_ctx)
-
-            if (
-                references_target_table
-                and pre_hook_last_modified
-                and execution_id is not None
-                and isinstance(
-                    query_cache_response,
-                    (
-                        sql_service_models.SkipExecutionResponse,
-                        clone_service_models.ReadyToCloneResponse,
-                    ),
-                )
-            ):
-                skip_update, warn_on_skip = self._resolve_no_op_post_hook_policy(
-                    node, query_cache_response
-                )
-                self._update_metadata_after_post_hooks(
-                    node,
-                    execution_id,
-                    pre_hook_last_modified,
-                    skip_update,
-                    warn_on_skip,
-                )
-
-    def _resolve_no_op_post_hook_policy(
-        self,
-        node: ModelOrSnapshotOrTestOrSeedNode,
-        query_cache_response: t.Union[
-            sql_service_models.SkipExecutionResponse,
-            clone_service_models.ReadyToCloneResponse,
-        ],
-    ) -> t.Tuple[bool, bool]:
-        """Decide how to treat the post-hook timestamp update after a NO-OP.
-
-        Returns:
-            (skip_update, warn_on_skip). skip_update is set for NO-OPs under lag tolerance,
-            where bumping the stored last_modified_epoch would reset the output's age and
-            keep a stale result eligible for reuse. warn_on_skip is set when the server will
-            also rebuild the model on the next run, which it only does for VIEW/FULL when
-            external modifications are not ignored.
-        """
-        if not isinstance(query_cache_response, sql_service_models.SkipExecutionResponse):
-            return False, False
-
-        if not isinstance(node, (ModelNode, SnapshotNode, GenericTestNode, SingularTestNode)):
-            return False, False
-
-        if not isinstance(node.config, (ModelConfig, SnapshotConfig, TestConfig)):
-            return False, False
-
-        skip_update = self._run_cache_config.resolve_freshness_tolerance(node.config) > 0
-        warn_on_skip = (
-            skip_update
-            and not self._run_cache_config.resolve_ignore_external_modifications(node.config)
-            and shared_models.ModelExecutionType(self._node_execution_type(node))
-            in (shared_models.ModelExecutionType.VIEW, shared_models.ModelExecutionType.FULL)
-        )
-        return skip_update, warn_on_skip
-
-    def _execute_hook(self, hook: t.Any, rendered_sql: str) -> None:
-        if rendered_sql.strip():
-            self._adapter.execute(rendered_sql, auto_begin=hook.transaction)
-
-    def _run_hooks(self, hooks: t.List[t.Any], context: t.Dict[str, t.Any]) -> None:
-        for hook in hooks:
-            self._execute_hook(hook, get_rendered(hook.sql, context))
 
     def _try_clone(self, node: ModelOrSnapshotNode) -> bool:
         if self._dev_cloner is None or self.is_write_only:
@@ -1446,7 +900,7 @@ class RunCache:
             clone_response.clone_source,
             clone_response.clone_target,
         )
-        self._commit_if_open()
+        self._adapter_ext.commit_if_open()
         if isinstance(clone_response, clone_service_models.ReadyToCloneResponse):
             self.confirm_execution(node, clone_response.request_id)
             self._decision_logger.log_dev_clone(
@@ -1509,7 +963,7 @@ class RunCache:
         request_id = uuid.uuid4().hex
         request_start_time = perf_counter()
         try:
-            self._start_prefetch_last_modified()
+            self._prefetcher.start_prefetch_last_modified()
 
             # Resolve inputs and run the (prefetch-independent) view traversal up front. The
             # traversal blocks on view-definition fetches while the async last-modified prefetch
@@ -1520,26 +974,53 @@ class RunCache:
             if not resolved_sql:
                 raise RuntimeError(f"Model node '{node.unique_id}' must be compiled")
             resolved_execution_type = execution_type or shared_models.ModelExecutionType(
-                self._node_execution_type(node)
+                self._request_builder.node_execution_type(node)
             )
             traversal_result: t.Optional[ViewTraversalResult] = None
             view_traversal_duration_ms: t.Optional[int] = None
             if resolved_execution_type != shared_models.ModelExecutionType.VIEW:
                 view_traversal_start = perf_counter()
-                traversal_result = self._adapter_ext.traverse_view_definitions(resolved_sql)
+                terminal_fqns = (
+                    set(self._freshness.resolve_dbt_source_freshness_overrides(node))
+                    if isinstance(node, ModelNode)
+                    else set()
+                )
+                # a freshness override (loaded_at_field / loaded_at_query) determines this relation's
+                # last_modified, so record it as a dependency but don't expand it into its underlying tables
+                traversal_result = self._adapter_ext.traverse_view_definitions(
+                    resolved_sql, terminal_fqns
+                )
                 view_traversal_duration_ms = int((perf_counter() - view_traversal_start) * 1000)
 
-            use_speculative = not self.is_write_only and not self._is_prefetch_ready()
-            if not use_speculative:
-                self._await_prefetch_last_modified()
+                # Non-table references (e.g. Snowfalke Stages) were skipped during traversal, so
+                # nothing can check their freshness. A source with a freshness override is never expanded,
+                # so reaching one here means no override covers it. Run without state rather than risk
+                # reusing a model whose upstream data changed
+                if traversal_result.unsupported_references:
+                    events.fire_warn_event_with_cache_bypass(
+                        "Model {} reads from {}, table reference(s) that dbt State does not currently support,"
+                        " so they cannot be checked for updates."
+                        " To let dbt State check for updates, read them through a view declared as a dbt source"
+                        " with loaded_at_field or loaded_at_query. See {}",
+                        node.unique_id,
+                        ", ".join(sorted(traversal_result.unsupported_references)),
+                        "https://docs.getdbt.com/reference/resource-configs/freshness?version=1#using-loaded_at_query",
+                    )
+                    return None
 
-            request, last_modified_duration_ms = self._build_submit_enriched_sql_request(
-                node,
-                resolved_sql,
-                resolved_execution_type,
-                traversal_result=traversal_result,
-                microbatch_window=microbatch_window,
-                speculative=use_speculative,
+            use_speculative = not self.is_write_only and not self._prefetcher.is_prefetch_ready()
+            if not use_speculative:
+                self._prefetcher.await_prefetch_last_modified()
+
+            request, last_modified_duration_ms = (
+                self._request_builder.build_submit_enriched_sql_request(
+                    node,
+                    resolved_sql,
+                    resolved_execution_type,
+                    traversal_result=traversal_result,
+                    microbatch_window=microbatch_window,
+                    speculative=use_speculative,
+                )
             )
             request_end_time = perf_counter()
             duration = request_end_time - request_start_time
@@ -1548,7 +1029,7 @@ class RunCache:
                 request_id,
                 duration,
                 target_table_fqn=node.relation_name,
-                labels=self._get_request_labels(node),
+                labels=self._request_builder.get_request_labels(node),
                 num_dependencies=len(request.tables) - 1,  # exclude the target table in count
                 num_view_dependencies=len(request.query_dependencies),
                 view_traversal_duration_ms=view_traversal_duration_ms,
@@ -1582,8 +1063,8 @@ class RunCache:
                 # Undecided verdict or a speculative error: block on the prefetch and resubmit
                 # a non-speculative request built with real timestamps. Reuse the traversal
                 # already computed above rather than walking the view graph again.
-                self._await_prefetch_last_modified()
-                request, _ = self._build_submit_enriched_sql_request(
+                self._prefetcher.await_prefetch_last_modified()
+                request, _ = self._request_builder.build_submit_enriched_sql_request(
                     node,
                     resolved_sql,
                     resolved_execution_type,
@@ -1605,7 +1086,7 @@ class RunCache:
                 request_id,
                 duration=duration,
                 target_table_fqn=node.relation_name,
-                labels=self._get_request_labels(node),
+                labels=self._request_builder.get_request_labels(node),
                 num_dependencies=None,
                 num_view_dependencies=None,
                 error_type=type(e).__name__,
@@ -1627,7 +1108,7 @@ class RunCache:
     ]:
         request_id = uuid.uuid4().hex
         try:
-            request = self._build_submit_values_request(node)
+            request = self._request_builder.build_submit_values_request(node)
 
             if self.is_write_only:
                 return CacheBypassedResponse(request, node)
@@ -1644,81 +1125,6 @@ class RunCache:
             if isinstance(e, grpc.RpcError):
                 raise
         return None
-
-    @staticmethod
-    def _validate_positive_int(value: t.Any, field_name: str) -> t.Optional[int]:
-        if value is None:
-            return None
-        value = int(value)
-        if value <= 0:
-            events.fire_warn_event("Invalid {}={} (must be > 0), ignoring", field_name, value)
-            return None
-        return value
-
-    def _get_table_properties(
-        self, node: ModelOrSnapshotOrTestOrSeedNode
-    ) -> t.Optional[TableProperties]:
-        hours = self._validate_positive_int(
-            node.config.extra.get("hours_to_expiration"), "hours_to_expiration"
-        )
-        partition_days = self._validate_positive_int(
-            node.config.extra.get("partition_expiration_days"),
-            "partition_expiration_days",
-        )
-        if hours is None and partition_days is None:
-            return None
-        return TableProperties(
-            hours_to_expiration=hours,
-            partition_expiration_days=partition_days,
-        )
-
-    def _build_submit_values_request(
-        self,
-        node: SeedNode,
-    ) -> sql_service_models.SubmitValuesRequest:
-        node_config = node.config
-        semantic_extras = {
-            key: _serialize_semantic_extra(key, node_config.get(key))
-            for key in SEED_SEMANTIC_EXTRAS_CONFIG_KEYS
-            if key in node_config
-        }
-        semantic_extras.update(self._persisted_docs_semantic_extras(node))
-        last_modified_epoch = self._get_last_modified_epoch(self._node_to_table(node))
-
-        calculator = create_node_hash_calculator(node, self._manifest, self._config)
-
-        dbt_node_state = shared_models.DbtNodeState(
-            node_unique_id=node.unique_id,
-            target_name=self._config.target_name,
-            project_name=self._config.project_name,
-            resource_type=node.resource_type,
-            node_hash=calculator.calculate_node_hash(),
-            node_body_hash=calculator.node_body_hash,
-            node_configs_hash=calculator.node_configs_hash,
-            node_persisted_descriptions_hash=calculator.node_persisted_docs_hash,
-            node_macros_hash=calculator.node_macros_hash,
-            node_contract_hash=None,
-            profile_name=self._config.profile_name,
-            project_id=self._run_cache_config.dbt_project_id,
-        )
-
-        return sql_service_models.SubmitValuesRequest(
-            target_table=node.relation_name or "",
-            dialect=self.dialect,
-            default_catalog=self._adapter_ext.default_catalog,
-            values_hash=calculator.calculate_node_hash(),
-            semantic_extras=semantic_extras,
-            last_modified_epoch=last_modified_epoch,
-            labels=self._get_request_labels(node),
-            clone_time_travel_limit=self._clone_time_travel_limit,
-            clone_table_properties=self._get_table_properties(node),
-            clone_chain_depth_limit=self.clone_chain_depth_limit,
-            dbt_node_state=dbt_node_state,
-            table_namespace=self.table_namespace,
-            allow_clones=self.run_cache_config.allow_clones,
-            is_defer_to_profile=self._profiles.is_defer_to_profile,
-            defer_enabled=self._defer_enabled,
-        )
 
     def _emit_enriched_sql_prepared_telemetry(
         self,
@@ -1800,500 +1206,10 @@ class RunCache:
         if not result:
             return None
         clone_source, clone_source_table_type = result
-        clone_request = self._build_clone_request(node, clone_source, clone_source_table_type)
+        clone_request = self._request_builder.build_clone_request(
+            node, clone_source, clone_source_table_type
+        )
         return self._query_cache_client.register_clone(clone_request)
-
-    def _build_submit_enriched_sql_request(
-        self,
-        node: ModelOrSnapshotOrTestNode,
-        sql: str,
-        execution_type: shared_models.ModelExecutionType,
-        traversal_result: t.Optional[ViewTraversalResult],
-        microbatch_window: t.Optional[t.Tuple[datetime, datetime]] = None,
-        speculative: bool = False,
-    ) -> t.Tuple[sql_service_models.SubmitEnrichedSQLRequest, int]:
-        target_table = (
-            self._node_to_table(node).sql(dialect=self.dialect)
-            if execution_type != shared_models.ModelExecutionType.DBT_DATA_TEST
-            else None
-        )
-        dialect = self.dialect
-        default_catalog = self._adapter_ext.default_catalog
-        node_config = node.config
-
-        if execution_type == shared_models.ModelExecutionType.VIEW:
-            # Views don't need dependency traversal — only the view's own last_modified_epoch
-            # and query hash matter, since the query is re-evaluated every time the view is queried
-            assert target_table is not None
-            last_modified_start = perf_counter()
-            last_modified_epoch = (
-                self._adapter_ext.get_available_last_modified_epochs([target_table])
-                if speculative
-                else self._adapter_ext.get_last_modified_epoch([target_table])
-            )
-            last_modified_duration_ms = int((perf_counter() - last_modified_start) * 1000)
-            table_infos = [
-                shared_models.TableModifiedInfo(name=name, last_modified_epoch=epoch)  # ty: ignore[invalid-argument-type]
-                for name, epoch in last_modified_epoch.items()
-            ]
-            return sql_service_models.SubmitEnrichedSQLRequest(
-                tables=table_infos,
-                query_dependencies=[],
-                target_table=target_table,
-                dialect=dialect,
-                default_catalog=default_catalog,
-                default_schema=self._adapter_ext.DEFAULT_SCHEMA_NAME,
-                execution_type=execution_type,
-                sql=sql,
-                semantic_extras=self._persisted_docs_semantic_extras(node),
-                freshness_tolerance_seconds=0,
-                tolerate_nondeterminism=True,
-                labels=self._get_request_labels(node),
-                clone_time_travel_limit=self._clone_time_travel_limit,
-                clone_table_properties=self._get_table_properties(node),
-                stale_upstream_policy=self._run_cache_config.resolve_stale_upstream_policy(
-                    node_config
-                ),
-                clone_chain_depth_limit=self.clone_chain_depth_limit,
-                dbt_node_state=self._build_dbt_node_state(node),
-                compare_unrendered_code=self._run_cache_config.resolve_compare_unrendered_code(
-                    node_config
-                ),
-                table_namespace=self.table_namespace,
-                ignore_external_modifications=self._run_cache_config.resolve_ignore_external_modifications(
-                    node_config
-                ),
-                allow_clones=self.run_cache_config.allow_clones,
-                is_defer_to_profile=self._profiles.is_defer_to_profile,
-                defer_enabled=self._defer_enabled,
-            ), last_modified_duration_ms
-
-        # The caller owns the view traversal so the speculative decision can be made after it
-        # completes (see _submit_sql_request); it must be supplied for non-view execution types.
-        if traversal_result is None:
-            raise RuntimeError("Traversal result is required for non-view nodes")
-
-        # Include the target table's last modified epoch to enable detection of unobserved modifications
-        all_tables = traversal_result.seen_tables.copy()
-        if target_table is not None:
-            all_tables.add(target_table)
-        last_modified_start = perf_counter()
-
-        if speculative:
-            last_modified_epoch = self._adapter_ext.get_available_last_modified_epochs(all_tables)
-            # Views whose definition could not be resolved have no reliable freshness signal.
-            # Force them unset (treated as "now" server-side) even if a stale epoch happens to be
-            # cached, so a speculative decision cannot treat them as fresh — matching the
-            # non-speculative path, which overrides them to "now".
-            for fqn in traversal_result.unresolvable_tables:
-                if fqn in last_modified_epoch:
-                    last_modified_epoch[fqn] = None
-        else:
-            overrides = {}
-            source_freshness_overrides = (
-                self._resolve_dbt_source_freshness_overrides(node)
-                if isinstance(node, ModelNode)
-                else {}
-            )
-            overrides.update(source_freshness_overrides)
-
-            unresolvable = traversal_result.unresolvable_tables
-            if unresolvable:
-                self._adapter_ext.clear_last_modified_cache(unresolvable)
-                now_ms = self._get_heuristic_now_epoch()
-                if now_ms:
-                    unresolvable_without_override = [
-                        fqn for fqn in unresolvable if fqn not in overrides
-                    ]
-                    if unresolvable_without_override:
-                        events.fire_warn_event(
-                            "Could not determine freshness for {}; treating as modified."
-                            " Configure loaded_at_field or loaded_at_query to set freshness timestamp.",
-                            ", ".join(unresolvable_without_override),
-                        )
-                    overrides.update(
-                        {fqn: (lambda v=now_ms: v) for fqn in unresolvable_without_override}
-                    )
-
-            last_modified_epoch = self._adapter_ext.get_last_modified_epoch(
-                all_tables, table_overrides=overrides
-            )
-
-        last_modified_duration_ms = int((perf_counter() - last_modified_start) * 1000)
-
-        # Only edge table schemas are fetched, so we intentionally exclude them from TableModifiedInfo
-        # entries to avoid the sparseness problem where most tables will not have any schemas set.
-        # Speculative requests omit schemas entirely: impact analysis is not applied to them, so
-        # blocking on the schema prefetch here would defeat the point of speculating.
-        table_schemas: t.List[shared_models.TableSchema] = []
-        compare_selected_columns = self._run_cache_config.resolve_compare_selected_columns(
-            node_config
-        )
-        if compare_selected_columns and not speculative:
-            # traversal_result.seen_tables contains the all the upstream tables that this model
-            # depends on, plus the ones that are only reachable through view definitions
-            # we remove the ones that have already been handled by this run, because those
-            # already have schemas stored in state that the server can use
-            edge_tables = traversal_result.seen_tables - self._selected_target_fqns
-
-            if target_table is not None:
-                edge_tables.discard(target_table)
-
-            if edge_tables:
-                self._await_prefetch_schemas()
-                table_schemas = [
-                    shared_models.TableSchema(
-                        name=name,
-                        columns=[
-                            shared_models.ColumnInfo(name=column, type=data_type)
-                            for column, data_type in columns.items()
-                        ],
-                    )
-                    for name, columns in self._adapter_ext.get_schemas(edge_tables).items()
-                    if columns is not None
-                ]
-
-        dependency_kinds = self._dependency_kinds_by_fqn if compare_selected_columns else {}
-        table_infos = [
-            shared_models.TableModifiedInfo(
-                name=name,
-                last_modified_epoch=epoch,  # ty: ignore[invalid-argument-type]
-                kind=dependency_kinds.get(name, shared_models.DependencyKind.UNKNOWN),
-            )
-            for name, epoch in last_modified_epoch.items()
-        ]
-        query_dependencies = [
-            shared_models.QueryDependency(
-                name=name,
-                query=v.definition,
-                default_catalog=v.default_catalog,
-                default_schema=v.default_schema,
-            )
-            for name, v in traversal_result.view_definitions.items()
-        ]
-
-        semantic_extras = {
-            key: _serialize_semantic_extra(key, node_config.get(key))
-            for key in SEMANTIC_EXTRAS_CONFIG_KEYS
-            if key in node_config
-        }
-        if microbatch_window is not None:
-            # microbatch_window is only ever passed for microbatch models (see
-            # microbatch_execute_override), including under --full-refresh, so its
-            # presence already scopes this injection correctly without checking
-            # execution_type.
-            start, end = microbatch_window
-            semantic_extras[MICROBATCH_EVENT_TIME_START_KEY] = start.isoformat()
-            semantic_extras[MICROBATCH_EVENT_TIME_END_KEY] = end.isoformat()
-
-        semantic_extras.update(self._persisted_docs_semantic_extras(node))
-        return sql_service_models.SubmitEnrichedSQLRequest(
-            tables=table_infos,
-            query_dependencies=query_dependencies,
-            target_table=target_table,
-            dialect=dialect,
-            default_catalog=default_catalog,
-            default_schema=self._adapter_ext.DEFAULT_SCHEMA_NAME,
-            execution_type=execution_type,
-            sql=sql,
-            semantic_extras=semantic_extras,
-            freshness_tolerance_seconds=self._run_cache_config.resolve_freshness_tolerance(
-                node_config
-            ),
-            tolerate_nondeterminism=self._run_cache_config.resolve_tolerate_nondeterminism(
-                node_config
-            ),
-            labels=self._get_request_labels(node),
-            clone_time_travel_limit=self._clone_time_travel_limit,
-            clone_table_properties=self._get_table_properties(node),
-            stale_upstream_policy=self._run_cache_config.resolve_stale_upstream_policy(node_config),
-            clone_chain_depth_limit=self.clone_chain_depth_limit,
-            dbt_node_state=self._build_dbt_node_state(node),
-            compare_unrendered_code=self._run_cache_config.resolve_compare_unrendered_code(
-                node_config
-            ),
-            table_namespace=self.table_namespace,
-            ignore_external_modifications=self._run_cache_config.resolve_ignore_external_modifications(
-                node_config
-            ),
-            allow_clones=self.run_cache_config.allow_clones,
-            is_defer_to_profile=self._profiles.is_defer_to_profile,
-            defer_enabled=self._defer_enabled,
-            table_schemas=table_schemas,
-            compare_selected_columns=compare_selected_columns,
-        ), last_modified_duration_ms
-
-    def _build_clone_request(
-        self,
-        node: ModelOrSnapshotOrTestNode,
-        clone_source: str,
-        clone_source_table_type: t.Optional[str],
-    ) -> clone_service_models.CloneRequest:
-        clone_source_last_modified_epoch = self._get_last_modified_epoch(
-            exp.to_table(clone_source, dialect=self.dialect)
-        )
-        return clone_service_models.CloneRequest(
-            target_table=node.relation_name or "",
-            clone_source_table=clone_source,
-            dialect=self.dialect,
-            default_catalog=self._adapter_ext.default_catalog,
-            execution_type=shared_models.ModelExecutionType(self._node_execution_type(node)),
-            clone_source_last_modified_epoch=clone_source_last_modified_epoch,
-            labels=self._get_request_labels(node),
-            clone_source_table_type=clone_source_table_type,
-            table_properties=self._get_table_properties(node),
-            clone_chain_depth_limit=self.clone_chain_depth_limit,
-            table_namespace=self.table_namespace,
-        )
-
-    @staticmethod
-    def _get_request_labels(node: ModelOrSnapshotOrTestOrSeedNode) -> t.Dict[str, str]:
-        unique_id = node.unique_id
-
-        return {
-            "dbt_node_name": node.name,
-            "dbt_node_fqn": ".".join(node.fqn),
-            "dbt_node_unique_id": unique_id,
-        }
-
-    def _persisted_docs_semantic_extras(
-        self, node: ModelOrSnapshotOrTestOrSeedNode
-    ) -> t.Dict[str, str]:
-        """Build the persisted-docs semantic extra for a node.
-
-        When ``persist_docs`` is enabled for a node, its relation and/or column descriptions
-        are written to the target table. A change to those descriptions does not alter the
-        query result, so without this extra the cache would report a no-op and the updated
-        docs would never be persisted. Folding the docs hash into ``semantic_extras`` forces
-        an execution whenever the documentation changes. Returns an empty mapping when the
-        node has no persisted docs.
-        """
-        calculator = create_node_hash_calculator(node, self._manifest, self._config)
-        docs_hash = calculator.node_persisted_docs_hash
-        if docs_hash is None:
-            return {}
-        return {PERSISTED_DOCS_HASH_KEY: docs_hash}
-
-    def _build_dbt_node_state(self, node: ModelOrSnapshotOrTestNode) -> shared_models.DbtNodeState:
-        calculator = create_node_hash_calculator(
-            node,
-            self._manifest,
-            self._config,
-            include_runtime_vars=self._run_cache_config.resolve_compare_unrendered_code(
-                node.config
-            ),
-        )
-
-        node_contract_hash: t.Optional[str] = None
-        if isinstance(calculator, ModelNodeHashCalculator):
-            node_contract_hash = calculator.node_contract_hash
-
-        return shared_models.DbtNodeState(
-            node_unique_id=node.unique_id,
-            target_name=self._config.target_name,
-            project_name=self._config.project_name,
-            resource_type=node.resource_type,
-            node_hash=calculator.calculate_node_hash(),
-            node_body_hash=calculator.node_body_hash,
-            node_configs_hash=calculator.node_configs_hash,
-            node_persisted_descriptions_hash=calculator.node_persisted_docs_hash,
-            node_macros_hash=calculator.node_macros_hash,
-            node_contract_hash=node_contract_hash,
-            profile_name=self._config.profile_name,
-            project_id=self._run_cache_config.dbt_project_id,
-            node_database_representation=(
-                f"{node.database}.{node.schema}.{node.alias}"
-                if node.database and node.schema and node.alias
-                else None
-            ),
-        )
-
-    def _node_execution_type(self, node: ModelOrSnapshotOrTestNode) -> str:
-        if isinstance(node, (GenericTestNode, SingularTestNode)):
-            return "DBT_DATA_TEST"
-        if is_view(node):
-            return "VIEW"
-        if is_custom_materialization(node):
-            return "DBT_CUSTOM"
-        execution_type = "full"
-        if is_incremental_or_snapshot(node) and not is_full_refresh(self._config, node):
-            if node.resource_type == "snapshot":
-                execution_type = "snapshot"
-            else:
-                execution_type_str = getattr(node.config, "incremental_strategy", None) or "append"
-                execution_type = execution_type_str.replace("+", "_").lower()
-                if execution_type == "merge" and not getattr(node.config, "unique_key", None):
-                    execution_type = "append"
-        return execution_type.upper()
-
-    def _node_table_type(self, node: ModelOrSnapshotOrTestOrSeedNode) -> t.Optional[str]:
-        # note: get_relation() only returns a relation for relations that exist
-        # it's intended that the table type is determined *after* dbt has created the tables, not before
-        if (
-            relation := self._adapter.get_relation(
-                database=node.database, schema=node.schema, identifier=node.identifier
-            )
-        ) and isinstance(relation, BaseRelation):
-            return self._adapter_ext.get_relation_table_type(node=node, relation=relation)
-
-        return None
-
-    def _get_heuristic_now_epoch(self) -> t.Optional[int]:
-        if self._engine_heuristics_clock_disabled:
-            return None
-
-        try:
-            return self._engine_heuristics_clock.now_utc_epoch()
-        except Exception as e:
-            events.fire_debug_event(
-                "Failed to get heuristic epoch: {}; disabling heuristic clock",
-                str(e),
-            )
-            self._engine_heuristics_clock_disabled = True
-
-    def _get_heuristic_last_modified_epoch(self, table: exp.Table) -> t.Optional[int]:
-        if not self._use_heuristic_clock_for_last_modified:
-            return self._get_last_modified_epoch(table)
-
-        if heuristic_now_millis := self._get_heuristic_now_epoch():
-            self._adapter_ext.cache_last_modified_epoch(table, heuristic_now_millis)
-            return heuristic_now_millis
-        events.fire_debug_event(
-            "Failed to get heuristic last modified for table '{}', falling back to warehouse query",
-            table.sql(dialect=self.dialect),
-        )
-        self._use_heuristic_clock_for_last_modified = False
-        return self._get_last_modified_epoch(table)
-
-    def _get_last_modified_epoch(self, table: exp.Table) -> t.Optional[int]:
-        last_modified_epochs = self._adapter_ext.get_last_modified_epoch([table])
-        if len(last_modified_epochs) != 1:
-            raise RuntimeError("Expected exactly one table info")
-        last_modified_epoch = next(iter(last_modified_epochs.values()))
-        if last_modified_epoch is None:
-            events.fire_debug_event(
-                "Failed to get last modified for table: '{}'", table.sql(dialect=self.dialect)
-            )
-        return last_modified_epoch
-
-    @cached_property
-    def _selected_target_fqns(self) -> t.Set[str]:
-        """FQNs of the relations the selected models and snapshots write to, computed once.
-
-        This includes all --select'ed nodes, not just edges
-        """
-        return {
-            self._node_to_table(node).sql(dialect=self.dialect)
-            for node in self._iter_selected_nodes(self._selected_resource_ids)
-        }
-
-    @cached_property
-    def _dependency_kinds_by_fqn(self) -> t.Dict[str, shared_models.DependencyKind]:
-        """Map table names to SOURCE, SEED, or MODEL, cached for this run.
-
-        Include both local and deferred table names for upstream dependencies.
-        Names shared by different kinds map to UNKNOWN; callers also use UNKNOWN
-        for names absent from the manifest.
-        """
-        kinds: t.Dict[str, shared_models.DependencyKind] = {}
-        deferred_ids, _ = (
-            self._collect_unselected_node_deps(self._selected_resource_ids)
-            if self._defer_enabled
-            else (set(), set())
-        )
-
-        def add(table: exp.Table, kind: shared_models.DependencyKind) -> None:
-            fqn = table.sql(dialect=self.dialect)
-            previous = kinds.get(fqn)
-            kinds[fqn] = (
-                kind
-                if previous is None or previous == kind
-                else shared_models.DependencyKind.UNKNOWN
-            )
-
-        for source in self._manifest.sources.values():
-            add(self._node_to_table(source), shared_models.DependencyKind.SOURCE)
-
-        for node in self._manifest.nodes.values():
-            if isinstance(node, SeedNode):
-                kind = shared_models.DependencyKind.SEED
-            elif isinstance(node, (ModelNode, SnapshotNode)):
-                if isinstance(node, ModelNode) and node.get_materialization() == "ephemeral":
-                    continue
-                kind = shared_models.DependencyKind.MODEL
-            else:
-                continue
-
-            add(self._node_to_table(node), kind)
-            if node.unique_id in deferred_ids:
-                add(self._node_to_deferred_table(node), kind)
-
-        return kinds
-
-    def _node_to_table(self, node: ManifestNode | SourceDefinition) -> exp.Table:
-        return self._adapter_ext._node_to_table(node)  # noqa: SLF001
-
-    def _sql(self, expr: exp.Expr, copy: bool = False) -> str:
-        return self._adapter_ext._sql(expr, copy=copy)  # noqa: SLF001
-
-    def _state_deferred_table_parts(
-        self, node: ManifestNode
-    ) -> t.Optional[t.Tuple[t.Optional[str], t.Optional[str], str]]:
-        """Return state-resolved table overrides for a deferred node, if available.
-
-        Looks up the recorded prod FQN for node.unique_id and parses it into
-        (database, schema, identifier). Returns None when there is no state
-        entry for the node or when the FQN cannot be parsed, so callers can fall
-        back to the macro-based deferred relation resolver.
-        """
-        state_fqn = self._state_deferred_fqn_by_unique_id.get(node.unique_id)
-        if state_fqn is None:
-            return None
-
-        try:
-            parsed = exp.to_table(state_fqn, dialect=self.dialect)
-        except SqlglotError as e:
-            events.fire_debug_event(
-                "Failed to parse state-resolved deferred FQN '{}' for node {}: {}",
-                state_fqn,
-                node.unique_id,
-                str(e),
-            )
-            return None
-
-        if not parsed.name:
-            events.fire_debug_event(
-                "State-resolved deferred FQN '{}' for node {} did not contain a table name",
-                state_fqn,
-                node.unique_id,
-            )
-            return None
-
-        return (
-            parsed.catalog if parsed.catalog else None,
-            parsed.db if parsed.db else None,
-            parsed.name,
-        )
-
-    def _node_to_deferred_table(self, node: ManifestNode) -> exp.Table:
-        if (state_deferred_table_parts := self._state_deferred_table_parts(node)) is not None:
-            database, schema, identifier = state_deferred_table_parts
-            return self._adapter_ext._node_to_table(  # noqa: SLF001
-                node,
-                override_database=database,
-                override_schema=schema,
-                override_identifier=identifier,
-            )
-
-        assert self._deferred_relation_resolver is not None
-
-        database = self._deferred_relation_resolver.get_deferred_database(node) or node.database
-        schema = self._deferred_relation_resolver.get_deferred_schema(node) or node.schema
-        identifier = self._deferred_relation_resolver.get_deferred_identifier(node) or node.alias
-
-        return self._adapter_ext._node_to_table(  # noqa: SLF001
-            node, override_database=database, override_schema=schema, override_identifier=identifier
-        )
 
     def _record_cache_hit(
         self,
@@ -2304,198 +1220,9 @@ class RunCache:
         self._total_cache_hits += 1
         self._total_time_saved_ms += response.execution_runtime_ms or 0
 
-    def _resolve_deps(self, node: ManifestSQLNode) -> t.Tuple[t.Set[str], t.Set[str]]:
-        """Return model dependency IDs and source IDs, resolving transitively through ephemeral models."""
-        model_ids: t.Set[str] = set()
-        source_ids: t.Set[str] = set()
-        stack: t.List[str] = []
-        for n in getattr(node.depends_on, "nodes", []):
-            if n.startswith("source."):
-                source_ids.add(n)
-            else:
-                stack.append(n)
-        visited: t.Set[str] = set()
-        while stack:
-            dep_id = stack.pop()
-            if dep_id in visited:
-                continue
-            visited.add(dep_id)
-            dep_node = self._manifest.nodes.get(dep_id)
-            if isinstance(dep_node, ModelNode) and dep_node.get_materialization() == "ephemeral":
-                for n in getattr(dep_node.depends_on, "nodes", []):
-                    if n.startswith("source."):
-                        source_ids.add(n)
-                    else:
-                        stack.append(n)
-            else:
-                model_ids.add(dep_id)
-        return model_ids, source_ids
-
-    def _defer_relation(self, relation: BaseRelation, target_node: ManifestNode) -> BaseRelation:
-        deferred_relation = replace(relation, path=replace(relation.path))
-
-        if (
-            state_deferred_table_parts := self._state_deferred_table_parts(target_node)
-        ) is not None:
-            database, schema, identifier = state_deferred_table_parts
-            deferred_relation.path.database = database
-            deferred_relation.path.schema = schema
-            deferred_relation.path.identifier = identifier
-            return deferred_relation
-
-        assert self._deferred_relation_resolver is not None
-
-        deferred_relation.path.schema = self._deferred_relation_resolver.get_deferred_schema(
-            target_node
-        )
-        deferred_relation.path.database = self._deferred_relation_resolver.get_deferred_database(
-            target_node
-        )
-        deferred_relation.path.identifier = (
-            self._deferred_relation_resolver.get_deferred_identifier(target_node)
-        )
-        return deferred_relation
-
-    def _resolve_state_deferred_fqns(self) -> t.Dict[str, str]:
-        """Batch-resolve unselected upstream nodes to recorded prod FQNs.
-
-        Returns an empty map when deferral is disabled, the dev target already
-        is the defer-to profile, there are no deferred nodes, or the RPC fails
-        for any reason.
-        """
-        if not self._defer_enabled or self._profiles.is_defer_to_profile:
-            return {}
-        dep_ids, _ = self._collect_unselected_node_deps(self._selected_resource_ids)
-        if not dep_ids:
-            return {}
-
-        try:
-            if not self._run_cache_config.dbt_project_id:
-                events.fire_warn_event(
-                    "State-based deferral could not use dbt project_id; falling back to project_name "
-                    "for deferred relation lookup. Deferral will continue, but project_name fallback "
-                    "is less precise if multiple projects in the organization share the same profile "
-                    "and target. project_id can be specified in your dbt_project.yml"
-                )
-            request = execution_service_models.ResolveDeferredRelationsRequest(
-                profile_name=self._config.profile_name,
-                target_name=self._run_cache_config.defer_to,
-                project_name=self._config.project_name,
-                project_id=self._run_cache_config.dbt_project_id,
-                node_unique_ids=sorted(dep_ids),
-            )
-            return self._query_cache_client.resolve_deferred_relations(request)
-        except Exception as e:
-            events.fire_debug_event("State deferral resolve failed: {}", str(e))
-            return {}
-
-    @cached_property
-    def _state_deferred_fqn_by_unique_id(self) -> t.Dict[str, str]:
-        return self._resolve_state_deferred_fqns()
-
     def resolve_state_deferred_relations(self) -> None:
         """Trigger the one-time state-based deferred-relation resolve."""
-        _ = self._state_deferred_fqn_by_unique_id
-
-    def _resolve_dbt_source_freshness_overrides(
-        self, node: ModelNode | SourceDefinition
-    ) -> t.Dict[str, t.Callable[[], int]]:
-        """Users can configure source freshness in their project by adding a `freshness:` block to the source
-        definitions. They can either specify a timestamp column to use or a custom query to run.
-
-        In normal dbt, these only get invoked if the user runs `dbt source freshness`.
-        However in run-cache we want to treat this logic as an override to our default method of determining source freshness.
-
-        So, given a model node, this function packages up any freshness overrides on its sources into functions that,
-        when executed, return a run-cache compatible last_modified_epoch.
-
-        Docs: https://docs.getdbt.com/reference/resource-properties/freshness?version=1.12
-
-        params:
-            node: a ModelNode that may or may not have {{ source() }} blocks in it
-
-        returns:
-            A dict of source fqn -> function to call that will run dbt freshness and return a run-cache compatible last_modified_epoch.
-            Only sources with freshness overrides specified in user config are returned.
-        """
-
-        if isinstance(node, ModelNode):
-            _, source_ids = self._resolve_deps(node)
-            source_definitions = list(
-                filter(None, [self._manifest.sources.get(source_id) for source_id in source_ids])
-            )
-        else:
-            source_definitions = [node]
-
-        overrides = {}
-        for defn in source_definitions:
-            if hasattr(defn, "loaded_at_query"):
-                # loaded_at_query doesnt exist until dbt 1.10 and takes precedence over loaded_at_field
-                if defn.loaded_at_query is None and defn.loaded_at_field is None:
-                    continue
-            elif defn.loaded_at_field is None:
-                continue
-
-            relation = self._adapter_ext._node_to_relation(defn)  # noqa: SLF001
-
-            # note: these are deliberately bound as defaults so that the correct value is captured in each _run_freshness() function
-            def _run_freshness(
-                defn: SourceDefinition = defn, relation: BaseRelation = relation
-            ) -> int:
-                # logic adapted from: https://github.com/dbt-labs/dbt-core/blob/c02340d4c14df1459c00cf91b9ab738e1c4c9507/core/dbt/task/freshness.py#L120
-                if hasattr(defn, "loaded_at_query") and defn.loaded_at_query:
-                    # only present if loaded_at_query is present, dbt >= 1.10
-                    from dbt.context.providers import SourceContext
-
-                    compiled_code = get_rendered(
-                        defn.loaded_at_query,
-                        SourceContext(
-                            defn, self._config, self._manifest, RuntimeProvider(), None
-                        ).to_dict(),
-                        defn,
-                    )
-                    _, freshness = self._adapter_ext.adapter.calculate_freshness_from_custom_sql(
-                        relation,
-                        compiled_code,
-                        macro_resolver=self._manifest,
-                    )
-                elif defn.loaded_at_field:
-                    _, freshness = self._adapter_ext.adapter.calculate_freshness(
-                        relation,
-                        defn.loaded_at_field,
-                        defn.freshness.filter if defn.freshness else None,
-                        self._manifest,
-                    )
-                else:
-                    raise ValueError(
-                        f"No custom freshness metadata defined for {relation.render()}; execution should not have reached here"
-                    )
-
-                # the returned datetimes are not naive so this works
-                user_last_modified_epoch = int(freshness["max_loaded_at"].timestamp() * 1000)
-
-                # note: we use the heuristic clock instead of adapter_ext.current_timestamp_utc() to avoid the overhead of another db query
-                if now_epoch := self._get_heuristic_now_epoch():
-                    # verify the value isnt far in the future. if a far future value gets cached,
-                    # and then the user fixes their freshness query to return a reasonable value,
-                    # run-cache will keep returning Skip responses because the new value will always
-                    # be older than the original value
-                    if user_last_modified_epoch > now_epoch:
-                        events.fire_warn_event(
-                            "Custom last_modified query for {} returned a timestamp in the future: {}. "
-                            "This indicates a bug in the query. Trimming it to the current timestamp: {}.",
-                            relation.render(),
-                            user_last_modified_epoch,
-                            now_epoch,
-                        )
-                        user_last_modified_epoch = now_epoch
-
-                return user_last_modified_epoch
-
-            source_fqn = self._sql(self._node_to_table(defn))
-            overrides[source_fqn] = _run_freshness
-
-        return overrides
+        _ = self._node_resolution.state_deferred_fqn_by_unique_id
 
     def _cache_hit_run_status(self) -> RunStatus:
         """Return the ``RunStatus`` to use for cache-hit results (no-op or clone).
@@ -2555,30 +1282,13 @@ class RunCache:
             message = "No new changes"
         return status, message
 
-    @cached_property
-    def _selected_resource_ids(self) -> t.Set[str]:
-        from dbt.selected_resources import SELECTED_RESOURCES
-
-        return set(SELECTED_RESOURCES)
-
     @property
     def _adapter(self) -> SQLAdapter:
         return self._adapter_ext.adapter
 
     @property
-    def _defer_enabled(self) -> bool:
-        if self._deferred_relation_resolver is None:
-            return False
-        # defer should always be considered enabled (for RunCache plugin purposes) unless --no-defer was explicitly provided by the user
-        # note that we have to check sys.argv because:
-        # - the original cli args are not available on RuntimeConfig
-        # - RuntimeConfig.args.defer defaults to False which means we cannot tell the difference between the default and a explicitly supplied --no-defer argument
-        return "--no-defer" not in sys.argv
-
-    @property
     def dialect(self) -> str:
-        """The sqlglot dialect for the warehouse."""
-        return self._adapter_ext.dialect
+        return self._node_resolution.dialect
 
     @property
     def run_cache_config(self) -> RunCacheConfig:
@@ -2593,41 +1303,10 @@ class RunCache:
         return self._total_time_saved_ms
 
     @property
-    def clone_chain_depth_limit(self) -> t.Optional[int]:
-        # if cloning is disabled by config; send clone_chain_depth_limit=0 to exclude clone candidates
-        if not self._run_cache_config.allow_clones:
-            return 0
-
-        default_limit = self._adapter_ext.CLONE_CHAIN_DEPTH_LIMIT
-
-        # in prod, we set 1 less than the actual limit (which may force an execute instead of a clone)
-        # this ensures that there is always at least 1 more clone left for a dev clone
-        if self._defer_enabled and self._profiles.is_defer_to_profile and default_limit is not None:
-            return max(default_limit - 1, 0)
-
-        return default_limit
-
-    @property
     def is_write_only(self) -> bool:
         """Whether or not we are in "write only" mode, which records execution outcomes but does not
         ask the cache to make decisions"""
         return self._run_cache_config.cache_mode.is_write_only
-
-    @property
-    def table_namespace(self) -> str:
-        """An identifier to tag a group of tables with. Cache decisions are then scoped to tables tagged with the same namespace.
-
-        This prevents for example a "skip" response being returned based on an execution record that was actually executed
-        against a different database server and table in question doesn't even exist in the current database server.
-
-        A common place this can occur is in CI pipelines, where CI executes against an isolated fresh/empty database that is specified
-        using an environment variable (and nothing else about the project is changed - identical catalog, default schema, table names etc).
-
-        Without namespaces, the state server could return Skip or Clone decisions based on the production database, not the CI one
-        """
-        # this is adapter-specific but essentially tries to tag a unique connection
-        # for example, the Snowflake adapter includes the snowflake account_id and the Postgres adapter includes the database hostname
-        return self._config.credentials.hashed_unique_field()
 
 
 class _DataTestAdapterProxy:
@@ -2750,7 +1429,9 @@ class _DataTestAdapterProxy:
 
                 if isinstance(query_cache_response, CacheBypassedResponse):
                     table_type, last_modified_epoch = (
-                        self._run_cache._get_target_table_type_and_last_modified_epoch(self._node)  # noqa: SLF001
+                        self._run_cache._freshness.get_target_table_type_and_last_modified_epoch(  # noqa: SLF001
+                            self._node
+                        )
                     )
                     self._run_cache._publish_write_only_execution(  # noqa: SLF001
                         bypass_response=query_cache_response,

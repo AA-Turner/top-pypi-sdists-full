@@ -89,14 +89,11 @@ def sync_detailed(
 ) -> Response[ErrorResponse | IssueUploadConfigurationResponse]:
     """IssueUploadConfiguration
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``configuration:upload``
-    grant, with the workspace taken from its signed binding) and return the
-    absolute DP API URL where the
-    tarball bytes are POSTed next. **No database row is created in this step**
-    — the row is INSERTed by the DP API after vault store succeeds, via the
-    ``dp-api → api CONFIGURATIONS_WRITE`` write-back edge.
+    Prepares the upload of a new configuration. Send a multipart POST with `file` (the package) to
+    `upload_url`, with `Authorization: Bearer <upload_token>`, within 10 minutes. The configuration
+    exists, under `configuration_id`, only after the upload succeeds.
 
-    Requires WRITE permission on the workspace.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -126,14 +123,11 @@ def sync(
 ) -> ErrorResponse | IssueUploadConfigurationResponse | None:
     """IssueUploadConfiguration
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``configuration:upload``
-    grant, with the workspace taken from its signed binding) and return the
-    absolute DP API URL where the
-    tarball bytes are POSTed next. **No database row is created in this step**
-    — the row is INSERTed by the DP API after vault store succeeds, via the
-    ``dp-api → api CONFIGURATIONS_WRITE`` write-back edge.
+    Prepares the upload of a new configuration. Send a multipart POST with `file` (the package) to
+    `upload_url`, with `Authorization: Bearer <upload_token>`, within 10 minutes. The configuration
+    exists, under `configuration_id`, only after the upload succeeds.
 
-    Requires WRITE permission on the workspace.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -158,14 +152,11 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | IssueUploadConfigurationResponse]:
     """IssueUploadConfiguration
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``configuration:upload``
-    grant, with the workspace taken from its signed binding) and return the
-    absolute DP API URL where the
-    tarball bytes are POSTed next. **No database row is created in this step**
-    — the row is INSERTed by the DP API after vault store succeeds, via the
-    ``dp-api → api CONFIGURATIONS_WRITE`` write-back edge.
+    Prepares the upload of a new configuration. Send a multipart POST with `file` (the package) to
+    `upload_url`, with `Authorization: Bearer <upload_token>`, within 10 minutes. The configuration
+    exists, under `configuration_id`, only after the upload succeeds.
 
-    Requires WRITE permission on the workspace.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -193,14 +184,11 @@ async def asyncio(
 ) -> ErrorResponse | IssueUploadConfigurationResponse | None:
     """IssueUploadConfiguration
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``configuration:upload``
-    grant, with the workspace taken from its signed binding) and return the
-    absolute DP API URL where the
-    tarball bytes are POSTed next. **No database row is created in this step**
-    — the row is INSERTed by the DP API after vault store succeeds, via the
-    ``dp-api → api CONFIGURATIONS_WRITE`` write-back edge.
+    Prepares the upload of a new configuration. Send a multipart POST with `file` (the package) to
+    `upload_url`, with `Authorization: Bearer <upload_token>`, within 10 minutes. The configuration
+    exists, under `configuration_id`, only after the upload succeeds.
 
-    Requires WRITE permission on the workspace.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

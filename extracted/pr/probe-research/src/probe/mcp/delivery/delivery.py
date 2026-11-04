@@ -475,7 +475,13 @@ def page(
     context = None
     if offset == 0 and tool == "entity" and args.get("view") in {"notes", "summary", "readme"}:
         data = stable.get("data", {})
-        context = {key: data[key] for key in ("entity_type", "entity", "view") if key in data}
+        # `notes_version` too: a writer pins its replace to the version its text came
+        # from (`probe notes write --base-version`), and a paged note shows it nowhere else.
+        context = {
+            key: data[key]
+            for key in ("entity_type", "entity", "view", "notes_version")
+            if key in data
+        }
         if args.get("view") == "summary" and isinstance(data.get("notes"), dict):
             context["notes"] = data["notes"]
         if args.get("view") == "readme" and isinstance(data.get("readme"), dict):
@@ -539,7 +545,9 @@ def page(
     # Reserve its exact wrapped cost once before sizing the text. A giant
     # identity/caveat gets an explicit card door, never a silently partial copy.
     if context is not None and not budget.fits(candidate(offset + 1)):
-        context = {"omitted": True, "read_more": 'view="card"'}
+        # The version stays (a few tokens): no card carries it, and a writer pins to it.
+        version = {"notes_version": context["notes_version"]} if "notes_version" in context else {}
+        context = {"omitted": True, "read_more": 'view="card"', **version}
 
     # Token count is not monotonic in characters. Binary sizing only selects a
     # candidate; a final exact check is mandatory, and one character is a finite

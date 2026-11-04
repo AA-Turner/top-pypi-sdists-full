@@ -324,21 +324,21 @@ class OptimStepResult:
 class PendingOp:
     """A submitted but not-yet-resolved async operation.
 
-    Returned by ``Model.submit_forward_backward()`` and
-    ``Model.submit_optim_step()``. Call ``.result()`` to block until complete.
+    Returned by ``Model.submit_forward_backward()``, ``Model.submit_optim_step()``,
+    and ``Model.submit_save_weights()``. Call ``.result()`` to block until complete.
     """
 
     request_id: str
     _session: Any  # Session reference (for polling)
     _model_id: str
-    _parse_result: Callable[[Any], ForwardResult | OptimStepResult]
+    _parse_result: Callable[[Any], ForwardResult | OptimStepResult | Checkpoint]
     _timeout: float = 1800.0
 
     def result(
         self,
         *,
         before_poll: Callable[[], None] | None = None,
-    ) -> ForwardResult | OptimStepResult:
+    ) -> ForwardResult | OptimStepResult | Checkpoint:
         """Block until the operation completes and return the result."""
         kwargs: dict[str, Any] = {}
         if before_poll is not None:

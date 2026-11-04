@@ -34,8 +34,8 @@ from together import Together
 from together._types import Omit, omit
 from together._exceptions import APIError, NotFoundError, AuthenticationError
 from together._utils._json import openapi_dumps
-from together.lib.cli.auth import load_stored_credentials
 from together.lib.cli.utils._exit import CliDiagnosticExit
+from together.lib.cli.utils._debug import is_enabled
 from together.lib.cli.utils.config import CLIConfig, CLIConfigParameter
 from together.types.beta.deployment import Deployment
 from together.types.beta.jig.volume import Volume
@@ -60,7 +60,8 @@ else:
 # managed dockerfile marker - if this is the first line, jig will regenerate the file
 DOCKERFILE_MANAGED_MARKER = "# MANAGED BY JIG - Remove this line to prevent jig from overwriting this file"
 
-DEBUG = os.getenv("TOGETHER_DEBUG", "").strip()[:1] in ("y", "1", "t")
+# check for --debug flag
+DEBUG = is_enabled()
 
 WARMUP_ENV_NAME = os.getenv("WARMUP_ENV_NAME", "TORCHINDUCTOR_CACHE_DIR")
 WARMUP_DEST = os.getenv("WARMUP_DEST", "torch_cache")
@@ -76,26 +77,6 @@ _TRACK_READY_TIMEOUT = 120
 
 class JigError(Exception):
     """Actionable runtime error"""
-
-
-def deployment_api_key(client_key: str | None) -> str:
-    """API key for a deployment secret or registry login.
-
-    `--api-key`, or `$TOGETHER_API_KEY` when that is the client credential, is the key this command
-    is already using. A `tg login` session token is not an API key, JWT or otherwise.
-    `$TOGETHER_API_KEY` is ignored while logged in, so copying it would store a key from a different
-    org than the deploy.
-    """
-    key = (client_key or "").strip()
-    stored = load_stored_credentials()
-    if stored is not None and key == stored.access_token:
-        raise JigError(
-            "A login token cannot be stored as an API key. Pass --api-key with an API key for this project. "
-            "TOGETHER_API_KEY is ignored while you are logged in."
-        )
-    if not key:
-        raise JigError("An API key is required. Pass --api-key or set TOGETHER_API_KEY.")
-    return key
 
 
 # == Configuration ==
@@ -159,11 +140,8 @@ def _parse_ttl(ttl: str) -> int:
     return int(match.group(1)) * 86400
 
 
-def _format_timestamp(iso: str) -> str:
-    try:
-        return dt.fromisoformat(iso.replace("Z", "+00:00")).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
-    except ValueError:
-        return iso
+def _format_timestamp(timestamp: dt) -> str:
+    return timestamp.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
 # matches the server's grace period, during which owners are warned before a secret is deleted
@@ -174,15 +152,8 @@ def _warn_expiring_secrets(deployment: Deployment) -> None:
     """Warn about secrets the deployment references that are deleted within the warning window."""
     soon = dt.now(timezone.utc) + _SECRET_EXPIRY_WARNING_WINDOW
     for var in deployment.environment_variables or []:
-        # not in the generated SDK model yet
-        expires_at: str | None = getattr(var, "value_from_secret_expires_at", None)
-        if not expires_at:
-            continue
-        try:
-            expiring = dt.fromisoformat(expires_at.replace("Z", "+00:00")) <= soon
-        except ValueError:
-            continue
-        if expiring:
+        expires_at = var.value_from_secret_expires_at
+        if expires_at and expires_at <= soon:
             console.print(
                 f"\N{WARNING SIGN} Secret {var.name} used by this deployment will expire and be permanently "
                 f"deleted at {_format_timestamp(expires_at)}. Renew it with: "
@@ -656,6 +627,7 @@ class Jig:
 
     def registry(self) -> str:
         """Get registry and namespace for current user"""
+
         if not self.state.registry_base_path:
             res = self.together.get("/v1/image-repositories/base-path", cast_to=httpx.Response)
             response = res.json()
@@ -711,28 +683,25 @@ class Jig:
         self.state._secrets_initialized = True
         self.state.save()
 
-    def set_secret(self, name: str, value: str, description: str, ttl_seconds: int | None = None) -> str | None:
+    def set_secret(self, name: str, value: str, description: str, ttl_seconds: int | None = None) -> dt | None:
         """Set secret for the deployment (create or update) and return when it expires"""
         self.sync_secrets_from_deployment()
         scoped_name = f"{self.name}-{name}"
-        # ttl_seconds is not in the generated SDK params yet
-        extra_body = {"ttl_seconds": ttl_seconds} if ttl_seconds else None
+        ttl: int | Omit = ttl_seconds or omit
 
         try:
             secret = self.api.secrets.update(
-                id=scoped_name, name=scoped_name, description=description, value=value, extra_body=extra_body
+                id=scoped_name, name=scoped_name, description=description, value=value, ttl_seconds=ttl
             )
             console.print(f"\N{CHECK MARK} Updated secret {name}")
         except NotFoundError:
-            secret = self.api.secrets.create(
-                name=scoped_name, value=value, description=description, extra_body=extra_body
-            )
+            secret = self.api.secrets.create(name=scoped_name, value=value, description=description, ttl_seconds=ttl)
             console.print(f"\N{CHECK MARK} Created secret {name}")
 
         self.state.secrets[name] = scoped_name
         self.state.save()
 
-        expires_at: str | None = getattr(secret, "expires_at", None)
+        expires_at = secret.expires_at
         if expires_at:
             console.print(
                 f"\N{WARNING SIGN} Secret {name} will expire and be permanently deleted at "
@@ -860,7 +829,9 @@ class Jig:
 
     def _docker_login(self, host: str) -> None:
         login_cmd = ["docker", "login", host, "--username", "user", "--password-stdin"]
-        password = deployment_api_key(self.together.api_key)
+        password = (self.together.api_key or "").strip()
+        if not password:
+            raise JigError("Not authenticated. Run `tg login` or set TOGETHER_API_KEY.")
         if subprocess.run(login_cmd, input=password, text=True).returncode != 0:
             raise JigError("Registry login failed")
 
@@ -1019,8 +990,6 @@ class Jig:
             extra_kwargs["extra_body"] = {"experimental": experimental}
 
         self.sync_secrets_from_deployment()
-        if "TOGETHER_API_KEY" not in self.state.secrets:
-            self.set_secret("TOGETHER_API_KEY", deployment_api_key(self.together.api_key), "Auth key for queue API")
 
         env_dict = dict(self.config.deploy.environment_variables)
         if self.together.base_url.host not in ("api.together.ai", "api.together.xyz"):
@@ -1354,7 +1323,7 @@ def _jig_fail(msg: str) -> typing.NoReturn:
         if not json_was_emitted():
             emit_json({"ok": False, "error": msg})
     else:
-        console.print(f"[blue]Jig:[/blue] [red]Failed[/red] {msg}")
+        console.print(f"[blue]Jig[/blue] [red]failed[/red]: {msg}")
     raise CliDiagnosticExit(msg)
 
 
@@ -1406,7 +1375,7 @@ def _run_jig_cmd(config: CLIConfig, config_path: str | None, fn: Callable[[Jig],
     except Exception as e:
         if DEBUG:
             raise
-        _jig_fail(f"Unexpected error: {e}")
+        _jig_fail(f"{type(e).__name__}: {e}")
 
 
 def init(
@@ -1540,7 +1509,7 @@ def list_deployments(jig: Jig) -> Any:
     return jig.api.with_raw_response.list()
 
 
-def secrets_set(jig: Jig, name: str, value: str, description: str, ttl: str | None = None) -> str | None:
+def secrets_set(jig: Jig, name: str, value: str, description: str, ttl: str | None = None) -> dt | None:
     """Set a secret (create or update)"""
     return jig.set_secret(name, value, description, _parse_ttl(ttl) if ttl else None)
 

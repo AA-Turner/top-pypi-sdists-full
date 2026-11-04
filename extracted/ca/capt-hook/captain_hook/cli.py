@@ -34,6 +34,7 @@ from captain_hook.loader import (
     discover_pack,
     is_skip_marked,
     register_fault_announcements,
+    register_load_error_warnings,
     register_pr_announcements,
     register_resource_provisioning,
     stamp_identity,
@@ -139,6 +140,8 @@ class CliState:
         # The PR announcer's gating all lives in collect_announcements, so it registers unconditionally.
         register_pr_announcements()
         register_fault_announcements()
+        if _state.load_errors:
+            register_load_error_warnings(tuple(_state.load_errors))
         stamp_identity(before, root=Path(__file__).parent)
         return packs
 
@@ -418,16 +421,21 @@ def run_event(state: CliState, event_name: str) -> None:
     setup_logging(session_id)
 
     session_dir = ensure_session(SessionId(session_id)) if session_id else None
+    from captain_hook.daemon import decision_writer
     from captain_hook.snapshots.client import client_scope
 
     tools = pack_tool_specs(state.discover())
-    with client_scope() as client:
-        client.bind_tool_registry(tools)
-        output, background = dispatch_event(state.root, event, raw, session_dir=session_dir)
-        output = attributed(event, raw, output)
-        if output:
-            print(envelope_text(output), flush=True)
-        background()
+    writer = decision_writer.install()
+    try:
+        with client_scope() as client:
+            client.bind_tool_registry(tools)
+            output, background = dispatch_event(state.root, event, raw, session_dir=session_dir)
+            output = attributed(event, raw, output)
+            if output:
+                print(envelope_text(output), flush=True)
+            background()
+    finally:
+        decision_writer.uninstall(writer)
 
 
 def init_project(root: Path, *, review: bool = True) -> None:
@@ -617,7 +625,24 @@ def run_tests(json_output: bool = False) -> None:
         sys.exit(1)
 
 
+def print_version(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
+    if not value or ctx.resilient_parsing:
+        return
+    from importlib.metadata import version
+
+    click.echo(f"capt-hook {version('capt-hook')} (cc-transcript {version('cc-transcript')})")
+    ctx.exit()
+
+
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
+@click.option(
+    "--version",
+    is_flag=True,
+    expose_value=False,
+    is_eager=True,
+    callback=print_version,
+    help="Show the capt-hook and cc-transcript versions and exit.",
+)
 @click.option(
     "--hooks",
     default=None,

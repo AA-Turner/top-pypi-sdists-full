@@ -110,6 +110,5 @@ class ChatFlowStateCollection:
         return woken
 
     async def delete_for_chat(self, chat_id: StrObjectId) -> int:
-        result = await self.collection.delete_many({"chat_id": chat_id})
-        await self.chats.update_one({"_id": ObjectId(chat_id)}, {"$set": {"flow_ids": []}})
-        return result.deleted_count
+        """Sin llamador (ENG-156): borraba los estados del chat y vaciaba `flow_ids` por fuera de `ChatRepository`."""
+        raise NotImplementedError("delete_for_chat no tiene llamador (ENG-156)")

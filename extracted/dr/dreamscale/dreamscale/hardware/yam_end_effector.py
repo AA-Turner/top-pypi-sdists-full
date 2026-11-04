@@ -586,7 +586,10 @@ class YamEndEffectorAdapter:
         wrapped = _JointExecutionPolicy(
             policy, rig, self, getattr(policy, "runtime_contract", None), on_conversion,
         )
-        self.bind_limits(rig)
+        # `dreamscale run` connects while the arms are still closed; their bounds
+        # are bound before the first conversion then (`_JointExecutionPolicy`).
+        if isinstance(getattr(rig, "limits", None), dict) and rig.limits:
+            wrapped.bind_limits()
         return wrapped
 
     def bind_limits(self, rig):
@@ -618,6 +621,11 @@ class _JointExecutionPolicy:
         if on_conversion is not None and not callable(on_conversion):
             raise YamHardwareError("Cartesian conversion recording requires a callable.")
         self.on_conversion = on_conversion
+        self._limits_bound = False
+
+    def bind_limits(self):
+        self.adapter.bind_limits(self.rig)
+        self._limits_bound = True
 
     def __getattr__(self, name):
         return getattr(self.remote, name)
@@ -636,6 +644,9 @@ class _JointExecutionPolicy:
         self.rig.validate_action(action, check_step=check_step, saturate=False)
 
     def _joint_actions(self, chunk):
+        if not self._limits_bound:
+            self.bind_limits()
+
         def record(report):
             if self.on_conversion is not None:
                 self.on_conversion(replace(

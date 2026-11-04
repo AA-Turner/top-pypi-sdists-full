@@ -9,7 +9,7 @@ from superdoc.errors import SuperDocError
 
 class LocalIntrospectionTests(unittest.TestCase):
     def test_sync_client_does_not_need_a_document_host(self) -> None:
-        client = SuperDocClient(document_host_path='/missing/superdoc-document-host')
+        client = SuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
 
         overview = client.describe()
         detail = client.describe_command({'operationId': 'find'})
@@ -19,7 +19,7 @@ class LocalIntrospectionTests(unittest.TestCase):
 
     def test_async_client_does_not_need_a_document_host(self) -> None:
         async def run() -> None:
-            client = AsyncSuperDocClient(document_host_path='/missing/superdoc-document-host')
+            client = AsyncSuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
 
             overview = await client.describe()
             detail = await client.describe_command({'operationId': 'session use'})
@@ -30,7 +30,7 @@ class LocalIntrospectionTests(unittest.TestCase):
         asyncio.run(run())
 
     def test_describe_command_preserves_lookup_errors(self) -> None:
-        client = SuperDocClient(document_host_path='/missing/superdoc-document-host')
+        client = SuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
 
         with self.assertRaises(SuperDocError) as missing:
             client.describe_command({})
@@ -44,7 +44,7 @@ class LocalIntrospectionTests(unittest.TestCase):
         self.assertEqual(unknown.exception.exit_code, 1)
 
     def test_describe_returns_a_fresh_value(self) -> None:
-        client = SuperDocClient(document_host_path='/missing/superdoc-document-host')
+        client = SuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
         first = client.describe()
         first['operations'][0]['id'] = 'changed'
 

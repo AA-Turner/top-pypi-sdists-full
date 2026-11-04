@@ -29,9 +29,9 @@ use arrow_array::RecordBatch;
 use arrow_array::builder::{Date32Builder, Float64Builder, Int32Builder, StringBuilder};
 use arrow_schema::{DataType, Field, Schema};
 use chrono::NaiveDate;
+use xbbg_async::diagnostics::{FieldExceptionMeta, FieldExceptions, METADATA_KEY_FIELD_EXCEPTIONS};
 use xbbg_async::engine::state::{
-    BloombergRequestIds, FieldExceptionMeta, METADATA_KEY_FIELD_EXCEPTIONS,
-    METADATA_KEY_SECURITY_ERRORS, SecurityErrorMeta,
+    BloombergRequestIds, METADATA_KEY_SECURITY_ERRORS, SecurityErrorMeta,
 };
 use xbbg_async::engine::{Engine, RequestParams};
 use xbbg_async::services::{Operation, Service};
@@ -39,8 +39,7 @@ use xbbg_ext::{fmt_date, parse_date};
 
 use crate::error::{RecipeError, Result};
 use crate::utils::{
-    array_value_as_date, array_value_as_f64, array_value_as_string, as_string_col,
-    clean_bloomberg_text, naive_to_date32, parse_f64_like,
+    ColumnValues, as_string_col, clean_bloomberg_text, naive_to_date32, parse_f64_like, str_entry,
 };
 
 const FIELD_ETF_NAV_TICKER: &str = "ETF_NAV_TICKER";
@@ -167,7 +166,7 @@ pub async fn recipe_etf_nav_snapshot(engine: &Engine, etfs: Vec<String>) -> Resu
             request_ids.collect(&batch);
             let diagnostics = parse_response_diagnostics(&batch)?;
             check_value_source_diagnostics(&fallback_sources, &diagnostics)?;
-            let values = strict_refdata_value_map(&batch)?;
+            let values = strict_refdata_value_map(&batch, engine.key_column().as_str())?;
             for source in &fallback_sources {
                 let value = values
                     .get(source)
@@ -260,7 +259,8 @@ async fn resolve_etf_nav_relationships(
     request_ids.collect(&relationship_batch);
     let relationship_diagnostics = parse_response_diagnostics(&relationship_batch)?;
     check_source_diagnostics(&sources, &relationship_diagnostics)?;
-    let relationship_values = strict_refdata_value_map(&relationship_batch)?;
+    let relationship_values =
+        strict_refdata_value_map(&relationship_batch, engine.key_column().as_str())?;
     let targets = map_relationship_targets(&sources, &relationship_values);
 
     let validation_targets = validation_securities(&sources, &targets);
@@ -272,7 +272,8 @@ async fn resolve_etf_nav_relationships(
             .await?;
         request_ids.collect(&validation_batch);
         let validation_diagnostics = parse_response_diagnostics(&validation_batch)?;
-        let validation_values = strict_refdata_value_map(&validation_batch)?;
+        let validation_values =
+            strict_refdata_value_map(&validation_batch, engine.key_column().as_str())?;
         for target in &validation_targets {
             target_info.insert(
                 target.clone(),
@@ -695,19 +696,20 @@ async fn request_history_series(
             end_date,
         ))
         .await?;
-    parse_history_series(&batch, &securities)
+    parse_history_series(&batch, &securities, engine.key_column().as_str())
 }
 
 fn parse_history_series(
     batch: &RecordBatch,
     securities: &[String],
+    key: &str,
 ) -> Result<(HistorySeries, BloombergRequestIds)> {
     let mut request_ids = BloombergRequestIds::default();
     request_ids.collect(batch);
     let result = (|| {
         let diagnostics = parse_response_diagnostics(batch)?;
         check_value_source_diagnostics(securities, &diagnostics)?;
-        strict_history_value_map(batch)
+        strict_history_value_map(batch, key)
     })();
     let history =
         result.map_err(|error| error.with_bloomberg_request_ids(request_ids.iter().cloned()))?;
@@ -753,11 +755,13 @@ fn parse_response_diagnostics(batch: &RecordBatch) -> Result<ResponseDiagnostics
     };
     let field_exceptions = match metadata.get(METADATA_KEY_FIELD_EXCEPTIONS) {
         None => BTreeMap::new(),
-        Some(raw) => serde_json::from_str(raw).map_err(|err| {
-            RecipeError::Other(format!(
-                "invalid {METADATA_KEY_FIELD_EXCEPTIONS} metadata: {err}"
-            ))
-        })?,
+        Some(raw) => FieldExceptions::from_json(raw)
+            .map_err(|err| {
+                RecipeError::Other(format!(
+                    "invalid {METADATA_KEY_FIELD_EXCEPTIONS} metadata: {err}"
+                ))
+            })?
+            .expanded(),
     };
     Ok(ResponseDiagnostics {
         security_errors,
@@ -878,16 +882,18 @@ fn enforce_snapshot_value_exceptions(
     Ok(())
 }
 
-/// Strict generic long `ticker`/`field`/`value` parse.
+/// Strict generic long key/`field`/`value` parse, keyed by the engine's `key`
+/// column.
 ///
 /// Identical duplicate rows coalesce; conflicting duplicate values abort.
 /// Blank and sentinel values are dropped so they surface as `None`.
-fn strict_refdata_value_map(batch: &RecordBatch) -> Result<RefValues> {
-    let ticker_col = as_string_col(batch, "ticker")?;
+fn strict_refdata_value_map(batch: &RecordBatch, key: &str) -> Result<RefValues> {
+    let ticker_col = as_string_col(batch, key)?;
     let field_col = as_string_col(batch, "field")?;
     let value_col = batch
         .column_by_name("value")
         .ok_or_else(|| RecipeError::Other("missing 'value' column".to_string()))?;
+    let value_col = ColumnValues::new(value_col.as_ref());
     let mut values: RefValues = HashMap::new();
 
     for row in 0..batch.num_rows() {
@@ -895,7 +901,7 @@ fn strict_refdata_value_map(batch: &RecordBatch) -> Result<RefValues> {
         if ticker_col.is_null(row) || field_col.is_null(row) {
             continue;
         }
-        let Some(raw_value) = array_value_as_string(value_col, row) else {
+        let Some(raw_value) = value_col.string(row) else {
             continue;
         };
         let Some(value) = clean_bloomberg_text(&raw_value) else {
@@ -903,7 +909,7 @@ fn strict_refdata_value_map(batch: &RecordBatch) -> Result<RefValues> {
         };
         let ticker = ticker_col.value(row);
         let field = field_col.value(row).to_ascii_uppercase();
-        let fields = values.entry(ticker.to_string()).or_default();
+        let fields = str_entry(&mut values, ticker);
         match fields.entry(field) {
             HashEntry::Occupied(entry) => {
                 if entry.get() != &value {
@@ -923,9 +929,9 @@ fn strict_refdata_value_map(batch: &RecordBatch) -> Result<RefValues> {
     Ok(values)
 }
 
-/// Strict historical long parse keyed by `(ticker, date, field)`.
-fn strict_history_value_map(batch: &RecordBatch) -> Result<HistorySeries> {
-    let ticker_col = as_string_col(batch, "ticker")?;
+/// Strict historical long parse keyed by `(security, date, field)`.
+fn strict_history_value_map(batch: &RecordBatch, key: &str) -> Result<HistorySeries> {
+    let ticker_col = as_string_col(batch, key)?;
     let field_col = as_string_col(batch, "field")?;
     let value_col = batch
         .column_by_name("value")
@@ -933,6 +939,8 @@ fn strict_history_value_map(batch: &RecordBatch) -> Result<HistorySeries> {
     let date_col = batch
         .column_by_name("date")
         .ok_or_else(|| RecipeError::Other("missing 'date' column".to_string()))?;
+    let value_col = ColumnValues::new(value_col.as_ref());
+    let date_col = ColumnValues::new(date_col.as_ref());
     let mut values = HistorySeries::new();
 
     for row in 0..batch.num_rows() {
@@ -940,10 +948,10 @@ fn strict_history_value_map(batch: &RecordBatch) -> Result<HistorySeries> {
         if ticker_col.is_null(row) || field_col.is_null(row) {
             continue;
         }
-        let Some(date) = array_value_as_date(date_col, row) else {
+        let Some(date) = date_col.date(row) else {
             continue;
         };
-        let Some(value) = array_value_as_f64(value_col, row) else {
+        let Some(value) = value_col.f64(row) else {
             continue;
         };
         let ticker = ticker_col.value(row);
@@ -1182,6 +1190,7 @@ fn build_history_batch(rows: &[HistoryRow]) -> Result<RecordBatch> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::{array_value_as_f64, array_value_as_string};
     use arrow_array::{Array, Date32Array, Float64Array, Int32Array, StringArray};
     use xbbg_async::engine::state::{
         METADATA_KEY_BLOOMBERG_REQUEST_ID, METADATA_KEY_BLOOMBERG_REQUEST_IDS,
@@ -1601,7 +1610,8 @@ mod tests {
                 (METADATA_KEY_SECURITY_ERRORS, "synthetic invalid metadata"),
             ],
         );
-        let error = parse_history_series(&source, &["SYNTH_HISTORY Index".into()]).unwrap_err();
+        let error =
+            parse_history_series(&source, &["SYNTH_HISTORY Index".into()], "ticker").unwrap_err();
         assert!(
             error
                 .to_string()
@@ -1679,8 +1689,14 @@ mod tests {
         let mut fund_ids = BloombergRequestIds::default();
         fund_ids.collect(&fund_source);
         let (px_history, fund_history, history_ids) = ordered_history_results(
-            Ok((strict_history_value_map(&px_source).unwrap(), px_ids)),
-            Ok((strict_history_value_map(&fund_source).unwrap(), fund_ids)),
+            Ok((
+                strict_history_value_map(&px_source, "ticker").unwrap(),
+                px_ids,
+            )),
+            Ok((
+                strict_history_value_map(&fund_source, "ticker").unwrap(),
+                fund_ids,
+            )),
         )
         .unwrap();
         request_ids.extend(history_ids.iter().cloned());
@@ -1713,14 +1729,14 @@ mod tests {
             (QQQ, "ETF_NAV_TICKER", Some("QQQNV")),
             (QQQ, "ETF_NAV_TICKER", Some("QQQNV")),
         ]);
-        let values = strict_refdata_value_map(&identical).unwrap();
+        let values = strict_refdata_value_map(&identical, "ticker").unwrap();
         assert_eq!(values[QQQ]["ETF_NAV_TICKER"], "QQQNV");
 
         let conflicting = refdata_batch(&[
             (QQQ, "ETF_NAV_TICKER", Some("QQQNV")),
             (QQQ, "etf_nav_ticker", Some("OTHER")),
         ]);
-        let error = strict_refdata_value_map(&conflicting).unwrap_err();
+        let error = strict_refdata_value_map(&conflicting, "ticker").unwrap_err();
         assert!(error.to_string().contains("conflicting values"));
     }
 
@@ -1738,7 +1754,7 @@ mod tests {
             ],
         )
         .unwrap();
-        let error = strict_refdata_value_map(&batch).unwrap_err();
+        let error = strict_refdata_value_map(&batch, "ticker").unwrap_err();
         assert!(error.to_string().contains("missing 'value' column"));
 
         let wrong_type = Arc::new(Schema::new(vec![
@@ -1755,7 +1771,7 @@ mod tests {
             ],
         )
         .unwrap();
-        let error = strict_refdata_value_map(&batch).unwrap_err();
+        let error = strict_refdata_value_map(&batch, "ticker").unwrap_err();
         assert!(error.to_string().contains("'ticker' column must be Utf8"));
     }
 
@@ -1766,7 +1782,7 @@ mod tests {
             (QQQ_NAV, "PX_LAST", Some(500.25), day),
             (QQQ_NAV, "PX_LAST", Some(500.25), day),
         ]);
-        let values = strict_history_value_map(&identical).unwrap();
+        let values = strict_history_value_map(&identical, "ticker").unwrap();
         assert_eq!(
             values[&(QQQ_NAV.to_string(), "PX_LAST".to_string())][&day],
             500.25
@@ -1776,11 +1792,11 @@ mod tests {
             (QQQ_NAV, "PX_LAST", Some(500.25), day),
             (QQQ_NAV, "PX_LAST", Some(501.0), day),
         ]);
-        let error = strict_history_value_map(&conflicting).unwrap_err();
+        let error = strict_history_value_map(&conflicting, "ticker").unwrap_err();
         assert!(error.to_string().contains("conflicting values"));
 
         let missing_date = refdata_batch(&[(QQQ_NAV, "PX_LAST", Some("500.25"))]);
-        let error = strict_history_value_map(&missing_date).unwrap_err();
+        let error = strict_history_value_map(&missing_date, "ticker").unwrap_err();
         assert!(error.to_string().contains("missing 'date' column"));
     }
 
@@ -1817,19 +1833,26 @@ mod tests {
         let exceptions = format!(
             r#"{{"{QQQ}": [{{"field": "ETF_INAV_TICKER", "category": "BAD_FLD", "code": 9, "subcategory": "NOT_APPLICABLE_TO_REF_DATA", "message": "Field not applicable"}}]}}"#
         );
-        let batch = with_metadata(
-            &batch,
-            &[
-                (METADATA_KEY_SECURITY_ERRORS, security.as_str()),
-                (METADATA_KEY_FIELD_EXCEPTIONS, exceptions.as_str()),
-            ],
-        );
-        let diagnostics = parse_response_diagnostics(&batch).unwrap();
-        assert_eq!(diagnostics.security_errors[AT1].code, 15);
-        assert_eq!(
-            diagnostics.field_exceptions[QQQ][0].field,
-            "ETF_INAV_TICKER"
-        );
+        let compact = FieldExceptions::from_json(&exceptions)
+            .unwrap()
+            .to_json()
+            .unwrap();
+        for exceptions in [&exceptions, &compact] {
+            let batch = with_metadata(
+                &batch,
+                &[
+                    (METADATA_KEY_SECURITY_ERRORS, security.as_str()),
+                    (METADATA_KEY_FIELD_EXCEPTIONS, exceptions.as_str()),
+                ],
+            );
+            let diagnostics = parse_response_diagnostics(&batch).unwrap();
+            assert_eq!(diagnostics.security_errors[AT1].code, 15);
+            assert_eq!(
+                diagnostics.field_exceptions[QQQ][0].field,
+                "ETF_INAV_TICKER"
+            );
+            assert!(is_not_applicable(&diagnostics.field_exceptions[QQQ][0]));
+        }
     }
 
     fn security_error(message: &str) -> SecurityErrorMeta {
@@ -2101,7 +2124,7 @@ mod tests {
             (AT1, "ETF_NAV_TICKER", Some("nan")),
             (AT1, "ETF_INAV_TICKER", Some("AT1IN Index")),
         ]);
-        let values = strict_refdata_value_map(&batch).unwrap();
+        let values = strict_refdata_value_map(&batch, "ticker").unwrap();
         let sources = vec![QQQ.to_string(), AT1.to_string()];
         let targets = map_relationship_targets(&sources, &values);
 
@@ -2300,8 +2323,8 @@ mod tests {
             (AT1_INAV, "PX_LAST", Some(9.9), d1),
         ]);
         let fund_batch = history_batch(&[(AT1, "FUND_NET_ASSET_VAL", Some(10.5), d2)]);
-        let px_history = strict_history_value_map(&px_batch).unwrap();
-        let fund_history = strict_history_value_map(&fund_batch).unwrap();
+        let px_history = strict_history_value_map(&px_batch, "ticker").unwrap();
+        let fund_history = strict_history_value_map(&fund_batch, "ticker").unwrap();
 
         let resolutions = vec![
             resolution(

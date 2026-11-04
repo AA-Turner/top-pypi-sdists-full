@@ -102,7 +102,7 @@ def sync_detailed(
 
     Gets a job for a workspace by its ID. Find a job by its ref with `list_jobs`.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -141,7 +141,7 @@ def sync(
 
     Gets a job for a workspace by its ID. Find a job by its ref with `list_jobs`.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -175,7 +175,7 @@ async def asyncio_detailed(
 
     Gets a job for a workspace by its ID. Find a job by its ref with `list_jobs`.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -212,7 +212,7 @@ async def asyncio(
 
     Gets a job for a workspace by its ID. Find a job by its ref with `list_jobs`.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

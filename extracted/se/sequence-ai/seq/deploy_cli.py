@@ -62,13 +62,14 @@ def _request_of(kind: str, cls: type, *, name: str | None = None, require_cap: b
 
 
 def build_wait_s(request: Any) -> float:
-    """How long `seq deploy` follows a policy's build: as long as the platform may take to start its worker - the
-    policy's timeouts.startup where it declares more than the default wait, so one that may load for 2 hours is not
-    given up on at 30 minutes while the platform still loads it. {worker 7's std3 list A11}"""
+    """How long `seq deploy` follows a policy's build: as long as the platform may take to start its worker - the most
+    its startup limit is, the platform's own (sequence-base STARTUP_TIMEOUT_MAX_S, raised from its floor by what an
+    earlier version's check measured), so one that loads for 2 hours is not given up on at 30 minutes while the
+    platform still loads it. {worker 7's std3 list A11; contract 0.5.46}"""
     from seq._deploy_gateway import DEFAULT_WAIT_TIMEOUT_S
+    from sequence_base.constants.serving import STARTUP_TIMEOUT_MAX_S
 
-    startup = getattr(getattr(request, "timeouts", None), "startup", None)
-    return max(DEFAULT_WAIT_TIMEOUT_S, float(startup or 0))
+    return max(DEFAULT_WAIT_TIMEOUT_S, float(STARTUP_TIMEOUT_MAX_S))
 
 
 def max_gpus_required_message() -> str:
@@ -575,9 +576,10 @@ def first_start_lines(name: str, verdict: dict | None) -> list[str]:
         out.append(f"{'':12}{said}")
 
 
+
     build = fs.get("build") or {}
     if build.get("seconds"):
-        ran = f"its build machine ran {elapsed(build['seconds'])}"
+        ran = f"the machine preparing its build ran {elapsed(build['seconds'])}"
         out.append(f"{'':12}" + (f"{ran}: about {money(build['usd'])} for this version's build"
                                  if build.get("usd") is not None else f"{ran}; not priced"))
     return out

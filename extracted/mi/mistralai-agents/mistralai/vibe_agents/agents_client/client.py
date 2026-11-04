@@ -1,4 +1,5 @@
 from http import HTTPMethod
+from typing import Literal
 from urllib.parse import quote
 from uuid import UUID
 
@@ -42,10 +43,11 @@ class AgentsClient(_InternalHTTPClient):
         connectors: list[ConnectorInput] | None = None,
         secret_bindings: list[SecretBindingInput] | None = None,
         connector_selection: ConnectorSelectionInput | None = None,
-        required_session_inputs: SessionInputSchemas | None = None,
+        session_input_schemas: SessionInputSchemas | None = None,
         default_subagent_policy: SubagentPolicy | None = None,
         sandbox_config: SandboxConfigInput | None = None,
         mcp_servers: list[PlainMCPServerInput] | None = None,
+        sdk_version: str | None = None,
     ) -> ManagedAgentResponse:
         body = CreateManagedAgentRequest(
             agent_name=agent_name,
@@ -61,10 +63,11 @@ class AgentsClient(_InternalHTTPClient):
             connectors=connectors or [],
             secret_bindings=secret_bindings or [],
             connector_selection=connector_selection,
-            required_session_inputs=required_session_inputs,
+            session_input_schemas=session_input_schemas,
             default_subagent_policy=default_subagent_policy,
             sandbox_config=sandbox_config,
             mcp_servers=mcp_servers or [],
+            sdk_version=sdk_version,
         )
         response = await self.make_request(
             HTTPMethod.POST,
@@ -113,7 +116,7 @@ class AgentsClient(_InternalHTTPClient):
         agent_name: str,
         workflow_name: str,
         deployment_name: str | None = None,
-        required_session_inputs: SessionInputSchemas | None = None,
+        session_input_schemas: SessionInputSchemas | None = None,
         default_subagent_policy: SubagentPolicy | None = None,
         description: str | None = None,
         harness_config: HarnessConfigInput | None = None,
@@ -123,6 +126,8 @@ class AgentsClient(_InternalHTTPClient):
         connector_selection: ConnectorSelectionInput | None = None,
         mcp_servers: list[PlainMCPServerInput] | None = None,
         makes_own_sandbox: bool = False,
+        code_version: str | None = None,
+        code_version_source: Literal["explicit", "computed"] | None = None,
     ) -> AgentResponse:
         return await _register_agent(
             self,
@@ -130,7 +135,7 @@ class AgentsClient(_InternalHTTPClient):
                 agent_name=agent_name,
                 workflow_name=workflow_name,
                 deployment_name=deployment_name,
-                required_session_inputs=required_session_inputs,
+                session_input_schemas=session_input_schemas,
                 default_subagent_policy=default_subagent_policy,
                 description=description,
                 harness_config=harness_config,
@@ -140,5 +145,7 @@ class AgentsClient(_InternalHTTPClient):
                 connector_selection=connector_selection,
                 mcp_servers=mcp_servers or [],
                 makes_own_sandbox=makes_own_sandbox,
+                code_version=code_version,
+                code_version_source=code_version_source,
             ),
         )

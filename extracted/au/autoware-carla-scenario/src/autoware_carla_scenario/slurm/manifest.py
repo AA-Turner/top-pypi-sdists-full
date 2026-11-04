@@ -4,8 +4,10 @@ A batch submitted with ``launcher=slurm`` writes its cases' outputs where a
 local batch does (``outputs/<date>/<time>/``), under the same names, and keeps
 what the launcher itself needs in ``slurm/`` beside them::
 
-    slurm/manifest.json         every case: its config, overrides, file stem
+    slurm/manifest.json         every case: its config, overrides, file stem;
+                                which cases decide the batch-level settings
     slurm/submissions/<k>.json  submission k: its job, which cases each task runs
+                                (created exclusively: its index is reserved)
     slurm/jobs/<k>.sh           the job script submission k runs
     slurm/tasks/<k>-<t>.json    task t of submission k: host, ports, progress
     slurm/results/<i>.json      case i's outcome, written as soon as it ran
@@ -18,10 +20,13 @@ heavy imports: the ``scenario-slurm`` commands only read these.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
+import logging
 import os
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -34,21 +39,31 @@ __all__ = [
     "MANIFEST_VERSION",
     "MANIFEST_VERSIONS",
     "RUN_FILE_SUFFIXES",
+    "SBATCH_IN_FLIGHT_SECONDS",
     "BatchLayout",
     "config_files",
     "config_key",
     "file_sha256",
     "resubmit_target",
     "read_json",
+    "read_submission_record",
+    "sbatch_in_flight",
     "sequential_stems",
     "write_json",
 ]
+
+logger = logging.getLogger(__name__)
 
 #: Bumped when the manifest changes in a way an older worker cannot read.
 #: Version 2 is a batch submitted with ``launcher.remote_cwd``: its jobs find
 #: the batch at ``batch_dir_relative`` under their working directory, not at
 #: ``batch_dir`` (the submit host's path), which an older framework would use.
 #: A batch without ``remote_cwd`` is still written as version 1.
+#:
+#: ``batch_settings`` (which cases decide the batch's queue, Rerun converter,
+#: canvas and metrics, #1225) needs no new version: a worker that predates it
+#: ignores it, and one reading a manifest without it decides from the cases of
+#: its own task, as workers did before.
 MANIFEST_VERSION = 2
 
 #: The versions this framework reads.
@@ -136,6 +151,88 @@ def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def read_submission_record(path: Path) -> dict[str, Any] | None:
+    """The submission record *path*, or ``None`` when there is none to read.
+
+    A record that cannot be read as one -- empty, not JSON, or JSON that is
+    not an object (outside corruption, or an ``O_CREAT | O_EXCL`` submitter
+    that died mid-write, :func:`_create_exclusive`) -- is ``None`` with a
+    warning naming the file (#1356).  A missing one (removed since it was
+    listed: its sbatch failed) is ``None`` without one.
+    """
+    try:
+        record = read_json(path)
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as exc:
+        logger.warning(
+            "Ignoring %s: it cannot be read as a submission record (%s)", path, exc
+        )
+        return None
+    if not isinstance(record, dict):
+        logger.warning(
+            "Ignoring %s: it cannot be read as a submission record "
+            "(it holds JSON that is not an object)",
+            path,
+        )
+        return None
+    return record
+
+
+#: How long a submission record whose ``job_id`` is still ``None`` counts as
+#: in flight (its submitter running sbatch) from its ``submitted_at``.  Past
+#: this, it is taken for one a crashed or killed submitter left behind, which
+#: would otherwise refuse every resubmit of the batch (#1352).
+SBATCH_IN_FLIGHT_SECONDS = 600.0
+
+
+def sbatch_in_flight(submission: dict[str, Any], now: float | None = None) -> bool:
+    """Whether *submission* is being submitted: its index is reserved, its
+    sbatch has not returned yet (no ``job_id``), and it was reserved less than
+    :data:`SBATCH_IN_FLIGHT_SECONDS` ago."""
+    if submission.get("job_id"):
+        return False
+    started = submission.get("submitted_at")
+    if not isinstance(started, (int, float)):
+        return False
+    now = time.time() if now is None else now
+    return now - float(started) < SBATCH_IN_FLIGHT_SECONDS
+
+
+def _create_exclusive(path: Path, data: Any) -> bool:
+    """Create *path* holding *data* as JSON, unless it exists; whether it was
+    created.
+
+    The JSON is written to a temporary file first and hard-linked to *path*:
+    ``link()`` fails if *path* exists, also on NFS (where ``flock()`` may not
+    work and ``O_EXCL`` did not before NFSv3), and a reader never sees the
+    file empty.  On NFS a link whose reply was lost is retried by the client
+    and reports EEXIST although it was made: the temporary file's link count
+    tells.  On a file system without hard links, ``O_CREAT | O_EXCL``.
+    """
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write(text)
+        try:
+            os.link(tmp, path)
+        except FileExistsError:
+            return os.stat(tmp).st_nlink == 2
+        except OSError as exc:
+            if exc.errno not in (errno.EPERM, errno.ENOTSUP, errno.EOPNOTSUPP):
+                raise
+            try:
+                created = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            except FileExistsError:
+                return False
+            with os.fdopen(created, "w", encoding="utf-8") as stream:
+                stream.write(text)
+        return True
+    finally:
+        Path(tmp).unlink(missing_ok=True)
+
+
 @dataclass(frozen=True)
 class BatchLayout(BatchPaths):
     """Where the launcher's files of the batch in *batch_dir* are, and what
@@ -153,8 +250,27 @@ class BatchLayout(BatchPaths):
         return sorted(int(p.stem) for p in directory.glob("*.json") if p.stem.isdigit())
 
     def next_submission(self) -> int:
+        """The index after the batch's last submission.  Not reserved: two
+        submitters may both be told it (:meth:`reserve_submission`)."""
         existing = self.submissions()
         return existing[-1] + 1 if existing else 0
+
+    def reserve_submission(self, record: dict[str, Any]) -> int:
+        """Create the batch's next submission record from *record* (its
+        ``index`` set), atomically; that index.
+
+        Two submitters of one batch at once -- two viewer tabs, the viewer
+        and ``scenario-slurm resubmit`` -- each get an index of their own
+        (#1352): the record is created exclusively, and an index another
+        submitter took is passed over.  :func:`write_json` then fills it in.
+        """
+        (self.root / "submissions").mkdir(parents=True, exist_ok=True)
+        index = self.next_submission()
+        while True:
+            record["index"] = index
+            if _create_exclusive(self.submission(index), record):
+                return index
+            index = max(index + 1, self.next_submission())
 
     def read_manifest(self) -> dict[str, Any]:
         """The batch's manifest.
@@ -179,6 +295,11 @@ class BatchLayout(BatchPaths):
 
     def read_submission(self, index: int) -> dict[str, Any]:
         return read_json(self.submission(index))
+
+    def submission_record(self, index: int) -> dict[str, Any] | None:
+        """Submission *index*'s record, or ``None`` when it is missing or
+        cannot be read as one (:func:`read_submission_record`)."""
+        return read_submission_record(self.submission(index))
 
     def read_result(self, case: int) -> dict[str, Any] | None:
         path = self.result(case)

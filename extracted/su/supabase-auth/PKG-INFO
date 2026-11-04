@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supabase-auth
-Version: 2.33.0
+Version: 2.34.0
 Summary: Python Client Library for Supabase Auth
 Author: Joel Lee
 Author-email: Joel Lee <joel@joellee.org>
@@ -9,11 +9,11 @@ Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Dist: httpx[http2]>=0.26,<0.29
-Requires-Dist: pydantic>=1.10,<3
-Requires-Dist: pyjwt[crypto]>=2.12.0
+Requires-Dist: pydantic>=2.11.7,<3
+Requires-Dist: pyjwt[crypto]>=2.15.1
 Maintainer: Leonardo Santiago
 Maintainer-email: Leonardo Santiago <leonardo.santiago@supabase.io>
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Project-URL: changelog, https://github.com/supabase/supabase-py/tree/main/CHANGELOG.md
 Project-URL: documentation, https://github.com/supabase/supabase-py/tree/main/src/auth
 Project-URL: homepage, https://github.com/supabase/supabase-py/tree/main/src/auth
@@ -81,6 +81,12 @@ const { data, error } = client.sign_up(...)
 The other key difference is we do not use pascalCase to encode variable and method names. Instead we use the snake_case convention adopted in the Python language.
 
 Also, the `supabase_auth` library for Python parses the date-time string into `datetime` Python objects. The [JS client](https://github.com/supabase/gotrue-js) keeps the date-time as strings.
+
+## Supabase Service Compatibility
+
+`supabase_auth` only guarantees compatibility with the [latest Supabase Auth release](https://github.com/supabase/auth/releases). Older Supabase Auth releases are supported on a best-effort basis, but compatibility is not guaranteed.
+
+If you self-host Supabase Auth, we recommend upgrading to the latest release when upgrading this SDK.
 
 ## Usage
 

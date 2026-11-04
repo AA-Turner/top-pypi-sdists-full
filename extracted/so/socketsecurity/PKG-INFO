@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: socketsecurity
-Version: 2.11.10
+Version: 2.11.11
 Summary: Socket Security CLI for CI/CD
 Project-URL: Homepage, https://socket.dev
 Author-email: Douglas Coburn <douglas@socket.dev>
@@ -44,7 +44,7 @@ Requires-Dist: packaging==26.3
 Requires-Dist: prettytable==3.18.0
 Requires-Dist: python-dotenv==1.2.4
 Requires-Dist: requests==2.34.2
-Requires-Dist: socketdev==3.6.1
+Requires-Dist: socketdev==3.6.2
 Provides-Extra: dev
 Requires-Dist: hatch==1.18.1; extra == 'dev'
 Requires-Dist: pre-commit==4.7.0; extra == 'dev'

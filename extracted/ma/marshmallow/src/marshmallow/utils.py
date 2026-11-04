@@ -11,7 +11,7 @@ from marshmallow.constants import missing
 
 
 def is_generator(obj) -> typing.TypeGuard[typing.Generator]:
-    """Return True if ``obj`` is a generator"""
+    """Return True if ``obj`` is a generator."""
     return inspect.isgeneratorfunction(obj) or inspect.isgenerator(obj)
 
 
@@ -26,7 +26,7 @@ def is_sequence_but_not_string(obj) -> typing.TypeGuard[Sequence]:
 
 
 def is_collection(obj) -> typing.TypeGuard[typing.Iterable]:
-    """Return True if ``obj`` is a collection type, e.g list, tuple, queryset."""
+    """Return True if ``obj`` is a collection type, e.g. list, tuple, queryset."""
     return is_iterable_but_not_string(obj) and not isinstance(obj, Mapping)
 
 
@@ -47,7 +47,7 @@ def from_timestamp(value: typing.Any) -> dt.datetime:
     # Load a timestamp with utc as timezone to prevent using system timezone.
     # Then set timezone to None, to let the Field handle adding timezone info.
     try:
-        return dt.datetime.fromtimestamp(value, tz=dt.timezone.utc).replace(tzinfo=None)
+        return dt.datetime.fromtimestamp(value, tz=dt.UTC).replace(tzinfo=None)
     except OverflowError as exc:
         raise ValueError("Timestamp is too large") from exc
     except OSError as exc:
@@ -66,7 +66,7 @@ def timestamp(
 ) -> float:
     if not is_aware(value):
         # When a date is naive, use UTC as zone info to prevent using system timezone.
-        value = value.replace(tzinfo=dt.timezone.utc)
+        value = value.replace(tzinfo=dt.UTC)
     return value.timestamp()
 
 
@@ -94,7 +94,7 @@ def pluck(dictlist: list[dict[str, typing.Any]], key: str):
 # Various utilities for pulling keyed values from objects
 
 
-def get_value(obj, key: int | str, default=missing):
+def get_value(obj, key: str, default=missing):
     """Helper for pulling a keyed value off various types of objects. Fields use
     this method by default to access attributes of the source object. For object `x`
     and attribute `i`, this method first tries to access `x[i]`, and then falls back to
@@ -105,17 +105,12 @@ def get_value(obj, key: int | str, default=missing):
         `get_value` will never check the value `x.i`. Consider overriding
         `marshmallow.fields.Field.get_value` in this case.
     """
-    if not isinstance(key, int) and "." in key:
-        return _get_value_for_keys(obj, key.split("."), default)
-    return _get_value_for_key(obj, key, default)
-
-
-def _get_value_for_keys(obj, keys, default):
-    if len(keys) == 1:
-        return _get_value_for_key(obj, keys[0], default)
-    return _get_value_for_keys(
-        _get_value_for_key(obj, keys[0], default), keys[1:], default
-    )
+    if "." in key:
+        for k in key.split("."):
+            obj = _get_value_for_key(obj, k, default)
+    else:
+        obj = _get_value_for_key(obj, key, default)
+    return obj
 
 
 def _get_value_for_key(obj, key, default):
@@ -130,7 +125,7 @@ def _get_value_for_key(obj, key, default):
 
 def set_value(dct: dict[str, typing.Any], key: str, value: typing.Any):
     """Set a value in a dict. If `key` contains a '.', it is assumed
-    be a path (i.e. dot-delimited string) to the value's location.
+    to be a path (i.e. dot-delimited string) to the value's location.
 
     ::
 

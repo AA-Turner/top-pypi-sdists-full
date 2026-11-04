@@ -200,8 +200,95 @@ class Budget:
 
 
 @dataclass(frozen=True)
+class DynamicSampling:
+    """Replace groups without trainable policy signal.
+
+    Attributes:
+        max_attempted_group_ratio: Groups examined per batch, as a multiple of
+            ``groups_per_step``, before refilling stops. Only rejected groups
+            spend this budget: refilling stops once more than
+            ``(max_attempted_group_ratio - 1) * groups_per_step`` groups were
+            rejected since the previous batch. Lookahead and oversampling do not
+            spend it. Groups already sampling still finish and may fill the
+            batch.
+        min_groups_per_step: Smallest batch to train once the budget is spent.
+            ``None`` requires a full ``groups_per_step`` batch; otherwise the
+            trainer trains the kept groups if there are at least this many, and
+            raises ``SamplingExhausted`` below it.
+        keep: Optional extra filter called with each ``CompletedGroup`` that
+            already has a trainable signal; return ``False`` to reject it, for
+            example to filter on a metric other than the training reward. It
+            cannot keep a group without signal. May be sync or async; it runs
+            once per completed group, so keep it cheap and deterministic. A
+            rejection spends the budget like any other. Checkpointed runs
+            fingerprint ``keep.contract()`` if defined, else its qualified name.
+
+    Both limits only decide when sampling gives up, so either may change on
+    resume to continue an exhausted run.
+    """
+
+    max_attempted_group_ratio: float = 8.0
+    min_groups_per_step: int | None = None
+    keep: Callable[..., bool] | None = None
+
+    def __post_init__(self):
+        if (
+            isinstance(self.max_attempted_group_ratio, bool)
+            or not isinstance(self.max_attempted_group_ratio, int | float)
+            or not math.isfinite(self.max_attempted_group_ratio)
+            or self.max_attempted_group_ratio < 1
+        ):
+            raise ValueError("max_attempted_group_ratio must be finite and >= 1")
+        if self.min_groups_per_step is not None:
+            _integer(self.min_groups_per_step, "min_groups_per_step", 1)
+        if self.keep is not None and not callable(self.keep):
+            raise TypeError("DynamicSampling.keep must be callable")
+
+
+@dataclass(frozen=True)
+class Admission:
+    """Trainer-owned rollout admission policy.
+
+    ``ahead`` defaults to ``max_staleness`` and cannot exceed it. ``oversample``
+    admits extra whole groups within the same staleness cap, hiding stragglers
+    even without dynamic sampling. Synchronous admission requires oversample=1.
+    ``dynamic_sampling=None`` keeps every group; pass ``DynamicSampling()`` to
+    replace groups with no trainable signal.
+    """
+
+    max_staleness: int = 2
+    ahead: int | None = None
+    oversample: float = 1.0
+    dynamic_sampling: DynamicSampling | None = None
+
+    def __post_init__(self):
+        _integer(self.max_staleness, "max_staleness")
+        if self.ahead is not None:
+            _integer(self.ahead, "ahead")
+            if self.ahead > self.max_staleness:
+                raise ValueError("ahead cannot exceed max_staleness")
+        if (
+            isinstance(self.oversample, bool)
+            or not math.isfinite(self.oversample)
+            or self.oversample < 1
+        ):
+            raise ValueError("oversample must be finite and >= 1")
+        object.__setattr__(self, "oversample", float(self.oversample))
+        if self.max_staleness == 0 and self.oversample != 1:
+            raise ValueError("synchronous admission cannot oversample")
+        if self.dynamic_sampling is not None and not isinstance(
+            self.dynamic_sampling, DynamicSampling
+        ):
+            raise TypeError("dynamic_sampling must be a DynamicSampling or None")
+
+    @property
+    def batches_ahead(self):
+        return self.max_staleness if self.ahead is None else self.ahead
+
+
+@dataclass(frozen=True)
 class Schedule:
-    """Client-side rollout admission and sampling submission limits.
+    """Client-side sampling transport and queue limits.
 
     Attributes:
         window: Seconds to gather ready prompts into a sampling batch.
@@ -212,9 +299,9 @@ class Schedule:
             ``concurrency``.
         max_rpc_workers: Threads for preparation, decoding, and custom blocking
             samplers. Native sampling RPCs use asyncio without occupying threads.
-        admit_ahead: Batches of rollout groups admitted ahead of training.
+        admit_ahead: Deprecated; use ``Admission.ahead``.
         priority: Ready-queue ordering policy.
-        oversample_factor: Extra groups admitted to replace uninformative groups.
+        oversample_factor: Deprecated; use ``Admission.oversample``.
     """
 
     window: float = 0.01
@@ -228,9 +315,9 @@ class Schedule:
         None  # native: outstanding prompts; None uses concurrency
     )
     max_rpc_workers: int = 16
-    admit_ahead: int = 2
+    admit_ahead: int | None = None
     priority: Literal["fifo", "predicted_length"] = "fifo"
-    oversample_factor: float = 1.0
+    oversample_factor: float | None = None
 
     def __post_init__(self):
         if self.window < 0 or not math.isfinite(self.window):
@@ -239,11 +326,22 @@ class Schedule:
             _integer(getattr(self, name), name, 1)
         if self.max_sample_requests is not None:
             _integer(self.max_sample_requests, "max_sample_requests", 1)
-        _integer(self.admit_ahead, "admit_ahead")
+        if self.admit_ahead is not None:
+            _integer(self.admit_ahead, "admit_ahead")
         if self.priority not in {"fifo", "predicted_length"}:
             raise ValueError("unknown scheduling priority")
-        if not math.isfinite(self.oversample_factor) or self.oversample_factor < 1:
+        if self.oversample_factor is not None and (
+            not math.isfinite(self.oversample_factor) or self.oversample_factor < 1
+        ):
             raise ValueError("oversample_factor must be finite and >= 1")
+        if self.admit_ahead is not None or self.oversample_factor is not None:
+            warnings.warn(
+                "Schedule.admit_ahead and oversample_factor are deprecated and will "
+                "be removed in a future river-client release; use "
+                "rl.Admission(ahead=..., oversample=...).",
+                FutureWarning,
+                stacklevel=3,
+            )
 
     @property
     def sample_request_limit(self):

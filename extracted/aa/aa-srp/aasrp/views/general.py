@@ -13,6 +13,7 @@ from eve_sde.models import ItemType
 from django.contrib import messages
 from django.contrib.auth.decorators import permission_required
 from django.core.handlers.wsgi import WSGIRequest
+from django.db import IntegrityError, transaction
 from django.db.models import Sum
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
@@ -23,9 +24,11 @@ from django.utils.translation import gettext_lazy as _
 from allianceauth.authentication.decorators import permissions_required
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.services.hooks import get_extension_logger
+from esi.decorators import token_required
+from esi.models import Token
 
 # AA SRP
-from aasrp.constants import KILLBOARD_DATA
+from aasrp.constants import ESI_SCOPE_UI_OPEN_WINDOW, KILLBOARD_DATA
 from aasrp.form import (
     SrpLinkForm,
     SrpLinkUpdateForm,
@@ -143,7 +146,7 @@ def user_settings(request: WSGIRequest) -> HttpResponse:
     if request.method == "POST":
         # Populate the form with the submitted data and the current settings instance
         user_settings_form = UserSettingsForm(
-            data=request.POST, instance=current_user_settings
+            data=request.POST, instance=current_user_settings, user=request.user
         )
 
         # If the form is valid, save the data to the database
@@ -157,16 +160,70 @@ def user_settings(request: WSGIRequest) -> HttpResponse:
             return redirect("aasrp:user_settings")
     else:
         # Create a form instance pre-filled with the current user settings
-        user_settings_form = UserSettingsForm(instance=current_user_settings)
+        user_settings_form = UserSettingsForm(
+            instance=current_user_settings, user=request.user
+        )
 
     # Log the access to the user settings view
     logger.info(f"User settings view called by {request.user}")
 
     # Prepare the context for rendering the template
-    context = {"user_settings_form": user_settings_form}
+    context = {
+        "user_settings_form": user_settings_form,
+        "can_use_ui_character": "ui_character" in user_settings_form.fields,
+    }
 
     # Render the user settings template with the provided context
     return render(request, "aasrp/user-settings.html", context)
+
+
+@permissions_required(("aasrp.manage_srp", "aasrp.manage_srp_requests"))
+@token_required(scopes=[ESI_SCOPE_UI_OPEN_WINDOW])
+def add_ui_character(request: WSGIRequest, token: Token) -> HttpResponseRedirect:
+    """
+    Add a character to be used for opening windows in the EVE client.
+
+    The user is sent through EVE SSO to grant the UI scope, and the selected
+    character is then saved as their UI character.
+
+    :param request: The HTTP request object.
+    :type request: WSGIRequest
+    :param token: The ESI token returned by EVE SSO.
+    :type token: Token
+    :return: A redirect to the user settings page.
+    :rtype: HttpResponseRedirect
+    """
+
+    try:
+        character = EveCharacter.objects.get(
+            character_id=token.character_id,
+            character_ownership__user=request.user,
+        )
+    except EveCharacter.DoesNotExist:
+        messages.error(
+            request,
+            _(
+                "{character} is not one of your registered characters. "
+                "Please add it to Auth first."
+            ).format(character=token.character_name),
+        )
+
+        return redirect("aasrp:user_settings")
+
+    current_user_settings = get_user_settings(user=request.user)
+    current_user_settings.ui_character = character
+    current_user_settings.save(update_fields=["ui_character"])
+
+    logger.info(f"{request.user} set {character} as their UI character")
+
+    messages.success(
+        request,
+        _("{character} will now be used for in-game UI actions.").format(
+            character=character.character_name
+        ),
+    )
+
+    return redirect("aasrp:user_settings")
 
 
 @permissions_required(("aasrp.manage_srp", "aasrp.create_srp"))
@@ -341,52 +398,56 @@ def _save_srp_request(  # pylint: disable=too-many-arguments, too-many-positiona
 
     logger.debug(msg=f"Ship type {srp_request__ship.name}")
 
-    # Create the SRP request object
-    srp_request = SrpRequest.objects.create(
-        killboard_link=killmail_link,
-        creator=creator,
-        srp_link=srp_link,
-        character=srp_request__character,
-        ship=srp_request__ship,
-        loss_amount=ship_value,
-        post_time=post_time,
-    )
-
-    # Create comments for the SRP request
-    RequestComment.objects.bulk_create(
-        [
-            RequestComment(
-                srp_request=srp_request,
-                comment_type=RequestComment.Type.REQUEST_ADDED,
-                creator=creator,
-                new_status=SrpRequest.Status.PENDING,
-            ),
-            RequestComment(
-                comment=additional_info,
-                srp_request=srp_request,
-                comment_type=RequestComment.Type.REQUEST_INFO,
-                creator=creator,
-            ),
-        ]
-    )
-
     # Retrieve insurance information for the ship type
     insurance_information = SrpRequest.objects.get_insurance_for_ship_type(
         ship_type_id=ship_type_id
     )
 
-    # Create insurance entries for the SRP request
-    Insurance.objects.bulk_create(
-        [
-            Insurance(
-                srp_request=srp_request,
-                insurance_level=level.name,
-                insurance_cost=level.cost,
-                insurance_payout=level.payout,
+    # All upstream lookups are done, so either everything below is saved or nothing is
+    with transaction.atomic():
+        srp_request = SrpRequest.objects.create(
+            killboard_link=killmail_link,
+            killmail_id=int(
+                SrpRequest.objects.get_kill_id(killboard_link=killmail_link)
+            ),
+            creator=creator,
+            srp_link=srp_link,
+            character=srp_request__character,
+            ship=srp_request__ship,
+            loss_amount=ship_value,
+            post_time=post_time,
+        )
+
+        RequestComment.objects.bulk_create(
+            [
+                RequestComment(
+                    srp_request=srp_request,
+                    comment_type=RequestComment.Type.REQUEST_ADDED,
+                    creator=creator,
+                    new_status=SrpRequest.Status.PENDING,
+                ),
+                RequestComment(
+                    comment=additional_info,
+                    srp_request=srp_request,
+                    comment_type=RequestComment.Type.REQUEST_INFO,
+                    creator=creator,
+                ),
+            ]
+        )
+
+        # Not all ship types are insurable (e.g. capsules), or the ESI call may have failed
+        if insurance_information is not None:
+            Insurance.objects.bulk_create(
+                [
+                    Insurance(
+                        srp_request=srp_request,
+                        insurance_level=level.name,
+                        insurance_cost=level.cost,
+                        insurance_payout=level.payout,
+                    )
+                    for level in insurance_information.levels
+                ]
             )
-            for level in insurance_information.levels
-        ]
-    )
 
     # Log the creation of the SRP request
     logger.info(
@@ -513,18 +574,33 @@ def request_srp(request: WSGIRequest, srp_code: str) -> HttpResponse:
                 character__character_id=killmail_info["victim_id"]
             ).exists():
                 # Save the SRP request
-                srp_request = _save_srp_request(
-                    request=request,
-                    srp_link=srp_link,
-                    killmail_link=submitted_killmail_link,
-                    ship_type_id=killmail_info["ship_type_id"],
-                    ship_value=killmail_info["ship_value"],
-                    victim_id=killmail_info["victim_id"],
-                    additional_info=srp_request_additional_info,
-                )
+                try:
+                    srp_request = _save_srp_request(
+                        request=request,
+                        srp_link=srp_link,
+                        killmail_link=submitted_killmail_link,
+                        ship_type_id=killmail_info["ship_type_id"],
+                        ship_value=killmail_info["ship_value"],
+                        victim_id=killmail_info["victim_id"],
+                        additional_info=srp_request_additional_info,
+                    )
+                except IntegrityError:
+                    # Lost the race against a concurrent submission of the same kill mail
+                    if not SrpRequest.objects.filter(
+                        killmail_id=srp_kill_link_id
+                    ).exists():
+                        raise
 
-                # Send a message to the srp team in their discord channel.
-                notify_srp_team(srp_request=srp_request)
+                    messages.error(
+                        request=request,
+                        message=_(
+                            "There is already an SRP request for this kill mail. "
+                            "Please check if you got the right one."
+                        ),
+                    )
+                else:
+                    # Send a message to the srp team in their discord channel.
+                    notify_srp_team(srp_request=srp_request)
 
                 return redirect(to="aasrp:srp_links")
 

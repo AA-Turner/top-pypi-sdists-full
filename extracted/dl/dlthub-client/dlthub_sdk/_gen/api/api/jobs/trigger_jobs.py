@@ -98,21 +98,29 @@ def sync_detailed(
 ) -> Response[ErrorResponse | TriggerJobsResponse]:
     """TriggerJobs
 
-    Triggers jobs by `job_ids` (each fires via its `default_trigger`, or `manual:<ref>` if it has
-    none) and/or by `selectors` (fnmatch patterns matched against each job's triggers, e.g.
-    'tag:backfill', 'schedule:*', 'batch'; a matching job fires the trigger it matched).
+    Triggers jobs by `job_ids` and/or by `selectors`. A job named in `job_ids` fires its
+    `default_trigger`, or `manual:<job_ref>` if it has none. A selector is matched against each
+    job's triggers with shell-style wildcards, e.g. `tag:backfill`, `schedule:*`,
+    `manual:jobs.my_module.*`; a bare trigger type like `schedule` means `schedule:*`, and `batch`
+    (or `job`), `interactive` and `stream` select every trigger of jobs of that type. A job
+    matched by a selector fires the trigger it matched. When a job is matched both by id and by
+    selector, it fires its `default_trigger` if that is among the matched triggers, otherwise
+    one of the matched triggers. Archived jobs are never matched.
 
-    When the same job is named both ways, the union of matched triggers is fed to `pick_trigger`,
-    which prefers `default_trigger` if present.
+    Jobs start upstream first, and each must pass the freshness check: a job whose upstream is
+    also triggered in this request is skipped with `skipped_upstream_pending`, and a job whose
+    upstream is not fresh is skipped with `skipped_fresh`. To start a single job regardless of
+    its upstreams, use `create_job_run` with `skip_freshness=true`.
 
-    Jobs are ordered by dependencies and freshness gating is mandatory — a downstream job whose
-    upstream isn't fresh is skipped (`status='skipped_fresh'`). For single-job bypass, use
-    `create_job_run` with `skip_freshness=True`.
+    Runs start one by one; a failure part-way through leaves the runs created before it.
 
     Answers a receipt: `succeeded` jobs started a run, `skipped` jobs did not (their `status` and
-    `reasons` say why), `failed` lists requested ids that name no job. `dry_run` previews it.
+    `reasons` say why), and `failed` lists requested ids that name no job or an archived job.
+    `dry_run` previews which jobs match and pass the freshness check, without creating runs.
 
-    Requires CREATE_RUN permission (workspace viewers can trigger interactive jobs).
+    Requires the viewer role (or higher) in the workspace. Viewers may only run jobs that use the
+    read-only `access` profile (by default interactive and agent jobs); any other profile needs
+    the developer role, and a single such job rejects the whole request with 403.
 
     Args:
         workspace_id (UUID):
@@ -145,21 +153,29 @@ def sync(
 ) -> ErrorResponse | TriggerJobsResponse | None:
     """TriggerJobs
 
-    Triggers jobs by `job_ids` (each fires via its `default_trigger`, or `manual:<ref>` if it has
-    none) and/or by `selectors` (fnmatch patterns matched against each job's triggers, e.g.
-    'tag:backfill', 'schedule:*', 'batch'; a matching job fires the trigger it matched).
+    Triggers jobs by `job_ids` and/or by `selectors`. A job named in `job_ids` fires its
+    `default_trigger`, or `manual:<job_ref>` if it has none. A selector is matched against each
+    job's triggers with shell-style wildcards, e.g. `tag:backfill`, `schedule:*`,
+    `manual:jobs.my_module.*`; a bare trigger type like `schedule` means `schedule:*`, and `batch`
+    (or `job`), `interactive` and `stream` select every trigger of jobs of that type. A job
+    matched by a selector fires the trigger it matched. When a job is matched both by id and by
+    selector, it fires its `default_trigger` if that is among the matched triggers, otherwise
+    one of the matched triggers. Archived jobs are never matched.
 
-    When the same job is named both ways, the union of matched triggers is fed to `pick_trigger`,
-    which prefers `default_trigger` if present.
+    Jobs start upstream first, and each must pass the freshness check: a job whose upstream is
+    also triggered in this request is skipped with `skipped_upstream_pending`, and a job whose
+    upstream is not fresh is skipped with `skipped_fresh`. To start a single job regardless of
+    its upstreams, use `create_job_run` with `skip_freshness=true`.
 
-    Jobs are ordered by dependencies and freshness gating is mandatory — a downstream job whose
-    upstream isn't fresh is skipped (`status='skipped_fresh'`). For single-job bypass, use
-    `create_job_run` with `skip_freshness=True`.
+    Runs start one by one; a failure part-way through leaves the runs created before it.
 
     Answers a receipt: `succeeded` jobs started a run, `skipped` jobs did not (their `status` and
-    `reasons` say why), `failed` lists requested ids that name no job. `dry_run` previews it.
+    `reasons` say why), and `failed` lists requested ids that name no job or an archived job.
+    `dry_run` previews which jobs match and pass the freshness check, without creating runs.
 
-    Requires CREATE_RUN permission (workspace viewers can trigger interactive jobs).
+    Requires the viewer role (or higher) in the workspace. Viewers may only run jobs that use the
+    read-only `access` profile (by default interactive and agent jobs); any other profile needs
+    the developer role, and a single such job rejects the whole request with 403.
 
     Args:
         workspace_id (UUID):
@@ -187,21 +203,29 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | TriggerJobsResponse]:
     """TriggerJobs
 
-    Triggers jobs by `job_ids` (each fires via its `default_trigger`, or `manual:<ref>` if it has
-    none) and/or by `selectors` (fnmatch patterns matched against each job's triggers, e.g.
-    'tag:backfill', 'schedule:*', 'batch'; a matching job fires the trigger it matched).
+    Triggers jobs by `job_ids` and/or by `selectors`. A job named in `job_ids` fires its
+    `default_trigger`, or `manual:<job_ref>` if it has none. A selector is matched against each
+    job's triggers with shell-style wildcards, e.g. `tag:backfill`, `schedule:*`,
+    `manual:jobs.my_module.*`; a bare trigger type like `schedule` means `schedule:*`, and `batch`
+    (or `job`), `interactive` and `stream` select every trigger of jobs of that type. A job
+    matched by a selector fires the trigger it matched. When a job is matched both by id and by
+    selector, it fires its `default_trigger` if that is among the matched triggers, otherwise
+    one of the matched triggers. Archived jobs are never matched.
 
-    When the same job is named both ways, the union of matched triggers is fed to `pick_trigger`,
-    which prefers `default_trigger` if present.
+    Jobs start upstream first, and each must pass the freshness check: a job whose upstream is
+    also triggered in this request is skipped with `skipped_upstream_pending`, and a job whose
+    upstream is not fresh is skipped with `skipped_fresh`. To start a single job regardless of
+    its upstreams, use `create_job_run` with `skip_freshness=true`.
 
-    Jobs are ordered by dependencies and freshness gating is mandatory — a downstream job whose
-    upstream isn't fresh is skipped (`status='skipped_fresh'`). For single-job bypass, use
-    `create_job_run` with `skip_freshness=True`.
+    Runs start one by one; a failure part-way through leaves the runs created before it.
 
     Answers a receipt: `succeeded` jobs started a run, `skipped` jobs did not (their `status` and
-    `reasons` say why), `failed` lists requested ids that name no job. `dry_run` previews it.
+    `reasons` say why), and `failed` lists requested ids that name no job or an archived job.
+    `dry_run` previews which jobs match and pass the freshness check, without creating runs.
 
-    Requires CREATE_RUN permission (workspace viewers can trigger interactive jobs).
+    Requires the viewer role (or higher) in the workspace. Viewers may only run jobs that use the
+    read-only `access` profile (by default interactive and agent jobs); any other profile needs
+    the developer role, and a single such job rejects the whole request with 403.
 
     Args:
         workspace_id (UUID):
@@ -232,21 +256,29 @@ async def asyncio(
 ) -> ErrorResponse | TriggerJobsResponse | None:
     """TriggerJobs
 
-    Triggers jobs by `job_ids` (each fires via its `default_trigger`, or `manual:<ref>` if it has
-    none) and/or by `selectors` (fnmatch patterns matched against each job's triggers, e.g.
-    'tag:backfill', 'schedule:*', 'batch'; a matching job fires the trigger it matched).
+    Triggers jobs by `job_ids` and/or by `selectors`. A job named in `job_ids` fires its
+    `default_trigger`, or `manual:<job_ref>` if it has none. A selector is matched against each
+    job's triggers with shell-style wildcards, e.g. `tag:backfill`, `schedule:*`,
+    `manual:jobs.my_module.*`; a bare trigger type like `schedule` means `schedule:*`, and `batch`
+    (or `job`), `interactive` and `stream` select every trigger of jobs of that type. A job
+    matched by a selector fires the trigger it matched. When a job is matched both by id and by
+    selector, it fires its `default_trigger` if that is among the matched triggers, otherwise
+    one of the matched triggers. Archived jobs are never matched.
 
-    When the same job is named both ways, the union of matched triggers is fed to `pick_trigger`,
-    which prefers `default_trigger` if present.
+    Jobs start upstream first, and each must pass the freshness check: a job whose upstream is
+    also triggered in this request is skipped with `skipped_upstream_pending`, and a job whose
+    upstream is not fresh is skipped with `skipped_fresh`. To start a single job regardless of
+    its upstreams, use `create_job_run` with `skip_freshness=true`.
 
-    Jobs are ordered by dependencies and freshness gating is mandatory — a downstream job whose
-    upstream isn't fresh is skipped (`status='skipped_fresh'`). For single-job bypass, use
-    `create_job_run` with `skip_freshness=True`.
+    Runs start one by one; a failure part-way through leaves the runs created before it.
 
     Answers a receipt: `succeeded` jobs started a run, `skipped` jobs did not (their `status` and
-    `reasons` say why), `failed` lists requested ids that name no job. `dry_run` previews it.
+    `reasons` say why), and `failed` lists requested ids that name no job or an archived job.
+    `dry_run` previews which jobs match and pass the freshness check, without creating runs.
 
-    Requires CREATE_RUN permission (workspace viewers can trigger interactive jobs).
+    Requires the viewer role (or higher) in the workspace. Viewers may only run jobs that use the
+    read-only `access` profile (by default interactive and agent jobs); any other profile needs
+    the developer role, and a single such job rejects the whole request with 403.
 
     Args:
         workspace_id (UUID):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: stackit-iaas
-Version: v1.7.0
+Version: v1.8.0
 Summary: IaaS-API
 Project-URL: Homepage, https://github.com/stackitcloud/stackit-sdk-python
 Project-URL: Issues, https://github.com/stackitcloud/stackit-sdk-python/issues
@@ -10,12 +10,12 @@ License-File: NOTICE.txt
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <4.0,>=3.10
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: <4.0,>=3.11
 Requires-Dist: pydantic>=2.9.2
 Requires-Dist: python-dateutil>=2.9.0.post0
 Requires-Dist: requests>=2.33.0

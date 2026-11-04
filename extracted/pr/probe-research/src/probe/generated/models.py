@@ -2355,6 +2355,7 @@ class MetricSeriesOut(BaseModel):
     """
 
     agg: str | None = Field(None, title='Agg')
+    data_revision: str | None = Field(None, title='Data Revision')
     dimensions: dict[str, Any] | None = Field(None, title='Dimensions')
     first_step_index: int | None = Field(None, title='First Step Index')
     first_wall_clock: AwareDatetime | None = Field(None, title='First Wall Clock')
@@ -8107,6 +8108,7 @@ class LatestScalarOut(BaseModel):
     One series' scalar summary: its endpoint value + extent, no point scan.
     """
 
+    data_revision: str | None = Field(None, title='Data Revision')
     dimensions: dict[str, Any] | None = Field(None, title='Dimensions')
     key: str = Field(..., title='Key')
     kind: str = Field(..., title='Kind')
@@ -9157,11 +9159,21 @@ class Series(RootModel[list[SeriesSelector]]):
     root: list[SeriesSelector] = Field(..., max_length=10000, title='Series')
 
 
+class SeriesCatalogReceipt(BaseModel):
+    """
+    One catalog mutation digest from the points database, before any scan.
+    """
+
+    data_revision: str = Field(..., title='Data Revision')
+    run_id: UUID = Field(..., title='Run Id')
+
+
 class SeriesQueryRequest(BaseModel):
     """
     Multi-run, multi-series read for the run page AND N-run comparison (D9).
     """
 
+    include_read_catalog: bool | None = Field(False, title='Include Read Catalog')
     keys: Keys1 | None = Field(None, title='Keys')
     max_points: MaxPoints1 | None = Field(None, title='Max Points')
     run_ids: list[UUID] = Field(..., max_length=50, min_length=1, title='Run Ids')
@@ -9182,6 +9194,7 @@ class SeriesQueryRequest(BaseModel):
 
 class SeriesQueryResult(BaseModel):
     errors: list[MetricSeriesReadError] | None = Field(None, title='Errors')
+    read_catalog: list[SeriesCatalogReceipt] | None = Field(None, title='Read Catalog')
     series: list[SeriesResult] = Field(..., title='Series')
     truncated: bool | None = Field(False, title='Truncated')
 

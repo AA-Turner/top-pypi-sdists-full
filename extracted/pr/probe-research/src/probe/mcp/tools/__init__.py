@@ -8,8 +8,6 @@ from ...foundation.front_door.front_door import serve_pieces
 # Every piece loads here, as the old module ran whole on import (statically, so the deploy
 # gate's import walk in scripts/ci/test_gate.py sees each one; serve_pieces loads the nested ones).
 from . import view, corpus, tools  # noqa: F401
-# The moved pieces stay attributes of this package for one release (`probe.mcp.tools.entity`).
-from .reads import browse, entity, listing, literature, metrics, search  # noqa: F401
 
 #: The old module's pieces, in the split's load order: a write through the door reaches these only.
 _PIECES = (

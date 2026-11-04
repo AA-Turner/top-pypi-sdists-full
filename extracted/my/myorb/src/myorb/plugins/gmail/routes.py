@@ -16,10 +16,12 @@ from myorb.brief.writer import BriefError
 from myorb.connections import store
 from myorb.connections.google import GoogleError
 from myorb.connections.google_accounts import GoogleAccount
+from myorb.plugins.calendar import EVENTS_SCOPE
 from myorb.plugins.gmail import API, API_NAME, MODIFY_SCOPE, inbox_url
 from myorb.plugins.gmail.actions import fetch_conversation
 from myorb.plugins.gmail.draft import reply_message, write_reply
 from myorb.plugins.gmail.forward import forward_message, recipients, upload
+from myorb.plugins.gmail.invite import RESPONSES, answer, decode, invitation
 from myorb.plugins.gmail.message import (
     MAX_INLINE,
     SHOWN_TYPES,
@@ -254,7 +256,54 @@ async def read_email(
         (m["unsubscribe"] for m in reversed(context["messages"]) if m.get("unsubscribe")), ""
     )
     context["allowed_domains"] = [d for d in domains if d in allowed]
+    context["invitation"] = await _invitation(request, account, context["messages"])
     return request.app.state.templates.TemplateResponse(request, "gmail/email.html", context)
+
+
+async def _invitation(
+    request: Request, account: GoogleAccount, messages: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """The newest invitation in the conversation, for its card above the emails."""
+    message = next((m for m in reversed(messages) if m.get("invite")), None)
+    if message is None:
+        return None
+    google = request.app.state.google
+    try:
+        data = message["invite"]["data"]
+        if not data and message["invite"]["attachment_id"]:
+            url = f"{API}/messages/{message['id']}/attachments/{message['invite']['attachment_id']}"
+            data = (await google.get_json(account, url, API_NAME)).get("data", "")
+        return await invitation(google, account, decode(data or ""), request.app.state.timezone)
+    except GoogleError:
+        return None  # The email shows without the card.
+
+
+@router.post("/email/{account_id}/{thread_id}/invitation")
+async def answer_invitation(
+    request: Request,
+    account_id: int,
+    thread_id: str,
+    event_id: Annotated[str, Form()],
+    response: Annotated[str, Form()],
+) -> Response:
+    """Yes, No or Maybe to the invitation in the email, in the user's calendar."""
+    account = await _account(request, account_id)
+    if EVENTS_SCOPE not in account.scopes:
+        raise HTTPException(
+            status_code=403, detail="Connect the Google account again to allow answering."
+        )
+    if response not in RESPONSES:
+        raise HTTPException(status_code=400, detail="Answer Yes, No or Maybe.")
+    try:
+        await answer(request.app.state.google, account, event_id, response)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except GoogleError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    request.app.state.cache.invalidate(f"google:{account.id}:calendar:")
+    if _in_view(request):
+        return await read_email(request, account_id, thread_id)
+    return RedirectResponse(f"/email/{account_id}/{thread_id}", status_code=303)
 
 
 @router.post("/email/{account_id}/{thread_id}/images")

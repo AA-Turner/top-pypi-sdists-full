@@ -47,16 +47,18 @@ from ._proto import t4_scene_pb2 as pb
 from .convert import (
     _TICK_NS,
     _array,
+    _route_data,
     _element_lights,
     _Log,
     _load_map,
     _Map,
     _MapFrame,
     _read_map,
+    checked_rear_axle_offset,
     log_to_scene,
     map_of,
 )
-from .grid import step_frames
+from .grid import checked_max_distance, step_frames
 from .route import RouteGraph
 
 __all__ = ["EgoExtras", "LiveT4Scene"]
@@ -131,6 +133,7 @@ class LiveT4Scene:
         max_distance_m: Road users this close to the ego are its objects.
         rear_axle_offset_m: Where the ego's ``base_link`` is from its actor
             origin, as the run takes it; by default as the recorder reads it.
+            Any finite value (negative: behind); NaN and infinity are refused.
         wheel_base_m: The ego's wheel base, written in its shape; ``None``
             leaves it out (CARLA 0.10 reports no wheel positions).
         map_source, lanelet2_path, opendrive_path, projector_type: The run's
@@ -154,8 +157,12 @@ class LiveT4Scene:
             raise ValueError(f"history_rows must be at least 1, not {history_rows}")
         self._step_frames = step_frames(step_s)
         self.history_rows = history_rows
-        self.max_distance_m = max_distance_m
-        self.rear_axle_offset_m = rear_axle_offset_m
+        self.max_distance_m = checked_max_distance(max_distance_m)
+        self.rear_axle_offset_m = (
+            None
+            if rear_axle_offset_m is None
+            else checked_rear_axle_offset(rear_axle_offset_m)
+        )
         self.wheel_base_m = wheel_base_m
         # Every tick is a row the log keeps: the scene's rows are counted back
         # from whichever tick it is asked for on, not from the run's first.
@@ -310,7 +317,7 @@ class LiveT4Scene:
                     else np.asarray(road_ahead_origin, dtype=np.float64),
                 )
         if route_lanelet_ids is not None:
-            route = pb.RouteData(lane_ids=_array(list(route_lanelet_ids), "i8"))
+            route = _route_data(route_lanelet_ids)
             scene.routes.rows.extend(pb.RouteRow(value=route) for _ in range(rows))
         if goal_pose is not None:
             x, y, yaw = (float(v) for v in goal_pose)

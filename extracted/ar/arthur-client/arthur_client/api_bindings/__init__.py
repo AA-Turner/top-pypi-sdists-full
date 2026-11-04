@@ -69,6 +69,7 @@ from arthur_client.api_bindings.models.agent_creation_source import AgentCreatio
 from arthur_client.api_bindings.models.agent_metadata import AgentMetadata
 from arthur_client.api_bindings.models.agent_metadata_response import AgentMetadataResponse
 from arthur_client.api_bindings.models.agent_observations import AgentObservations
+from arthur_client.api_bindings.models.agent_occurrence import AgentOccurrence
 from arthur_client.api_bindings.models.agent_registration_response import AgentRegistrationResponse
 from arthur_client.api_bindings.models.agent_registration_status import AgentRegistrationStatus
 from arthur_client.api_bindings.models.agent_response import AgentResponse

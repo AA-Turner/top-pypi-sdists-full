@@ -89,6 +89,14 @@ def get_all_registered_workflows() -> List[Type]:
     return _registered_workflows.copy()
 
 
+def _keep_context_arg_for_parameterless_entrypoint(cls: Type) -> None:
+    # temporalio>=1.31 truncates decoded workflow args to len(arg_types), so an empty list drops the
+    # PayloadWithContext the SDK always sends; None makes it decode every payload untyped.
+    defn = temporalio.workflow._Definition.must_from_class(cls)
+    if defn.arg_types == []:
+        object.__setattr__(defn, "arg_types", None)
+
+
 @dataclass
 class _HandlerMetadata:
     """Metadata stored on handler wrappers for runtime parameter conversion."""
@@ -281,7 +289,7 @@ class workflow:
                     deployment_name=versioning_cfg.deployment_name,
                     build_id=versioning_cfg.build_id,
                 )
-                return temporalio.workflow.defn(
+                defined = temporalio.workflow.defn(
                     sandboxed=actual_enforce_determinism,
                     name=actual_name,
                     versioning_behavior=VersioningBehavior.PINNED,
@@ -291,7 +299,10 @@ class workflow:
                     "Workflow registered WITHOUT versioning behavior",
                     workflow_name=actual_name,
                 )
-                return temporalio.workflow.defn(sandboxed=actual_enforce_determinism, name=actual_name)(cls_type)
+                defined = temporalio.workflow.defn(sandboxed=actual_enforce_determinism, name=actual_name)(cls_type)
+
+            _keep_context_arg_for_parameterless_entrypoint(defined)
+            return defined
 
         return decorator
 

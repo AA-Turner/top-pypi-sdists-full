@@ -305,3 +305,44 @@ async fn test_concurrent_usage() {
 
     assert_eq!(mock_scrapi.get_logged_event_count(), 10);
 }
+
+#[tokio::test]
+async fn test_all_failed_chunks_are_preserved_for_retry() {
+    let directory = tempfile::tempdir().unwrap();
+    let adapter = StatsigLocalFileEventLoggingAdapter::new(
+        SDK_KEY,
+        directory.path().to_str().unwrap(),
+        None,
+        true,
+    );
+    let events: Vec<Value> = (0..1001)
+        .map(|index| {
+            let mut event = TEST_EVENTS_DATA[0].clone();
+            event["value"] = json!(index);
+            event
+        })
+        .collect();
+    adapter
+        .log_events(LogEventRequest {
+            payload: LogEventPayload {
+                events: json!(events),
+                statsig_metadata: json!({}),
+            },
+            event_count: events.len() as u64,
+            retries: 0,
+        })
+        .await
+        .unwrap();
+
+    adapter.send_pending_events().await.unwrap();
+    let contents = fs::read_to_string(directory.path().join(EVENTS_FILE_NAME)).unwrap();
+    let persisted_values: Vec<Value> = contents
+        .lines()
+        .flat_map(|line| from_str::<Vec<Value>>(line).unwrap())
+        .map(|event| event["value"].clone())
+        .collect();
+    assert_eq!(
+        persisted_values,
+        (0..1001).map(|index| json!(index)).collect::<Vec<_>>()
+    );
+}

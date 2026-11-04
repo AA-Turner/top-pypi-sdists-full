@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "getanyapi"
-version = "0.146.4"
+version = "0.147.1"
 description = "Official typed Python SDK for AnyAPI: any API, one wallet, USD, no subscriptions."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mcp-proxy-for-aws
-Version: 1.7.0
+Version: 1.8.0
 Summary: MCP Proxy for AWS
 Project-URL: documentation, https://github.com/aws/mcp-proxy-for-aws/blob/main/README.md
 Project-URL: repository, https://github.com/aws/mcp-proxy-for-aws.git
@@ -13,12 +13,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.15,>=3.11
 Requires-Dist: boto3>=1.41.0
 Requires-Dist: botocore[crt]>=1.41.0
 Requires-Dist: fastmcp<3.5,>=3.2
@@ -69,7 +68,7 @@ The **MCP Proxy for AWS** package provides two ways to connect AI applications t
 
 ## Prerequisites
 
-* [Install Python 3.10+](https://www.python.org/downloads/release/python-3100/)
+* [Install Python 3.11+](https://www.python.org/downloads/release/python-3110/)
 * [Install the `uv` package manager](https://docs.astral.sh/uv/getting-started/installation/)
 * AWS credentials configured (via [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html), environment variables, or IAM roles)
 * (Optional, for docker users) [Install Docker Desktop](https://www.docker.com/products/docker-desktop)

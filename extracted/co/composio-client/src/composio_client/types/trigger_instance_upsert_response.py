@@ -1,19 +1,31 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.trigger_instance_upsert_response."""
 
-from typing import Optional
+from __future__ import annotations
 
-from .._models import BaseModel
+from typing import Literal, Optional
 
-__all__ = ["TriggerInstanceUpsertResponse", "Deprecated"]
+from pydantic import ConfigDict
+from .._base_model import BaseModel
 
 
 class Deprecated(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     uuid: str
-    """ID of the updated trigger"""
+    "ID of the updated trigger"
 
 
 class TriggerInstanceUpsertResponse(BaseModel):
-    trigger_id: str
-    """ID of the updated trigger"""
-
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     deprecated: Optional[Deprecated] = None
+    trigger_id: str
+    "ID of the updated trigger"
+    type: Literal["webhook", "poll"]
+    fallback_reason: str | None
+    polling_interval: int | None
+
+
+__all__ = [
+    "TriggerInstanceUpsertResponse",
+    "Deprecated",
+]

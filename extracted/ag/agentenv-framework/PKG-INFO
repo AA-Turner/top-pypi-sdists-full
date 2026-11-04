@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agentenv-framework
-Version: 0.9.1419
+Version: 0.9.1431
 Summary: SDK and CLI for building, deploying and running agent environments and the tasks that grade agents in them.
 Project-URL: Homepage, https://www.agentenvframework.com
 Project-URL: Documentation, https://www.agentenvframework.com/docs
@@ -29,13 +29,14 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Typing :: Typed
 Requires-Python: >=3.11.4
 Requires-Dist: a2a-sdk==0.3.26
-Requires-Dist: agentenv-framework-protocol[computer]==0.1.434
+Requires-Dist: agentenv-framework-protocol[computer]==0.1.446
 Requires-Dist: certifi>=2024.2.2
 Requires-Dist: click>=8.0.0
 Requires-Dist: cryptography>=42
 Requires-Dist: e2b~=2.46.4
 Requires-Dist: fastapi>=0.110
 Requires-Dist: httpx>=0.27.0
+Requires-Dist: huggingface-hub>=1.0
 Requires-Dist: jsonschema>=4.20
 Requires-Dist: litellm<1.97,>=1.96.0
 Requires-Dist: mcp<2,>=1.25
@@ -122,6 +123,8 @@ Provides-Extra: skyrl
 Requires-Dist: openenv>=0.9; extra == 'skyrl'
 Requires-Dist: pyarrow>=19; extra == 'skyrl'
 Requires-Dist: transformers>=5; extra == 'skyrl'
+Provides-Extra: slime
+Requires-Dist: openenv>=0.9; extra == 'slime'
 Provides-Extra: smol
 Requires-Dist: smolmachines>=1.27.0; extra == 'smol'
 Provides-Extra: tenki
@@ -187,6 +190,36 @@ git clone https://github.com/scaleapi/agentenv-framework && cd agentenv-framewor
 uv sync --extra dev
 source .venv/bin/activate
 ```
+
+## Run a bundle from the Hub
+
+`agent-env run` also takes a bundle published in a [Hugging Face Hub](https://huggingface.co/datasets) dataset:
+
+```bash
+agent-env run hf://<org>/<repo>                     # the main branch
+agent-env run hf://<org>/<repo>@v1.0/bundles/hello  # a tag, branch or commit, and the bundle's folder
+```
+
+The revision (a branch, tag or commit, percent-encoded when it holds a `/`; the main branch by default) resolves to a
+commit, and only that commit's bundle and the dataset card are downloaded, into
+`$XDG_CACHE_HOME/agentenv/hf/<org>/<repo>/<commit>` (`~/.cache` by default), where a later run of the commit finds
+them. Without a path, the run takes the only bundle under `bundles/`, or the one the card's `agentenv: default` names,
+else the repo's root when it has a kind folder (`envs/`, `tasks/`, ...). It prints the repo, commit and bundle, then
+runs as a folder does, with ids under `@hf/<org>/<repo>/<name>`, so a rerun of the same commit reuses what the last one
+wrote, and records the commit with each run. A bundle's `<name>` is its folder under `bundles/`, or its path for a folder
+elsewhere; the root's ids are `@hf/<org>/<repo>`, and its name is the repo's. The card says what each bundle needs:
+
+```yaml
+agentenv:
+  default: hello                            # the bundle a run without a path takes, of several under bundles/
+  bundles:
+    hello:                                  # the bundle's <name>, or the repo's name for the root
+      plugins: ["agentenv-example>=1.2"]    # what a bundle without a bundle.toml requires
+      setup: agent-env example setup        # shown when a missing plugin, agent, env or artifact stops a run
+```
+
+Each run checks the bundle's `bundle.toml`, else the card's plugins, the first one before the bundle is downloaded; the
+`setup` command is never run. A gated or private dataset needs `hf auth login` or `HF_TOKEN`.
 
 ## Plugins
 

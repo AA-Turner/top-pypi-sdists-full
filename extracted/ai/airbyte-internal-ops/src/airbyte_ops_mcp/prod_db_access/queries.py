@@ -1294,6 +1294,7 @@ def query_connections_by_stream(
     organization_id: str | None = None,
     limit: int = 100,
     *,
+    exclude_pinned: bool = False,
     gsm_client: secretmanager.SecretManagerServiceClient | None = None,
 ) -> list[dict[str, Any]]:
     """Query connections by source connector type that have a specific stream enabled.
@@ -1307,14 +1308,21 @@ def query_connections_by_stream(
         stream_name: Name of the stream to search for in the connection's catalog
         organization_id: Optional organization UUID to filter results by
         limit: Maximum number of results (default: 100)
+        exclude_pinned: If True, exclude connections where the actor has a
+            version pin at any scope (actor, workspace, or organization).
+            Filtering is applied at the SQL level so the full `limit`
+            rows are returned.
         gsm_client: GCP Secret Manager client. If None, a new client will be instantiated.
 
     Returns:
         List of connection records with workspace and dataplane info
     """
     if organization_id is None:
+        query = SELECT_CONNECTIONS_BY_SOURCE_CONNECTOR_AND_STREAM
+        if exclude_pinned:
+            query = _inject_exclude_pinned(query)
         return _run_sql_query(
-            SELECT_CONNECTIONS_BY_SOURCE_CONNECTOR_AND_STREAM,
+            query,
             parameters={
                 "connector_definition_id": connector_definition_id,
                 "stream_name": stream_name,
@@ -1324,8 +1332,11 @@ def query_connections_by_stream(
             gsm_client=gsm_client,
         )
 
+    query = SELECT_CONNECTIONS_BY_SOURCE_CONNECTOR_AND_STREAM_AND_ORG
+    if exclude_pinned:
+        query = _inject_exclude_pinned(query)
     return _run_sql_query(
-        SELECT_CONNECTIONS_BY_SOURCE_CONNECTOR_AND_STREAM_AND_ORG,
+        query,
         parameters={
             "connector_definition_id": connector_definition_id,
             "stream_name": stream_name,

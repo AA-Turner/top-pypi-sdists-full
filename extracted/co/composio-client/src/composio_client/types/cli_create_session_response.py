@@ -1,29 +1,28 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.cli_create_session_response."""
 
-from typing_extensions import Literal
+from __future__ import annotations
 
-from pydantic import Field as FieldInfo
+from typing import Literal
 
-from .._models import BaseModel
-
-__all__ = ["CliCreateSessionResponse"]
+from pydantic import ConfigDict, Field
+from .._base_model import BaseModel
 
 
 class CliCreateSessionResponse(BaseModel):
-    id: str
-    """Unique identifier for the CLI session.
-
-    UUID v4 format used for tracking and retrieval.
-    """
-
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     code: str
-    """The 6-character hexadecimal code used for CLI login"""
+    "The 6-character hexadecimal code used for CLI login"
+    expires_at: str = Field(alias="expiresAt")
+    "The ISO timestamp when the session expires"
+    id: str
+    "Unique identifier for the CLI session.\n\nUUID v4 format used for tracking and retrieval."
+    scope: Literal['project', 'user']
+    "The key scope for this session"
+    status: Literal['pending', 'linked']
+    "The current status of the session"
 
-    expires_at: str = FieldInfo(alias="expiresAt")
-    """The ISO timestamp when the session expires"""
 
-    scope: Literal["project", "user"]
-    """The key scope for this session"""
-
-    status: Literal["pending", "linked"]
-    """The current status of the session"""
+__all__ = [
+    "CliCreateSessionResponse",
+]

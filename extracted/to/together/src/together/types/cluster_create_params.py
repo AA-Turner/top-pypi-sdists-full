@@ -18,7 +18,6 @@ __all__ = [
     "GPUClusterCreateRequestNvidiaVersionAddOnConfigHeadlamp",
     "GPUClusterCreateRequestNvidiaVersionAddOnConfigIngress",
     "GPUClusterCreateRequestNvidiaVersionAddOnConfigSlurmWeb",
-    "GPUClusterCreateRequestNvidiaVersionAddOnConfigTorchpass",
     "GPUClusterCreateRequestNvidiaVersionClusterConfig",
     "GPUClusterCreateRequestNvidiaVersionClusterConfigIngress",
     "GPUClusterCreateRequestNvidiaVersionClusterConfigObservability",
@@ -33,7 +32,6 @@ __all__ = [
     "GPUClusterCreateRequestLegacyNvidiaAddOnConfigHeadlamp",
     "GPUClusterCreateRequestLegacyNvidiaAddOnConfigIngress",
     "GPUClusterCreateRequestLegacyNvidiaAddOnConfigSlurmWeb",
-    "GPUClusterCreateRequestLegacyNvidiaAddOnConfigTorchpass",
     "GPUClusterCreateRequestLegacyNvidiaClusterConfig",
     "GPUClusterCreateRequestLegacyNvidiaClusterConfigIngress",
     "GPUClusterCreateRequestLegacyNvidiaClusterConfigObservability",
@@ -57,7 +55,7 @@ class GPUClusterCreateRequestNvidiaVersion(TypedDict, total=False):
     """Name of the GPU cluster."""
 
     gpu_type: Required[
-        Literal["H100_SXM", "H200_SXM", "RTX_6000_PCI", "L40_PCIE", "B200_SXM", "H100_SXM_INF", "B300_SXM"]
+        Literal["H100_SXM", "H200_SXM", "RTX_6000_PCI", "L40_PCIE", "B200_SXM", "H100_SXM_INF", "B300_SXM", "GB200_SXM"]
     ]
     """Type of GPU to use in the cluster"""
 
@@ -252,13 +250,6 @@ class GPUClusterCreateRequestNvidiaVersionAddOnConfigSlurmWeb(TypedDict, total=F
     """Whether to enable the Slurm Web add-on."""
 
 
-class GPUClusterCreateRequestNvidiaVersionAddOnConfigTorchpass(TypedDict, total=False):
-    """Configuration for the Model Aware TorchPass add-on."""
-
-    enabled: bool
-    """Whether to enable the Model Aware TorchPass add-on."""
-
-
 class GPUClusterCreateRequestNvidiaVersionAddOnConfig(TypedDict, total=False):
     """Configuration for a cluster add-on."""
 
@@ -272,13 +263,10 @@ class GPUClusterCreateRequestNvidiaVersionAddOnConfig(TypedDict, total=False):
     slurm_web: GPUClusterCreateRequestNvidiaVersionAddOnConfigSlurmWeb
     """Configuration for the Slurm Web add-on."""
 
-    torchpass: GPUClusterCreateRequestNvidiaVersionAddOnConfigTorchpass
-    """Configuration for the Model Aware TorchPass add-on."""
-
 
 class GPUClusterCreateRequestNvidiaVersionAddOn(TypedDict, total=False):
     add_on_type: Required[str]
-    """Type of add-on. Valid values: 'dashboard', 'ingress', 'torchpass'."""
+    """Type of add-on. Valid values: 'dashboard', 'ingress'"""
 
     name: Required[str]
     """Human-readable name for this add-on instance."""
@@ -438,7 +426,7 @@ class GPUClusterCreateRequestLegacyNvidia(TypedDict, total=False):
     """
 
     gpu_type: Required[
-        Literal["H100_SXM", "H200_SXM", "RTX_6000_PCI", "L40_PCIE", "B200_SXM", "H100_SXM_INF", "B300_SXM"]
+        Literal["H100_SXM", "H200_SXM", "RTX_6000_PCI", "L40_PCIE", "B200_SXM", "H100_SXM_INF", "B300_SXM", "GB200_SXM"]
     ]
     """Type of GPU to use in the cluster"""
 
@@ -625,13 +613,6 @@ class GPUClusterCreateRequestLegacyNvidiaAddOnConfigSlurmWeb(TypedDict, total=Fa
     """Whether to enable the Slurm Web add-on."""
 
 
-class GPUClusterCreateRequestLegacyNvidiaAddOnConfigTorchpass(TypedDict, total=False):
-    """Configuration for the Model Aware TorchPass add-on."""
-
-    enabled: bool
-    """Whether to enable the Model Aware TorchPass add-on."""
-
-
 class GPUClusterCreateRequestLegacyNvidiaAddOnConfig(TypedDict, total=False):
     """Configuration for a cluster add-on."""
 
@@ -645,13 +626,10 @@ class GPUClusterCreateRequestLegacyNvidiaAddOnConfig(TypedDict, total=False):
     slurm_web: GPUClusterCreateRequestLegacyNvidiaAddOnConfigSlurmWeb
     """Configuration for the Slurm Web add-on."""
 
-    torchpass: GPUClusterCreateRequestLegacyNvidiaAddOnConfigTorchpass
-    """Configuration for the Model Aware TorchPass add-on."""
-
 
 class GPUClusterCreateRequestLegacyNvidiaAddOn(TypedDict, total=False):
     add_on_type: Required[str]
-    """Type of add-on. Valid values: 'dashboard', 'ingress', 'torchpass'."""
+    """Type of add-on. Valid values: 'dashboard', 'ingress'"""
 
     name: Required[str]
     """Human-readable name for this add-on instance."""

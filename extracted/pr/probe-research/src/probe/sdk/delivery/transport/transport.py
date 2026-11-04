@@ -82,6 +82,13 @@ _DEFAULT_TIMEOUT = 30.0
 _MAX_RETRIES = 3
 
 
+#: Connections kept open between requests: httpx's 100/20 pool, idle for up to 60 s instead of
+#: its 5 s, so a beat every 60 s or a log chunk every 15 s reuses one instead of a new TLS
+#: handshake each (I13). Under ingress-nginx's 75 s upstream keep-alive, so the server never
+#: closes one first.
+_KEEPALIVE_LIMITS = httpx.Limits(max_connections=100, max_keepalive_connections=20, keepalive_expiry=60.0)
+
+
 #: Cap on the CONNECT phase, independent of the overall timeout. A dead or black-holing
 #: endpoint parked a caller 30s per request, long enough to trip a distributed collective
 #: while every rank waits on the same stalled POST. Reads keep the full budget: a slow
@@ -171,17 +178,39 @@ class Transport(_TransportParts):
         # describes the host, and a local process cannot run on two machines. The hosted
         # MCP must NOT send it and does not reach here with one (see `_device_headers`).
         self._device_headers = _device_headers_for(surface)
-        self._client = client or httpx.Client(
-            base_url=settings.base_url,
-            timeout=httpx.Timeout(timeout, connect=min(timeout, _DEFAULT_CONNECT_TIMEOUT)),
-            verify=ssl_context(),
-        )
+        #: Whether ``_client`` is ours to rebuild in a forked child (an injected one never is).
+        self._has_own_client = client is None
+        self._client_pid = os.getpid()
+        self._http_client = client if client is not None else self._build_http_client()
         # Sessions whose tracking signal this transport already settled, keyed per SESSION:
         # the hosted MCP memoizes one transport per token for many callers, so one boolean
         # would let the first caller's session answer for everyone.
         self._tracking_marked: set[str] = set()
 
     # -- lifecycle ----------------------------------------------------------
+    def _build_http_client(self) -> httpx.Client:
+        return httpx.Client(
+            base_url=self.settings.base_url,
+            timeout=httpx.Timeout(self.timeout, connect=min(self.timeout, _DEFAULT_CONNECT_TIMEOUT)),
+            verify=ssl_context(),
+            limits=_KEEPALIVE_LIMITS,
+        )
+
+    @property
+    def _client(self) -> httpx.Client:
+        """The httpx client. A forked child (a data-loader worker) gets its own: the parent's
+        kept-alive sockets are shared with it, and two processes on one TLS stream read each
+        other's answers. The parent's are left open for the parent."""
+        if self._has_own_client and self._client_pid != os.getpid():
+            self._client_pid = os.getpid()
+            self._http_client = self._build_http_client()
+        return self._http_client
+
+    @_client.setter
+    def _client(self, client: httpx.Client) -> None:
+        self._http_client = client
+        self._has_own_client = False
+
     def close(self) -> None:
         self._client.close()
 

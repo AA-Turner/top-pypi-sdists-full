@@ -1,54 +1,54 @@
-import typing as t
-from collections.abc import KeysView
 from abc import ABCMeta, abstractmethod
-from .types import DictKey, AnyKey, KeyParameters
+from collections.abc import KeysView
+from typing import Any, ClassVar, Generic, Literal, Self, TypeVar, cast, overload
+
 from .._rfc7638 import calculate_thumbprint
 from .._rfc9278 import concat_thumbprint_uri
-from ..registry import (
-    KeyParameterRegistryDict,
-    JWK_PARAMETER_REGISTRY,
-    KeyOperationRegistryDict,
-    JWK_OPERATION_REGISTRY,
-)
-from ..util import to_bytes
 from ..errors import (
     KeyParameterError,
-    UnsupportedKeyUseError,
     UnsupportedKeyAlgorithmError,
     UnsupportedKeyOperationError,
+    UnsupportedKeyUseError,
 )
+from ..registry import (
+    JWK_OPERATION_REGISTRY,
+    JWK_PARAMETER_REGISTRY,
+    KeyOperationRegistryDict,
+    KeyParameterRegistryDict,
+)
+from ..util import to_bytes
+from .types import AnyKey, DictKey, KeyParameters
 
-
-NativePrivateKey = t.TypeVar("NativePrivateKey")
-NativePublicKey = t.TypeVar("NativePublicKey")
-GenericKey = t.TypeVar("GenericKey", bound="BaseKey[t.Any, t.Any]")
+NativePrivateKey = TypeVar("NativePrivateKey")
+NativePublicKey = TypeVar("NativePublicKey")
+GenericKey = TypeVar("GenericKey", bound="BaseKey[Any, Any]")
 
 
 class NativeKeyBinding(metaclass=ABCMeta):
-    use_key_ops_registry: t.ClassVar[dict[str, list[str]]] = {
+    use_key_ops_registry: ClassVar[dict[str, list[str]]] = {
         "sig": ["sign", "verify"],
         "enc": ["encrypt", "decrypt", "wrapKey", "unwrapKey", "deriveKey", "deriveBits"],
     }
 
     @classmethod
     @abstractmethod
-    def convert_raw_key_to_dict(cls, raw_key: t.Any, private: bool) -> DictKey:
+    def convert_raw_key_to_dict(cls, raw_key: Any, private: bool) -> DictKey:
         pass
 
     @classmethod
     @abstractmethod
-    def import_from_dict(cls, value: DictKey) -> t.Any:
+    def import_from_dict(cls, value: DictKey) -> Any:
         pass
 
     @classmethod
     @abstractmethod
-    def import_from_bytes(cls, value: bytes, password: t.Any = None) -> t.Any:
+    def import_from_bytes(cls, value: bytes, password: str | bytes | None = None) -> Any:
         pass
 
     @staticmethod
     def as_bytes(
         key: GenericKey,
-        encoding: t.Literal["PEM", "DER"] | None = None,
+        encoding: Literal["PEM", "DER"] | None = None,
         private: bool = False,
         password: str | None = None,
     ) -> bytes:
@@ -64,7 +64,7 @@ class NativeKeyBinding(metaclass=ABCMeta):
                 try:
                     registry[k].validate(dict_key[k])
                 except ValueError as error:
-                    raise KeyParameterError(f"'{k}' {error}")
+                    raise KeyParameterError(f"'{k}' {error}") from error
 
     @classmethod
     def validate_dict_key_use_operations(cls, dict_key: DictKey) -> None:
@@ -76,18 +76,18 @@ class NativeKeyBinding(metaclass=ABCMeta):
                     raise KeyParameterError("'use' and 'key_ops' does not match")
 
 
-class BaseKey(t.Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
-    key_type: t.ClassVar[str]
-    binding: t.ClassVar[type[NativeKeyBinding]]
-    value_registry: t.ClassVar[KeyParameterRegistryDict]
-    param_registry: t.ClassVar[KeyParameterRegistryDict] = JWK_PARAMETER_REGISTRY
-    operation_registry: t.ClassVar[KeyOperationRegistryDict] = JWK_OPERATION_REGISTRY
-    thumbprint_digest_method: t.Literal["sha256", "sha384", "sha512"] = "sha256"
+class BaseKey(Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
+    key_type: ClassVar[str]
+    binding: ClassVar[type[NativeKeyBinding]]
+    value_registry: ClassVar[KeyParameterRegistryDict]
+    param_registry: ClassVar[KeyParameterRegistryDict] = JWK_PARAMETER_REGISTRY
+    operation_registry: ClassVar[KeyOperationRegistryDict] = JWK_OPERATION_REGISTRY
+    thumbprint_digest_method: Literal["sha256", "sha384", "sha512"] = "sha256"
 
     def __init__(
         self,
         raw_value: NativePrivateKey | NativePublicKey,
-        original_value: t.Any,
+        original_value: Any,
         parameters: KeyParameters | None = None,
     ):
         self._raw_value = raw_value
@@ -102,7 +102,7 @@ class BaseKey(t.Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
             self.validate_dict_key(data)
             self._dict_value = data
 
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
             return False
         return self.dict_value == other.dict_value
@@ -126,15 +126,15 @@ class BaseKey(t.Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
     @property
     def kid(self) -> str | None:
         """The "kid" value of the JSON Web Key."""
-        return t.cast(str | None, self.get("kid"))
+        return cast(str | None, self.get("kid"))
 
     @property
     def alg(self) -> str | None:
         """The "alg" value of the JSON Web Key."""
-        return t.cast(str | None, self.get("alg"))
+        return cast(str | None, self.get("alg"))
 
     @property
-    def raw_value(self) -> t.Any:
+    def raw_value(self) -> NativePrivateKey | NativePublicKey:
         raise NotImplementedError()
 
     @property
@@ -177,7 +177,7 @@ class BaseKey(t.Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
         value = self.thumbprint()
         return concat_thumbprint_uri(value, self.thumbprint_digest_method)
 
-    def as_dict(self, private: bool = False, **params: t.Any) -> DictKey:
+    def as_dict(self, private: bool = False, **params: Any) -> DictKey:
         """Output this key to a JWK format (in dict). By default, it will return
         the ``dict_value`` of this key.
 
@@ -246,11 +246,11 @@ class BaseKey(t.Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
         if reg.private and not self.is_private:
             raise UnsupportedKeyOperationError(f"Invalid key_op '{operation}' for public key")
 
-    @t.overload
-    def get_op_key(self, operation: t.Literal["verify", "encrypt", "wrapKey", "deriveKey"]) -> NativePublicKey: ...
+    @overload
+    def get_op_key(self, operation: Literal["verify", "encrypt", "wrapKey", "deriveKey"]) -> NativePublicKey: ...
 
-    @t.overload
-    def get_op_key(self, operation: t.Literal["sign", "decrypt", "unwrapKey"]) -> NativePrivateKey: ...
+    @overload
+    def get_op_key(self, operation: Literal["sign", "decrypt", "unwrapKey"]) -> NativePrivateKey: ...
 
     def get_op_key(self, operation: str) -> NativePublicKey | NativePrivateKey:
         self.check_key_op(operation)
@@ -268,11 +268,11 @@ class BaseKey(t.Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
 
     @classmethod
     def import_key(
-        cls: type[GenericKey],
+        cls,
         value: AnyKey,
         parameters: KeyParameters | None = None,
-        password: t.Any = None,
-    ) -> GenericKey:
+        password: str | bytes | None = None,
+    ) -> Self:
         if isinstance(value, dict):
             cls.validate_dict_key(value)
             raw_key = cls.binding.import_from_dict(value)
@@ -283,12 +283,12 @@ class BaseKey(t.Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
 
     @classmethod
     def generate_key(
-        cls: type[GenericKey],
+        cls,
         *,
         parameters: KeyParameters | None = None,
         private: bool = True,
         auto_kid: bool = False,
-    ) -> GenericKey:
+    ) -> Self:
         raise NotImplementedError()
 
 
@@ -321,7 +321,7 @@ class AsymmetricKey(BaseKey[NativePrivateKey, NativePublicKey], metaclass=ABCMet
 
     def as_bytes(
         self,
-        encoding: t.Literal["PEM", "DER"] | None = None,
+        encoding: Literal["PEM", "DER"] | None = None,
         private: bool = False,
         password: str | None = None,
     ) -> bytes:
@@ -341,5 +341,5 @@ class CurveKey(AsymmetricKey[NativePrivateKey, NativePublicKey]):
         pass
 
     @abstractmethod
-    def exchange_derive_key(self, key: t.Any) -> bytes:
+    def exchange_derive_key(self, key: Any) -> bytes:
         pass

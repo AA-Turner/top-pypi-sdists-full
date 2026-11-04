@@ -80,6 +80,70 @@ end
 ]]
 -- Includes
 --[[
+  Adds a delayed job to the queue by doing the following:
+    - Creates a new job key with the job data.
+    - adds to delayed zset.
+    - Emits a global event 'delayed' if the job is delayed.
+]]
+-- Includes
+--[[
+  Add delay marker if needed.
+]]
+-- Includes
+--[[
+  Function to return the next delayed job timestamp.
+]]
+local function getNextDelayedTimestamp(delayedKey)
+  local result = rcall("ZRANGE", delayedKey, 0, 0, "WITHSCORES")
+  if #result then
+    local nextTimestamp = tonumber(result[2])
+    if nextTimestamp ~= nil then
+      return nextTimestamp / 0x1000
+    end
+  end
+end
+local function addDelayMarkerIfNeeded(markerKey, delayedKey)
+  local nextTimestamp = getNextDelayedTimestamp(delayedKey)
+  if nextTimestamp ~= nil then
+    -- Replace the score of the marker with the newest known
+    -- next timestamp.
+    rcall("ZADD", markerKey, nextTimestamp, "1")
+  end
+end
+--[[
+  Bake in the job id first 12 bits into the timestamp
+  to guarantee correct execution order of delayed jobs
+  (up to 4096 jobs per given timestamp or 4096 jobs apart per timestamp)
+  WARNING: Jobs that are so far apart that they wrap around will cause FIFO to fail
+]]
+local function getDelayedScore(delayedKey, timestamp, delay)
+  local delayedTimestamp = (delay > 0 and (tonumber(timestamp) + delay)) or tonumber(timestamp)
+  local minScore = delayedTimestamp * 0x1000
+  local maxScore = (delayedTimestamp + 1 ) * 0x1000 - 1
+  local result = rcall("ZREVRANGEBYSCORE", delayedKey, maxScore,
+    minScore, "WITHSCORES","LIMIT", 0, 1)
+  if #result then
+    local currentMaxScore = tonumber(result[2])
+    if currentMaxScore ~= nil then
+      if currentMaxScore >= maxScore then
+        return maxScore, delayedTimestamp
+      else
+        return currentMaxScore + 1, delayedTimestamp
+      end
+    end
+  end
+  return minScore, delayedTimestamp
+end
+local function addDelayedJob(jobId, delayedKey, eventsKey, timestamp,
+  maxEvents, markerKey, delay)
+  local score, delayedTimestamp = getDelayedScore(delayedKey, timestamp, tonumber(delay))
+  rcall("ZADD", delayedKey, score, jobId)
+  rcall("XADD", eventsKey, "MAXLEN", "~", maxEvents, "*", "event", "delayed",
+    "jobId", jobId, "delay", delayedTimestamp)
+  -- mark that a delayed job is available
+  addDelayMarkerIfNeeded(markerKey, delayedKey)
+end
+--[[
   Function to deduplicate a job.
 ]]
 --[[
@@ -260,7 +324,7 @@ local function removeDelayedJob(delayedKey, deduplicationKey, eventsKey, maxEven
     return false
 end
 local function deduplicateJob(deduplicationOpts, jobId, delayedKey, deduplicationKey, eventsKey, maxEvents,
-    prefix, jobName, jobData, fullOpts, parentKey, parentData, parentDependenciesKey, repeatJobKey)
+    prefix, jobName, jobData, fullOpts, parentKey, parentData, parentDependenciesKey, repeatJobKey, timestamp)
     local deduplicationId = deduplicationOpts and deduplicationOpts['id']
     if deduplicationId then
         if deduplicationOpts['replace'] then
@@ -303,9 +367,17 @@ local function deduplicateJob(deduplicationOpts, jobId, delayedKey, deduplicatio
                 return
             end
         else
-            return deduplicateJobWithoutReplace(deduplicationId, deduplicationOpts,
+            local currentDeduplicatedJobId = deduplicateJobWithoutReplace(deduplicationId, deduplicationOpts,
                 jobId, deduplicationKey, eventsKey, maxEvents, prefix, jobName, jobData, fullOpts,
                 parentKey, parentData, parentDependenciesKey, repeatJobKey)
+            if currentDeduplicatedJobId and deduplicationOpts['reschedule'] and
+                rcall('ZSCORE', delayedKey, currentDeduplicatedJobId) then
+                local delay = tonumber(fullOpts['delay']) or 0
+                rcall('HSET', prefix .. currentDeduplicatedJobId, 'delay', delay)
+                addDelayedJob(currentDeduplicatedJobId, delayedKey, eventsKey, timestamp,
+                    maxEvents, prefix .. 'marker', delay)
+            end
+            return currentDeduplicatedJobId
         end
     end
 end
@@ -384,30 +456,6 @@ end
   Move parent to a wait status (wait, prioritized or delayed)
 ]]
 -- Includes
---[[
-  Add delay marker if needed.
-]]
--- Includes
---[[
-  Function to return the next delayed job timestamp.
-]]
-local function getNextDelayedTimestamp(delayedKey)
-  local result = rcall("ZRANGE", delayedKey, 0, 0, "WITHSCORES")
-  if #result then
-    local nextTimestamp = tonumber(result[2])
-    if nextTimestamp ~= nil then
-      return nextTimestamp / 0x1000
-    end
-  end
-end
-local function addDelayMarkerIfNeeded(markerKey, delayedKey)
-  local nextTimestamp = getNextDelayedTimestamp(delayedKey)
-  if nextTimestamp ~= nil then
-    -- Replace the score of the marker with the newest known
-    -- next timestamp.
-    rcall("ZADD", markerKey, nextTimestamp, "1")
-  end
-end
 --[[
   Function to add job in target list and add marker if needed.
 ]]
@@ -550,7 +598,7 @@ else
 end
 local deduplicationJobId = deduplicateJob(opts['de'], jobId, KEYS[5],
   deduplicationKey, eventsKey, maxEvents, args[1], args[3], ARGV[2], opts,
-  parentKey, parentData, parentDependenciesKey, repeatJobKey)
+  parentKey, parentData, parentDependenciesKey, repeatJobKey, timestamp)
 if deduplicationJobId then
   return deduplicationJobId
 end

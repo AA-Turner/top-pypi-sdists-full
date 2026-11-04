@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
+from plato.utils.agent_session_record import SESSION_RECORD_DIR_NAME
+
 if TYPE_CHECKING:
     from plato.worlds.config import GitTransportConfig
 
@@ -93,6 +95,11 @@ def EnvList(description: str = "") -> FieldMarker:
 
 
 class WorkspaceMarker:
+    # File that ``workspace download --extract`` drops into a git payload and
+    # ``workspace upload git`` reads back: pins the dvc ``dir_name`` the ref
+    # restores into. The world restores git workspaces into the workspace
+    # dir's own name ("data"); any other pinned name restores nowhere it reads.
+    ROUND_TRIP_MARKER = ".plato-workspace.json"
     """Marker for workspace fields in world configs.
 
     Declares a workspace directory that is automatically created, registered
@@ -113,11 +120,29 @@ class WorkspaceMarker:
         dvcignore: Extra patterns to add to .dvcignore (merged with DEFAULT_DVCIGNORE).
         transport: Per-workspace transport override. When ``None`` (default), the
             workspace inherits the world config ``transport_mode``. Set to ``"git"`` to
-            use git clone/push, or ``"rsync"`` to do one-shot SSH file sync instead of
-            NFS/SSHFS for this workspace.
+            use git clone/push, ``"rsync"`` to do one-shot SSH file sync, or ``"fuse"``
+            to launch a private lazy-hydrating plato-fuse mount of the workspace's
+            immutable manifest DIRECTLY on each agent VM (read-only datasets only —
+            per-agent mounts have no cross-VM coherence, so writable/shared
+            workspaces must stay on NFS/git/rsync).
         git_config: Git transport configuration. Only used when ``transport="git"``.
         commit_strategy: DVC commit strategy. ``"manifest"`` (default) uploads individual
             files; ``"archive"`` uploads the entire directory as a single tar.gz.
+        readonly: Agents mount the workspace read-only. Supported for the NFS
+            transport (server export ``ro`` + client mount ``-o ro``) and the
+            fuse transport (VFS-level ``remount,ro`` on the agent VM); use for
+            large shared datasets agents read in place.
+        nfs_mount_options: Extra client-side mount options appended to the
+            default NFS ``-o`` string on agent mounts (NFS transport only),
+            e.g. ``"sync"`` for write-through workspaces that another VM
+            tails live.
+        pin_to_agent_vm: Keep this workspace on the agent VM even when the
+            agent runs with ``sandbox_tools_only``, which otherwise mounts
+            every workspace on the sandbox. For state the agent *CLI process*
+            writes itself (transcripts, compaction summaries) rather than
+            through its file tools, since that process runs on the agent VM
+            wherever its tools act. Never set it on a workspace the agent is
+            meant to edit.
     """
 
     DEFAULT_DVCIGNORE: tuple[str, ...] = (
@@ -131,6 +156,7 @@ class WorkspaceMarker:
         ".turbo",
         ".runtime",
         ".plato",
+        SESSION_RECORD_DIR_NAME,  # claude-code session records + transcripts (resume_on_retry); never checkpointed
     )
 
     def __init__(
@@ -139,9 +165,12 @@ class WorkspaceMarker:
         tracked: bool = True,
         mount_path: str | None = None,
         dvcignore: list[str] | None = None,
-        transport: Literal["nfs_kernel", "sshfs", "git", "rsync"] | None = None,
+        transport: Literal["nfs_kernel", "sshfs", "git", "rsync", "fuse"] | None = None,
         git_config: GitTransportConfig | None = None,
         commit_strategy: Literal["manifest", "archive"] = "manifest",
+        readonly: bool = False,
+        nfs_mount_options: str = "",
+        pin_to_agent_vm: bool = False,
     ):
         self.kind = "workspace"
         self.description = description
@@ -151,3 +180,13 @@ class WorkspaceMarker:
         self.transport = transport
         self.git_config = git_config
         self.commit_strategy = commit_strategy
+        # Agents mount this workspace read-only (NFS transport only): the
+        # server export uses `ro` and the client mount adds `-o ro`. Intended
+        # for large shared datasets that must never be rsynced per-VM.
+        self.readonly = readonly
+        # Extra client-side NFS mount options for agent mounts of this
+        # workspace (NFS transport only), e.g. "sync" for write-through
+        # workspaces another VM tails live.
+        self.nfs_mount_options = nfs_mount_options
+        # Stays on the agent VM under sandbox_tools_only — see the docstring.
+        self.pin_to_agent_vm = pin_to_agent_vm

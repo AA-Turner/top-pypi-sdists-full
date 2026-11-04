@@ -8,7 +8,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
-from ..models.t_interval_spec_mode import TIntervalSpecMode
+from ..models.t_interval_spec_mode_type_0 import TIntervalSpecModeType0
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="TIntervalSpec")
@@ -20,12 +20,12 @@ class TIntervalSpec:
     Attributes:
         start (datetime.datetime | str):
         end (datetime.datetime | str | Unset):
-        mode (TIntervalSpecMode | Unset):
+        mode (str | TIntervalSpecModeType0 | Unset):
     """
 
     start: datetime.datetime | str
     end: datetime.datetime | str | Unset = UNSET
-    mode: TIntervalSpecMode | Unset = UNSET
+    mode: str | TIntervalSpecModeType0 | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -43,9 +43,13 @@ class TIntervalSpec:
         else:
             end = self.end
 
-        mode: str | Unset = UNSET
-        if not isinstance(self.mode, Unset):
+        mode: str | Unset
+        if isinstance(self.mode, Unset):
+            mode = UNSET
+        elif isinstance(self.mode, TIntervalSpecModeType0):
             mode = self.mode.value
+        else:
+            mode = self.mode
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -93,12 +97,20 @@ class TIntervalSpec:
 
         end = _parse_end(d.pop("end", UNSET))
 
-        _mode = d.pop("mode", UNSET)
-        mode: TIntervalSpecMode | Unset
-        if isinstance(_mode, Unset):
-            mode = UNSET
-        else:
-            mode = TIntervalSpecMode(_mode)
+        def _parse_mode(data: object) -> str | TIntervalSpecModeType0 | Unset:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                mode_type_0 = TIntervalSpecModeType0(data)
+
+                return mode_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(str | TIntervalSpecModeType0 | Unset, data)
+
+        mode = _parse_mode(d.pop("mode", UNSET))
 
         t_interval_spec = cls(
             start=start,

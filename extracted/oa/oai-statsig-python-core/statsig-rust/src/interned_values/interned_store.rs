@@ -42,18 +42,13 @@ use crate::{
     log_d, log_e,
     networking::ResponseData,
     observability::ops_stats::OpsStatsForInstance,
-    specs_adapter::{SpecsInfo, SpecsSyncTrigger, StatsigHttpSpecsAdapter},
+    specs_adapter::remote_config_value_hydrator::VerifiedRemoteValues,
     specs_response::{
         parse_options::SpecsResponseParseOptions,
-        proto_compression::is_compressed_protobuf_response,
-        proto_specs::{
-            ProtobufHydrationContext, ProtobufUpdate,
-            deserialize_protobuf_for_store_with_hydration, deserialize_protobuf_with_options,
-        },
+        proto_specs::deserialize_protobuf_with_options,
         spec_types::{Spec, SpecsResponseFull},
         specs_hash_map::{SpecPointer, SpecsHashMap},
     },
-    utils::try_release_unused_heap_memory,
 };
 
 use super::mmap_data_v2::ArchivedMmapEvaluatorValue;
@@ -66,29 +61,22 @@ mod mmap_writer;
 pub use mmap_artifact::{MmapArtifactSnapshot, MmapArtifactState};
 pub use mmap_reader::MmapReaderMemorySnapshot;
 
-use mmap_manifest::open_committed_mmap_v2;
 #[cfg(all(test, any(unix, windows)))]
 pub(crate) use mmap_manifest::open_committed_mmap_v2_for_test;
+use mmap_manifest::open_committed_mmap_v2_with_remote_values;
 #[cfg(test)]
-pub(crate) use mmap_manifest::{
-    write_mmap_manifest_for_test, write_mmap_v2_only_manifest_for_test,
-};
+pub(crate) use mmap_manifest::write_mmap_manifest_for_test;
 use mmap_reader::{
     MmapRegistryBuilder, MmapSpecKind,
     get_evaluator_value as get_archived_evaluator_value_from_mmap,
     get_returnable as get_returnable_from_mmap, get_spec as get_mmap_spec,
     get_string as get_string_from_mmap,
 };
-use mmap_writer::{
-    acquire_mmap_graph_write_lock, acquire_mmap_write_lock, write_mmap_artifacts,
-    write_resolved_mmap_artifacts,
-};
 #[cfg(test)]
-pub(crate) use mmap_writer::{acquire_mmap_write_lock_for_test, write_mmap_v2_for_test};
+pub(crate) use mmap_writer::tests::{acquire_mmap_write_lock_for_test, write_mmap_v2_for_test};
 
 const TAG: &str = "InternedStore";
 const MMAP_DIRECTORY: &str = "statsig-interned-store";
-pub(crate) const LEGACY_MMAP_FORMAT_VERSION: u32 = 1;
 const WEAK_STORE_SWEEP_INTERVAL: usize = 4096;
 
 /// Controls optional work performed while installing an interned mmap reader.
@@ -526,85 +514,7 @@ impl InternedStore {
         options: Option<&StatsigOptions>,
         previous: Option<&MmapSyncCursor>,
     ) -> Result<MmapWriteOutcome, StatsigErr> {
-        // Serialize the full same-key refresh so a delayed response cannot
-        // overwrite a newer generation published by another writer.
-        let write_lock = acquire_mmap_write_lock(&mmap_lock_path_for_sdk_key(sdk_key)).await?;
-        let adapter = StatsigHttpSpecsAdapter::new(sdk_key, options, None);
-        let mut specs_info = SpecsInfo::empty();
-        if let Some(previous) = previous {
-            specs_info.lcut = Some(previous.lcut);
-            specs_info.checksum = previous.checksum.clone();
-        }
-
-        let mut response = adapter
-            .fetch_specs_from_network(specs_info, SpecsSyncTrigger::Manual)
-            .await
-            .map_err(StatsigErr::NetworkError)?;
-        let result = if is_compressed_protobuf_response(&response.data) {
-            // The integrated async parser hydrates protobuf values while it
-            // walks the original compressed stream. Hold the graph lock across
-            // that await because parsing fills process-global intern tables
-            // that mmap serialization drains immediately afterward.
-            let graph_guard = acquire_mmap_graph_write_lock().await;
-            let current_specs = SpecsResponseFull::default();
-            let mut next_specs = SpecsResponseFull::default();
-            let source_url = response.request_url.clone();
-            let (update, _, _) = deserialize_protobuf_for_store_with_hydration(
-                adapter.ops_stats(),
-                &current_specs,
-                Default::default(),
-                &mut next_specs,
-                &mut response.data,
-                ProtobufHydrationContext {
-                    hydrator: adapter.remote_config_value_hydrator(),
-                    source_url: &source_url,
-                    sync_trigger: Some(SpecsSyncTrigger::Manual),
-                    mmap_project_id: MmapProjectId::for_sdk_key(sdk_key),
-                    capture_hydrated_data_store_bytes: false,
-                    preserve_session_update_mode: false,
-                },
-            )
-            .await?;
-            if matches!(update, ProtobufUpdate::Materialized { .. }) {
-                match super::mmap_sync::resolve_parsed_response(next_specs, previous)? {
-                    Some(resolved) => write_resolved_mmap_artifacts(
-                        &graph_guard,
-                        resolved,
-                        &mmap_v2_path_for_sdk_key(sdk_key),
-                        &mmap_manifest_path_for_sdk_key(sdk_key),
-                    ),
-                    None => Ok(MmapWriteOutcome::NoUpdate),
-                }
-            } else {
-                Err(StatsigErr::InvalidOperation(
-                    "Mmap protobuf fetch did not produce a full snapshot".to_string(),
-                ))
-            }
-        } else {
-            // JSON hydration can rewrite the response in place before the
-            // synchronous mmap parser consumes it.
-            adapter
-                .hydrate_network_response(&mut response, SpecsSyncTrigger::Manual)
-                .await?;
-            let graph_guard = acquire_mmap_graph_write_lock().await;
-            write_mmap_artifacts(
-                &graph_guard,
-                &mut response.data,
-                previous,
-                &mmap_v2_path_for_sdk_key(sdk_key),
-                &mmap_manifest_path_for_sdk_key(sdk_key),
-            )
-        };
-
-        drop(response);
-        drop(adapter);
-        drop(write_lock);
-        try_release_unused_heap_memory();
-        result
-    }
-
-    pub fn preload_mmap(sdk_key: &str) -> Result<(), StatsigErr> {
-        Self::preload_mmap_with_options(sdk_key, &MmapPreloadOptions::default()).map(|_| ())
+        mmap_writer::fetch_and_write_mmap(sdk_key, options, previous).await
     }
 
     /// Reports memory accounting for the currently loaded mmap reader.
@@ -617,40 +527,26 @@ impl InternedStore {
         mmap_reader::memory_snapshot()
     }
 
-    /// Preloads the committed artifact with optional eager reader work and
-    /// reports the selected compatibility-reader format.
+    /// Preloads committed V2 mmap artifacts before creating SDK instances or forking workers.
+    ///
+    /// If any required key fails, nothing is installed. Each skipped optional key is
+    /// reported with its index in `optional_sdk_keys` and its error. Supply at least
+    /// one key across both groups. If no keys load, the registry remains available
+    /// for a retry. Once any keys load, the registry is installed for the process.
+    pub fn preload_mmap(
+        required_sdk_keys: &[&str],
+        optional_sdk_keys: &[&str],
+        options: &MmapPreloadOptions,
+    ) -> Result<MmapPreloadReport, StatsigErr> {
+        Self::preload_mmap_from_directory(required_sdk_keys, optional_sdk_keys, options, None)
+    }
+
+    #[doc(hidden)]
     pub fn preload_mmap_with_options(
         sdk_key: &str,
         options: &MmapPreloadOptions,
     ) -> Result<MmapPreloadReport, StatsigErr> {
-        Self::preload_mmap_multi_with_options(&[sdk_key], &[], options)
-    }
-
-    /// Preloads committed V2 mmap artifacts for multiple SDK keys in one atomic install.
-    ///
-    /// Required keys fail the whole operation. Optional keys that cannot be opened,
-    /// validated, or safely combined are returned in `skipped_optional`. Call this once
-    /// before creating SDK instances or forking worker processes.
-    pub fn preload_mmap_multi(
-        required_sdk_keys: &[&str],
-        optional_sdk_keys: &[&str],
-    ) -> Result<MmapPreloadReport, StatsigErr> {
-        Self::preload_mmap_multi_with_options(
-            required_sdk_keys,
-            optional_sdk_keys,
-            &MmapPreloadOptions::default(),
-        )
-    }
-
-    /// Preloads multiple committed V2 artifacts with shared reader options.
-    ///
-    /// Options apply to every required and successfully loaded optional project.
-    pub fn preload_mmap_multi_with_options(
-        required_sdk_keys: &[&str],
-        optional_sdk_keys: &[&str],
-        options: &MmapPreloadOptions,
-    ) -> Result<MmapPreloadReport, StatsigErr> {
-        Self::preload_mmap_multi_from_directory(required_sdk_keys, optional_sdk_keys, options, None)
+        Self::preload_mmap(&[sdk_key], &[], options)
     }
 
     /// Preloads one SDK-key-specific committed artifact from an explicit directory.
@@ -662,7 +558,7 @@ impl InternedStore {
         options: &MmapPreloadOptions,
         directory: &Path,
     ) -> Result<MmapPreloadReport, StatsigErr> {
-        Self::preload_mmap_multi_from_directory(&[sdk_key], &[], options, Some(directory))
+        Self::preload_mmap_from_directory(&[sdk_key], &[], options, Some(directory))
     }
 
     /// Reports whether the installed reader contains this exact SDK-key project.
@@ -672,15 +568,15 @@ impl InternedStore {
         mmap_reader::has_project(MmapProjectId::for_sdk_key(sdk_key))
     }
 
-    fn preload_mmap_multi_from_directory(
+    fn preload_mmap_from_directory(
         required_sdk_keys: &[&str],
         optional_sdk_keys: &[&str],
         options: &MmapPreloadOptions,
         directory: Option<&Path>,
     ) -> Result<MmapPreloadReport, StatsigErr> {
-        if required_sdk_keys.is_empty() {
+        if required_sdk_keys.is_empty() && optional_sdk_keys.is_empty() {
             return Err(StatsigErr::InvalidOperation(
-                "At least one required interned mmap SDK key must be provided".to_string(),
+                "At least one interned mmap SDK key must be provided".to_string(),
             ));
         }
         if mmap_reader::is_installed() {
@@ -691,8 +587,7 @@ impl InternedStore {
 
         let mut builder = MmapRegistryBuilder::new();
         for sdk_key in required_sdk_keys {
-            let file = open_committed_mmap_for_sdk_key(sdk_key, directory)?;
-            builder.add_file(MmapProjectId::for_sdk_key(sdk_key), file)?;
+            add_committed_mmap_project(&mut builder, sdk_key, directory)?;
         }
 
         let mut report = MmapPreloadReport {
@@ -701,8 +596,7 @@ impl InternedStore {
             skipped_optional: Vec::new(),
         };
         for (index, sdk_key) in optional_sdk_keys.iter().enumerate() {
-            let result = open_committed_mmap_for_sdk_key(sdk_key, directory)
-                .and_then(|file| builder.add_file(MmapProjectId::for_sdk_key(sdk_key), file));
+            let result = add_committed_mmap_project(&mut builder, sdk_key, directory);
             match result {
                 Ok(()) => report.loaded += 1,
                 Err(error) => report.skipped_optional.push(MmapPreloadFailure {
@@ -712,35 +606,48 @@ impl InternedStore {
             }
         }
 
-        builder.install(options)?;
+        if report.loaded > 0 {
+            builder.install(options)?;
+        }
         Ok(report)
     }
 
     pub(crate) fn with_mmap_project<T>(id: MmapProjectId, callback: impl FnOnce() -> T) -> T {
         mmap_reader::with_project(id, callback)
     }
+
+    pub(crate) fn mmap_verified_remote_values(
+        id: MmapProjectId,
+    ) -> Option<&'static VerifiedRemoteValues> {
+        mmap_reader::verified_remote_values(id)
+    }
 }
 
-fn open_committed_mmap_for_sdk_key(
+fn add_committed_mmap_project(
+    builder: &mut MmapRegistryBuilder,
     sdk_key: &str,
     directory: Option<&Path>,
-) -> Result<std::fs::File, StatsigErr> {
-    // TODO: Bind the manifest to the full SDK-key digest and verify it here. These
-    // paths use a 32-bit hash, so colliding keys can overwrite each other's artifact.
-    let (manifest_path, legacy_path, v2_path) = committed_mmap_paths(sdk_key, directory);
-    open_committed_mmap_v2(&manifest_path, &legacy_path, &v2_path)?.ok_or_else(|| {
-        StatsigErr::InvalidOperation("No committed interned mmap V2 artifact was found".to_string())
-    })
+) -> Result<(), StatsigErr> {
+    let id = MmapProjectId::for_sdk_key(sdk_key);
+    // TODO: Bind proofless artifacts to the full SDK-key digest too. These paths
+    // use a 32-bit hash, so colliding keys can overwrite each other's artifact.
+    let (manifest, current) = committed_mmap_paths(sdk_key, directory);
+    let (file, proofs) = open_committed_mmap_v2_with_remote_values(&manifest, &current, id)?
+        .ok_or_else(|| {
+            StatsigErr::InvalidOperation(
+                "No committed interned mmap V2 artifact was found".to_owned(),
+            )
+        })?;
+    builder.add_file_with_remote_values(id, file, proofs)
 }
 
-fn committed_mmap_paths(sdk_key: &str, directory: Option<&Path>) -> (PathBuf, PathBuf, PathBuf) {
+fn committed_mmap_paths(sdk_key: &str, directory: Option<&Path>) -> (PathBuf, PathBuf) {
     match directory {
         Some(directory) => {
             let root = directory.join(MMAP_DIRECTORY);
             let artifact_id = hashing::djb2(sdk_key);
             (
                 root.join(format!("{artifact_id}_interned_store_manifest.json")),
-                root.join(format!("{artifact_id}_v1_interned_store.mmap")),
                 root.join(format!(
                     "{artifact_id}_v{}_interned_store.mmap",
                     super::mmap_data_v2::MmapDataV2::FORMAT_VERSION
@@ -749,7 +656,6 @@ fn committed_mmap_paths(sdk_key: &str, directory: Option<&Path>) -> (PathBuf, Pa
         }
         None => (
             mmap_manifest_path_for_sdk_key(sdk_key),
-            legacy_mmap_v1_path_for_sdk_key(sdk_key),
             mmap_v2_path_for_sdk_key(sdk_key),
         ),
     }
@@ -771,16 +677,12 @@ mod preload_directory_tests {
         );
 
         let custom_directory = Path::new("/private/custom-artifact-root");
-        let (manifest, legacy, current) = committed_mmap_paths(sdk_key, Some(custom_directory));
+        let (manifest, current) = committed_mmap_paths(sdk_key, Some(custom_directory));
         let artifact_id = crate::hashing::djb2(sdk_key);
         let root = custom_directory.join(MMAP_DIRECTORY);
         assert_eq!(
             manifest,
             root.join(format!("{artifact_id}_interned_store_manifest.json"))
-        );
-        assert_eq!(
-            legacy,
-            root.join(format!("{artifact_id}_v1_interned_store.mmap"))
         );
         assert_eq!(
             current,
@@ -821,12 +723,12 @@ pub(crate) fn validate_mmap_v2_for_test(path: &Path) -> Result<(), StatsigErr> {
     mmap_reader::validate_v2(path)
 }
 
-pub(crate) fn legacy_mmap_v1_path_for_sdk_key(sdk_key: &str) -> PathBuf {
-    mmap_path_for_sdk_key_version(sdk_key, 1)
-}
-
 pub(crate) fn mmap_v2_path_for_sdk_key(sdk_key: &str) -> PathBuf {
-    mmap_path_for_sdk_key_version(sdk_key, super::mmap_data_v2::MmapDataV2::FORMAT_VERSION)
+    let version = super::mmap_data_v2::MmapDataV2::FORMAT_VERSION;
+    std::env::temp_dir().join(MMAP_DIRECTORY).join(format!(
+        "{}_v{version}_interned_store.mmap",
+        hashing::djb2(sdk_key),
+    ))
 }
 
 pub(crate) fn mmap_manifest_path_for_sdk_key(sdk_key: &str) -> PathBuf {
@@ -840,13 +742,6 @@ pub(crate) fn mmap_lock_path_for_sdk_key(sdk_key: &str) -> PathBuf {
     std::env::temp_dir()
         .join(MMAP_DIRECTORY)
         .join(format!("{}_interned_store.lock", hashing::djb2(sdk_key)))
-}
-
-fn mmap_path_for_sdk_key_version(sdk_key: &str, version: u32) -> PathBuf {
-    std::env::temp_dir().join(MMAP_DIRECTORY).join(format!(
-        "{}_v{version}_interned_store.mmap",
-        hashing::djb2(sdk_key),
-    ))
 }
 
 impl InternedStore {
@@ -885,7 +780,10 @@ impl InternedStore {
     }
 
     pub fn get_or_intern_returnable(value: Cow<'_, RawValue>) -> DynamicReturnable {
-        let raw_string = value.get();
+        Self::get_or_intern_returnable_json(value.get())
+    }
+
+    pub(crate) fn get_or_intern_returnable_json(raw_string: &str) -> DynamicReturnable {
         match raw_string {
             "true" => return DynamicReturnable::from_bool(true),
             "false" => return DynamicReturnable::from_bool(false),
@@ -903,7 +801,7 @@ impl InternedStore {
             return DynamicReturnable::from_static(hash, returnable, stable_hash);
         }
 
-        get_returnable_from_local(hash, value)
+        get_returnable_from_local(hash, raw_string)
     }
 
     pub fn get_or_intern_evaluator_value(value: Cow<'_, RawValue>) -> EvaluatorValue {
@@ -1143,7 +1041,7 @@ fn get_returnable_from_shared(hash: u64) -> Option<(&'static HashMap<String, Rky
     }
 }
 
-fn get_returnable_from_local(hash: u64, value: Cow<RawValue>) -> DynamicReturnable {
+fn get_returnable_from_local(hash: u64, raw_string: &str) -> DynamicReturnable {
     if let Some((returnable, stable_hash)) = MUTABLE_RETURNABLES.get_with_metadata(hash) {
         return DynamicReturnable::from_cached_value(
             hash,
@@ -1152,7 +1050,7 @@ fn get_returnable_from_local(hash: u64, value: Cow<RawValue>) -> DynamicReturnab
         );
     }
 
-    let owned: HashMap<String, RkyvValue> = match serde_json::from_str(value.get()) {
+    let owned: HashMap<String, RkyvValue> = match serde_json::from_str(raw_string) {
         Ok(owned) => owned,
         Err(e) => {
             log_e!(TAG, "Failed to parse returnable from local: {}", e);

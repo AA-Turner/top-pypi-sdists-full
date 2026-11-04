@@ -16,7 +16,7 @@ import urllib.request
 from flask import Response, request
 
 from hugpy_core.relay.openai import openai_error
-from hugpy_core.relay.pick import NoWorker, pick, requested_worker_name, requested_worker_names
+from hugpy_core.relay.pick import NoWorker, pick, confirm_routed_allocation, requested_worker_name, requested_worker_names
 
 # The front door's task routes (fitevict engines/runners RunnerSpec.endpoint +
 # extra routes). A protocol table: routes, not models.
@@ -160,6 +160,10 @@ def _relay(route: str, *, source=None):
         return openai_error(f"{worker.get('name')}: {type(exc).__name__}: {exc}", 502, "api_error")
     if row:
         row.setdefault("response_meta", {}).update(execution_request_id=execution_id, worker_request_id=worker_id)
+    if 200 <= status < 300:
+        # A wildcard/cold route becomes a durable allocation only after the
+        # worker fitted and loaded the model successfully.
+        confirm_routed_allocation(model, worker, source="routing")
     resp = Response(data, status=status, mimetype=out_type.split(";")[0])
     if execution_id:
         resp.headers["X-Hugpy-Execution-Request-Id"] = execution_id

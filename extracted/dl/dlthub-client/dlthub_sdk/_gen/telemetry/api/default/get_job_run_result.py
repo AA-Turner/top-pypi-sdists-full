@@ -85,12 +85,12 @@ def sync_detailed(
 ) -> Response[ErrorResponse | JobResultResponse]:
     """GetJobResult
 
-    The structured result a job run declared — an agent's status, summary and declared
-    output, or any other job's result object. A run yields at most one.
+    The result a job run declared: for an agent, its status, summary, token usage and cost;
+    for other jobs, the declared `result`. A run has at most one.
 
-    `job_run_id` is the platform run id the runner was provisioned with, not a telemetry
-    `pipeline_run_id`. Only the promoted scalars are served here; for the agent trace and
-    everything else the runner delivered, read the envelope at `/result-trace`.
+    `job_run_id` is the job run's id from the runtime API, not a `pipeline_run_id`. Answers 404
+    when the run declared no result. For the agent's per-turn tool calls and everything else the
+    job delivered, read `/result-trace`.
 
     Args:
         workspace_id (UUID):
@@ -123,12 +123,12 @@ def sync(
 ) -> ErrorResponse | JobResultResponse | None:
     """GetJobResult
 
-    The structured result a job run declared — an agent's status, summary and declared
-    output, or any other job's result object. A run yields at most one.
+    The result a job run declared: for an agent, its status, summary, token usage and cost;
+    for other jobs, the declared `result`. A run has at most one.
 
-    `job_run_id` is the platform run id the runner was provisioned with, not a telemetry
-    `pipeline_run_id`. Only the promoted scalars are served here; for the agent trace and
-    everything else the runner delivered, read the envelope at `/result-trace`.
+    `job_run_id` is the job run's id from the runtime API, not a `pipeline_run_id`. Answers 404
+    when the run declared no result. For the agent's per-turn tool calls and everything else the
+    job delivered, read `/result-trace`.
 
     Args:
         workspace_id (UUID):
@@ -156,12 +156,12 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | JobResultResponse]:
     """GetJobResult
 
-    The structured result a job run declared — an agent's status, summary and declared
-    output, or any other job's result object. A run yields at most one.
+    The result a job run declared: for an agent, its status, summary, token usage and cost;
+    for other jobs, the declared `result`. A run has at most one.
 
-    `job_run_id` is the platform run id the runner was provisioned with, not a telemetry
-    `pipeline_run_id`. Only the promoted scalars are served here; for the agent trace and
-    everything else the runner delivered, read the envelope at `/result-trace`.
+    `job_run_id` is the job run's id from the runtime API, not a `pipeline_run_id`. Answers 404
+    when the run declared no result. For the agent's per-turn tool calls and everything else the
+    job delivered, read `/result-trace`.
 
     Args:
         workspace_id (UUID):
@@ -192,12 +192,12 @@ async def asyncio(
 ) -> ErrorResponse | JobResultResponse | None:
     """GetJobResult
 
-    The structured result a job run declared — an agent's status, summary and declared
-    output, or any other job's result object. A run yields at most one.
+    The result a job run declared: for an agent, its status, summary, token usage and cost;
+    for other jobs, the declared `result`. A run has at most one.
 
-    `job_run_id` is the platform run id the runner was provisioned with, not a telemetry
-    `pipeline_run_id`. Only the promoted scalars are served here; for the agent trace and
-    everything else the runner delivered, read the envelope at `/result-trace`.
+    `job_run_id` is the job run's id from the runtime API, not a `pipeline_run_id`. Answers 404
+    when the run declared no result. For the agent's per-turn tool calls and everything else the
+    job delivered, read `/result-trace`.
 
     Args:
         workspace_id (UUID):

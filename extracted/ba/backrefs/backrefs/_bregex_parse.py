@@ -5,7 +5,6 @@ Licensed under MIT
 Copyright (c) 2011 - 2020 Isaac Muse <isaacmuse@gmail.com>
 """
 from __future__ import annotations
-import unicodedata as _unicodedata
 import copyreg as _copyreg
 from . import util as _util
 from .util import PatternError
@@ -599,7 +598,7 @@ class _ReplaceParser(Generic[AnyStr]):
                         else:
                             width.append(fill)
                             fill = None
-                    else:
+                    elif c != '}':
                         fill = c
                         c = self.format_next(i)
                         if fill == 's' and c == '}':
@@ -696,6 +695,18 @@ class _ReplaceParser(Generic[AnyStr]):
 
         return ''.join(value) if value else None
 
+    def append_chars(self, text: str, i: _util.StringIter) -> None:
+        """Append each character of an escape value as a template escape."""
+
+        for c in text:
+            value = ord(c)
+            if self.use_format and value in _CURLY_BRACKETS_ORD:
+                self.handle_format(c, i)
+            elif value <= 0xFF:
+                self.result.append(f'\\{value:03o}')
+            else:
+                self.result.append(c)
+
     def parse_octal(self, text: str, i: _util.StringIter) -> None:
         """Parse octal value."""
 
@@ -707,15 +718,12 @@ class _ReplaceParser(Generic[AnyStr]):
             single = self.get_single_stack()
             if self.span_stack:
                 text = self.convert_case(chr(value), self.span_stack[-1])
-                value = ord(self.convert_case(text, single)) if single is not None else ord(text)
+                text = self.convert_case(text, single) if single is not None else text
             elif single:
-                value = ord(self.convert_case(chr(value), single))
-            if self.use_format and value in _CURLY_BRACKETS_ORD:
-                self.handle_format(chr(value), i)
-            elif value <= 0xFF:
-                self.result.append(f'\\{value:03o}')
+                text = self.convert_case(chr(value), single)
             else:
-                self.result.append(chr(value))
+                text = chr(value)
+            self.append_chars(text, i)
 
     def get_named_unicode(self, i: _util.StringIter) -> str:
         """Get named Unicode."""
@@ -737,19 +745,16 @@ class _ReplaceParser(Generic[AnyStr]):
     def parse_named_unicode(self, i: _util.StringIter) -> None:
         """Parse named Unicode."""
 
-        value = ord(_unicodedata.lookup(self.get_named_unicode(i)))
+        value = ord(_util.unicode_char(self.get_named_unicode(i)))
         single = self.get_single_stack()
         if self.span_stack:
             text = self.convert_case(chr(value), self.span_stack[-1])
-            value = ord(self.convert_case(text, single)) if single is not None else ord(text)
+            text = self.convert_case(text, single) if single is not None else text
         elif single:
-            value = ord(self.convert_case(chr(value), single))
-        if self.use_format and value in _CURLY_BRACKETS_ORD:
-            self.handle_format(chr(value), i)
-        elif value <= 0xFF:
-            self.result.append(f'\\{value:03o}')
+            text = self.convert_case(chr(value), single)
         else:
-            self.result.append(chr(value))
+            text = chr(value)
+        self.append_chars(text, i)
 
     def get_wide_unicode(self, i: _util.StringIter) -> str:
         """Get narrow Unicode."""
@@ -796,15 +801,12 @@ class _ReplaceParser(Generic[AnyStr]):
         single = self.get_single_stack()
         if self.span_stack:
             text = self.convert_case(chr(value), self.span_stack[-1])
-            value = ord(self.convert_case(text, single)) if single is not None else ord(text)
+            text = self.convert_case(text, single) if single is not None else text
         elif single:
-            value = ord(self.convert_case(chr(value), single))
-        if self.use_format and value in _CURLY_BRACKETS_ORD:
-            self.handle_format(chr(value), i)
-        elif value <= 0xFF:
-            self.result.append(f'\\{value:03o}')
+            text = self.convert_case(chr(value), single)
         else:
-            self.result.append(chr(value))
+            text = chr(value)
+        self.append_chars(text, i)
 
     def get_byte(self, i: _util.StringIter) -> str:
         """Get byte."""
@@ -825,13 +827,12 @@ class _ReplaceParser(Generic[AnyStr]):
         single = self.get_single_stack()
         if self.span_stack:
             text = self.convert_case(chr(value), self.span_stack[-1])
-            value = ord(self.convert_case(text, single)) if single is not None else ord(text)
+            text = self.convert_case(text, single) if single is not None else text
         elif single:
-            value = ord(self.convert_case(chr(value), single))
-        if self.use_format and value in _CURLY_BRACKETS_ORD:
-            self.handle_format(chr(value), i)
+            text = self.convert_case(chr(value), single)
         else:
-            self.result.append(f'\\{value:03o}')
+            text = chr(value)
+        self.append_chars(text, i)
 
     def get_named_group(self, t: str, i: _util.StringIter) -> str:
         """Get group number."""
@@ -848,16 +849,18 @@ class _ReplaceParser(Generic[AnyStr]):
                 value.append(c)
                 c = next(i)
                 while c != '>':
-                    if c in _DIGIT:
-                        value.append(c)
+                    if c not in _DIGIT:
+                        raise PatternError(f"Bad character in group name at {i.index - 1}!")
+                    value.append(c)
                     c = next(i)
                 value.append(c)
             elif c in _LETTERS_UNDERSCORE:
                 value.append(c)
                 c = next(i)
                 while c != '>':
-                    if c in _WORD:
-                        value.append(c)
+                    if c not in _WORD:
+                        raise PatternError(f"Bad character in group name at {i.index - 1}!")
+                    value.append(c)
                     c = next(i)
                 value.append(c)
             else:
@@ -906,7 +909,7 @@ class _ReplaceParser(Generic[AnyStr]):
         elif not self.is_bytes and t == "u":
             value = chr(int(self.get_narrow_unicode(i), 16))
         elif not self.is_bytes and t == "N":
-            value = _unicodedata.lookup(self.get_named_unicode(i))
+            value = _util.unicode_char(self.get_named_unicode(i))
         elif t == "x":
             value = chr(int(self.get_byte(i), 16))
         else:

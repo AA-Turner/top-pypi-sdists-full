@@ -1,0 +1,72 @@
+spec:
+  connection_specification:
+    type: object
+    required:
+      - api_key
+      - safe_boolean
+    properties:
+      missing_details:
+        type: string
+      credentials:
+        type: object
+        title: Authentication method
+        description: Choose the authentication method used to connect to the service.
+        oneOf:
+          - title: API key
+            type: object
+            required:
+              - auth_type
+              - client_id
+            properties:
+              auth_type:
+                type: string
+                const: api_key
+              client_id:
+                type: string
+                title: Client Id
+                description: Find the client identifier in your provider's settings before entering the credential.
+      repeated_description:
+        type: string
+        title: Page size
+        description: Page size
+      safe_boolean:
+        type: boolean
+        title: Enable feature
+        description: Controls whether the connector reads from the provider's sandbox environment instead of production, which changes available records and endpoint behavior.
+      bad_pattern:
+        type: string
+        title: Resource code
+        description: Enter the resource code assigned by the provider so that the connector can identify the correct resource for each request.
+        pattern: '^[a-z]+$'
+        pattern_descriptor: '^[a-z]+$'
+      api_key:
+        type: string
+        title: API key
+        description: Find this API key in your provider's settings before copying it into the connector configuration.
+      batch_size:
+        type: integer
+        title: Batch size
+        description: Number of records per request.
+      workspace_id:
+        type: string
+        title: Workspace ID
+        description: Enter the workspace ID.
+      server_url:
+        type: string
+        title: Server URL
+        description: The service endpoint used by this connector to send requests to the provider.
+      start_date:
+        type: string
+        title: Start date
+        description: The first date from which the connector reads records. Select a date that fits the provider's retention window and the sync scope.
+        pattern: '^\d{4}-\d{2}-\d{2}$'
+        pattern_descriptor: YYYY-MM-DD
+      access_key:
+        type: string
+        title: Access key
+        description: The access key used to authenticate each request.
+        airbyte_secret: true
+      api_docs:
+        type: string
+        title: Documentation
+        description: Read the [service setup guide](https://docs.example.test/setup) before entering account information for this connector.

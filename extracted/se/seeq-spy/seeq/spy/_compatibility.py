@@ -1,7 +1,16 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from seeq.base.seeq_names import SeeqNames
 from seeq.sdk import ApiClient
-from seeq.sdk.api import UsersApi, UserGroupsApi, FormulasApi
+from seeq.sdk.api import ItemsApi, UsersApi, UserGroupsApi, FormulasApi
 from seeq.sdk.models import PutScalarsInputV1, UserOutputV1, UserGroupOutputV1, AddOnToolInputV1, WorkbookOutputV1
 from seeq.spy import _version
+
+if TYPE_CHECKING:
+    # Imported for type checking only, because importing it at runtime would cycle back through _login.
+    from seeq.spy._session import Session
 
 
 def is_continuation_token_used() -> bool:
@@ -70,6 +79,60 @@ def are_vantage_rooms_as_workbooks_supported() -> bool:
     True if Vantage Rooms are backed by workbooks.
     """
     return 'evidence_table_definition_id' in WorkbookOutputV1.attribute_map
+
+
+def is_user_in_early_access(session: Session) -> bool:
+    """
+    Check if the acting user is a member of the Early Access capability group.
+
+    Returns
+    -------
+    True if the logged-in user has been granted the Early Access capability.
+    """
+    user = getattr(session, 'user', None)
+    if user is None:
+        return False
+
+    # The Early Access Capability was added in R66.64 (2025-10-14); older servers cannot have Early Access users.
+    capability_grants = getattr(user, 'capability_grants', None)
+    if not capability_grants:
+        return False
+
+    return any(grant.capability == SeeqNames.Capabilities.EarlyAccess.data_id for grant in capability_grants)
+
+
+def is_item_finder_sdk_available() -> bool:
+    """
+    Returns
+    -------
+    True if the ItemFinder search endpoint is present in the installed SDK.
+    """
+    return hasattr(ItemsApi, 'execute_item_finder_searches_v2')
+
+
+def is_item_finder_search_available(session: Session) -> bool:
+    """
+    Check if item searches should go through the ItemFinder search endpoint instead of the legacy
+    ItemsApi.search_items and TreesApi endpoints.
+
+    Gated on Early Access membership for the initial rollout. Once the endpoint ships broadly this becomes a
+    server version check, and callers do not have to change.
+
+    Also gated on spy.options.compatibility >= 203. An untyped ItemFinder search returns fewer types than legacy
+    search by default so this would be considered a breaking behavior change.
+
+    Returns
+    -------
+    True if ItemFinder search should be used.
+    """
+    if not is_item_finder_sdk_available():
+        return False
+
+    ITEM_FINDER_SPY_VERSION = 203
+    if session.options.wants_compatibility_with(ITEM_FINDER_SPY_VERSION - 1):
+        return False
+
+    return is_user_in_early_access(session)
 
 
 def get_user(client: ApiClient, user_id: str, *, include_groups: bool = True) -> UserOutputV1:

@@ -15,9 +15,11 @@ T = TypeVar("T", bound="UploadConfigurationBody")
 
 @_attrs_define
 class UploadConfigurationBody:
-    """
+    """Multipart body with one part, `file`: the configuration package, a tar.gz built by dlt that contains
+    `manifest.yaml`.
+
     Attributes:
-        file (File | Unset):
+            file (File | Unset):
     """
 
     file: File | Unset = UNSET

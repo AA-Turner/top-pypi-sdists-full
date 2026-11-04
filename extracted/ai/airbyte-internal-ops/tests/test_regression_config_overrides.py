@@ -71,6 +71,94 @@ def test_a_stream_the_released_version_discovers_is_compared_on_both_versions():
     assert injection.target_only_streams == ()
 
 
+def test_shared_stream_entries_use_each_versions_own_discover():
+    target_stream = _stream(
+        "orders",
+        json_schema={"type": "object", "properties": {"new_id": {"type": "string"}}},
+        supported_sync_modes=["full_refresh", "incremental"],
+        default_cursor_field=["target_updated_at"],
+        source_defined_primary_key=[["target_id"]],
+    )
+    reference_stream = _stream(
+        "orders",
+        json_schema={"type": "object", "properties": {"id": {"type": "string"}}},
+        supported_sync_modes=["full_refresh", "incremental"],
+        default_cursor_field=["reference_updated_at"],
+        source_defined_primary_key=[["reference_id"]],
+    )
+
+    injection = build_injected_catalogs(
+        None,
+        {"orders"},
+        _discovered(target_stream),
+        _discovered(reference_stream),
+        sync_mode="incremental",
+    )
+
+    (target_entry,) = injection.target_catalog["streams"]
+    (control_entry,) = injection.control_catalog["streams"]
+    assert target_entry["stream"]["json_schema"] == target_stream["json_schema"]
+    assert control_entry["stream"]["json_schema"] == reference_stream["json_schema"]
+    assert target_entry["cursor_field"] == ["target_updated_at"]
+    assert control_entry["cursor_field"] == ["reference_updated_at"]
+    assert target_entry["primary_key"] == [["target_id"]]
+    assert control_entry["primary_key"] == [["reference_id"]]
+
+
+def test_shared_streams_keep_incremental_mode_with_each_versions_cursor():
+    injection = build_injected_catalogs(
+        None,
+        {"orders"},
+        _discovered(
+            _stream(
+                "orders",
+                supported_sync_modes=["full_refresh", "incremental"],
+                default_cursor_field=["target_updated_at"],
+            )
+        ),
+        _discovered(
+            _stream(
+                "orders",
+                supported_sync_modes=["full_refresh", "incremental"],
+                default_cursor_field=["reference_updated_at"],
+            )
+        ),
+        sync_mode="incremental",
+    )
+
+    (target_entry,) = injection.target_catalog["streams"]
+    (control_entry,) = injection.control_catalog["streams"]
+    assert target_entry["sync_mode"] == "incremental"
+    assert control_entry["sync_mode"] == "incremental"
+    assert target_entry["cursor_field"] == ["target_updated_at"]
+    assert control_entry["cursor_field"] == ["reference_updated_at"]
+
+
+def test_shared_stream_control_mode_mismatch_is_reported():
+    injection = build_injected_catalogs(
+        None,
+        {"orders"},
+        _discovered(_stream("orders", supported_sync_modes=["full_refresh"])),
+        _discovered(
+            _stream(
+                "orders",
+                supported_sync_modes=["incremental"],
+                source_defined_cursor=True,
+                default_cursor_field=["updated_at"],
+            )
+        ),
+    )
+
+    (target_entry,) = injection.target_catalog["streams"]
+    (control_entry,) = injection.control_catalog["streams"]
+    assert target_entry["sync_mode"] == "full_refresh"
+    assert control_entry["sync_mode"] == "incremental"
+    assert injection.notes == (
+        "orders: the control reads it in incremental and the target in "
+        "full_refresh, because the control version cannot read it in full_refresh",
+    )
+
+
 def test_without_the_released_catalog_novelty_is_unknown_and_the_target_reads_alone():
     injection = build_injected_catalogs(
         None,

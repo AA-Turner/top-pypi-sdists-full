@@ -418,6 +418,16 @@ class HttpAsyncBackend:
             retried,
         ) from None
 
+    async def _read_body(self, response: aiohttp.ClientResponse) -> bytes:
+        """Read a full response body, reporting a connection lost mid-body as OperationalError like request()."""
+        try:
+            return await response.read()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            if self.show_clickhouse_errors is True:
+                raise OperationalError(f"Network Error: {str(e)}") from e
+            logger.warning("Unexpected aiohttp transport error", exc_info=True)
+            raise OperationalError("Network Error") from e
+
     async def execute_query(self, context: QueryContext, runtime: QueryRuntime, prepped_query: str | bytes) -> QueryExecution:
         """Execute a query context, returning either a started streaming byte
         source or the column metadata from a columns-only probe."""
@@ -442,7 +452,7 @@ class HttpAsyncBackend:
                 retryable=_read_request_retryable(runtime.retryable, plan.body, plan.params, self.client_settings, files),
             )
             try:
-                body = await response.read()
+                body = await self._read_body(response)
                 encoding = response.headers.get("Content-Encoding")
             except BaseException:
                 try:
@@ -554,7 +564,7 @@ class HttpAsyncBackend:
             retryable=_read_request_retryable(runtime.retryable, plan.body, plan.params, self.client_settings, files),
         )
         try:
-            response_data = await response.read()
+            response_data = await self._read_body(response)
             encoding = response.headers.get("Content-Encoding")
         finally:
             release_lease(response)
@@ -606,7 +616,7 @@ class HttpAsyncBackend:
             retryable=_read_request_retryable(runtime.retryable, plan.payload, plan.params, self.client_settings, plan.form_files),
         )
         try:
-            body = await response.read()
+            body = await self._read_body(response)
             encoding = response.headers.get("Content-Encoding")
             summary = summary_from_headers(response.headers)
             result_format = response.headers.get("X-ClickHouse-Format")
@@ -801,7 +811,9 @@ class HttpAsyncBackend:
                 if query_session:
                     self._active_session = None
 
-    async def ping(self) -> bool:
+    async def ping(self, timeout: float | None = None) -> bool:
+        if timeout is not None and not timeout > 0:
+            raise ProgrammingError("ping timeout must be greater than zero")
         lease = self.session_lease
         if lease is None or lease.session.closed:
             return False
@@ -819,8 +831,8 @@ class HttpAsyncBackend:
             lease.acquire()
         try:
             url = f"{self.url.rstrip('/')}/ping"
-            timeout = aiohttp.ClientTimeout(total=3.0)
-            get_kwargs: dict[str, Any] = {"timeout": timeout}
+            request_timeout = aiohttp.ClientTimeout(total=3.0 if timeout is None else timeout)
+            get_kwargs: dict[str, Any] = {"timeout": request_timeout}
             if self.proxy_url:
                 get_kwargs["proxy"] = self.proxy_url
             if self.server_host_name:

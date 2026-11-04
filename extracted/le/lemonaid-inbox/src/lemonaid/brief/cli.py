@@ -10,6 +10,8 @@ import sys
 import time
 from pathlib import Path
 
+import lemonaid.tasks.briefs.ensure_cli
+
 from ..config import load_config
 from ..inbox import db, emoji
 from ..inbox.tui.briefs import brief_popup
@@ -26,6 +28,7 @@ from . import (
     render,
     session,
     sidebar,
+    statuses_cli,
     target,
     write_cli,
 )
@@ -148,7 +151,13 @@ def cmd_show(args: argparse.Namespace) -> None:
 
     now = time.time()
     shown = family.added(
-        render.view(found, now, pr.configured(config.brief.pr_state), config.places.roots)
+        render.view(
+            found,
+            now,
+            pr.configured(config.brief.pr_state),
+            config.places.roots,
+            config.brief.vaults,
+        )
     )
     print(render.to_markdown(shown, now, args.questions))
 
@@ -247,8 +256,10 @@ def setup_parser(subparsers: argparse._SubParsersAction) -> None:
 
     docs_cli.add_parser(brief_subparsers)
     lemons_cli.add_parser(brief_subparsers)
+    statuses_cli.add_parser(brief_subparsers)
     write_cli.add_parsers(brief_subparsers)
     archive_cli.add_parsers(brief_subparsers)
     handoff_cli.add_parser(brief_subparsers)
+    lemonaid.tasks.briefs.ensure_cli.add_parser(brief_subparsers)
 
     brief_parser.set_defaults(func=lambda a: brief_parser.print_help())

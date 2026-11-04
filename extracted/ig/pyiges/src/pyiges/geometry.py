@@ -26,6 +26,7 @@ class Point(Entity):
     """IGES Point."""
 
     def _add_parameters(self, parameters):
+        super()._add_parameters(parameters)
         self._x = parse_float(parameters[1])
         self._y = parse_float(parameters[2])
         self._z = parse_float(parameters[3])
@@ -76,6 +77,7 @@ class Line(Entity):
     """IGES straight line segment."""
 
     def _add_parameters(self, parameters):
+        super()._add_parameters(parameters)
         self._x1 = parse_float(parameters[1])
         self._y1 = parse_float(parameters[2])
         self._z1 = parse_float(parameters[3])
@@ -141,6 +143,7 @@ class Transformation(Entity):
         12	REAL	T3	Third T vector value
 
         """
+        super()._add_parameters(parameters)
         self.r11 = parse_float(parameters[1])
         self.r12 = parse_float(parameters[2])
         self.r13 = parse_float(parameters[3])
@@ -174,12 +177,7 @@ class Transformation(Entity):
     @assert_full_module_variant
     def _to_vtk(self):
         """Convert to a vtk transformation matrix."""
-        vtkmatrix = pv.vtkmatrix_from_array(self.to_affine())
-        import vtk
-
-        trans = vtk.vtkTransform()
-        trans.SetMatrix(vtkmatrix)
-        return trans
+        return pv.Transform(self.to_affine())
 
 
 class ConicArc(Entity):
@@ -221,6 +219,7 @@ class ConicArc(Entity):
         11	REAL	Y2	y coordinate of end point
         12	REAL	Z2	z coordinate of end point
         """
+        super()._add_parameters(parameters)
         self.a = parameters[1]  #  coefficient of xt^2
         self.b = parameters[2]  #  coefficient of xtyt
         self.c = parameters[3]  #  coefficient of yt^2
@@ -276,6 +275,7 @@ class RationalBSplineCurve(Entity):
     """
 
     def _add_parameters(self, parameters):
+        super()._add_parameters(parameters)
         self.K = int(parameters[1])
         self.M = int(parameters[2])
         self.prop1 = int(parameters[3])
@@ -506,6 +506,7 @@ class RationalBSplineSurface(Entity):
         return self._v1
 
     def _add_parameters(self, input_parameters):
+        super()._add_parameters(input_parameters)
         parameters = np.array([parse_float(param) for param in input_parameters], dtype=float)
 
         self._k1 = int(parameters[1])  # Upper index of first sum
@@ -654,6 +655,7 @@ class CircularArc(Entity):
         # 5                REAL            Y1      y coordinate of start
         # 6                REAL            X2      x coordinate of end
         # 7                REAL            Y2      y coordinate of end
+        super()._add_parameters(parameters)
         self.z = parse_float(parameters[1])
         self.x = parse_float(parameters[2])
         self.y = parse_float(parameters[3])
@@ -678,7 +680,7 @@ class CircularArc(Entity):
         arc = pv.CircularArc(center=center, pointa=start, pointb=end, resolution=resolution)
         arc.points += [0, 0, self.z]
         if self.transform is not None:
-            arc.transform(self.transform._to_vtk())
+            arc.transform(self.transform._to_vtk(), inplace=True)
 
         return arc
 
@@ -717,6 +719,7 @@ class Face(Entity):
         4	Pointer	Loop1	Pointer to first loop of the face
         3+N	Pointer	LoopN	Pointer to last loop of the face
         """
+        super()._add_parameters(parameters)
         self.surf_pointer = int(parameters[1])
         self.n_loops = int(parameters[2])
         self.outer_loop_flag = bool(parameters[3])
@@ -770,7 +773,7 @@ class Loop(Entity):
         6+2K1	Pointer	PSC(1, K1)          Last parametric space curve of E1
         7+2K1	INT	Type2               Type of Edge 2
         """
-        self.parameters = parameters
+        super()._add_parameters(parameters)
         self.n_edges = int(self.parameters[1])
         self._edges = []
 
@@ -839,7 +842,7 @@ class EdgeList(Entity):
         5N	Pointer	EVLN	Vertex list for end vertex
         5N+1	INT	EN	Index of end vertex in EVLN
         """
-        self.parameters = parameters
+        super()._add_parameters(parameters)
         self.n_edges = int(parameters[1])
 
         self.edges = []
@@ -893,7 +896,7 @@ class VertexList(Entity):
         3N	REAL	YN
         3N+1	REAL	ZN
         """
-        self.parameters = parameters
+        super()._add_parameters(parameters)
         self.n_points = int(parameters[1])
         self.points = []
         for i in range(self.n_points):

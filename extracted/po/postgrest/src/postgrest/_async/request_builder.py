@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Generic, Literal, Optional, TypeVar, Union, overload
+from typing import Any, Literal, Self, TypeVar, overload
 
-from httpx import AsyncClient, BasicAuth, Headers, QueryParams, Response
+from httpx import (
+    AsyncClient,
+    BasicAuth,
+    Headers,
+    NetworkError,
+    RemoteProtocolError,
+    Response,
+)
 from pydantic import ValidationError
-from typing_extensions import Self, override
 from yarl import URL
 
 from ..base_request_builder import (
@@ -23,23 +29,24 @@ from ..base_request_builder import (
     pre_upsert,
 )
 from ..exceptions import APIError, APIErrorFromJSON, generate_default_error_message
-from ..types import JSON, ReturnMethod
-from ..utils import model_validate_json
+from ..types import RequestBody, ReturnMethod
 
 ReqConfig = RequestConfig[AsyncClient]
 QueryBuilderT = TypeVar("QueryBuilderT", bound="AsyncQueryRequestBuilder")
 
 
-def get_retry_delay(resp: Response, attempt_count: int) -> int:
+def get_retry_delay(attempt_count: int) -> int:
     delay: int = min(2**attempt_count, 30)
     return delay
 
 
 async def send_with_retry(req: ReqConfig) -> Response:
     """
-    Retries idempotent requests that failed due to Cloudflare errors.
-    Request method must be either "GET" or "HEAD", and the response status code
-    must be either 503 or 520.
+    Retries idempotent requests that failed due to a transient error.
+    Request method must be either "GET" or "HEAD", and the request must either
+    get a 503 or 520 response, or fail at the network level (connection failed,
+    reset or closed by the server, e.g. an HTTP/2 GOAWAY). Timeouts are not
+    retried.
     """
     attempt_count = 0
     while True:
@@ -48,16 +55,22 @@ async def send_with_retry(req: ReqConfig) -> Response:
             if attempt_count > 0
             else Headers()
         )
-        resp = await req.send(headers)
-        if resp.is_success or not req.should_retry(resp, attempt_count=attempt_count):
-            break
-        await asyncio.sleep(get_retry_delay(resp, attempt_count))
+        try:
+            resp = await req.send(headers)
+        except (NetworkError, RemoteProtocolError):
+            if not req._can_retry(attempt_count):
+                raise
+        else:
+            if resp.is_success or not req.should_retry(
+                resp, attempt_count=attempt_count
+            ):
+                return resp
+        await asyncio.sleep(get_retry_delay(attempt_count))
         attempt_count += 1
-    return resp
 
 
 class AsyncQueryRequestBuilder:
-    def __init__(self, request: ReqConfig):
+    def __init__(self, request: ReqConfig) -> None:
         self.request = request
 
     def select(self: QueryBuilderT, *columns: str) -> QueryBuilderT:
@@ -92,14 +105,14 @@ class AsyncQueryRequestBuilder:
             if r.is_success:
                 return APIResponse.from_http_request_response(r)
             else:
-                json_obj = model_validate_json(APIErrorFromJSON, r.content)
+                json_obj = APIErrorFromJSON.model_validate_json(r.content)
                 raise APIError(dict(json_obj))
         except ValidationError as e:
-            raise APIError(generate_default_error_message(r))
+            raise APIError(generate_default_error_message(r)) from e
 
 
 class AsyncSingleRequestBuilder:
-    def __init__(self, request: ReqConfig):
+    def __init__(self, request: ReqConfig) -> None:
         self.request = request
 
     def retry(self, enabled: bool) -> Self:
@@ -125,14 +138,14 @@ class AsyncSingleRequestBuilder:
             ):  # Response.ok from JS (https://developer.mozilla.org/en-US/docs/Web/API/Response/ok)
                 return SingleAPIResponse.from_http_request_response(r)
             else:
-                json_obj = model_validate_json(APIErrorFromJSON, r.content)
+                json_obj = APIErrorFromJSON.model_validate_json(r.content)
                 raise APIError(dict(json_obj))
         except ValidationError as e:
-            raise APIError(generate_default_error_message(r))
+            raise APIError(generate_default_error_message(r)) from e
 
 
 class AsyncExplainRequestBuilder:
-    def __init__(self, request: ReqConfig):
+    def __init__(self, request: ReqConfig) -> None:
         self.request = request
 
     def retry(self, enabled: bool) -> Self:
@@ -145,21 +158,21 @@ class AsyncExplainRequestBuilder:
             if r.is_success:
                 return r.text
             else:
-                json_obj = model_validate_json(APIErrorFromJSON, r.content)
+                json_obj = APIErrorFromJSON.model_validate_json(r.content)
                 raise APIError(dict(json_obj))
         except ValidationError as e:
-            raise APIError(generate_default_error_message(r))
+            raise APIError(generate_default_error_message(r)) from e
 
 
 class AsyncMaybeSingleRequestBuilder:
-    def __init__(self, request: ReqConfig):
+    def __init__(self, request: ReqConfig) -> None:
         self.request = request
 
     def retry(self, enabled: bool) -> Self:
         self.request.retry_enabled = enabled
         return self
 
-    async def execute(self) -> Optional[SingleAPIResponse]:
+    async def execute(self) -> SingleAPIResponse | None:
         r = await send_with_retry(self.request)
         try:
             if r.is_success:
@@ -178,10 +191,10 @@ class AsyncMaybeSingleRequestBuilder:
                         }
                     )
             else:
-                json_obj = model_validate_json(APIErrorFromJSON, r.content)
+                json_obj = APIErrorFromJSON.model_validate_json(r.content)
                 raise APIError(dict(json_obj))
         except ValidationError as e:
-            raise APIError(generate_default_error_message(r))
+            raise APIError(generate_default_error_message(r)) from e
 
 
 class AsyncFilterRequestBuilder(
@@ -223,8 +236,9 @@ class AsyncSelectRequestBuilder(
         return AsyncMaybeSingleRequestBuilder(self.request)
 
     def text_search(
-        self, column: str, query: str, options: dict[str, Any] = {}
-    ) -> AsyncQueryRequestBuilder:
+        self, column: str, query: str, options: dict[str, Any] | None = None
+    ) -> Self:
+        options = options or {}
         type_ = options.get("type")
         type_part = ""
         if type_ == "plain":
@@ -236,10 +250,11 @@ class AsyncSelectRequestBuilder(
         config_part = f"({options.get('config')})" if options.get("config") else ""
         self.filter(column, f"{type_part}fts{config_part}", query)
 
-        return AsyncQueryRequestBuilder(self.request)
+        return self
 
     def csv(self) -> AsyncSingleRequestBuilder:
         """Specify that the query must retrieve data as a single CSV string."""
+        self.request._reject_strip_nulls("csv")
         self.request.headers["Accept"] = "text/csv"
         return AsyncSingleRequestBuilder(self.request)
 
@@ -275,6 +290,7 @@ class AsyncSelectRequestBuilder(
         wal: bool = False,
         format: Literal["text", "json"] = "text",
     ) -> AsyncExplainRequestBuilder | AsyncSingleRequestBuilder:
+        self.request._reject_strip_nulls("explain")
         options = [
             key
             for key, value in locals().items()
@@ -292,18 +308,24 @@ class AsyncSelectRequestBuilder(
 
 class AsyncRequestBuilder:  #
     def __init__(
-        self, session: AsyncClient, path: URL, headers: Headers, auth: BasicAuth | None
+        self,
+        session: AsyncClient,
+        path: URL,
+        headers: Headers,
+        auth: BasicAuth | None,
+        retry_enabled: bool = True,
     ) -> None:
         self.session = session
         self.path = path
         self.headers = headers
         self.auth = auth
+        self.retry_enabled = retry_enabled
 
     def select(
         self,
         *columns: str,
-        count: Optional[CountMethod] = None,
-        head: Optional[bool] = None,
+        count: CountMethod | None = None,
+        head: bool | None = None,
     ) -> AsyncSelectRequestBuilder:
         """Run a SELECT query.
 
@@ -323,14 +345,15 @@ class AsyncRequestBuilder:  #
             http_method=method,
             headers=headers,
             json=json,
+            retry_enabled=self.retry_enabled,
         )
         return AsyncSelectRequestBuilder(request)
 
     def insert(
         self,
-        json: JSON,
+        json: RequestBody,
         *,
-        count: Optional[CountMethod] = None,
+        count: CountMethod | None = None,
         returning: ReturnMethod = ReturnMethod.representation,
         upsert: bool = False,
         default_to_null: bool = True,
@@ -364,14 +387,15 @@ class AsyncRequestBuilder:  #
             http_method=method,
             headers=headers,
             json=json,
+            retry_enabled=self.retry_enabled,
         )
         return AsyncSelectRequestBuilder(request)
 
     def upsert(
         self,
-        json: JSON,
+        json: RequestBody,
         *,
-        count: Optional[CountMethod] = None,
+        count: CountMethod | None = None,
         returning: ReturnMethod = ReturnMethod.representation,
         ignore_duplicates: bool = False,
         on_conflict: str = "",
@@ -409,14 +433,15 @@ class AsyncRequestBuilder:  #
             http_method=method,
             headers=headers,
             json=json,
+            retry_enabled=self.retry_enabled,
         )
         return AsyncSelectRequestBuilder(request)
 
     def update(
         self,
-        json: JSON,
+        json: RequestBody,
         *,
-        count: Optional[CountMethod] = None,
+        count: CountMethod | None = None,
         returning: ReturnMethod = ReturnMethod.representation,
     ) -> AsyncSelectRequestBuilder:
         """Run an UPDATE query.
@@ -442,13 +467,14 @@ class AsyncRequestBuilder:  #
             http_method=method,
             headers=headers,
             json=json,
+            retry_enabled=self.retry_enabled,
         )
         return AsyncSelectRequestBuilder(request)
 
     def delete(
         self,
         *,
-        count: Optional[CountMethod] = None,
+        count: CountMethod | None = None,
         returning: ReturnMethod = ReturnMethod.representation,
     ) -> AsyncSelectRequestBuilder:
         """Run a DELETE query.
@@ -472,5 +498,6 @@ class AsyncRequestBuilder:  #
             http_method=method,
             headers=headers,
             json=json,
+            retry_enabled=self.retry_enabled,
         )
         return AsyncSelectRequestBuilder(request)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: content-core
-Version: 2.2.0
+Version: 2.2.1
 Summary: Extract what matters from any media source. Available as Python Library, macOS Service, CLI and MCP Server
 Author-email: LUIS NOVO <lfnovo@gmail.com>
 License-File: LICENSE

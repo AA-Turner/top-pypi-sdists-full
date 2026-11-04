@@ -1,29 +1,25 @@
 from __future__ import annotations
 
-import sys
 from collections.abc import Mapping, Sequence
-from typing import Union
+from enum import StrEnum
 
-from httpx import AsyncClient, BasicAuth, Client, Headers, QueryParams
-from pydantic import TypeAdapter
 from typing_extensions import TypeAliasType
-from yarl import URL
-
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    from strenum import StrEnum
 
 # https://docs.pydantic.dev/2.11/concepts/types/#named-recursive-types
 JSON = TypeAliasType(
-    "JSON", "Union[None, bool, str, int, float, Sequence[JSON], Mapping[str, JSON]]"
+    "JSON", "None | bool | str | int | float | Sequence[JSON] | Mapping[str, JSON]"
 )
-JSONAdapter: TypeAdapter = TypeAdapter(JSON)
+
+# Type checkers only treat a TypedDict as Mapping[str, object], so generated
+# Insert and Update TypedDicts need it to be accepted as a body.
+RequestBody = TypeAliasType(
+    "RequestBody", "JSON | Mapping[str, object] | Sequence[Mapping[str, object]]"
+)
 
 # A scalar value accepted by PostgREST filter operators. Used instead of ``Any``
 # so the accepted types are explicit; values are still coerced to ``str`` when
 # serialized into the query string.
-FilterValue = Union[str, int, float, bool]
+FilterValue = str | int | float | bool
 
 
 class CountMethod(StrEnum):

@@ -101,11 +101,9 @@ impl From<String> for DynamicString {
     fn from(value: String) -> Self {
         let hash_value = ahash_str(&value);
         let value = InternedString::from_string(value);
-        let lowercased_value = if value.as_str().bytes().any(|byte| byte.is_ascii_uppercase()) {
-            InternedString::from_string(value.as_str().to_lowercase())
-        } else {
-            value.clone()
-        };
+        let lowercased_value = lowercase_if_changed(value.as_str())
+            .map(InternedString::from_string)
+            .unwrap_or_else(|| value.clone());
 
         Self {
             value,
@@ -113,4 +111,20 @@ impl From<String> for DynamicString {
             hash_value,
         }
     }
+}
+
+// Probe without allocating, including titlecase and multi-character mappings.
+// Use whole-string conversion once needed so contextual Greek sigma is retained.
+pub(crate) fn lowercase_if_changed(value: &str) -> Option<String> {
+    let needs_lowercase = match value
+        .bytes()
+        .find(|byte| !byte.is_ascii() || byte.is_ascii_uppercase())
+    {
+        None => false,
+        Some(byte) if byte.is_ascii_uppercase() => true,
+        Some(_) => value
+            .chars()
+            .any(|c| c.to_lowercase().ne(std::iter::once(c))),
+    };
+    needs_lowercase.then(|| value.to_lowercase())
 }

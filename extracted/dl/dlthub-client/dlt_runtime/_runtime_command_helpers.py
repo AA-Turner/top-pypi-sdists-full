@@ -1082,7 +1082,7 @@ def _do_deploy_manifest(
         return workspace.jobs.deploy_manifest(
             {"engine_version": MANIFEST_ENGINE_VERSION, "jobs": api_jobs},
             manifest_hash=manifest_hash,
-            module=deployment_module,
+            deployment_module=deployment_module,
             description=description,
             dry_run=dry_run,
         )

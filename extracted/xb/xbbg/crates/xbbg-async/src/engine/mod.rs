@@ -12,12 +12,14 @@ mod dispatch;
 mod exchange;
 mod exchange_cache;
 mod intraday_timezone;
+mod key_column;
 mod request_plan;
 mod request_pool;
 mod request_sharding;
 mod session_lifecycle;
 mod shared_subscriptions;
 pub mod state;
+mod subscription_delivery;
 mod subscription_pool;
 mod subscription_status;
 mod subscription_types;
@@ -26,17 +28,19 @@ mod worker;
 
 pub use transport::{ServerAddr, Socks5Proxy, TlsConfig, TlsMaterial, Transport};
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::future::Future;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use arrow_array::{Array, RecordBatch};
+use arrow_array::RecordBatch;
 use tokio::sync::watch;
 
 use xbbg_core::{AuthConfig, BlpError, SessionOptions, apply_session_identity_options};
 
+use crate::diagnostics::FieldErrorMeta;
 use crate::errors::BlpAsyncError;
+use crate::field_cache::field_errors_from_response;
 use crate::services::{Operation, Service};
 use exchange_cache::ExchangeCache;
 
@@ -45,6 +49,7 @@ use exchange_cache::ExchangeCache;
 pub use crate::services::ExtractorType;
 
 pub use delayed::DelayedPolicy;
+pub use key_column::KeyColumn;
 pub(crate) use request_plan::{PlannedRequestShape, PreparedRequest, PreparedRequestBuilder};
 pub use request_pool::{RequestStream, RequestWorkerPool};
 use request_sharding::sharded_requests;
@@ -57,6 +62,7 @@ pub use state::{
     RefDataState, SubscriptionState, SubscriptionUpdate,
 };
 use state::{SubscriptionMetrics, SubscriptionReceiver};
+pub use subscription_delivery::{SubscriptionDelivery, SubscriptionDeliveryMode, SubscriptionGap};
 use subscription_pool::{SessionClaim, SubscriptionCommandHandle, SubscriptionSessionPool};
 pub use subscription_status::{
     AdminStatusInfo, ServiceStatusInfo, SessionLifecycleState, SessionStatusInfo,
@@ -69,9 +75,72 @@ use subscription_status::{SubscriptionStatusScope, timestamp_now_us};
 use subscription_types::SubscriptionTypeResolver;
 pub use worker::UnifiedRequestState;
 
+/// Optional offline fixtures using SDK TestUtil and production subscriptions.
+#[cfg(feature = "test-support")]
+#[doc(hidden)]
+pub mod testing {
+    pub use super::shared_subscriptions::testing::{
+        SubscriptionFixture, SyntheticSubscriptionFeed,
+    };
+}
+
 const SESSION_STARTUP_TIMEOUT_MS: u32 = 30_000;
 pub type OverridePairs = Vec<(String, String)>;
 pub type SecurityOverridePairs = Vec<(String, OverridePairs)>;
+
+#[derive(Default)]
+struct FieldValidation {
+    invalid_fields: Vec<String>,
+    field_errors: BTreeMap<String, FieldErrorMeta>,
+}
+
+impl FieldValidation {
+    fn from_response(fields: &[String], batch: &RecordBatch) -> Result<Self, BlpAsyncError> {
+        let field_errors =
+            field_errors_from_response(batch).map_err(|error| BlpAsyncError::ConfigError {
+                detail: format!("Invalid FieldInfo error metadata: {error}"),
+            })?;
+        let refused_ids: HashSet<String> = field_errors
+            .keys()
+            .map(|field| field.to_uppercase())
+            .collect();
+        let mut valid_fields = HashSet::with_capacity(batch.num_rows().saturating_mul(2));
+        for column in ["id", "field"] {
+            if let Some(values) = batch
+                .column_by_name(column)
+                .and_then(|column| column.as_any().downcast_ref::<arrow_array::StringArray>())
+            {
+                valid_fields.extend(values.iter().flatten().map(str::to_uppercase));
+            }
+        }
+        let invalid_fields = fields
+            .iter()
+            .filter(|field| {
+                let normalized = field.to_uppercase();
+                refused_ids.contains(&normalized) || !valid_fields.contains(&normalized)
+            })
+            .cloned()
+            .collect();
+        Ok(Self {
+            invalid_fields,
+            field_errors,
+        })
+    }
+
+    fn detail(&self) -> String {
+        let mut detail = format!(
+            "Unknown Bloomberg field(s): {}",
+            self.invalid_fields.join(", ")
+        );
+        if !self.field_errors.is_empty() {
+            detail.push_str("; Bloomberg field errors: ");
+            detail.push_str(
+                &serde_json::to_string(&self.field_errors).expect("field error strings serialize"),
+            );
+        }
+        detail
+    }
+}
 
 fn parse_operation_lossless(operation: &str) -> Operation {
     match Operation::from_str(operation) {
@@ -202,9 +271,22 @@ pub enum OverflowPolicy {
     /// Close with a data-loss error when the buffer is full (default, non-blocking).
     #[default]
     DropNewest,
+    /// Keep the newest bounded deltas and report every local eviction through
+    /// the gap-aware delivery API.
+    DropOldest,
     /// Wait briefly on a bounded forwarding task. Queue overflow or timeout
     /// closes with a data-loss error; the Bloomberg SDK callback never waits.
     Block,
+}
+
+impl OverflowPolicy {
+    /// Whether unmarked row readers would hide intentional continuity gaps.
+    pub const fn requires_deliveries(self) -> bool {
+        match self {
+            Self::DropOldest => true,
+            Self::DropNewest | Self::Block => false,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -232,9 +314,10 @@ impl std::str::FromStr for OverflowPolicy {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "drop_newest" | "dropnewest" => Ok(Self::DropNewest),
+            "drop_oldest" | "dropoldest" => Ok(Self::DropOldest),
             "block" => Ok(Self::Block),
             _ => Err(format!(
-                "unknown overflow policy '{}': expected 'drop_newest' or 'block'",
+                "unknown overflow policy '{}': expected 'drop_newest', 'drop_oldest', or 'block'",
                 s
             )),
         }
@@ -245,6 +328,7 @@ impl std::fmt::Display for OverflowPolicy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::DropNewest => write!(f, "drop_newest"),
+            Self::DropOldest => write!(f, "drop_oldest"),
             Self::Block => write!(f, "block"),
         }
     }
@@ -559,7 +643,12 @@ pub struct EngineConfig {
     pub max_event_queue_size: usize,
     /// Command channel capacity (backpressure)
     pub command_queue_size: usize,
-    /// Consumer-side Arrow batch size hint; the engine emits subscription updates immediately.
+    /// Maximum number of already-queued subscription updates (or dirty state
+    /// topics) combined into one Arrow batch per read (default: 16). A read
+    /// returns as soon as the first update arrives and adds only updates that
+    /// are already waiting, so quiet streams still get one-row batches; nothing
+    /// waits for a batch to fill, and the engine emits every update immediately.
+    /// `SubscribeRequest::flush_threshold` overrides it per subscription.
     pub subscription_flush_threshold: usize,
     /// Subscription stream capacity (backpressure)
     pub subscription_stream_capacity: usize,
@@ -590,6 +679,9 @@ pub struct EngineConfig {
     pub warmup_services: Vec<String>,
     /// Validation mode for requests (default: Strict)
     pub validation_mode: ValidationMode,
+    /// Name of the result column holding each row's security (default: the
+    /// deprecated `ticker`). See [`KeyColumn`].
+    pub key_column: KeyColumn,
     /// Custom path for the field cache JSON file (default: ~/.xbbg/field_cache.json)
     pub field_cache_path: Option<std::path::PathBuf>,
     /// Structured Bloomberg session auth configuration.
@@ -714,7 +806,7 @@ impl Default for EngineConfig {
             tls: None,
             max_event_queue_size: 10_000,
             command_queue_size: 256,
-            subscription_flush_threshold: 1,
+            subscription_flush_threshold: 16,
             subscription_stream_capacity: 256,
             overflow_policy: OverflowPolicy::default(),
             request_pool_size: 2,
@@ -730,6 +822,7 @@ impl Default for EngineConfig {
                 crate::services::Service::ApiFlds.to_string(),
             ],
             validation_mode: ValidationMode::default(),
+            key_column: KeyColumn::default(),
             field_cache_path: None,
             auth: None,
             bql_app_name: None,
@@ -794,17 +887,29 @@ impl Engine {
             "starting Engine with worker pools"
         );
 
-        // Create request worker pool
-        let request_pool = Arc::new(RequestWorkerPool::new(
-            config.request_pool_size,
-            config.clone(),
-        )?);
-
-        // Create subscription session pool
-        let subscription_pool = Arc::new(SubscriptionSessionPool::new(
-            config.subscription_pool_size,
-            config.clone(),
-        )?);
+        // The pools are independent until the runtime is attached, so their
+        // sessions start concurrently. Both complete before either result is
+        // inspected; the request pool's error wins, and whichever pool did
+        // start is dropped (stopping its sessions) on the early return.
+        let (request_pool, subscription_pool) = std::thread::scope(|scope| {
+            let subscription_pool = std::thread::Builder::new()
+                .name("xbbg-subscription-pool-start".to_string())
+                .spawn_scoped(scope, || {
+                    SubscriptionSessionPool::new(config.subscription_pool_size, config.clone())
+                });
+            let request_pool = RequestWorkerPool::new(config.request_pool_size, config.clone());
+            let subscription_pool = match subscription_pool {
+                Ok(handle) => handle
+                    .join()
+                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+                Err(_) => {
+                    SubscriptionSessionPool::new(config.subscription_pool_size, config.clone())
+                }
+            };
+            (request_pool, subscription_pool)
+        });
+        let request_pool = Arc::new(request_pool?);
+        let subscription_pool = Arc::new(subscription_pool?);
 
         let total_sessions = config.request_pool_size + config.subscription_pool_size;
         xbbg_log::info!(
@@ -887,6 +992,7 @@ impl Engine {
         self.apply_intraday_request_timezone(&mut builder).await?;
         let prepared = builder.finalize()?;
         self.maybe_validate_request_fields(&prepared).await?;
+        let key = self.output_key_column(&prepared);
         let output_params = prepared.params().clone();
         let operation = prepared.effective_operation().to_string();
         let delay_lookup = delayed::lookup_securities(&prepared, chrono::Utc::now());
@@ -907,7 +1013,24 @@ impl Engine {
         let batch =
             intraday_timezone::apply_intraday_output_timezone(self, batch, &output_params).await?;
         state::ResponseMetadata::warn_batch_type_misses(&batch);
-        delayed::enforce(&output_params, &operation, batch)
+        let batch = delayed::enforce(&output_params, &operation, batch)?;
+        Ok(match key {
+            Some(key) => key_column::name_key_column(batch, key),
+            None => batch,
+        })
+    }
+
+    /// Name of the result column holding each row's security.
+    pub fn key_column(&self) -> KeyColumn {
+        self.config.key_column
+    }
+
+    /// The key column for a request whose results lead with a security column.
+    fn output_key_column(&self, request: &PreparedRequest) -> Option<KeyColumn> {
+        request
+            .shape()
+            .has_key_column()
+            .then_some(self.config.key_column)
     }
 
     /// Streaming generic request - dispatches to worker pool.
@@ -929,8 +1052,9 @@ impl Engine {
         let out_iana = intraday_timezone::resolve_output_tz_iana(self, builder.params()).await?;
         let prepared = builder.finalize()?;
         self.maybe_validate_request_fields(&prepared).await?;
+        let key = self.output_key_column(&prepared);
         let stream = self.request_pool.request_stream(prepared).await?;
-        Ok(stream.with_output_timezone(out_iana))
+        Ok(stream.with_output_timezone(out_iana).with_key_column(key))
     }
 
     /// Resolve defaults, validate, schema-route kwargs, and apply field-cache hints.
@@ -1029,17 +1153,18 @@ impl Engine {
             return Ok(());
         }
 
-        let invalid_fields = self.validate_fields(fields).await?;
-        if invalid_fields.is_empty() {
+        let validation = self.validate_field_metadata(fields).await?;
+        if validation.invalid_fields.is_empty() {
             return Ok(());
         }
 
-        let detail = format!("Unknown Bloomberg field(s): {}", invalid_fields.join(", "));
+        let detail = validation.detail();
         if validation_mode == ValidationMode::Lenient {
             xbbg_log::warn!(
                 service = %params.service,
                 operation = %prepared.effective_operation(),
-                invalid_fields = ?invalid_fields,
+                invalid_fields = ?validation.invalid_fields,
+                field_errors = ?validation.field_errors,
                 "field validation warning"
             );
             return Ok(());
@@ -1103,7 +1228,8 @@ impl Engine {
     /// Validate Bloomberg field names.
     ///
     /// Queries `//blp/apiflds` for the given fields and returns a list of
-    /// invalid field names (fields that Bloomberg doesn't recognize).
+    /// invalid or refused field names, warning with Bloomberg's refusal details.
+    /// Bloomberg field ids and canonical mnemonics both identify successful responses.
     ///
     /// # Example
     /// ```ignore
@@ -1111,8 +1237,25 @@ impl Engine {
     /// // invalid = ["INVALID_FIELD"]
     /// ```
     pub async fn validate_fields(&self, fields: &[String]) -> Result<Vec<String>, BlpAsyncError> {
+        let validation = self.validate_field_metadata(fields).await?;
+        // The returned names cannot carry Bloomberg's reasons, so report them here.
+        // Request validation warns (lenient) or raises (strict) with them instead.
+        if !validation.field_errors.is_empty() {
+            xbbg_log::warn!(
+                refused_count = validation.field_errors.len(),
+                field_errors = ?validation.field_errors,
+                "Bloomberg refused field validation ids"
+            );
+        }
+        Ok(validation.invalid_fields)
+    }
+
+    async fn validate_field_metadata(
+        &self,
+        fields: &[String],
+    ) -> Result<FieldValidation, BlpAsyncError> {
         if fields.is_empty() {
-            return Ok(Vec::new());
+            return Ok(FieldValidation::default());
         }
 
         // Query //blp/apiflds for the fields
@@ -1127,32 +1270,7 @@ impl Engine {
         let params = self.prepare_request_builder(params)?.finalize()?;
         let batch = self.request_pool.request(params).await?;
 
-        // Get the field column from the response
-        let field_col = batch
-            .column_by_name("field")
-            .and_then(|c| c.as_any().downcast_ref::<arrow_array::StringArray>());
-
-        let valid_fields: std::collections::HashSet<String> = match field_col {
-            Some(col) => (0..col.len())
-                .filter_map(|i| {
-                    if col.is_null(i) {
-                        None
-                    } else {
-                        Some(col.value(i).to_uppercase())
-                    }
-                })
-                .collect(),
-            None => std::collections::HashSet::new(),
-        };
-
-        // Find fields that weren't returned (invalid)
-        let invalid: Vec<String> = fields
-            .iter()
-            .filter(|f| !valid_fields.contains(&f.to_uppercase()))
-            .cloned()
-            .collect();
-
-        Ok(invalid)
+        FieldValidation::from_response(fields, &batch)
     }
 
     /// Check if field validation is enabled based on validation mode.
@@ -1523,6 +1641,16 @@ impl SubscriptionStream {
         self.rx.try_recv().ok()
     }
 
+    /// Opt into explicit batch deliveries, including local-overflow gaps and
+    /// conflated state. The strict raw-update path is unchanged.
+    pub fn deliveries(self) -> SubscriptionDeliveries {
+        let batch_limit = self.handle.delivery_batch_limit();
+        SubscriptionDeliveries {
+            consumer: crate::subscription_consumer::SubscriptionConsumer::new(self.rx, self.handle),
+            batch_limit,
+        }
+    }
+
     pub async fn add(
         &self,
         topics: Vec<String>,
@@ -1567,6 +1695,12 @@ impl SubscriptionStream {
         mut self,
         drain: bool,
     ) -> Result<Vec<SubscriptionUpdate>, BlpAsyncError> {
+        if self.rx.requires_deliveries() {
+            let consumer =
+                crate::subscription_consumer::SubscriptionConsumer::new(self.rx, self.handle);
+            let (_operation, result) = consumer.unsubscribe(drain, None).await;
+            return result.map_err(|error| *error);
+        }
         let mut remaining = Vec::new();
         let mut first_error = None;
         let mut cleanup_error = self.handle.unsubscribe().await.err();
@@ -1604,6 +1738,46 @@ impl SubscriptionStream {
     }
 }
 
+/// Owning gap-aware subscription view. Rust publication commits the same
+/// transactional delivery used by the language adapters.
+pub struct SubscriptionDeliveries {
+    consumer: crate::subscription_consumer::SubscriptionConsumer,
+    batch_limit: usize,
+}
+
+impl SubscriptionDeliveries {
+    pub async fn next(&mut self) -> Option<Result<SubscriptionDelivery, BlpError>> {
+        self.consumer
+            .next_delivery(self.batch_limit)
+            .await
+            .map(crate::subscription_consumer::SubscriptionDeliveryLease::commit)
+    }
+
+    pub async fn recv(&mut self) -> Option<Result<SubscriptionDelivery, BlpError>> {
+        self.next().await
+    }
+
+    pub fn handle(&self) -> SubscriptionHandle {
+        self.consumer
+            .handle()
+            .expect("an owning delivery view retains its control handle")
+    }
+
+    pub fn delivery_mode(&self) -> SubscriptionDeliveryMode {
+        self.consumer.delivery_mode()
+    }
+
+    pub async fn unsubscribe(
+        self,
+        drain: bool,
+    ) -> Result<Vec<SubscriptionDelivery>, BlpAsyncError> {
+        let (_operation, result) = self.consumer.unsubscribe_deliveries(drain, None).await;
+        result.map_err(|error| *error)
+    }
+
+    pub fn close(self) {}
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1611,6 +1785,77 @@ mod tests {
         match err {
             BlpAsyncError::ConfigError { detail } => detail,
             other => panic!("expected config error, got {other}"),
+        }
+    }
+
+    #[test]
+    fn field_validation_matches_ids_and_mnemonics_but_explicit_refusals_take_precedence() {
+        let mut batch = RecordBatch::try_from_iter([
+            (
+                "field",
+                Arc::new(arrow_array::StringArray::from(vec![
+                    "CANONICAL",
+                    "REFUSED_ALIAS",
+                ])) as arrow_array::ArrayRef,
+            ),
+            (
+                "id",
+                Arc::new(arrow_array::StringArray::from(vec![
+                    "accepted_alias",
+                    "some_other_alias",
+                ])) as arrow_array::ArrayRef,
+            ),
+        ])
+        .unwrap();
+        batch.schema_metadata_mut().insert(
+            crate::diagnostics::METADATA_KEY_FIELD_ERRORS.to_string(),
+            serde_json::json!({
+                "REFUSED_ALIAS": {
+                    "code": -4,
+                    "category": "NO_AUTH",
+                    "subcategory": "NOT_ENTITLED",
+                    "message": "Field metadata access refused",
+                    "source": "apiflds@synthetic"
+                }
+            })
+            .to_string(),
+        );
+        let requested = [
+            "ACCEPTED_ALIAS",
+            "canonical",
+            "refused_alias",
+            "SOME_OTHER_ALIAS",
+            "UNRETURNED",
+        ]
+        .map(str::to_string);
+        let validation = FieldValidation::from_response(&requested, &batch).unwrap();
+        assert_eq!(validation.invalid_fields, ["refused_alias", "UNRETURNED"]);
+        let detail = validation.detail();
+        assert!(detail.contains("Field metadata access refused"));
+        assert!(detail.contains("apiflds@synthetic"));
+        assert!(detail.contains("NOT_ENTITLED"));
+    }
+
+    #[test]
+    fn field_validation_supports_mnemonic_only_batches_and_rejects_malformed_diagnostics() {
+        let mut batch = RecordBatch::try_from_iter([(
+            "field",
+            Arc::new(arrow_array::StringArray::from(vec!["PX_LAST"])) as arrow_array::ArrayRef,
+        )])
+        .unwrap();
+        let requested = ["px_last", "UNKNOWN"].map(str::to_string);
+        let validation = FieldValidation::from_response(&requested, &batch).unwrap();
+        assert_eq!(validation.invalid_fields, ["UNKNOWN"]);
+        for malformed in ["null", "[]", r#"{"UNKNOWN":{"code":"invalid"}}"#] {
+            batch.schema_metadata_mut().insert(
+                crate::diagnostics::METADATA_KEY_FIELD_ERRORS.to_string(),
+                malformed.to_string(),
+            );
+            assert!(matches!(
+                FieldValidation::from_response(&requested, &batch),
+                Err(BlpAsyncError::ConfigError { detail })
+                    if detail.contains("Invalid FieldInfo error metadata")
+            ));
         }
     }
 
@@ -1650,6 +1895,7 @@ mod tests {
         assert_eq!(config.runtime_worker_threads, 2);
         assert_eq!(config.max_subscription_sessions, 32);
         assert!(config.max_subscription_sessions >= config.subscription_pool_size);
+        assert_eq!(config.subscription_flush_threshold, 16);
     }
 
     #[test]

@@ -85,6 +85,9 @@ def sync_detailed(
 ) -> Response[ErrorResponse | PipelineRunTraceResponse]:
     """GetPipelineRunTrace
 
+     Returns the dlt trace of this pipeline run as dlt produced it: its extract, normalize and load steps
+    and the execution context. Answers 404 when the run or its trace is not found.
+
     Args:
         workspace_id (UUID):
         pipeline_run_id (UUID):
@@ -116,6 +119,9 @@ def sync(
 ) -> ErrorResponse | PipelineRunTraceResponse | None:
     """GetPipelineRunTrace
 
+     Returns the dlt trace of this pipeline run as dlt produced it: its extract, normalize and load steps
+    and the execution context. Answers 404 when the run or its trace is not found.
+
     Args:
         workspace_id (UUID):
         pipeline_run_id (UUID):
@@ -141,6 +147,9 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
 ) -> Response[ErrorResponse | PipelineRunTraceResponse]:
     """GetPipelineRunTrace
+
+     Returns the dlt trace of this pipeline run as dlt produced it: its extract, normalize and load steps
+    and the execution context. Answers 404 when the run or its trace is not found.
 
     Args:
         workspace_id (UUID):
@@ -170,6 +179,9 @@ async def asyncio(
     client: AuthenticatedClient | Client,
 ) -> ErrorResponse | PipelineRunTraceResponse | None:
     """GetPipelineRunTrace
+
+     Returns the dlt trace of this pipeline run as dlt produced it: its extract, normalize and load steps
+    and the execution context. Answers 404 when the run or its trace is not found.
 
     Args:
         workspace_id (UUID):

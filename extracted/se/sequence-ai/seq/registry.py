@@ -28,7 +28,7 @@ from sequence_base.contract import (
     SeqFlags,
 )
 from sequence_base.by_name import INFER_PLATFORM, OBSERVE_PLATFORM, RESET_GONE
-from sequence_base.constants.serving import EPISODE_IDLE_S, MACHINE_CARDS, REQUEST_TIMEOUT_S, STARTUP_TIMEOUT_S
+from sequence_base.constants.serving import MACHINE_CARDS
 
 from seq._partial import Refused, hook, hooks_along, keeping, refused
 from seq import named
@@ -49,44 +49,11 @@ _LOCALS_ATTR = "__seq_image_locals__"
 
 
 _IMAGE_DECLARED_ATTR = "__seq_image_declared__"
-_TIMEOUTS_ATTR = "__seq_timeouts__"
 
 _MODELS_ATTR = "__seq_models__"
 _REGION_ATTR = "__seq_region__"
 
 _MODEL_PREFIX = "accounts/sequences/models/"
-
-
-
-
-
-_EPISODE_IDLE_RANGE = (10, 86400)
-
-
-class Timeouts:
-    """`@seq.policy(timeouts=seq.Timeouts(startup=600, request=30, episode_idle=600))`: how long a worker may take to
-    load — the build check and every worker are held to it — how long one inference may take before the robot is
-    answered 504, and how long an episode may go without an act before its place on a copy may go to a new episode
-    (10 s to a day; that episode's next act is then answered 409 episode_lost, and sequence-ai starts a new one).
-    """
-
-    __slots__ = ("startup", "request", "episode_idle")
-
-    def __init__(self, *, startup: int = STARTUP_TIMEOUT_S, request: int = REQUEST_TIMEOUT_S,
-                 episode_idle: int = EPISODE_IDLE_S) -> None:
-        for name, value in (("startup", startup), ("request", request), ("episode_idle", episode_idle)):
-            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-                raise PolicyDefinitionError(f"Timeouts({name}=...) must be a positive whole number of seconds, "
-                                            f"got {value!r}")
-        low, high = _EPISODE_IDLE_RANGE
-        if not low <= episode_idle <= high:
-            raise PolicyDefinitionError(f"Timeouts(episode_idle=...) is {low} s to a day ({high}), got {episode_idle}")
-        self.startup = startup
-        self.request = request
-        self.episode_idle = episode_idle
-
-    def __repr__(self) -> str:
-        return f"Timeouts(startup={self.startup}, request={self.request}, episode_idle={self.episode_idle})"
 
 
 def applied_by(frame: Any) -> tuple[str, dict] | None:
@@ -430,7 +397,6 @@ def _assemble_spec(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str] 
     _check_card_split(gpu, concurrency)
     setattr(cls, _CTX_ATTR, image.context if isinstance(image, Image) else None)
     setattr(cls, _LOCALS_ATTR, (image.local_files, image.python_sources) if isinstance(image, Image) else ((), ()))
-    setattr(cls, _TIMEOUTS_ATTR, _timeouts(kw))
     setattr(cls, _MODELS_ATTR, _models(kw))
     setattr(cls, _REGION_ATTR, region_of(kw.get("region"), "region="))
     fields: dict[str, Any] = {
@@ -448,7 +414,6 @@ def _assemble_spec(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str] 
 
     for declared, field in (
         ("min_workers", "min_containers"), ("buffer_workers", "buffer_containers"), ("max_gpus", "max_gpus"),
-        ("tensors", "tensors"),
         ("hz", "hz"), ("action_chunk_valid_len", "action_chunk_valid_len"),
         ("action_chunk_replan_at", "action_chunk_replan_at"), ("max_wait_for_batch", "max_wait_for_batch"),
     ):
@@ -605,17 +570,6 @@ def _check_card_split(gpu: Any, concurrency: Any) -> None:
                                     "splits its cards into groups of gpus_per_replica, one model copy per group")
 
 
-def _timeouts(kw: dict[str, Any]):
-    v = kw.get("timeouts")
-    if v is None:
-        return None
-    if isinstance(v, dict):
-        v = Timeouts(**v)
-    if not isinstance(v, Timeouts):
-        raise PolicyDefinitionError(f"timeouts= must be seq.Timeouts(startup=, request=), got {type(v).__name__}")
-    return v
-
-
 def _models(kw: dict[str, Any]) -> tuple[str, ...]:
     """models=: the platform models the policy calls, each a catalogue name ("qwen3-8-27b") or full id, as full ids.
     Whether each exists is the platform's to say — `seq deploy` is refused with the list when one does not — so this
@@ -690,11 +644,6 @@ def image_declared(cls: type) -> str | None:
 def context_declared(cls: type) -> str | None:
     """The Dockerfile's build context directory the policy's image declared, if any."""
     return getattr(cls, _CTX_ATTR, None)
-
-
-def timeouts_declared(cls: type):
-    """The `seq.Timeouts` the policy declared, or None."""
-    return getattr(cls, _TIMEOUTS_ATTR, None)
 
 
 def _validate(cls: type, spec: PolicySpec, bindings: dict[SeqFlags, str]) -> None:

@@ -18,19 +18,19 @@ classifiers = [
 ]
 license = "MIT"
 readme = "README.md"
-version = "2.33.0" # {x-release-please-version}
-requires-python = ">=3.9"
+version = "2.34.0" # {x-release-please-version}
+requires-python = ">=3.11"
 
 dependencies = [
   "httpx[http2] >=0.26,<0.29",
   "deprecation >=2.1.0",
-  "pydantic >=2.11.7",
+  "pydantic >=2.11.7,<3",
   "yarl>=1.20.1",
 ]
 
 [project.optional-dependencies]
 iceberg = [
-  "pyiceberg>=0.10.0",
+  "pyiceberg[pyarrow]>=0.10.0",
 ]
 
 [project.urls]
@@ -48,7 +48,7 @@ lints = [
   "python-lsp-ruff (>=2.2.2,<3.0.0)",
 ]
 mypy = [
-  "pyiceberg>=0.10.0",
+  "pyiceberg[pyarrow]>=0.10.0",
 ]
 docs = [
   "Sphinx >=7.1.2",
@@ -56,6 +56,7 @@ docs = [
   "sphinx-toolbox >=3.4.0",
 ]
 tests = [
+  "pyiceberg[pyarrow]>=0.10.0",
   "pytest >=8.3.5",
   "pytest-asyncio >=0.21.0",
   "pytest-cov >=6.1.0",
@@ -75,7 +76,6 @@ filterwarnings = [
 ]
 
 [tool.mypy]
-python_version = "3.9"
 follow_untyped_imports = true # for deprecation module that does not have stubs
 check_untyped_defs = true
 allow_redefinition = true

@@ -1434,11 +1434,11 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         sending it again, with what bounds the wait and how to lengthen it."""
         allowed = self._request_timeout_s
         if allowed is not None and self._own_timeout_s is not None and allowed > self._own_timeout_s:
-            hint = (f"its deployment allows an act {allowed:g} s (seq.Timeouts(request=...)), and "
+            hint = (f"its deployment allows an act {allowed:g} s, and "
                     f"connect(timeout_s={self._own_timeout_s:g}) waited less: connect without timeout_s waits that long")
         elif allowed is not None:
-            hint = (f"its deployment allows an act {allowed:g} s and its worker answers 504 then; a slower act needs a "
-                    f"longer seq.Timeouts(request=...) where the policy is defined, or connect(timeout_s=...)")
+            hint = (f"its deployment allows an act {allowed:g} s and its worker answers 504 then - the platform's limit, "
+                    f"ten times the slowest p95 its version's check measured, never under 300 s nor over an hour")
         else:
             hint = (f"its deployment says no request timeout, so an act waits {DEFAULT_TIMEOUT_S:g} s: connect(timeout_s="
                     f"...) waits longer")

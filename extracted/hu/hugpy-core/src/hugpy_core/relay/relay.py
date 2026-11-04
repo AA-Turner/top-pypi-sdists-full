@@ -277,8 +277,13 @@ def worker_stream(worker: dict, payload: dict, timeout: float = 600.0) -> Iterat
 
 def worker_cancel(worker: dict, request_id: str) -> "tuple[int, dict]":
     """POST {worker}/infer/cancel/<rid>; returns (status, body)."""
-    url = worker["url"].rstrip("/") + "/infer/cancel/" + request_id
-    req = urllib.request.Request(url, data=b"", method="POST")
+    from urllib.parse import quote
+    from hugpy_core.registry.transport import headers as worker_headers
+    sql = (worker.get('data_service') or {}).get('implementation') == 'hugpy-wrapper-sql'
+    path = ('/v1/requests/' + quote(request_id, safe='') + '/cancel' if sql
+            else '/infer/cancel/' + quote(request_id, safe=''))
+    url = worker["url"].rstrip("/") + path
+    req = urllib.request.Request(url, data=b"", method="POST", headers=worker_headers(worker))
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             return r.status, json.loads(r.read().decode("utf-8") or "{}")

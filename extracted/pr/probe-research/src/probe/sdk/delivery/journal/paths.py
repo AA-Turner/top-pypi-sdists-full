@@ -11,23 +11,24 @@ import time
 
 from ....foundation.os_backend import os_backend as oscompat
 from ....foundation.durable.durable import file_lock
+from ....foundation.process_rank import OPENMPI, SLURM, TORCH, read_env_text, read_rank_text
 
 
-#: Environment variables identifying a GLOBALLY unique rank in a distributed job (any one is
-#: enough; order only breaks ties). `LOCAL_RANK` is absent on purpose: it repeats per node, so
-#: on a shared filesystem two nodes' rank 0 would collide back into one queue.
-_GLOBAL_RANK_VARS = ("SLURM_PROCID", "RANK", "OMPI_COMM_WORLD_RANK")
+#: Launchers whose rank names the queue, in THIS order (any one is enough; order only breaks ties),
+#: read as raw text. Not the shared `LAUNCH_SCHEMES` order and no PMI: a different set or order renames
+#: the directory and strands queued writes (the plugin hooks hold a byte copy). `LOCAL_RANK` is absent
+#: on purpose: it repeats per node, so on a shared filesystem two nodes' rank 0 would collide.
+_RANK_SCHEMES = (SLURM, TORCH, OPENMPI)
+_GLOBAL_RANK_VARS = tuple(scheme.rank_var for scheme in _RANK_SCHEMES)
 
 
 def _rank_suffix(environ=None) -> str | None:
     """A per-rank directory component, or None for a single-process job: one journal per rank on a
     shared $HOME, so the append flock is not a cluster-wide mutex."""
-    env = os.environ if environ is None else environ
-    for var in _GLOBAL_RANK_VARS:
-        raw = (env.get(var) or "").strip()
-        if raw:
-            return f"rank-{_safe_component(raw)}"
-    local = (env.get("LOCAL_RANK") or "").strip()
+    named = read_rank_text(environ, _RANK_SCHEMES)
+    if named is not None:
+        return f"rank-{_safe_component(named[1])}"
+    local = read_env_text(environ, TORCH.local_rank_var)
     if local:
         # Only node-local identity is advertised, so qualify it with the host to keep two
         # nodes' rank 0 apart on shared storage.

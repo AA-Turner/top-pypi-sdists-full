@@ -300,7 +300,14 @@ async fn test_init_called() {
     statsig.initialize().await.unwrap();
 
     let calls = obs_client.calls.lock().unwrap();
-    assert_eq!(calls.len(), 1);
+    // Snapshot gauges may arrive before initialize() returns.
+    assert_eq!(
+        calls
+            .iter()
+            .filter(|call| matches!(call, RecordedCall::Init))
+            .count(),
+        1,
+    );
     assert_eq!(calls[0], RecordedCall::Init);
 }
 

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import re
 import http.client
 import urllib.parse
 from typing import Any, Callable
 
-from .env import graphql_endpoint, graphql_timeout_seconds
+from .env import graphql_endpoint, graphql_timeout_seconds, site_tenant_id
 from .guest_auth import refuse_guest_auth
 from .graphql_http import CREDENTIAL_REJECTION_STATUS_CODES, graphql_request_headers
 from .operator_errors import GraphQLRequestError, credential_recovery_guidance
@@ -62,7 +63,7 @@ REFERENCE_FIELDS = (
     "sourcePublishedAt sourceUpdatedAt retrievedAt inboundCitationCount outboundCitationCount "
     "importRunId importedAt createdAt curationStatus "
     "curationStatusKey curationStatusUpdatedAt curationStatusUpdatedBy curationStatusReason curationReasonCode curationActorKind curationSectionId curationShareable curationDelegation curationDecisionRelationId starRating starRatedAt starRatedBy newsroomFeedKey reviewedFeedKey "
-    "discoveredByMonitorId discoveryDetails discoveryRule feedStateKey feedArrivalAt predictedAcceptProbability predictionDecidedAt predictionSortKey updatedAt"
+    "discoveredByMonitorId discoveryDetails discoveryRule feedStateKey feedArrivalAt predictedAcceptProbability predictionDecidedAt predictionSortKey starFeedKey captureState updatedAt"
 )
 REFERENCE_ATTACHMENT_FIELDS = (
     "id referenceId referenceLineageId referenceVersionNumber referenceVersionKey role sortKey storagePath "
@@ -151,7 +152,7 @@ PUBLISHED_EDITION_ITEM_FIELDS = (
 )
 ITEM_FIELDS = (
     f"{VERSION_FIELDS} id tenantId tenantSlug type status typeStatus stage slug shortSlug section sectionStatus title headline deck body "
-    "byline dateline publishedAt editionDate sortTitle pullQuotes layout editorial updatedAt bodyMarkus bodyIr aliases metadata"
+    "byline dateline publishedAt editionDate sortTitle pullQuotes layout editorial updatedAt bodyMarkus bodyIr aliases metadata starRating starRatedAt starRatedBy"
 )
 PUBLISHED_ITEM_FIELDS = (
     "id tenantId tenantSlug sourceItemId itemLineageId versionNumber type status typeStatus slug shortSlug section sectionStatus "
@@ -422,7 +423,17 @@ mutation CreateModelAttachmentDownload($attachmentId: ID!) {
 }
 """
 
+PUBLISHED_STORY_LIST_FIELDS = (
+    "id tenantId sourceItemId itemLineageId type status slug section sectionStatus title headline deck publishedAt"
+)
+
+STORY_SECTION_LINK_FIELDS = "id tenantId lineageId versionState stage status type section sectionStatus"
+
 INDEX_DEFINITIONS: dict[str, dict[str, str]] = {
+    "itemsByStage": {"field": "listItemsByStageAndUpdatedAt", "partitionKey": "stage", "fields": STORY_SECTION_LINK_FIELDS},
+    "itemsBySectionStatus": {"field": "listItemsBySectionStatusAndPublishedAt", "partitionKey": "sectionStatus", "fields": STORY_SECTION_LINK_FIELDS},
+    "messageThreadsByAnchor": {"field": "listMessageThreadsByAnchorAndUpdatedAt", "partitionKey": "primaryAnchorKey", "fields": MESSAGE_THREAD_FIELDS},
+    "publishedItemsBySectionStatus": {"field": "listPublishedItemsBySectionStatusAndPublishedAt", "partitionKey": "sectionStatus", "fields": PUBLISHED_STORY_LIST_FIELDS},
     "messageThreadsByKindAndUpdatedAt": {"field": "listMessageThreadsByKindAndUpdatedAt", "partitionKey": "threadKind", "fields": MESSAGE_THREAD_FIELDS},
     "messagesByThreadAndSequence": {
         "field": "listMessagesByThreadAndSequence",
@@ -609,6 +620,18 @@ query {operation}(${partition_key}: {partition_type}!, $limit: Int, $nextToken: 
 """
 
 
+def _newest_first_query(field: str, partition_key: str, fields: str, partition_type: str = "String") -> str:
+    operation = field[0].upper() + field[1:]
+    return f"""
+query {operation}NewestFirst(${partition_key}: {partition_type}!, $limit: Int, $nextToken: String) {{
+  {field}({partition_key}: ${partition_key}, sortDirection: DESC, limit: $limit, nextToken: $nextToken) {{
+    items {{ {fields} }}
+    nextToken
+  }}
+}}
+"""
+
+
 def _list_query(field: str, fields: str) -> str:
     operation = field[0].upper() + field[1:]
     return f"""
@@ -653,15 +676,26 @@ mutation Delete{model_name}($input: Delete{model_name}Input!) {{
 MUTATIONS = {model: _model_mutations(model) for model in LIST_DEFINITIONS}
 
 
+# Reference and Item fields newer than some deployed sites (Stories got the same three star fields a Reference has). One router serves sites on different versions, so a site whose
+# schema does not have these yet is read without them instead of failing every Reference read.
+NEWER_REFERENCE_FIELDS = ("starRating", "starRatedAt", "starRatedBy", "starFeedKey", "captureState")
+_UNDEFINED_NEWER_FIELD = re.compile(r"FieldUndefined: Field '(?:" + "|".join(NEWER_REFERENCE_FIELDS) + r")' in type")
+_NEWER_FIELD_SELECTION = re.compile(r"(?<![$\w])(?:" + "|".join(NEWER_REFERENCE_FIELDS) + r")\b\s*")
+
+
 class PapyrusGraphQLAuthoringClient:
     def __init__(
         self,
         endpoint: str | None = None,
         header_factory: Callable[[bytes], dict[str, str]] | None = None,
         tenant_id: str | None = None,
+        site_tenant: bool = True,
     ) -> None:
-        self.tenant_id = validate_tenant_id(tenant_id) if tenant_id else tenant_id_from_environment()
         self.endpoint = endpoint or graphql_endpoint()
+        # An explicit tenant wins, then PAPYRUS_TENANT_ID, then (signed-in CLI) the tenant the site itself publishes.
+        # `site_tenant=False` is for a command that must read every row, such as `content adopt-tenant-data`.
+        self.tenant_id = validate_tenant_id(tenant_id) if tenant_id else (
+            tenant_id_from_environment() or (site_tenant_id(self.endpoint) if site_tenant else None))
         self.header_factory = header_factory
         self.timeout_seconds = graphql_timeout_seconds()
         self._parsed_endpoint = urllib.parse.urlparse(self.endpoint)
@@ -671,6 +705,7 @@ class PapyrusGraphQLAuthoringClient:
         if self._parsed_endpoint.query:
             self._endpoint_path = f"{self._endpoint_path}?{self._parsed_endpoint.query}"
         self._connection: http.client.HTTPSConnection | None = None
+        self._schema_lacks_newer_reference_fields = False
 
     def _request_headers(self, payload: bytes) -> dict[str, str]:
         if self.header_factory is not None:
@@ -678,6 +713,18 @@ class PapyrusGraphQLAuthoringClient:
         return graphql_request_headers(endpoint=self.endpoint, body=payload)
 
     def graphql(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
+        if self._schema_lacks_newer_reference_fields:
+            query = _NEWER_FIELD_SELECTION.sub("", query)
+        try:
+            return self._send_graphql(query, variables)
+        except GraphQLRequestError as error:
+            # A validation error means the request never ran, so sending it again cannot repeat a write.
+            if self._schema_lacks_newer_reference_fields or not _UNDEFINED_NEWER_FIELD.search(str(error)):
+                raise
+        self._schema_lacks_newer_reference_fields = True
+        return self._send_graphql(_NEWER_FIELD_SELECTION.sub("", query), variables)
+
+    def _send_graphql(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
         payload = json.dumps({"query": query, "variables": variables or {}}).encode("utf-8")
         headers = self._request_headers(payload)
         body: dict[str, Any] | None = None
@@ -915,6 +962,24 @@ class PapyrusGraphQLAuthoringClient:
                 break
         return items
 
+    def iterate_newest_first(self, index_name: str, key_value: str, *, page_size: int = 50):
+        """Rows of an index by its sort key, newest first, one page at a time; stop reading and no further page is fetched."""
+        index_name, key_value = tenant_scoped_index(self.tenant_id, index_name, key_value)
+        definition = INDEX_DEFINITIONS[index_name]
+        query = _newest_first_query(
+            definition["field"], definition["partitionKey"], definition["fields"], definition.get("partitionType", "String")
+        )
+        next_token = None
+        while True:
+            result = self.graphql(query, {definition["partitionKey"]: key_value, "limit": page_size, "nextToken": next_token})
+            connection = result.get(definition["field"]) or {}
+            for entry in connection.get("items") or []:
+                if entry:
+                    yield entry
+            next_token = connection.get("nextToken")
+            if not next_token:
+                return
+
     def list_assignments_by_queue_status_and_priority(self, queue_status_key: str) -> list[dict[str, Any]]:
         return self.list_by_index("assignmentsByQueueStatusAndPriority", queue_status_key)
 
@@ -1044,9 +1109,9 @@ class PapyrusGraphQLAuthoringClient:
         return slot
 
 
-def create_authoring_client(tenant_id: str | None = None) -> tuple[PapyrusGraphQLAuthoringClient, dict[str, Any]]:
+def create_authoring_client(tenant_id: str | None = None, *, site_tenant: bool = True) -> tuple[PapyrusGraphQLAuthoringClient, dict[str, Any]]:
     refuse_guest_auth("this command")
-    return PapyrusGraphQLAuthoringClient(tenant_id=tenant_id), {}
+    return PapyrusGraphQLAuthoringClient(tenant_id=tenant_id, site_tenant=site_tenant), {}
 
 
 def model_attachment_upload_variables(attachment: dict[str, Any]) -> dict[str, Any]:

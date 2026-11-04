@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from contextlib import suppress
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, BinaryIO, ClassVar, TextIO, cast
 from urllib.parse import urlencode
 
@@ -365,7 +366,11 @@ class Component(RepoObjectMixin, LazyObject):
 
     def lock_status(self) -> dict[str, Any]:
         """Return component lock status."""
-        return cast("JSONDict", self.weblate.get(self._get_lock_url()))
+        result = self.weblate.get(self._get_lock_url())
+        if not isinstance(result, dict):
+            msg = "Server returned an invalid lock status."
+            raise WeblateException(msg)
+        return result
 
     def changes(self) -> Iterator[Change]:
         """List changes in the component."""
@@ -620,3 +625,11 @@ class Unit(LazyObject):
     def delete(self) -> bytes:
         """Delete the unit."""
         return self.weblate.raw_request("delete", self._url)
+
+
+@dataclass
+class Activity:
+    """Global daily activity and recently active project statistics."""
+
+    daily_activity: list[int]
+    projects: list[Statistics]

@@ -228,6 +228,7 @@ class PrivateJobSDK(WorkloadSDK):
         cloud_id: str,
         compute_config_id: str,
         connection_ids: Optional[List[str]] = None,
+        connection_config_ids: Optional[List[str]] = None,
     ) -> ProductionJobConfig:
         build_id = None
         if config.containerfile is not None:
@@ -289,6 +290,7 @@ class PrivateJobSDK(WorkloadSDK):
             max_retries=config.max_retries,
             timeout_s=config.timeout_s,
             connection_ids=connection_ids,
+            connection_config_ids=connection_config_ids,
             priority=config.priority,
         )
 
@@ -378,7 +380,7 @@ class PrivateJobSDK(WorkloadSDK):
         project_id = self.client.get_project_id(parent_cloud_id=cloud_id, name=config.project)
 
         # Resolve connection names to IDs
-        connection_ids = self.resolve_connection_ids(config.connections)
+        connection_ids, connection_config_ids = self.resolve_connection_ids(config.connections)
 
         prod_job_config = self.job_config_to_internal_prod_job_conf(
             config=config,
@@ -386,6 +388,7 @@ class PrivateJobSDK(WorkloadSDK):
             cloud_id=cloud_id,
             compute_config_id=compute_config_id,
             connection_ids=connection_ids,
+            connection_config_ids=connection_config_ids,
         )
 
         job: InternalProductionJob = self.client.submit_job(
@@ -453,7 +456,9 @@ class PrivateJobSDK(WorkloadSDK):
         if decorated_connections is not None:
             connections = self.resolve_decorated_connections_to_configs(decorated_connections)
         else:
-            connections = self.resolve_connection_ids_to_configs(prod_job_config.connection_ids)
+            connections = self.resolve_connection_ids_to_configs(
+                prod_job_config.connection_ids, prod_job_config.connection_config_ids
+            )
 
         return JobConfig(
             name=name,

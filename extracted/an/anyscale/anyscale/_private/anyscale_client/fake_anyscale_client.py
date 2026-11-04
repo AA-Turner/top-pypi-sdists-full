@@ -2,7 +2,18 @@ from collections import defaultdict
 from datetime import date, datetime, timezone
 import logging
 import os
-from typing import Any, DefaultDict, Dict, Generator, List, NamedTuple, Optional, Tuple, Union
+from typing import (
+    Any,
+    DefaultDict,
+    Dict,
+    Generator,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 from unittest.mock import Mock
 import uuid
 
@@ -20,11 +31,14 @@ from anyscale.client.openapi_client.models import (
     AdminCreatedUser,
     AdminCreateUser,
     AnyscaleServiceAccount,
+    ApplyPolicyResult,
     ApplyProductionServiceMultiVersionV2Model,
     Binding,
     CatalogEntry,
     Cloud,
     CloudProviders,
+    ClusterDashboardNode,
+    ClusterdashboardnodeListResponse,
     ClusterOperation,
     ClusteroperationResponse,
     ClusterState,
@@ -50,6 +64,8 @@ from anyscale.client.openapi_client.models import (
     HaJobStates,
     InternalProductionJob,
     ListResponseMetadata,
+    LogItem,
+    LogItemBatch,
     MiniCloud,
     MiniUser,
     NodeGpusResponse,
@@ -59,6 +75,7 @@ from anyscale.client.openapi_client.models import (
     OrganizationInvitation,
     OrganizationPermissionLevel,
     PolicyResponse,
+    PolicyRoleBinding,
     ProductionJob,
     ProductionJobStateTransition,
     Project,
@@ -69,6 +86,8 @@ from anyscale.client.openapi_client.models import (
     ResourceQuota,
     ResourceTagRecord,
     ResourceTagResourceType,
+    RoleBindingPolicy,
+    RoleMetadata,
     ServerSessionToken,
     SkillsManifestResponse,
     TermsStatusResponse,
@@ -222,6 +241,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     def __init__(self) -> None:
         # Events seeded with `add_event`, keyed by entity id, plus a record of every
         # `get_unified_events` call and the largest page the fake will hand back.
+        # The declarative role binding state of every resource, keyed by
+        # (resource_type, resource_id), as the policy endpoints see it.
+        self._role_binding_policies: Dict[Tuple[str, str], RoleBindingPolicy] = {}
         self._events: Dict[str, List[UnifiedEvent]] = {}
         self.unified_events_calls: List[Dict[str, Any]] = []
         self.unified_events_page_size: int = 1000
@@ -229,11 +251,21 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self.metric_names: List[str] = []
         self.metrics_result: Dict[str, Any] = {"resultType": "vector", "result": []}
         self.metrics_calls: List[Dict[str, Any]] = []
+        # Logs: the lines the fake answers a LogQL query with, and every call it received.
+        self.log_items: List[LogItem] = []
+        self.logs_calls: List[Dict[str, Any]] = []
         # GPUs: what the fake answers with, keyed by (cluster_id, node_id) and
         # (cluster_id, gpu_uuid), plus every call it received.
         self.node_gpus: Dict[Tuple[str, str], NodeGpusResponse] = {}
         self.gpus: Dict[Tuple[str, str], GpuDetail] = {}
         self.gpu_calls: List[Dict[str, Any]] = []
+        # Cluster-dashboard nodes: what the fake answers with, keyed by
+        # (cluster_id, node_id), plus every call it received.
+        self.cluster_nodes: Dict[Tuple[str, str], ClusterDashboardNode] = {}
+        self.cluster_node_calls: List[Dict[str, Any]] = []
+        # Job -> the cluster of its latest run (None: not started yet). Jobs a service
+        # version runs on go here too.
+        self.job_cluster_ids: Dict[str, Optional[str]] = {}
 
         self._builds: Dict[str, ClusterEnvironmentBuild] = {
             self.DEFAULT_CLUSTER_ENV_BUILD_ID: ClusterEnvironmentBuild(
@@ -483,7 +515,11 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     def get_user_info(self) -> Any:
         """Return mock user information for testing."""
         # Return a Mock with the minimal attributes needed by SDK code
-        return Mock(id=self.DEFAULT_USER_ID, email=self.DEFAULT_USER_EMAIL)
+        return Mock(
+            id=self.DEFAULT_USER_ID,
+            email=self.DEFAULT_USER_EMAIL,
+            organizations=[Mock(id=self.DEFAULT_ORGANIZATION_ID)],
+        )
 
     def list_databricks_connections(self, *, name: Optional[str] = None) -> List[Any]:
         """Return mock Databricks connections for testing."""
@@ -507,7 +543,13 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         """Add a mock third-party connection for testing."""
         mock_conn = Mock()
         mock_conn.id = connection_id
-        mock_conn.user_connection_id = connection_id
+        mock_conn.config_id = connection_id
+        # A federated config has no per-user connection.
+        mock_conn.user_connection_id = (
+            None
+            if connection_type == _ConnectionMethodType.DATABRICKS_FEDERATED
+            else connection_id
+        )
         mock_conn.name = name
         mock_conn.connection_type = connection_type
         self._connections[connection_id] = mock_conn
@@ -903,6 +945,36 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._events.setdefault(entity_id, []).append(event)
         return event
 
+    # --- logs ----------------------------------------------------------------------------
+
+    def query_logs(  # noqa: PLR0913
+        self,
+        *,
+        logql_query: str,
+        resource: Dict[str, str],
+        start_ns: int,
+        end_ns: int,
+        source_type: str,
+        limit: int,
+        reverse_sort: bool,
+    ) -> LogItemBatch:
+        self.logs_calls.append(
+            {
+                "logql_query": logql_query,
+                "resource": resource,
+                "start_ns": start_ns,
+                "end_ns": end_ns,
+                "source_type": source_type,
+                "limit": limit,
+                "reverse_sort": reverse_sort,
+            }
+        )
+        items = list(self.log_items)
+        if not items:
+            return LogItemBatch(items=[], last_timestamp=None)
+        newest = items[0] if reverse_sort else items[-1]
+        return LogItemBatch(items=items, last_timestamp=newest.timestamp_ns)
+
     # --- metrics -------------------------------------------------------------------------
 
     def get_metric_names(
@@ -986,6 +1058,74 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         if (cluster_id, gpu_uuid) not in self.gpus:
             raise ValueError(f"GPU '{gpu_uuid}' not found in cluster '{cluster_id}'.")
         return self.gpus[(cluster_id, gpu_uuid)]
+
+    def get_cluster_node(
+        self,
+        *,
+        cluster_id: str,
+        node_id: str,
+        session_name: Optional[str] = None,
+    ) -> ClusterDashboardNode:
+        self.cluster_node_calls.append(
+            {
+                "method": "get",
+                "cluster_id": cluster_id,
+                "node_id": node_id,
+                "session_name": session_name,
+            }
+        )
+        if (cluster_id, node_id) not in self.cluster_nodes:
+            # What the real client raises for the backend's 404.
+            raise ValueError(f"Cluster node not found: '{node_id}' in '{cluster_id}'.")
+        return self.cluster_nodes[(cluster_id, node_id)]
+
+    def list_cluster_nodes(  # noqa: PLR0913
+        self,
+        *,
+        cluster_id: str,
+        session_name: Optional[str] = None,
+        text_filter: Optional[str] = None,
+        states_filter: Optional[List[str]] = None,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> ClusterdashboardnodeListResponse:
+        self.cluster_node_calls.append(
+            {
+                "method": "list",
+                "cluster_id": cluster_id,
+                "session_name": session_name,
+                "text_filter": text_filter,
+                "states_filter": states_filter,
+                "page": page,
+                "page_size": page_size,
+            }
+        )
+        # The seeded nodes of this cluster, in seeding order, filtered the way the
+        # backend filters them; then one page and the total.
+        nodes = [node for (cid, _), node in self.cluster_nodes.items() if cid == cluster_id]
+        if session_name is not None:
+            nodes = [node for node in nodes if node.ray_session_name == session_name]
+        if states_filter:
+            nodes = [node for node in nodes if str(node.status) in states_filter]
+        if text_filter:
+            needle = text_filter.lower()
+            nodes = [
+                node
+                for node in nodes
+                if needle in f"{node.node_id} {node.name} {node.node_ip}".lower()
+            ]
+        return ClusterdashboardnodeListResponse(
+            results=nodes[page_size * (page - 1) : page_size * page],
+            metadata=ListResponseMetadata(
+                total=len(nodes), local_vars_configuration=OPENAPI_NO_VALIDATION
+            ),
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
+    def get_job_cluster_id(self, job_id: str) -> Optional[str]:
+        if job_id not in self.job_cluster_ids:
+            raise ValueError(f"Job '{job_id}' not found.")
+        return self.job_cluster_ids[job_id]
 
     def get_unified_events(  # noqa: PLR0913
         self,
@@ -3100,6 +3240,143 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         policy: UpdatePolicyRequest,  # noqa: ARG002
     ) -> None:
         pass
+
+    DEFAULT_FAKE_ROLE_ID = "rol_fake_operator"
+    DEFAULT_FAKE_ROLE_NAME = "Operator"
+    DEFAULT_FAKE_ARCHIVED_ROLE_ID = "rol_fake_retired"
+    DEFAULT_FAKE_ARCHIVED_ROLE_NAME = "Retired"
+    DEFAULT_FAKE_BUILT_IN_ROLE_ID = "rol_fake_viewer"
+    DEFAULT_FAKE_BUILT_IN_ROLE_NAME = "Viewer"
+
+    def _every_role(self) -> List[RoleMetadata]:
+        now = datetime.utcnow()
+        return [
+            RoleMetadata(
+                id=self.DEFAULT_FAKE_ROLE_ID,
+                name=self.DEFAULT_FAKE_ROLE_NAME,
+                description="Runs and manages workloads",
+                built_in=False,
+                allowed_permissions=["cloud_get", "job_create"],
+                denied_permissions=[],
+                created_at=now,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
+            RoleMetadata(
+                id=self.DEFAULT_FAKE_BUILT_IN_ROLE_ID,
+                name=self.DEFAULT_FAKE_BUILT_IN_ROLE_NAME,
+                description="Read-only across the organization",
+                built_in=True,
+                allowed_permissions=["cloud_get"],
+                denied_permissions=["cloud_delete"],
+                created_at=now,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
+            RoleMetadata(
+                id=self.DEFAULT_FAKE_ARCHIVED_ROLE_ID,
+                name=self.DEFAULT_FAKE_ARCHIVED_ROLE_NAME,
+                built_in=False,
+                allowed_permissions=[],
+                denied_permissions=[],
+                created_at=now,
+                archived_at=now,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
+        ]
+
+    def list_roles(
+        self,
+        *,
+        name: Optional[str] = None,
+        ids: Optional[List[str]] = None,
+        include_archived: bool = False,
+        max_items: Optional[int] = None,
+    ) -> List[RoleMetadata]:
+        roles = [
+            role
+            for role in self._every_role()
+            if (include_archived or role.archived_at is None)
+            and (name is None or name.lower() in role.name.lower())
+            and (ids is None or role.id in ids)
+        ]
+        if ids is None:
+            for role in roles:
+                role.allowed_permissions = None
+                role.denied_permissions = None
+        return roles if max_items is None else roles[:max_items]
+
+    def set_role_binding_policy(
+        self,
+        resource_type: str,
+        resource_id: str,
+        policy: RoleBindingPolicy,
+    ) -> None:
+        """Seed what a resource holds, so a test can start from a resource that is not empty."""
+        self._role_binding_policies[(resource_type, resource_id)] = policy
+
+    def _held_policy(self, resource_type: str, resource_id: str) -> RoleBindingPolicy:
+        return self._role_binding_policies.get(
+            (resource_type, resource_id),
+            RoleBindingPolicy(roles=[], local_vars_configuration=OPENAPI_NO_VALIDATION),
+        )
+
+    @staticmethod
+    def _binding_id(resource_id: str, role_id: str, principal_id: str) -> str:
+        return f"rb_{resource_id}_{role_id}_{principal_id}"
+
+    def generate_role_binding_policy(
+        self,
+        resource_type: str,
+        resource_id: str,
+    ) -> RoleBindingPolicy:
+        return self._held_policy(resource_type, resource_id)
+
+    def apply_role_binding_policy(
+        self,
+        resource_type: str,
+        resource_id: str,
+        policy: RoleBindingPolicy,
+        dry_run: bool,
+    ) -> ApplyPolicyResult:
+        def facts(document: RoleBindingPolicy) -> Set[Tuple[str, str, str]]:
+            return {
+                (role.role_id, principal.principal_type, principal.principal_id)
+                for role in document.roles
+                for principal in role.principals
+            }
+
+        stated = facts(policy)
+        held = facts(self._held_policy(resource_type, resource_id))
+        added = [
+            PolicyRoleBinding(
+                id=None if dry_run else self._binding_id(resource_id, role_id, principal_id),
+                principal_type=principal_type,
+                principal_id=principal_id,
+                role_id=role_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            )
+            for role_id, principal_type, principal_id in sorted(stated - held)
+        ]
+        removed = [
+            PolicyRoleBinding(
+                id=self._binding_id(resource_id, role_id, principal_id),
+                principal_type=principal_type,
+                principal_id=principal_id,
+                role_id=role_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            )
+            for role_id, principal_type, principal_id in sorted(held - stated)
+        ]
+        if not dry_run:
+            self._role_binding_policies[(resource_type, resource_id)] = policy
+        return ApplyPolicyResult(
+            added=added,
+            removed=removed,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
 
     def get_resource_policy(
         self,

@@ -3,6 +3,16 @@ use super::*;
 
 const SOURCE_URL: &str = "https://statsigcdn.openai.com/v2/download_config_specs/key.json";
 
+fn lookup_test_hydrator(instance_id: &str) -> RemoteConfigValueHydrator {
+    let mut hydrator = test_hydrator(instance_id);
+    // These lookup tests synchronously seed bodies. Unrelated mmap writers
+    // may hold the production pool's full window while running in parallel.
+    hydrator.response_budget = Arc::new(super::super::download::ResponseHydrationBudget::new(
+        MAX_IN_FLIGHT_HYDRATION_BYTES,
+    ));
+    hydrator
+}
+
 fn remote_spec(body: &[u8]) -> (pb::Spec, String) {
     let sha = lowercase_hex(&Sha256::digest(body));
     let spec = pb::Spec {
@@ -34,6 +44,120 @@ fn verified_previous_values(
     }
     first.finish(Ok(()));
     previous
+}
+
+#[tokio::test]
+async fn protobuf_mmap_fallback_only_retains_registered_sparse_values() {
+    let hydrator = lookup_test_hydrator("protobuf-sparse-mmap-lookup");
+    let bodies = (0..512)
+        .map(|index| format!(r#"{{"value":"mmap-{index}"}}"#).into_bytes())
+        .collect::<Vec<_>>();
+    let body_refs = bodies.iter().map(Vec::as_slice).collect::<Vec<_>>();
+    let mmap_values: &'static VerifiedRemoteValues =
+        Box::leak(Box::new(verified_previous_values(&hydrator, &body_refs)));
+    let (mut spec, sha) = remote_spec(&bodies[173]);
+    spec.rules.push(pb::Rule {
+        id: "duplicate".to_string(),
+        return_value: spec.default_value.clone(),
+        remote_config_metadata: spec.remote_config_metadata.clone(),
+        ..Default::default()
+    });
+
+    let mut session = hydrator.begin_protobuf_hydration(SOURCE_URL);
+    session.set_previous_mmap_values(Some(mmap_values));
+    assert!(
+        mmap_values
+            .values()
+            .all(|value| Arc::strong_count(value) == 1)
+    );
+    for _ in 0..3 {
+        assert!(session.register_spec_references(&spec).unwrap());
+    }
+    for (entry_sha, value) in mmap_values {
+        assert_eq!(
+            Arc::strong_count(value),
+            if *entry_sha == sha { 2 } else { 1 },
+            "sparse registration must only clone the referenced mmap value"
+        );
+    }
+    session.advance_download_window().await.unwrap();
+    session.download_registered_references().await.unwrap();
+    let values = session.take_verified_spec_values(&mut spec).unwrap();
+    assert_eq!(values.provenance.len(), 1);
+    assert!(Arc::ptr_eq(&values.provenance[&sha], &mmap_values[&sha]));
+    assert!(values.default_value.is_some());
+    assert!(values.rule_values[0].is_some());
+    drop(values);
+    session.finish(Ok(()));
+    assert!(
+        mmap_values
+            .values()
+            .all(|value| Arc::strong_count(value) == 1)
+    );
+}
+
+#[tokio::test]
+async fn protobuf_current_verified_values_take_precedence_over_mmap_fallback() {
+    let hydrator = lookup_test_hydrator("protobuf-current-mmap-precedence");
+    let body = br#"{"value":"shared"}"#;
+    let (mut spec, sha) = remote_spec(body);
+    let mmap_values: &'static VerifiedRemoteValues =
+        Box::leak(Box::new(verified_previous_values(&hydrator, &[body])));
+    let current_values = verified_previous_values(&hydrator, &[body]);
+    let current = Arc::clone(&current_values[&sha]);
+    assert!(!Arc::ptr_eq(&current, &mmap_values[&sha]));
+
+    let mut session = hydrator.begin_protobuf_hydration(SOURCE_URL);
+    session.set_previous_values(current_values);
+    session.set_previous_mmap_values(Some(mmap_values));
+    assert!(session.register_spec_references(&spec).unwrap());
+    let values = session.take_verified_spec_values(&mut spec).unwrap();
+    assert!(Arc::ptr_eq(&values.provenance[&sha], &current));
+    assert_eq!(Arc::strong_count(&mmap_values[&sha]), 1);
+    session.finish(Ok(()));
+}
+
+#[tokio::test]
+async fn protobuf_mmap_fallback_requires_exact_metadata_and_preserves_local_mismatch() {
+    use super::super::metadata::RemoteCompression;
+
+    let hydrator = lookup_test_hydrator("protobuf-mmap-metadata-validation");
+    let body = br#"{"value":"shared"}"#;
+    let (spec, sha) = remote_spec(body);
+    let mmap_values: &'static VerifiedRemoteValues =
+        Box::leak(Box::new(verified_previous_values(&hydrator, &[body])));
+    let (changed_sha_spec, _) = remote_spec(br#"{"value":"changed"}"#);
+    let mut changed_length = spec.clone();
+    changed_length
+        .remote_config_metadata
+        .as_mut()
+        .unwrap()
+        .byte_length += 1;
+    let mut changed_compression = spec.clone();
+    changed_compression
+        .remote_config_metadata
+        .as_mut()
+        .unwrap()
+        .compression = "gzip".to_string();
+    for mismatched in [changed_sha_spec, changed_length, changed_compression] {
+        let mut session = hydrator.begin_protobuf_hydration(SOURCE_URL);
+        session.set_previous_mmap_values(Some(mmap_values));
+        assert!(!session.register_spec_references(&mismatched).unwrap());
+        assert_eq!(Arc::strong_count(&mmap_values[&sha]), 1);
+        session.finish(Ok(()));
+    }
+
+    // A current-instance entry for the same SHA still masks the fallback
+    // when its transport metadata differs from this response.
+    let mut metadata = valid_metadata(sha.clone(), body.len() as u64);
+    metadata.compression = RemoteCompression::Gzip;
+    let current = Arc::new(VerifiedRemoteValue::from_verified_body(metadata, body).unwrap());
+    let mut session = hydrator.begin_protobuf_hydration(SOURCE_URL);
+    session.set_previous_values(HashMap::from([(sha.clone(), current)]));
+    session.set_previous_mmap_values(Some(mmap_values));
+    assert!(!session.register_spec_references(&spec).unwrap());
+    assert_eq!(Arc::strong_count(&mmap_values[&sha]), 1);
+    session.finish(Ok(()));
 }
 
 #[tokio::test]

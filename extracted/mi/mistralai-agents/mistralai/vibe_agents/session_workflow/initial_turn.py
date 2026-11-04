@@ -1,6 +1,6 @@
 """The first-Turn command of a Workflow start input.
 
-Like ``send_message``, kept out of the package ``__init__``, which imports no Harness module.
+Like ``update_inputs``, kept out of the package ``__init__``, which imports no Harness module.
 """
 
 from pydantic import ValidationError

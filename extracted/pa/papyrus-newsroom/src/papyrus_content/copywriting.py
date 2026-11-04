@@ -7,7 +7,9 @@ from typing import Any
 
 from .catalog import semantic_relation_record
 from .content_item_lifecycle import require_assignment_content_item_lineage_id
+from .story_types import type_for_new_story
 from .ids import hash_short, hash_stable, safe_id
+from .item_stars import carry_item_stars
 from .model_attachments import attachment_record, build_json_model_payload_attachment
 from .reporting_packet_review import REPORTING_PACKET_KIND
 
@@ -214,9 +216,9 @@ def _draft_item_for_copywriting(
         "versionCreatedBy": actor_label,
         "changeReason": "copywriting-assignment-run",
         "contentHash": "",
-        "type": target_item_type,
+        "type": type_for_new_story(),
         "status": "draft",
-        "typeStatus": f"{target_item_type}#draft",
+        "typeStatus": f"{type_for_new_story()}#draft",
         "stage": "copywriting",
         "slug": f"draft-{safe_id(section or 'unsectioned')}-{hash_short([lineage_id, version_number, title])}",
         "shortSlug": None,
@@ -246,7 +248,7 @@ def _draft_item_for_copywriting(
             "body": record["body"],
         }
     )
-    return record
+    return carry_item_stars(previous, record)   # a new version keeps the editors' rating of the Story
 
 
 def _private_editorial_metadata_for_copywriting(

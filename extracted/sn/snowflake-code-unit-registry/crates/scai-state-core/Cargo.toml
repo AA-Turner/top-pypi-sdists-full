@@ -24,7 +24,7 @@ xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rayon = "1.10"
 jsonschema.workspace = true
 # Bundled: wheels, native libs and the Node addon ship without a system libsqlite.
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
 
 [target.'cfg(windows)'.dependencies]
 # Write-through rename (MoveFileExW) — Windows has no directory-fsync, so

@@ -311,9 +311,9 @@ def render_internal_note(
         if cloud_url:
             label = f'<a href="{_escape_html(cloud_url)}">{label}</a>'
         extra: list[str] = []
-        spend = connection.get("usd_ok_30d")
-        if spend is not None:
-            extra.append(f"30-day spend: ${Decimal(str(spend)):,.2f}")
+        volume = connection.get("gb_ok_30d")
+        if volume is not None:
+            extra.append(f"30-day volume: {Decimal(str(volume)):,.2f} GB")
         last_error = connection.get("last_error")
         if last_error:
             extra.append(f"Last error: {_escape_html(last_error)}")

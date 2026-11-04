@@ -2696,6 +2696,49 @@ class CostRateUsageType(sgqlc.types.Enum):
     __choices__ = ("AGENT", "COMPUTE")
 
 
+class CoverageDraftDecision(sgqlc.types.Enum):
+    """A person's answer to a pending coverage draft.
+
+    Enumeration Choices:
+
+    * `APPROVED`None
+    * `DECLINED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("APPROVED", "DECLINED")
+
+
+class CoverageDraftSource(sgqlc.types.Enum):
+    """Who started a coverage draft: the weekly schedule or a person in
+    chat.
+
+    Enumeration Choices:
+
+    * `SCHEDULE`None
+    * `USER`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("SCHEDULE", "USER")
+
+
+class CoverageDraftStatus(sgqlc.types.Enum):
+    """State of a coverage draft. Only a pending draft changes. A
+    superseded draft was replaced by a newer one for the same domain.
+
+    Enumeration Choices:
+
+    * `APPROVED`None
+    * `DECLINED`None
+    * `PENDING`None
+    * `SUPERSEDED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("APPROVED", "DECLINED", "PENDING", "SUPERSEDED")
+
+
 class Criticality(sgqlc.types.Enum):
     """Criticality assessment.
 
@@ -7038,6 +7081,7 @@ class Permission(sgqlc.types.Enum):
     * `AgentObservabilityAccess`None
     * `AgentObservabilityContent`None
     * `AiAgentsAccess`None
+    * `AiAgentsChannelPostsCreate`None
     * `AiAgentsMcpServersAccess`None
     * `AiAgentsMemoriesAccess`None
     * `AiAgentsMemoriesEdit`None
@@ -7179,6 +7223,7 @@ class Permission(sgqlc.types.Enum):
         "AgentObservabilityAccess",
         "AgentObservabilityContent",
         "AiAgentsAccess",
+        "AiAgentsChannelPostsCreate",
         "AiAgentsMcpServersAccess",
         "AiAgentsMemoriesAccess",
         "AiAgentsMemoriesEdit",
@@ -8225,6 +8270,39 @@ class ReinforcementLoopIssueDispositionReason(sgqlc.types.Enum):
     )
 
 
+class ReinforcementLoopIssueFixSource(sgqlc.types.Enum):
+    """What recorded an RL V2 issue's fix. MANUAL = a user marked it
+    fixed. RL_PR = its draft PR merged. LINEAR = its Linear ticket was
+    completed.
+
+    Enumeration Choices:
+
+    * `LINEAR`None
+    * `MANUAL`None
+    * `RL_PR`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("LINEAR", "MANUAL", "RL_PR")
+
+
+class ReinforcementLoopIssueStatus(sgqlc.types.Enum):
+    """Where an RL V2 issue stands. FIXED once a fix is recorded and the
+    issue hasn't come back. IN_PROGRESS while a ticket, a draft PR or
+    a user's flag shows work on it. OPEN otherwise. Backtest issues
+    are always OPEN.
+
+    Enumeration Choices:
+
+    * `FIXED`None
+    * `IN_PROGRESS`None
+    * `OPEN`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("FIXED", "IN_PROGRESS", "OPEN")
+
+
 class ReinforcementLoopRunMode(sgqlc.types.Enum):
     """Whether a reinforcement-loop run or issue is live work or a
     backtest.
@@ -8275,18 +8353,21 @@ class ReinforcementLoopV2IssueOrder(sgqlc.types.Enum):
     with includeHidden), then issues with no report.
     CONVERSATION_COUNT = most conversations first. It is the
     conversationCount the node reports, so a workflow filter narrows
-    it. LAST_SEEN_AT = newest first.
+    it. LAST_SEEN_AT = newest first. FIXED_AT = the newest fix first,
+    then issues with no fix. An issue keeps its fixedAt after the fix
+    ends, so filter on status FIXED to list current fixes only.
 
     Enumeration Choices:
 
     * `CONVERSATION_COUNT`None
+    * `FIXED_AT`None
     * `LAST_SEEN_AT`None
     * `PRIORITY`None
     * `RANK`None
     """
 
     __schema__ = schema
-    __choices__ = ("CONVERSATION_COUNT", "LAST_SEEN_AT", "PRIORITY", "RANK")
+    __choices__ = ("CONVERSATION_COUNT", "FIXED_AT", "LAST_SEEN_AT", "PRIORITY", "RANK")
 
 
 class ReinforcementLoopWorkflowScope(sgqlc.types.Enum):
@@ -8471,6 +8552,10 @@ class ResourcePolicyPath(sgqlc.types.Enum):
     * `AgentObservabilityRead`None
     * `AgentObservabilityWrite`None
     * `AiAgentsAll`None
+    * `AiAgentsChannelPostsAll`None
+    * `AiAgentsChannelPostsPropose`None
+    * `AiAgentsChannelPostsRead`None
+    * `AiAgentsChannelPostsWrite`None
     * `AiAgentsMcpServersAll`None
     * `AiAgentsMcpServersPropose`None
     * `AiAgentsMcpServersRead`None
@@ -8717,6 +8802,10 @@ class ResourcePolicyPath(sgqlc.types.Enum):
         "AgentObservabilityRead",
         "AgentObservabilityWrite",
         "AiAgentsAll",
+        "AiAgentsChannelPostsAll",
+        "AiAgentsChannelPostsPropose",
+        "AiAgentsChannelPostsRead",
+        "AiAgentsChannelPostsWrite",
         "AiAgentsMcpServersAll",
         "AiAgentsMcpServersPropose",
         "AiAgentsMcpServersRead",
@@ -10537,6 +10626,19 @@ class TriagePriority(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("HIGH", "LOW", "MEDIUM", "NOT_TRIAGED", "PENDING")
+
+
+class TriageRunTrigger(sgqlc.types.Enum):
+    """Whether a triage run was started automatically or by a person.
+
+    Enumeration Choices:
+
+    * `AUTOMATIC`None
+    * `USER`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AUTOMATIC", "USER")
 
 
 class TriageScore(sgqlc.types.Enum):
@@ -13826,6 +13928,22 @@ class CostAgentWarehouseScopeInput(sgqlc.types.Input):
     name a warehouse on the caller's account that is not deleted and
     has an active non-dbt connection.
     """
+
+
+class CoverageIncrementInput(sgqlc.types.Input):
+    """The part of a domain a coverage draft covers."""
+
+    __schema__ = schema
+    __field_names__ = ("use_case_uuids", "schemas")
+    use_case_uuids = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="useCaseUuids"
+    )
+    """Use cases the draft covers."""
+
+    schemas = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="schemas"
+    )
+    """Schemas the draft covers, for a domain with no use cases."""
 
 
 class CreateGoldenSetInput(sgqlc.types.Input):
@@ -22580,6 +22698,7 @@ class IMetricsMonitor(sgqlc.types.Interface):
         "sampling_config",
         "filters",
         "clustering_space_uuid",
+        "cluster_keys_withheld_reason",
         "cluster_keys",
     )
     monitor_fields = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="monitorFields")
@@ -22710,11 +22829,16 @@ class IMetricsMonitor(sgqlc.types.Interface):
     the monitor (agent conversation monitors only).
     """
 
+    cluster_keys_withheld_reason = sgqlc.types.Field(
+        RawContentWithheldReason, graphql_name="clusterKeysWithheldReason"
+    )
+    """Why cluster keys were withheld, or null when they were not."""
+
     cluster_keys = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
     )
-    """Clusters the monitor filters to (any-of); empty when the space is
-    referenced as a segment instead.
+    """Clusters the monitor filters to (any-of). Empty for segmentation
+    or withheld cluster content.
     """
 
 
@@ -32588,7 +32712,8 @@ class Conversation(sgqlc.types.Type):
     the single-assignment convenience for such a space. On a space
     that can carry several assignments, this field is the highest-
     confidence one. Null when the conversation is unclassified or no
-    clustering scope was requested.
+    clustering scope was requested. Null when cluster content access
+    is denied.
     """
 
     cluster_assignments = sgqlc.types.Field(
@@ -32598,7 +32723,8 @@ class Conversation(sgqlc.types.Type):
     """Every assignment from the conversation's most recent
     classification run in the requested clustering scope, ordered
     highest-confidence first. Empty when the conversation is
-    unclassified or no clustering scope was requested.
+    unclassified or no clustering scope was requested. Empty when
+    cluster content access is denied.
     """
 
     feedback = sgqlc.types.Field("ConversationFeedbackCounts", graphql_name="feedback")
@@ -33047,6 +33173,7 @@ class ConversationClusteringSpaceType(sgqlc.types.Type):
         "user_guidance",
         "state",
         "config",
+        "clusters_withheld_reason",
         "clusters",
         "runs",
         "classification_watermark",
@@ -33093,6 +33220,11 @@ class ConversationClusteringSpaceType(sgqlc.types.Type):
 
     config = sgqlc.types.Field(sgqlc.types.non_null(ClusteringConfig), graphql_name="config")
     """Discovery and classification settings."""
+
+    clusters_withheld_reason = sgqlc.types.Field(
+        RawContentWithheldReason, graphql_name="clustersWithheldReason"
+    )
+    """Why cluster content was withheld, or null when it was not."""
 
     clusters = sgqlc.types.Field(
         ConversationClusterConnection,
@@ -33979,7 +34111,17 @@ class ConversationsResult(sgqlc.types.Type):
     """Result of the getConversations query."""
 
     __schema__ = schema
-    __field_names__ = ("conversations", "page_info", "total_count")
+    __field_names__ = (
+        "cluster_content_withheld_reason",
+        "conversations",
+        "page_info",
+        "total_count",
+    )
+    cluster_content_withheld_reason = sgqlc.types.Field(
+        RawContentWithheldReason, graphql_name="clusterContentWithheldReason"
+    )
+    """Why cluster assignments were withheld, or null when they were not."""
+
     conversations = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Conversation))),
         graphql_name="conversations",
@@ -34503,6 +34645,88 @@ class CostTimeSeriesPointOutput(sgqlc.types.Type):
     """Currency code of this bucket's amounts, e.g. "USD"."""
 
 
+class CoverageDraft(sgqlc.types.Type):
+    """The monitoring Bob proposes for a domain, waiting for a person to
+    approve or decline it.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "domain_uuid",
+        "status",
+        "source",
+        "increment",
+        "proposal",
+        "thread_uuid",
+        "created_by",
+        "resolved_by",
+        "created_time",
+        "reminded_time",
+        "resolved_time",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """Id of the draft."""
+
+    domain_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainUuid")
+    """UUID of the metadata domain."""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(CoverageDraftStatus), graphql_name="status")
+
+    source = sgqlc.types.Field(sgqlc.types.non_null(CoverageDraftSource), graphql_name="source")
+
+    increment = sgqlc.types.Field(
+        sgqlc.types.non_null("CoverageIncrement"), graphql_name="increment"
+    )
+    """The part of the domain the draft covers."""
+
+    proposal = sgqlc.types.Field(GenericScalar, graphql_name="proposal")
+    """The proposed plan. Null until a chat draft is ready."""
+
+    thread_uuid = sgqlc.types.Field(UUID, graphql_name="threadUuid")
+    """Chat thread of a draft started in chat."""
+
+    created_by = sgqlc.types.Field(String, graphql_name="createdBy")
+    """Display label for the person who started a chat draft. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address. Null for a scheduled draft.
+    """
+
+    resolved_by = sgqlc.types.Field(String, graphql_name="resolvedBy")
+    """Display label for the person who approved or declined the draft.
+    Returns the user's email for human users; for agent users, returns
+    a derived display label (e.g. ``Agent on <domain>``) — never the
+    agent's internal address.
+    """
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+
+    reminded_time = sgqlc.types.Field(DateTime, graphql_name="remindedTime")
+    """When the one reminder was posted."""
+
+    resolved_time = sgqlc.types.Field(DateTime, graphql_name="resolvedTime")
+    """When the draft was approved, declined or superseded."""
+
+
+class CoverageIncrement(sgqlc.types.Type):
+    """The part of a domain a coverage draft covers."""
+
+    __schema__ = schema
+    __field_names__ = ("use_case_uuids", "schemas")
+    use_case_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="useCaseUuids",
+    )
+    """Use cases the draft covers."""
+
+    schemas = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="schemas",
+    )
+    """Schemas the draft covers, for a domain with no use cases."""
+
+
 class CoveringJobMonitor(sgqlc.types.Type):
     """A job monitor that covers a job, as the Jobs page lists it."""
 
@@ -34604,6 +34828,14 @@ class CreateCollectorRecord(sgqlc.types.Type):
     __field_names__ = ("dc",)
     dc = sgqlc.types.Field("DataCollector", graphql_name="dc")
     """The data collector that was created"""
+
+
+class CreateCoverageDraft(sgqlc.types.Type):
+    """Create a domain's pending coverage draft."""
+
+    __schema__ = schema
+    __field_names__ = ("draft",)
+    draft = sgqlc.types.Field(sgqlc.types.non_null(CoverageDraft), graphql_name="draft")
 
 
 class CreateCustomMetricRule(sgqlc.types.Type):
@@ -49116,6 +49348,14 @@ class MapFederationSource(sgqlc.types.Type):
     """The source, now resolved to the chosen resource"""
 
 
+class MarkCoverageDraftReminded(sgqlc.types.Type):
+    """Record the reminder for a pending coverage draft."""
+
+    __schema__ = schema
+    __field_names__ = ("draft",)
+    draft = sgqlc.types.Field(sgqlc.types.non_null(CoverageDraft), graphql_name="draft")
+
+
 class MarkPiiScanFindingFalsePositive(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("ok", "review")
@@ -49123,6 +49363,26 @@ class MarkPiiScanFindingFalsePositive(sgqlc.types.Type):
 
     review = sgqlc.types.Field(sgqlc.types.non_null("PiiScanFindingReview"), graphql_name="review")
     """Review state created or reactivated by this mutation."""
+
+
+class MarkReinforcementLoopIssueFixed(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("issue_uuid", "status")
+    issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
+
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopIssueStatus), graphql_name="status"
+    )
+
+
+class MarkReinforcementLoopIssueInProgress(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("issue_uuid", "status")
+    issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
+
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopIssueStatus), graphql_name="status"
+    )
 
 
 class MatchAndCreateBiWarehouseSources(sgqlc.types.Type):
@@ -52530,6 +52790,9 @@ class Mutation(sgqlc.types.Type):
         "submit_reinforcement_loop_issue_feedback",
         "ignore_reinforcement_loop_issue",
         "unignore_reinforcement_loop_issue",
+        "mark_reinforcement_loop_issue_fixed",
+        "mark_reinforcement_loop_issue_in_progress",
+        "undo_reinforcement_loop_issue_status",
         "update_reinforcement_loop_agent",
         "update_reinforcement_loop_selector",
         "delete_agent_trace_table",
@@ -52899,6 +53162,10 @@ class Mutation(sgqlc.types.Type):
         "validate_cron",
         "set_teammate_audience",
         "update_teammate_audience",
+        "create_coverage_draft",
+        "set_coverage_draft_proposal",
+        "resolve_coverage_draft",
+        "mark_coverage_draft_reminded",
         "configure_agentic_platform",
         "trigger_agentic_platform_pipeline",
         "run_monitoring_for_domain",
@@ -55078,6 +55345,83 @@ class Mutation(sgqlc.types.Type):
     """(experimental) Clears the ignore on an RL V2 issue so the
     scheduled digest includes it again. An issue that isn't ignored is
     left as is. Monte Carlo staff can't un-ignore issues.
+
+    Arguments:
+
+    * `issue_uuid` (`UUID!`): The issueUuid of a
+      getReinforcementLoopV2Issues node.
+    """
+
+    mark_reinforcement_loop_issue_fixed = sgqlc.types.Field(
+        MarkReinforcementLoopIssueFixed,
+        graphql_name="markReinforcementLoopIssueFixed",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "issue_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="issueUuid", default=None
+                    ),
+                ),
+                ("link_url", sgqlc.types.Arg(String, graphql_name="linkUrl", default=None)),
+            )
+        ),
+    )
+    """(experimental) Marks a live RL V2 issue fixed. An issue that is
+    already FIXED is left as is. undoReinforcementLoopIssueStatus
+    reverts it. Monte Carlo staff can't change the status of issues.
+
+    Arguments:
+
+    * `issue_uuid` (`UUID!`): The issueUuid of a
+      getReinforcementLoopV2Issues node.
+    * `link_url` (`String`): An http(s) link to the fix.
+    """
+
+    mark_reinforcement_loop_issue_in_progress = sgqlc.types.Field(
+        MarkReinforcementLoopIssueInProgress,
+        graphql_name="markReinforcementLoopIssueInProgress",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "issue_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="issueUuid", default=None
+                    ),
+                ),
+                ("link_url", sgqlc.types.Arg(String, graphql_name="linkUrl", default=None)),
+            )
+        ),
+    )
+    """(experimental) Marks a live RL V2 issue in progress. On a FIXED
+    issue this ends the fix. undoReinforcementLoopIssueStatus reverts
+    it. Monte Carlo staff can't change the status of issues.
+
+    Arguments:
+
+    * `issue_uuid` (`UUID!`): The issueUuid of a
+      getReinforcementLoopV2Issues node.
+    * `link_url` (`String`): An http(s) link to the work, such as a
+      ticket.
+    """
+
+    undo_reinforcement_loop_issue_status = sgqlc.types.Field(
+        "UndoReinforcementLoopIssueStatus",
+        graphql_name="undoReinforcementLoopIssueStatus",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "issue_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="issueUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Reverts the last markReinforcementLoopIssueFixed or
+    markReinforcementLoopIssueInProgress on an issue. A later fix,
+    ticket or draft PR clears the undo, and the call then fails.
 
     Arguments:
 
@@ -71236,6 +71580,160 @@ class Mutation(sgqlc.types.Type):
     * `reason` (`String`): Why posting is paused. Required for PAUSE.
     """
 
+    create_coverage_draft = sgqlc.types.Field(
+        CreateCoverageDraft,
+        graphql_name="createCoverageDraft",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+                (
+                    "increment",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CoverageIncrementInput),
+                        graphql_name="increment",
+                        default=None,
+                    ),
+                ),
+                ("proposal", sgqlc.types.Arg(GenericScalar, graphql_name="proposal", default=None)),
+                (
+                    "source",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CoverageDraftSource),
+                        graphql_name="source",
+                        default=None,
+                    ),
+                ),
+                ("thread_uuid", sgqlc.types.Arg(UUID, graphql_name="threadUuid", default=None)),
+            )
+        ),
+    )
+    """(experimental) Create a domain's pending coverage draft. It
+    supersedes the domain's earlier pending draft
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain.
+    * `increment` (`CoverageIncrementInput!`): The part of the domain
+      the draft covers.
+    * `proposal` (`GenericScalar`): The proposed plan. Required for a
+      scheduled draft.
+    * `source` (`CoverageDraftSource!`): Who started the draft: the
+      weekly schedule or a person in chat.
+    * `thread_uuid` (`UUID`): Chat thread of the draft. Required for a
+      draft started in chat.
+    """
+
+    set_coverage_draft_proposal = sgqlc.types.Field(
+        "SetCoverageDraftProposal",
+        graphql_name="setCoverageDraftProposal",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+                (
+                    "draft_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="draftId", default=None
+                    ),
+                ),
+                (
+                    "proposal",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GenericScalar), graphql_name="proposal", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fill the proposal of a pending coverage draft that
+    has none
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain.
+    * `draft_id` (`UUID!`): Id of the pending draft being acted on.
+    * `proposal` (`GenericScalar!`): The proposed plan.
+    """
+
+    resolve_coverage_draft = sgqlc.types.Field(
+        "ResolveCoverageDraft",
+        graphql_name="resolveCoverageDraft",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "decision",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CoverageDraftDecision),
+                        graphql_name="decision",
+                        default=None,
+                    ),
+                ),
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+                (
+                    "draft_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="draftId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Approve or decline a pending coverage draft. Only a
+    person may do either. Approving needs write access to monitors on
+    the domain and a draft with a proposal. A replaced draft is
+    refused
+
+    Arguments:
+
+    * `decision` (`CoverageDraftDecision!`): Whether to approve or
+      decline the draft.
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain.
+    * `draft_id` (`UUID!`): Id of the pending draft being acted on.
+    """
+
+    mark_coverage_draft_reminded = sgqlc.types.Field(
+        MarkCoverageDraftReminded,
+        graphql_name="markCoverageDraftReminded",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+                (
+                    "draft_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="draftId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Record the one reminder for a pending coverage
+    draft. A second reminder is refused
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain.
+    * `draft_id` (`UUID!`): Id of the pending draft being acted on.
+    """
+
     configure_agentic_platform = sgqlc.types.Field(
         ConfigureAgenticPlatform,
         graphql_name="configureAgenticPlatform",
@@ -84202,6 +84700,7 @@ class Query(sgqlc.types.Type):
         "create_sql_query",
         "generate_eval_prompt",
         "generate_sql_eval",
+        "get_domain_coverage_draft",
         "get_agentic_platform_config",
         "get_agentic_platform_pipelines",
         "get_agentic_platform_pipeline_executions",
@@ -85476,6 +85975,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "status",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopIssueStatus)),
+                        graphql_name="status",
+                        default=None,
+                    ),
+                ),
+                (
                     "mode",
                     sgqlc.types.Arg(ReinforcementLoopRunMode, graphql_name="mode", default="live"),
                 ),
@@ -85552,6 +86059,8 @@ class Query(sgqlc.types.Type):
     * `disposition` (`ReinforcementLoopIssueDisposition`): Keep issues
       with this disposition: NONE for open issues, IGNORED for ignored
       ones. Omit to span both.
+    * `status` (`[ReinforcementLoopIssueStatus!]`): Keep issues with
+      one of these statuses. Omit, null or empty for all.
     * `mode` (`ReinforcementLoopRunMode`): LIVE issues by default;
       BACKTEST reads what backtest runs reported. (default: `"live"`)
     * `order_by` (`[ReinforcementLoopV2IssueOrder!]`): Sort keys,
@@ -100762,10 +101271,20 @@ class Query(sgqlc.types.Type):
     """
 
     get_triage_availability = sgqlc.types.Field(
-        sgqlc.types.non_null("TriageAvailability"), graphql_name="getTriageAvailability"
+        sgqlc.types.non_null("TriageAvailability"),
+        graphql_name="getTriageAvailability",
+        args=sgqlc.types.ArgDict(
+            (("alert_id", sgqlc.types.Arg(UUID, graphql_name="alertId", default=None)),)
+        ),
     )
     """(experimental) Triage availability and free-allowance status for
     the caller's account.
+
+    Arguments:
+
+    * `alert_id` (`UUID`): Alert the triage would run on. When set, a
+      reached limit is left out for an alert in a domain with an
+      active teammate, which has no triage limit.
     """
 
     get_required_monitor_fields = sgqlc.types.Field(
@@ -105680,8 +106199,21 @@ class Query(sgqlc.types.Type):
       Only used with warehouseUuid + assetSelection.
     """
 
-    get_tsa_availability = sgqlc.types.Field("TSAAvailability", graphql_name="getTsaAvailability")
-    """(experimental) Get Troubleshooting Agent availability"""
+    get_tsa_availability = sgqlc.types.Field(
+        "TSAAvailability",
+        graphql_name="getTsaAvailability",
+        args=sgqlc.types.ArgDict(
+            (("alert_id", sgqlc.types.Arg(UUID, graphql_name="alertId", default=None)),)
+        ),
+    )
+    """(experimental) Get Troubleshooting Agent availability
+
+    Arguments:
+
+    * `alert_id` (`UUID`): Alert the run would troubleshoot. When set,
+      a reached monthly limit is left out for an alert in a domain
+      with an active teammate, which has no monthly limit.
+    """
 
     is_tsa_available_for_alert = sgqlc.types.Field(
         Boolean,
@@ -109665,6 +110197,27 @@ class Query(sgqlc.types.Type):
       warehouse type lookup
     """
 
+    get_domain_coverage_draft = sgqlc.types.Field(
+        CoverageDraft,
+        graphql_name="getDomainCoverageDraft",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get the pending coverage draft of a domain, or null
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the metadata domain.
+    """
+
     get_agentic_platform_config = sgqlc.types.Field(
         sgqlc.types.non_null(AgenticPlatformConfigOutput), graphql_name="getAgenticPlatformConfig"
     )
@@ -111662,7 +112215,7 @@ class ReinforcementLoopV2DiagnosisCluster(sgqlc.types.Type):
     """An Issue cluster as the diagnosis run recorded it when the trigger
     fired.  A snapshot from the run's manifest. Name and description
     are the cluster's at diagnosis time and survive a later rename or
-    deletion. Not subject to content redaction.
+    deletion.
     """
 
     __schema__ = schema
@@ -111714,6 +112267,7 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
         "conversation_count_in_window",
         "conversation_count_series",
         "conversations",
+        "diagnosis_clusters_withheld_reason",
         "diagnosis_clusters",
         "linear_ticket",
         "jira_ticket",
@@ -111724,6 +112278,12 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
         "disposition",
         "disposition_reason",
         "disposition_comment",
+        "status",
+        "fixed_at",
+        "fix_source",
+        "fix_link_url",
+        "regressed_at",
+        "in_progress_link_url",
     )
     issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
     """The issue's public id — the handle the ticket and draft-PR
@@ -111851,6 +112411,11 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
     newest report first.
     """
 
+    diagnosis_clusters_withheld_reason = sgqlc.types.Field(
+        RawContentWithheldReason, graphql_name="diagnosisClustersWithheldReason"
+    )
+    """Why diagnosis clusters were withheld, or null when they were not."""
+
     diagnosis_clusters = sgqlc.types.Field(
         sgqlc.types.non_null(
             sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopV2DiagnosisCluster))
@@ -111861,6 +112426,7 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
     over all conversations, not only the served slice. Sorted by
     conversationCount descending, then name, then clusterKey. Name and
     description come from the newest run that matched the cluster.
+    Empty when cluster content access is denied.
     """
 
     linear_ticket = sgqlc.types.Field(AgentHealthIssueLinearTicket, graphql_name="linearTicket")
@@ -111906,6 +112472,32 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
     disposition_comment = sgqlc.types.Field(String, graphql_name="dispositionComment")
     """The comment left when the issue was ignored."""
 
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopIssueStatus), graphql_name="status"
+    )
+    """Where the issue stands: OPEN, IN_PROGRESS or FIXED."""
+
+    fixed_at = sgqlc.types.Field(DateTime, graphql_name="fixedAt")
+    """When the last fix was recorded. It stays set after the issue
+    regressed or a user reopened the work.
+    """
+
+    fix_source = sgqlc.types.Field(ReinforcementLoopIssueFixSource, graphql_name="fixSource")
+    """What recorded the last fix."""
+
+    fix_link_url = sgqlc.types.Field(String, graphql_name="fixLinkUrl")
+    """Link to the last fix, such as the merged PR or the completed
+    ticket.
+    """
+
+    regressed_at = sgqlc.types.Field(DateTime, graphql_name="regressedAt")
+    """When the issue came back after its last fix. Null while the fix
+    holds.
+    """
+
+    in_progress_link_url = sgqlc.types.Field(String, graphql_name="inProgressLinkUrl")
+    """The link a user gave when marking the issue in progress."""
+
 
 class ReinforcementLoopV2IssueConnection(sgqlc.types.relay.Connection):
     """One page of RL V2 issues."""
@@ -111948,6 +112540,7 @@ class ReinforcementLoopV2IssueConversation(sgqlc.types.Type):
         "trace_refs",
         "reported_at",
         "run_uuid",
+        "diagnosis_clusters_withheld_reason",
         "diagnosis_clusters",
     )
     report_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="reportUuid")
@@ -111979,6 +112572,11 @@ class ReinforcementLoopV2IssueConversation(sgqlc.types.Type):
     run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
     """The diagnosis run that reported this conversation."""
 
+    diagnosis_clusters_withheld_reason = sgqlc.types.Field(
+        RawContentWithheldReason, graphql_name="diagnosisClustersWithheldReason"
+    )
+    """Why diagnosis clusters were withheld, or null when they were not."""
+
     diagnosis_clusters = sgqlc.types.Field(
         sgqlc.types.non_null(
             sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopV2DiagnosisCluster))
@@ -111986,7 +112584,8 @@ class ReinforcementLoopV2IssueConversation(sgqlc.types.Type):
         graphql_name="diagnosisClusters",
     )
     """The Issue clusters that qualified this conversation for diagnosis,
-    as the run recorded them, in manifest order.
+    as the run recorded them, in manifest order. Empty when cluster
+    content access is denied.
     """
 
 
@@ -112485,6 +113084,14 @@ class ResidualJobMonitor(sgqlc.types.Type):
     """The monitor's current audiences, including ones set after the
     migration.
     """
+
+
+class ResolveCoverageDraft(sgqlc.types.Type):
+    """Approve or decline a pending coverage draft."""
+
+    __schema__ = schema
+    __field_names__ = ("draft",)
+    draft = sgqlc.types.Field(sgqlc.types.non_null(CoverageDraft), graphql_name="draft")
 
 
 class ResourceConnection(sgqlc.types.relay.Connection):
@@ -114383,6 +114990,14 @@ class SetConnectionName(sgqlc.types.Type):
     __field_names__ = ("connection",)
     connection = sgqlc.types.Field(sgqlc.types.non_null(Connection), graphql_name="connection")
     """Connection where name was set."""
+
+
+class SetCoverageDraftProposal(sgqlc.types.Type):
+    """Fill the proposal of a pending coverage draft."""
+
+    __schema__ = schema
+    __field_names__ = ("draft",)
+    draft = sgqlc.types.Field(sgqlc.types.non_null(CoverageDraft), graphql_name="draft")
 
 
 class SetCustomSqlSamplingSize(sgqlc.types.Type):
@@ -117708,6 +118323,57 @@ class TaskPerformanceSummaryEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class TeammateAgentPolicyOutput(sgqlc.types.Type):
+    """How triage and the Troubleshooting Agent run on alerts in a domain
+    with an active teammate.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "triage_always_on",
+        "triage_limits_apply",
+        "triage_free",
+        "tsa_min_threshold",
+        "tsa_limits_apply",
+        "tsa_free",
+    )
+    triage_always_on = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="triageAlwaysOn"
+    )
+    """Alerts are always triaged automatically, whatever the domain
+    override says.
+    """
+
+    triage_limits_apply = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="triageLimitsApply"
+    )
+    """Whether the account's triage limits (free-tier allowance, daily
+    and monthly caps) apply. Teammate runs also do not count toward
+    them.
+    """
+
+    triage_free = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="triageFree")
+    """Whether triage runs are free."""
+
+    tsa_min_threshold = sgqlc.types.Field(
+        sgqlc.types.non_null(TsaAutomationThreshold), graphql_name="tsaMinThreshold"
+    )
+    """Lowest threshold the Troubleshooting Agent runs at after triage.
+    HIGH means it runs on every high-priority alert; a wider domain
+    threshold is kept.
+    """
+
+    tsa_limits_apply = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="tsaLimitsApply"
+    )
+    """Whether the account's monthly Troubleshooting Agent limit applies.
+    Teammate runs also do not count toward it.
+    """
+
+    tsa_free = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="tsaFree")
+    """Whether Troubleshooting Agent runs are free."""
+
+
 class TeammateAudience(sgqlc.types.Type):
     """A domain's teammate audience: the audience Monte Carlo's AI agents
     post the domain's updates to.
@@ -120471,6 +121137,7 @@ class TriageAgentRunResult(sgqlc.types.Type):
         "error_message",
         "triaged_at",
         "triaged_by_user",
+        "trigger",
         "triaged_by_execution_id",
         "inherited_from",
     )
@@ -120526,6 +121193,12 @@ class TriageAgentRunResult(sgqlc.types.Type):
     user of the originating alert's run.
     """
 
+    trigger = sgqlc.types.Field(sgqlc.types.non_null(TriageRunTrigger), graphql_name="trigger")
+    """Whether this triage run was started automatically or by a user.
+    For an inherited verdict, how the originating alert's run was
+    started.
+    """
+
     triaged_by_execution_id = sgqlc.types.Field(
         sgqlc.types.non_null(UUID), graphql_name="triagedByExecutionId"
     )
@@ -120544,7 +121217,11 @@ class TriageAgentRunResult(sgqlc.types.Type):
 
 class TriageAlertsOutput(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("triggered_runs", "skipped_already_triaged_count")
+    __field_names__ = (
+        "triggered_runs",
+        "skipped_already_triaged_count",
+        "skipped_limit_reached_count",
+    )
     triggered_runs = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TriageAgentRunResult))),
         graphql_name="triggeredRuns",
@@ -120557,6 +121234,14 @@ class TriageAlertsOutput(sgqlc.types.Type):
     """Number of input incidents the caller had already triaged (any non-
     ERROR row exists). ERROR rows do not count as already triaged —
     they re-triage.
+    """
+
+    skipped_limit_reached_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="skippedLimitReachedCount"
+    )
+    """Number of input incidents left out because a triage limit is
+    reached. Alerts in a domain with an active teammate have no limit
+    and are never left out.
     """
 
 
@@ -120646,6 +121331,7 @@ class TriageAutomationDomainConfigOutput(sgqlc.types.Type):
         "tsa_threshold_override",
         "effective_triage_enabled",
         "effective_tsa_threshold",
+        "teammate_policy",
     )
     domain_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainUuid")
     """Domain UUID."""
@@ -120677,6 +121363,11 @@ class TriageAutomationDomainConfigOutput(sgqlc.types.Type):
     )
     """Effective troubleshooting-agent threshold for this domain. OFF
     whenever effectiveTriageEnabled is false.
+    """
+
+    teammate_policy = sgqlc.types.Field(TeammateAgentPolicyOutput, graphql_name="teammatePolicy")
+    """Set when the domain has an active teammate, which decides how its
+    alerts are triaged and troubleshot. Null otherwise.
     """
 
 
@@ -121293,6 +121984,16 @@ class UCSTableMonitorConfigOutput(sgqlc.types.Type):
         sgqlc.types.non_null(UCSDetectorThresholdOutput), graphql_name="detectorThreshold"
     )
     """Detector freshness threshold"""
+
+
+class UndoReinforcementLoopIssueStatus(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("issue_uuid", "status")
+    issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
+
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopIssueStatus), graphql_name="status"
+    )
 
 
 class UnifiedUserAssignmentConnection(sgqlc.types.relay.Connection):
@@ -124677,6 +125378,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "invalid_rows",
         "execution_error",
         "domains",
+        "in_teammate_domain",
         "comment_count",
         "last_comment_text",
         "jira_tickets",
@@ -124827,6 +125529,14 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
 
     domains = sgqlc.types.Field(sgqlc.types.list_of(DomainRef), graphql_name="domains")
     """List of domain associated with the alert"""
+
+    in_teammate_domain = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="inTeammateDomain"
+    )
+    """Whether the alert is in a domain with an active teammate. Triage
+    and the Troubleshooting Agent have no limits on such an alert; see
+    the domain's teammatePolicy.
+    """
 
     comment_count = sgqlc.types.Field(Int, graphql_name="commentCount")
     """Number of user comments associated with the alert"""
@@ -129627,6 +130337,7 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         "triage_enabled_override",
         "tsa_threshold_override",
         "effective_tsa_threshold",
+        "teammate_policy",
         "effective_auto_apply_enabled",
         "auto_apply_enabled_override",
         "table_counts",
@@ -129728,6 +130439,12 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
     """(experimental) Effective troubleshooting-agent threshold for this
     domain after applying the override on top of the account-level
     threshold. OFF whenever effectiveTriageEnabled is false.
+    """
+
+    teammate_policy = sgqlc.types.Field(TeammateAgentPolicyOutput, graphql_name="teammatePolicy")
+    """(experimental) Set when the domain has an active teammate, which
+    decides how its alerts are triaged and troubleshot. Null
+    otherwise.
     """
 
     effective_auto_apply_enabled = sgqlc.types.Field(
@@ -131550,6 +132267,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "agent_span_filters",
         "filters",
         "clustering_space_uuid",
+        "cluster_keys_withheld_reason",
         "cluster_keys",
         "connection_id",
         "timeout",
@@ -131844,11 +132562,16 @@ class MetricMonitoring(sgqlc.types.Type, Node):
     the monitor (agent conversation monitors only).
     """
 
+    cluster_keys_withheld_reason = sgqlc.types.Field(
+        RawContentWithheldReason, graphql_name="clusterKeysWithheldReason"
+    )
+    """Why cluster keys were withheld, or null when they were not."""
+
     cluster_keys = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
     )
-    """Clusters the monitor filters to (any-of); empty when the space is
-    referenced as a segment instead.
+    """Clusters the monitor filters to (any-of). Empty for segmentation
+    or withheld cluster content.
     """
 
     connection_id = sgqlc.types.Field(UUID, graphql_name="connectionId")

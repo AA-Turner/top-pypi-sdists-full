@@ -23,7 +23,12 @@ from typing import Any, Dict
 from urllib.parse import urlparse
 
 import pytest
-from conftest import ALL_API_MODULES, API_MODULES
+from conftest import (
+    ALL_API_MODULES,
+    API_IMPORT_ERRORS,
+    API_MODULES,
+    import_api_module,
+)
 
 SDK_ROOT = Path(__file__).parent.parent / "octostar"
 
@@ -105,6 +110,11 @@ SPEC_ROUTES_WITHOUT_SDK = {
     "/api/v1/files/attachments/{os_workspace}/{entity_id}": "Attachment upload",
     # v2 Files
     "/api/v2/files/upload-from-url/{os_workspace}": "Server-side URL fetch + stream-to-S3 (no temp files)",
+    # v2 Report export
+    "/api/v2/report-export/capabilities": "Composer export dialog limits; no SDK export flow",
+    "/api/v2/report-export/download/{tracking_id}": "Composer temporary export download; no SDK export flow",
+    "/api/v2/report-export/download/{tracking_id}/checksum": "Composer temporary export checksum download; no SDK export flow",
+    "/api/v2/report-export/{os_workspace}/{entity_uid}": "Report export job started from the Composer (202; poll tasks/status)",
     # v2 Workspaces
     "/api/v2/workspaces/{os_workspace}": "Whole-workspace delete (202 background job; poll tasks/status)",
     # v2 Mounts (Phase 0 scaffold — 501 stubs, SDK wrappers land with each capability)
@@ -212,9 +222,6 @@ SPEC_ROUTES_WITHOUT_SDK = {
     "/api/v1/search_api/index": "Direct OpenSearch indexing",
     "/api/v1/search_api/{ontology}/_count": "Search count",
     "/api/v1/search_api/{ontology}/_index_definition": "Index definition",
-    # Stream subscriptions (admin/UI only)
-    "/api/v1/streams/subscriptions/{subs_key}": "Stream subscription management",
-    "/api/v1/streams/subscriptions/{subs_key}/{stream_key}": "Stream subscription detail",
     # V2 Entities API (SDK-wrapped via write_file, read_file, write_attachment, read_attachment)
     "/api/v2/entities/{os_workspace}": "V2 entity creation",
     "/api/v2/entities/{os_workspace}/{entity_uid}": "V2 entity operations",
@@ -269,40 +276,17 @@ UTILS_API_WIRING = [
     ("utils/ontology/multiquery_ontology.py", "api.ontology.multi_query"),
     ("utils/ontology/get_ontologies.py", "api.ontology.get_ontologies"),
     # Jobs
-    ("utils/jobs/kill_job.py", "api.apps.kill_job"),
-    ("utils/jobs/set_job_progress.py", "api.apps.set_job_progress"),
-    ("utils/jobs/get_job_progress.py", "api.apps.get_job_progress"),
-    ("utils/jobs/get_job_logs.py", "api.apps.get_job_logs"),
     # Apps
     ("utils/jobs/apps/deploy_app.py", "api.apps.deploy_app"),
     ("utils/jobs/apps/undeploy_app.py", "api.apps.undeploy_app"),
     ("utils/jobs/apps/get_app_logs.py", "api.apps.get_app_logs"),
-    ("utils/jobs/apps/list_app_jobs.py", "api.apps.list_app_jobs"),
-    ("utils/jobs/apps/execute_app_job.py", "api.apps.execute_app_job"),
     ("utils/jobs/apps/get_apps_url.py", "api.apps.get_apps_url"),
     # Notifications
-    ("utils/notifications/delete_stream.py", "api.notifications.delete_stream"),
-    (
-        "utils/notifications/pull_event_from_stream.py",
-        "api.notifications.pull_events_from_stream",
-    ),
-    (
-        "utils/notifications/pull_events_from_stream.py",
-        "api.notifications.pull_events_from_stream",
-    ),
     (
         "utils/notifications/get_my_subscriptions.py",
         "api.notifications.get_subscriptions",
     ),
-    (
-        "utils/notifications/push_event_to_stream.py",
-        "api.notifications.push_event_to_stream",
-    ),
     ("utils/notifications/toast.py", "api.notifications.toast"),
-    (
-        "utils/notifications/push_events_to_stream.py",
-        "api.notifications.push_event_to_stream",
-    ),
     (
         "utils/notifications/publish_notification.py",
         "api.notifications.publish_notification",
@@ -323,14 +307,10 @@ UTILS_API_WIRING = [
 def get_example_params() -> dict:
     """Realistic example parameters for all active SDK endpoints."""
     from octostar.models import (
-        ExecuteAppJobJsonBody,
         GetAppsUrlJsonBody,
         MultiQueryJsonBody,
         MultiQueryJsonBodyQueriesItem,
-        OctostarEvent,
-        OctostarEventOctostarPayload,
         OsNotification,
-        ProgressRequest,
         QueryJsonBody,
         UpsertEntity,
         UpsertEntityBase,
@@ -340,10 +320,8 @@ def get_example_params() -> dict:
     return {
         # Common identifiers
         "app_id": "test-app-123",
-        "job_id": "test-job-456",
         "workspace": "test-workspace-789",
         "os_entity_uid": "test-entity-uid-abc",
-        "stream_id": "test-stream-001",
         "ontology": "test_ontology",
         "os_workspace": "test-workspace-alpha",
         "tag": "test-tag-name",
@@ -381,16 +359,6 @@ def get_example_params() -> dict:
                     query_id="q1", sql="SELECT * FROM Person LIMIT 5"
                 ),
             ]
-        ),
-        "json_body:push_event_to_stream": OctostarEvent(
-            octostar_stream="entity-updates",
-            octostar_payload=OctostarEventOctostarPayload(message="Entity updated"),
-        ),
-        "json_body:set_job_progress": ProgressRequest(progress="50%"),
-        "json_body:execute_app_job": ExecuteAppJobJsonBody(
-            ancestor="parent-app",
-            ontology="test_ontology",
-            commands=["echo hello"],
         ),
         "json_body:get_apps_url": GetAppsUrlJsonBody(app_ids=["app-1", "app-2"]),
         # Tags
@@ -737,37 +705,6 @@ class TestSpecificEndpoints:
         )
         result.raise_if_invalid()
 
-    def test_delete_stream_request(self, request_validator, mock_client):
-        from octostar.api.notifications import delete_stream
-
-        kwargs = delete_stream._get_kwargs(client=mock_client, stream_id="test-stream")
-        result = request_validator.validate_request(kwargs)
-        result.raise_if_invalid()
-
-    def test_pull_events_from_stream_request(self, request_validator, mock_client):
-        from octostar.api.notifications import pull_events_from_stream
-
-        kwargs = pull_events_from_stream._get_kwargs(
-            client=mock_client, stream_id="test-stream"
-        )
-        result = request_validator.validate_request(kwargs)
-        result.raise_if_invalid()
-
-    def test_push_event_to_stream_request(self, request_validator, mock_client):
-        from octostar.api.notifications import push_event_to_stream
-        from octostar.models import OctostarEvent, OctostarEventOctostarPayload
-
-        kwargs = push_event_to_stream._get_kwargs(
-            client=mock_client,
-            stream_id="test-stream",
-            json_body=OctostarEvent(
-                octostar_stream="updates",
-                octostar_payload=OctostarEventOctostarPayload(message="test"),
-            ),
-        )
-        result = request_validator.validate_request(kwargs)
-        result.raise_if_invalid()
-
     # --- Permissions ---
 
     def test_get_permissions_request(self, request_validator, mock_client):
@@ -800,56 +737,6 @@ class TestSpecificEndpoints:
         )
         result.raise_if_invalid()
 
-    def test_list_app_jobs_request(self, request_validator, mock_client):
-        from octostar.api.apps import list_app_jobs
-
-        kwargs = list_app_jobs._get_kwargs(client=mock_client, app_id="test-app")
-        result = request_validator.validate_request(
-            kwargs, expected_path="/api/v1/apps/jobs/by-app/{app_id}"
-        )
-        result.raise_if_invalid()
-
-    def test_get_job_progress_request(self, request_validator, mock_client):
-        from octostar.api.apps import get_job_progress
-
-        kwargs = get_job_progress._get_kwargs(job_id="test-job", client=mock_client)
-        result = request_validator.validate_request(
-            kwargs, expected_path="/api/v1/apps/jobs/{job_id}/progress"
-        )
-        result.raise_if_invalid()
-
-    def test_set_job_progress_request(self, request_validator, mock_client):
-        from octostar.api.apps import set_job_progress
-        from octostar.models import ProgressRequest
-
-        kwargs = set_job_progress._get_kwargs(
-            job_id="test-job",
-            client=mock_client,
-            json_body=ProgressRequest(progress="50%"),
-        )
-        result = request_validator.validate_request(
-            kwargs, expected_path="/api/v1/apps/jobs/{job_id}/progress"
-        )
-        result.raise_if_invalid()
-
-    def test_get_job_logs_request(self, request_validator, mock_client):
-        from octostar.api.apps import get_job_logs
-
-        kwargs = get_job_logs._get_kwargs(job_id="test-job", client=mock_client)
-        result = request_validator.validate_request(
-            kwargs, expected_path="/api/v1/apps/jobs/{job_id}/logs"
-        )
-        result.raise_if_invalid()
-
-    def test_kill_job_request(self, request_validator, mock_client):
-        from octostar.api.apps import kill_job
-
-        kwargs = kill_job._get_kwargs(job_id="test-job", client=mock_client)
-        result = request_validator.validate_request(
-            kwargs, expected_path="/api/v1/apps/jobs/{job_id}"
-        )
-        result.raise_if_invalid()
-
     def test_deploy_app_request(self, request_validator, mock_client):
         from octostar.api.apps import deploy_app
 
@@ -867,21 +754,6 @@ class TestSpecificEndpoints:
         kwargs = undeploy_app._get_kwargs(app_id="test-app", client=mock_client)
         result = request_validator.validate_request(
             kwargs, expected_path="/api/v1/apps/{app_id}"
-        )
-        result.raise_if_invalid()
-
-    def test_execute_app_job_request(self, request_validator, mock_client):
-        from octostar.api.apps import execute_app_job
-        from octostar.models import ExecuteAppJobJsonBody
-
-        kwargs = execute_app_job._get_kwargs(
-            client=mock_client,
-            json_body=ExecuteAppJobJsonBody(
-                ancestor="parent", ontology="test", commands=["echo hi"]
-            ),
-        )
-        result = request_validator.validate_request(
-            kwargs, expected_path="/api/v1/apps/jobs/execute"
         )
         result.raise_if_invalid()
 
@@ -1368,3 +1240,21 @@ class TestUtilsApiWiring:
                 + "\n".join(f"  - {f}" for f in untracked)
                 + "\n\nAdd them to UTILS_API_WIRING in test_contracts.py."
             )
+
+
+class TestApiModulesImport:
+    """Module discovery must not hide an import error.
+
+    A module that imports a deleted model would otherwise drop out of every
+    contract test without a failure.
+    """
+
+    def test_every_api_module_imports(self):
+        assert API_IMPORT_ERRORS == [], "\n".join(
+            f"{name}: {err}" for name, err in API_IMPORT_ERRORS
+        )
+
+    def test_discovery_records_an_import_error(self):
+        errors: list = []
+        assert import_api_module("octostar.api.no_such_module_x", errors) is None
+        assert errors and errors[0][0] == "octostar.api.no_such_module_x"

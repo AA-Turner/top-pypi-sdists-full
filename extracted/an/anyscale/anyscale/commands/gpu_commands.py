@@ -1,7 +1,9 @@
 """`anyscale gpu get`, plus the GPU rendering `anyscale node gpus` shares.
 
 One command over the backend's single-GPU endpoint: the GPU is addressed by UUID within
-a cluster, and the backend checks read permission on that cluster.
+a cluster, and the backend checks read permission on that cluster. The cluster is named
+by exactly one of --cluster-id, --workspace-id, --job-id or --service-id; the console
+shows workload IDs, not cluster IDs, so the SDK looks the cluster up from the other three.
 
 Output is the model as the API returned it, in every format. Text is the model as YAML
 (the same convention as `anyscale job status`), table is one row per GPU with a column
@@ -15,7 +17,7 @@ matching one on the GPUs module in `_private/docgen/__main__.py`) publishes it.
 from dataclasses import fields
 from datetime import datetime
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import click
 
@@ -52,9 +54,62 @@ def gpu_cli() -> None:
 
 # --- shared flags and helpers, used by `anyscale node gpus` too -----------------------------
 
-option_cluster_id = click.option(
-    "--cluster-id", required=True, help="ID of the cluster, e.g. ses_abc123."
-)
+_RESOURCE_FLAGS = "--cluster-id, --workspace-id, --job-id or --service-id"
+
+_RESOURCE_OPTIONS = [
+    click.option(
+        "--cluster-id",
+        default=None,
+        help=f"ID of the cluster, e.g. ses_abc123. Exactly one of {_RESOURCE_FLAGS} is required.",
+    ),
+    click.option(
+        "--workspace-id",
+        default=None,
+        help="ID of the workspace, e.g. expwrk_abc123. Reads the workspace's cluster.",
+    ),
+    click.option(
+        "--job-id",
+        default=None,
+        help="ID of the job, e.g. prodjob_abc123. Reads the cluster of the job's latest run.",
+    ),
+    click.option(
+        "--service-id",
+        default=None,
+        help="ID of the service, e.g. service2_abc123. Reads the cluster of the "
+        "service's primary version.",
+    ),
+]
+
+
+def option_resource(func: Callable) -> Callable:
+    """The four flags that name the cluster, in help order."""
+    for option in reversed(_RESOURCE_OPTIONS):
+        func = option(func)
+    return func
+
+
+def resource_ids(
+    cluster_id: Optional[str],
+    workspace_id: Optional[str],
+    job_id: Optional[str],
+    service_id: Optional[str],
+) -> Dict[str, str]:
+    """The one ID the user gave, as SDK keyword arguments, or a usage error."""
+    given = {
+        name: value
+        for name, value in {
+            "cluster_id": cluster_id,
+            "workspace_id": workspace_id,
+            "job_id": job_id,
+            "service_id": service_id,
+        }.items()
+        if value
+    }
+    if len(given) != 1:
+        raise click.UsageError(f"Exactly one of {_RESOURCE_FLAGS} is required.")
+    return given
+
+
 option_time = click.option(
     "--time",
     default=None,
@@ -121,11 +176,11 @@ def _cell(value: Any) -> Any:
 
 @beta_metadata(
     CommandExample(
-        description="Where a GPU is and what it reports right now.",
-        command="anyscale gpu get --id GPU-8f2e... --cluster-id <cluster-id>",
+        description="Where a GPU of a job is and what it reports right now.",
+        command="anyscale gpu get --id GPU-8f2e... --job-id <job-id>",
     ),
     CommandExample(
-        description="The same GPU during an incident.",
+        description="The same GPU during an incident, found by its cluster.",
         command=(
             "anyscale gpu get --id GPU-8f2e... --cluster-id <cluster-id> "
             "--time 2026-09-01T13:45:00Z"
@@ -133,7 +188,7 @@ def _cell(value: Any) -> Any:
     ),
     CommandExample(
         description="JSON for scripts.",
-        command="anyscale gpu get --id GPU-8f2e... --cluster-id <cluster-id> -o json",
+        command="anyscale gpu get --id GPU-8f2e... --workspace-id <workspace-id> -o json",
     ),
 )
 @gpu_cli.command(name="get", cls=AnyscaleCommand, short_help="Get one GPU by UUID.")
@@ -144,18 +199,27 @@ def _cell(value: Any) -> Any:
     required=True,
     help="UUID of the GPU (GPU-...), as the driver and DCGM report it.",
 )
-@option_cluster_id
+@option_resource
 @option_time
 @option_output
-def get(gpu_uuid: str, cluster_id: str, time: Optional[str], output_format: str) -> None:
-    """Get one GPU of a cluster by UUID: its node and instance, the workload holding it,
-    and its DCGM telemetry.
+def get(  # noqa: PLR0913
+    gpu_uuid: str,
+    cluster_id: Optional[str],
+    workspace_id: Optional[str],
+    job_id: Optional[str],
+    service_id: Optional[str],
+    time: Optional[str],
+    output_format: str,
+) -> None:
+    """Get one GPU of a cluster, workspace, job or service by UUID: its node and
+    instance, the workload holding it, and its DCGM telemetry.
 
     The backend looks back over the cluster's lifetime (up to seven days), so a GPU whose
     node is already terminated still resolves, as OFFLINE with its last-known telemetry.
     Only a UUID the cluster never reported in that window is an error.
     """
-    gpu = anyscale.gpus.get(cluster_id, gpu_uuid, time=parse_timestamp(time, "--time"))
+    ids = resource_ids(cluster_id, workspace_id, job_id, service_id)
+    gpu = anyscale.gpus.get(gpu_uuid, **ids, time=parse_timestamp(time, "--time"))
     _print_gpu(gpu, output_format)
 
 
@@ -183,9 +247,10 @@ __all__: List[str] = [
     "beta_metadata",
     "get",
     "gpu_cli",
-    "option_cluster_id",
     "option_output",
+    "option_resource",
     "option_time",
     "print_text",
+    "resource_ids",
     "table_row",
 ]

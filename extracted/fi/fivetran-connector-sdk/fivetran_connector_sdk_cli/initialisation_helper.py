@@ -9,19 +9,25 @@ import requests as rq
 from fivetran_connector_sdk_common.logger import Logging
 from fivetran_connector_sdk_common.constants import EXAMPLES_GITHUB_REPO, GITHUB_BRANCH, \
     AGENT_PLUGINS, SUPPORTED_AGENT_DISPLAY_NAMES, AI_TOOLS_INSTALLATION_DOCS_URL, TEMPLATE_CONNECTOR_PATH, \
-    CONNECTORS_GITHUB_REPO, CONNECTORS_TEMPLATE_PREFIX, VIRTUAL_ENV_CONFIG, EXCLUDED_DIRS
+    CONNECTORS_GITHUB_REPO, CONNECTORS_TEMPLATE_PREFIX, EXAMPLES_TEMPLATE_PREFIX, VIRTUAL_ENV_CONFIG, EXCLUDED_DIRS, \
+    PROJECT_DETECTION_FILES
 from fivetran_connector_sdk_common.helpers import print_library_log
 from fivetran_connector_sdk_cli.cli_helpers import PromptMode, resolve_confirmation
 
 
 def init(project_dir: str, template: str, prompt_mode: PromptMode):
-    existing_project = is_existing_project(project_dir)
+    # look up the template first so the overwrite prompt only appears when there is something to download
+    git_directory = find_git_directory(template)
     run_project_setup = True
-    if existing_project:
+    if is_existing_project(project_dir):
         run_project_setup = resolve_confirmation("Overwrite existing project? (y/N): ", False, prompt_mode)
+    elif is_non_empty_folder(project_dir):
+        run_project_setup = resolve_confirmation(
+            "The folder is not empty. Do you want to continue and possibly overwrite existing files? (y/N): ",
+            False, prompt_mode)
     try:
         if run_project_setup:
-            setup_connector(project_dir, template)
+            setup_connector(project_dir, git_directory)
             print_library_log("project initialized", log_icon=Logging.LogIcon.SUCCESS)
             print_library_log("Time to make a great connector; Happy coding")
         else:
@@ -38,6 +44,10 @@ def init(project_dir: str, template: str, prompt_mode: PromptMode):
 
 
 def is_existing_project(project_dir: str) -> bool:
+    return any(os.path.isfile(os.path.join(project_dir, name)) for name in PROJECT_DETECTION_FILES)
+
+
+def is_non_empty_folder(project_dir: str) -> bool:
     if not os.path.isdir(project_dir):
         return False
 
@@ -54,9 +64,9 @@ def is_existing_project(project_dir: str) -> bool:
     return False
 
 
-def setup_connector(project_dir: str, template: str):
+def setup_connector(project_dir: str, git_directory: tuple):
     os.makedirs(project_dir, exist_ok=True)
-    download_git_directory(template, project_dir)
+    download_git_directory(git_directory, project_dir)
     print_library_log(f"new project created at: {project_dir}", log_icon=Logging.LogIcon.SUCCESS)
 
 
@@ -213,7 +223,7 @@ def _resolve_repo_and_path(path_prefix: str) -> tuple:
     """Returns (repo, actual_path) based on template routing rules."""
     if path_prefix.startswith(CONNECTORS_TEMPLATE_PREFIX):
         return CONNECTORS_GITHUB_REPO, path_prefix[len(CONNECTORS_TEMPLATE_PREFIX):]
-    if path_prefix.startswith("examples/"):
+    if path_prefix.startswith(EXAMPLES_TEMPLATE_PREFIX):
         return EXAMPLES_GITHUB_REPO, path_prefix
     return CONNECTORS_GITHUB_REPO, path_prefix
 
@@ -295,38 +305,65 @@ def _raise_no_match(prefix_matches: set, requested_path: str, has_nested_matches
     raise ValueError(f"no connector found matching '{requested_path}'")
 
 
-def download_git_directory(path_prefix: str, project_dir: str):
+def _fetch_github_repo_tree(repo: str) -> list:
+    tree_url = f"https://api.github.com/repos/{repo}/git/trees/{GITHUB_BRANCH}?recursive=1"
+    response = rq.get(tree_url, timeout=10)
+    response.raise_for_status()
+
+    tree_data = response.json()
+    if 'tree' not in tree_data:
+        print_library_log("failed to fetch repository from GitHub", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+        sys.exit(1)
+    return tree_data['tree']
+
+
+def _search_repo(repo: str, actual_path: str) -> tuple:
+    """Returns (files_to_download, prefix_matches, has_nested_matches) for one repo."""
+    repo_tree = _fetch_github_repo_tree(repo)
+    files_to_download, prefix_matches = _collect_download_files(repo_tree, actual_path)
+    nested_prefix_matches = set()
+    if not files_to_download and repo == EXAMPLES_GITHUB_REPO:
+        # also search nested subdirectories (e.g., examples/quickstart/hello)
+        nested_prefix_matches = _collect_nested_prefix_matches(repo_tree, actual_path)
+        prefix_matches.update(nested_prefix_matches)
+    return files_to_download, prefix_matches, bool(nested_prefix_matches)
+
+
+def find_git_directory(path_prefix: str) -> tuple:
+    """Looks up the requested template; returns (repo, actual_path, files_to_download) or exits if there is no exact match."""
     repo, actual_path = _resolve_repo_and_path(path_prefix)
     requested_path = path_prefix.rstrip("/")
     actual_path = actual_path.rstrip("/")
     try:
-        tree_url = f"https://api.github.com/repos/{repo}/git/trees/{GITHUB_BRANCH}?recursive=1"
-        response = rq.get(tree_url, timeout=10)
-        response.raise_for_status()
+        files_to_download, prefix_matches, has_nested_matches = _search_repo(repo, actual_path)
 
-        tree_data = response.json()
-        if 'tree' not in tree_data:
-            print_library_log("failed to fetch repository from GitHub", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
-            sys.exit(1)
-
-        files_to_download, prefix_matches = _collect_download_files(tree_data['tree'], actual_path)
+        # Without an explicit routing prefix, search order is community connectors, then examples/
+        has_explicit_prefix = path_prefix.startswith(CONNECTORS_TEMPLATE_PREFIX) or path_prefix.startswith(EXAMPLES_TEMPLATE_PREFIX)
+        if not files_to_download and not prefix_matches and not has_explicit_prefix:
+            repo = EXAMPLES_GITHUB_REPO
+            actual_path = f"{EXAMPLES_TEMPLATE_PREFIX}{actual_path}"
+            files_to_download, prefix_matches, has_nested_matches = _search_repo(repo, actual_path)
 
         if not files_to_download:
-            # For examples/ repo, also search nested subdirectories (e.g., examples/quickstart/hello)
-            nested_prefix_matches = set()
-            if repo == EXAMPLES_GITHUB_REPO:
-                nested_prefix_matches = _collect_nested_prefix_matches(tree_data['tree'], actual_path)
-                prefix_matches.update(nested_prefix_matches)
-            _raise_no_match(prefix_matches, requested_path, bool(nested_prefix_matches))
+            _raise_no_match(prefix_matches, requested_path, has_nested_matches)
 
         validate_example_directory(files_to_download, requested_path)
-
-        print_library_log(f"downloading {len(files_to_download)} files from GitHub", log_icon=Logging.LogIcon.STEP)
-        download_file_from_github(files_to_download, project_dir, repo)
+        return repo, actual_path, files_to_download
 
     except ValueError as e:
         print_library_log(str(e), Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
         sys.exit(1)
+    except Exception as e:
+        print_library_log(f"failed to look up connector: {e}", Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+        print_library_log(f"files are available for manual download from: https://github.com/{repo}/tree/{GITHUB_BRANCH}/{actual_path}")
+        sys.exit(1)
+
+
+def download_git_directory(git_directory: tuple, project_dir: str):
+    repo, actual_path, files_to_download = git_directory
+    try:
+        print_library_log(f"downloading {len(files_to_download)} files from GitHub", log_icon=Logging.LogIcon.STEP)
+        download_file_from_github(files_to_download, project_dir, repo)
     except Exception as e:
         print_library_log(f"failed to download files: {e}", Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
         print_library_log(f"files are available for manual download from: https://github.com/{repo}/tree/{GITHUB_BRANCH}/{actual_path}")

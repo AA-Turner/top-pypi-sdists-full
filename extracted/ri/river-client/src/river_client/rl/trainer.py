@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import timedelta
+from functools import partial
 from typing import Literal
 
 
@@ -29,6 +30,7 @@ from .advantages import (
     GroupCentered,
     _build_batch,
     _decouple,
+    _rollout_counts,
     _training_rewards,
     accumulation_scale,
 )
@@ -42,6 +44,7 @@ from .checkpoint import (
 )
 from .config import (
     Adam,
+    Admission,
     ForwardBackwardBatch,
     GroupCompletion,
     Truncation,
@@ -149,6 +152,45 @@ def _require_finite_update(metrics, step):
         )
 
 
+def _callback_contract(callback):
+    contract = getattr(callback, "contract", None)
+    if callable(contract):
+        return contract()
+    return getattr(callback, "__qualname__", type(callback).__qualname__)
+
+
+class SamplingExhausted(RiverError):
+    """Dynamic sampling rejected too many groups to fill a training batch.
+
+    Configured checkpoints are saved before this error reaches the caller.
+    ``batch`` is the one-based training batch, and ``rejected`` counts rejected
+    groups since the previous completed batch. To continue, resume with a larger
+    ``DynamicSampling.max_attempted_group_ratio`` or a lower
+    ``min_groups_per_step``. Persistent exhaustion usually means the data is too
+    easy or too hard for the current policy, or the reward cannot separate
+    samples; change the dataset or reward, or disable dynamic sampling.
+    """
+
+    def __init__(self, *, batch: int, rejected: int, limit: str):
+        self.batch = batch
+        self.rejected = rejected
+        self._limit = limit
+        super().__init__(
+            f"dynamic_sampling exhausted {limit} before filling batch {batch} "
+            f"({rejected} groups rejected); resume with a larger budget or lower "
+            "min_groups_per_step, or revisit the dataset and reward"
+        )
+
+    def __reduce__(self):
+        return (
+            partial(
+                type(self), batch=self.batch, rejected=self.rejected, limit=self._limit
+            ),
+            (),
+            self.__dict__,
+        )
+
+
 class PolicyRewoundError(RiverError):
     """The server rewound a full-weight run to an earlier committed step.
 
@@ -173,7 +215,7 @@ class AsyncTrainer:
     """Train a model from rollout groups while sampling continues.
 
     Computes advantages from completed groups, submits forward/backward work,
-    and applies optimizer updates. Set ``max_staleness=0`` to train
+    and applies optimizer updates. Set ``admission=Admission(max_staleness=0)`` to train
     synchronously or allow bounded policy lag for asynchronous training.
     Use one trainer to update a given model.
     """
@@ -187,6 +229,7 @@ class AsyncTrainer:
         normalize: str | None = None,
         groups_per_step: int,
         group_size: int = 16,
+        admission: Admission | None = None,
         advantage=None,
         loss: str
         | CustomLoss
@@ -196,7 +239,7 @@ class AsyncTrainer:
         | PolicyGradient = "cispo",
         custom_loss_inputs=None,
         train_zero_advantage_batches: bool | None = None,
-        max_staleness: int = 2,
+        max_staleness: int | None = None,
         stale_policy: str = "wait",
         allow_trajectory_loss: bool = False,
         allow_unbounded_staleness: bool = False,
@@ -232,6 +275,10 @@ class AsyncTrainer:
                 reduction; advantages are not rescaled by token/sequence counts.
             groups_per_step: Reward groups consumed per training batch.
             group_size: Samples requested for each dataset row.
+            admission: Trainer-owned staleness, lookahead, oversampling, and
+                optional DynamicSampling policy. Requires GroupCentered and wait
+                completion/staleness when dynamic sampling is enabled.
+                DynamicSampling.max_attempted_group_ratio can increase on resume.
             advantage: Advantage estimator; defaults to ``GroupCentered()``.
             loss: A configured rl.CISPO, rl.PolicyGradient, rl.PPO,
                 rl.DecoupledPPO, rl.ImportanceSampling, or rl.CustomLoss. A bare
@@ -266,8 +313,8 @@ class AsyncTrainer:
                 advantage is zero, for objectives with auxiliary training terms.
                 Otherwise such batches skip backward and the optimizer. Mixed
                 batches retain all masked tokens to preserve global reductions.
-            max_staleness: Maximum training-policy age in optimizer steps;
-                zero gives synchronous admission.
+            max_staleness: Deprecated policy-age limit (default 2); use
+                Admission.max_staleness. Zero gives synchronous admission.
             stale_policy: ``"wait"`` holds complete groups within the bound;
                 ``"mask_span"`` masks old spans; ``"keep"`` ignores the bound.
             allow_trajectory_loss: Acknowledge options that may drop or fully
@@ -312,6 +359,59 @@ class AsyncTrainer:
         self.max_pending_forward_backward = max_pending_forward_backward
         _integer(groups_per_step, "groups_per_step", 1)
         _integer(group_size, "group_size", 1)
+        self._uses_admission = admission is not None
+        if admission is not None:
+            if not isinstance(admission, Admission):
+                raise TypeError("admission must be an Admission")
+            if any(
+                value is not None
+                for value in (
+                    max_staleness,
+                    engine.schedule.admit_ahead,
+                    engine.schedule.oversample_factor,
+                )
+            ):
+                raise ValueError(
+                    "choose admission or legacy admission options, not both"
+                )
+            max_staleness = admission.max_staleness
+            self._fingerprint_ahead = admission.batches_ahead
+            self._fingerprint_oversample = admission.oversample
+        else:
+            # Compatibility for existing callers and checkpoints. Keep the old
+            # clamp and serialized value only on this legacy path.
+            warn_staleness = max_staleness is not None
+            max_staleness = 2 if max_staleness is None else max_staleness
+            ahead = (
+                2
+                if engine.schedule.admit_ahead is None
+                else engine.schedule.admit_ahead
+            )
+            oversample = (
+                1.0
+                if engine.schedule.oversample_factor is None
+                else engine.schedule.oversample_factor
+            )
+            _integer(max_staleness, "max_staleness")
+            self._fingerprint_ahead = ahead
+            self._fingerprint_oversample = oversample
+            admission = Admission(
+                max_staleness=max_staleness,
+                ahead=min(ahead, max_staleness),
+                oversample=oversample,
+            )
+            if warn_staleness:
+                warnings.warn(
+                    "AsyncTrainer(max_staleness=...) is deprecated and will be removed "
+                    "in a future river-client release; use admission=rl.Admission("
+                    f"max_staleness={max_staleness}, ahead={admission.batches_ahead}, "
+                    f"oversample={admission.oversample}) and remove Schedule.admit_ahead/"
+                    "oversample_factor to preserve admission behavior.",
+                    FutureWarning,
+                    stacklevel=2,
+                )
+        self.admission = admission
+        dynamic_sampling = admission.dynamic_sampling is not None
         _integer(max_staleness, "max_staleness")
         if (
             groups_per_step < 1
@@ -350,6 +450,28 @@ class AsyncTrainer:
             batch_order,
         )
         self.advantage = advantage if advantage is not None else GroupCentered()
+        self.dynamic_sampling = dynamic_sampling
+        if dynamic_sampling:
+            if (
+                type(self.advantage) is not GroupCentered
+                or completion.mode != "wait"
+                or stale_policy != "wait"
+            ):
+                raise ValueError(
+                    "dynamic_sampling requires GroupCentered and wait completion/staleness"
+                )
+            if group_size < 2:
+                raise ValueError("dynamic_sampling requires group_size >= 2")
+            if dataset_scheduler is not None:
+                raise ValueError("dynamic_sampling does not support dataset_scheduler")
+            if self._loss_binding.train_zero_advantage_batches:
+                raise ValueError(
+                    "dynamic_sampling cannot discard groups used by "
+                    "train_zero_advantage_batches"
+                )
+            floor = admission.dynamic_sampling.min_groups_per_step
+            if floor is not None and floor > groups_per_step:
+                raise ValueError("min_groups_per_step cannot exceed groups_per_step")
         if forward_backward_batch == "auto":
             eligible = (
                 not self._loss_binding.is_custom
@@ -417,8 +539,7 @@ class AsyncTrainer:
                 "requires an explicit mask_span or keep policy"
             )
         if max_staleness == 0 and (
-            completion.on_stragglers == "carry_over"
-            or engine.schedule.oversample_factor != 1
+            completion.on_stragglers == "carry_over" or self.admission.oversample != 1
         ):
             raise ValueError("synchronous admission cannot carry tails or oversample")
         for name, value in (
@@ -484,6 +605,7 @@ class AsyncTrainer:
         self._loss_binding.bind(engine, checkpointing=checkpoint is not None)
         self._running = False
         self._status = "idle"
+        self._dataset_exhausted = False
         self._backward_group_batches = []
         self._activities = Activities()
 
@@ -570,19 +692,33 @@ class AsyncTrainer:
             # Transport tuning does not change the rollout/training recipe.
             # Keep admission, priority and oversampling in the fingerprint.
             "schedule": {
-                key: value
-                for key, value in dataclasses.asdict(self.engine.schedule).items()
-                if key
-                not in {
-                    "window",
-                    "max_batch",
-                    "max_batch_bytes",
-                    "max_sample_requests",
-                    "max_rpc_workers",
-                }
+                **{
+                    key: value
+                    for key, value in dataclasses.asdict(self.engine.schedule).items()
+                    if key
+                    not in {
+                        "window",
+                        "max_batch",
+                        "max_batch_bytes",
+                        "max_sample_requests",
+                        "max_rpc_workers",
+                    }
+                },
+                "admit_ahead": self._fingerprint_ahead,
+                "oversample_factor": self._fingerprint_oversample,
             },
             "group_size": self.group_size,
             "groups_per_step": self.groups_per_step,
+            # The budget ratio and batch floor only decide when sampling gives
+            # up, so either may change on resume to continue an exhausted run.
+            **({"dynamic_sampling": True} if self.dynamic_sampling else {}),
+            # The filter changes which groups train, unlike the limits above.
+            **(
+                {"dynamic_sampling_keep": _callback_contract(keep)}
+                if self.dynamic_sampling
+                and (keep := self.admission.dynamic_sampling.keep) is not None
+                else {}
+            ),
             "normalize": self._loss_binding.normalize,
             "validate_batch": (
                 None
@@ -677,6 +813,34 @@ class AsyncTrainer:
         session = getattr(model, "_session", getattr(model, "session", None))
         return session if callable(getattr(session, "restore_images", None)) else None
 
+    def _compatible_config_fingerprints(self, config):
+        compatible_fingerprints = self._loss_binding.compatible_fingerprints(config)
+        if (
+            self.engine._live_full_weight
+            and config["sampling_policy"] == "segment"
+            and config["kv_cache"]
+            == {"max_staleness": 0, "on_limit": "refill", "allow_reprefill": True}
+        ):
+            # v0.17.0 named these defaults trajectory/hold, but full-weight
+            # sampling already used live policies without retained KV.
+            # Accept only that old spelling of the corrected defaults;
+            # every other recipe field must still match, including the
+            # existing equivalence rules for omitted/default loss options.
+            compatible_fingerprints.update(
+                self._loss_binding.compatible_fingerprints(
+                    config
+                    | {
+                        "sampling_policy": "trajectory",
+                        "kv_cache": {
+                            "max_staleness": 0,
+                            "on_limit": "hold",
+                            "allow_reprefill": False,
+                        },
+                    }
+                )
+            )
+        return compatible_fingerprints
+
     async def _save_state(self, *, background=False):
         if self._state_write is not None:
             await self._wait_state_write(self._state_write)
@@ -708,9 +872,15 @@ class AsyncTrainer:
             **self._fingerprints,
             "n": self._n,
             "submitted": self._submitted,
+            # Retain the persisted key for checkpoints written by earlier clients.
+            "dynamic_sampling_counts": self._dynamic_sampling_counts.copy(),
             "model_step": self.engine.model.step,
             "dataset_images": self._dataset_images,
-            "sampling_schedule": dataclasses.asdict(self.engine.schedule),
+            "sampling_schedule": {
+                **dataclasses.asdict(self.engine.schedule),
+                "admit_ahead": self._fingerprint_ahead,
+                "oversample_factor": self._fingerprint_oversample,
+            },
             "base": None if self._base is None else dataclasses.asdict(self._base),
             "durable_base": self._durable_base,
             "updates_since_save": self._updates_since_save,
@@ -784,11 +954,15 @@ class AsyncTrainer:
     async def _wait_state_write(write):
         # Cancelling an await cannot stop the filesystem writer. Drain it before
         # another save or shutdown can replace metadata or prune its arrays.
-        try:
-            await asyncio.shield(write)
-        except asyncio.CancelledError:
-            await write
-            raise
+        cancelled = None
+        while not write.done():
+            try:
+                await asyncio.shield(write)
+            except asyncio.CancelledError as error:
+                cancelled = error
+        write.result()
+        if cancelled is not None:
+            raise cancelled
 
     async def _refresh_policy(self):
         if self.engine.server_capabilities is not None:
@@ -1268,6 +1442,33 @@ class AsyncTrainer:
                 await self._drain_backwards()
         return fb, await self._optimize(optimizer_kwargs)
 
+    async def _prepare_group(self, group, *, advantages=None):
+        """Use the same masks, advantages and data conversion for filtering/backward."""
+        estimator = self.advantage
+        if estimator.standardize == "batch":
+            estimator = dataclasses.replace(estimator, standardize=False)
+        self._apply_policy_provenance(group.trajectories)
+        data, metrics = await call(
+            _build_batch,
+            [group.trajectories],
+            estimator=estimator,
+            normalize=self._loss_binding.normalize,
+            truncation=self.truncation,
+            min_members=self.completion.min_members,
+            current_step=self._committed_step,
+            max_staleness=self.max_staleness,
+            defer_normalization=True,
+            advantages=advantages,
+            include_loss_mask=self._loss_binding.is_custom,
+            loss=self._loss_binding,
+        )
+        if metrics["staleness/frac_masked"]:
+            raise RuntimeError(
+                "backward accumulation received samples outside the staleness bound"
+            )
+        # Advantages align with input positions, including conditioning/image tokens.
+        return data, sum(data.lengths())
+
     async def _accumulate_ready(self, *, flush=False):
         """Backprop complete groups; keep their trajectories pending until Adam.
 
@@ -1356,31 +1557,9 @@ class AsyncTrainer:
                 for group in groups:
                     key = (self._committed_step, group.id)
                     if key not in self._prepared_groups:
-                        self._apply_policy_provenance(group.trajectories)
-                        # Spilled arrays are read from disk; keep it off the loop.
-                        contribution, metrics = await call(
-                            _build_batch,
-                            [group.trajectories],
-                            estimator=estimator,
-                            normalize=self._loss_binding.normalize,
-                            truncation=self.truncation,
-                            min_members=self.completion.min_members,
-                            current_step=self._committed_step,
-                            max_staleness=self.max_staleness,
-                            defer_normalization=True,
+                        self._prepared_groups[key] = await self._prepare_group(
+                            group,
                             advantages=None if by_id is None else [by_id[group.id]],
-                            include_loss_mask=self._loss_binding.is_custom,
-                            loss=self._loss_binding,
-                        )
-                        if metrics["staleness/frac_masked"]:
-                            raise RuntimeError(
-                                "backward accumulation received samples outside the staleness bound"
-                            )
-                        # Advantages align with every input position, including
-                        # conditioning text and expanded image tokens.
-                        self._prepared_groups[key] = (
-                            contribution,
-                            sum(contribution.lengths()),
                         )
                     contribution, input_tokens = self._prepared_groups[key]
                     if starting_custom and not contribution.advantaged():
@@ -1487,7 +1666,31 @@ class AsyncTrainer:
                     "outstanding rollout reservations exceed the staleness window"
                 )
 
+    def _min_batch_groups(self):
+        floor = self.admission.dynamic_sampling.min_groups_per_step
+        return self.groups_per_step if floor is None else floor
+
+    def _sampling_budget_spent(self):
+        """Rejections since the previous batch exceed the attempted-group budget.
+
+        Kept and outstanding groups do not spend it, so lookahead and
+        oversampling cannot exhaust it without rejections.
+        """
+        if not self.dynamic_sampling:
+            return False
+        ratio = self.admission.dynamic_sampling.max_attempted_group_ratio
+        return (
+            self._dynamic_sampling_counts["rejected"]
+            > (ratio - 1) * self.groups_per_step
+        )
+
     def _batch_group_count(self):
+        if self._dataset_exhausted or (
+            self._sampling_budget_spent() and not self._active
+        ):
+            # No further candidates can arrive for this batch; train what was kept.
+            return min(self.groups_per_step, len(self._pending))
+        # The horizon counts batches: a short batch still uses one of `steps`.
         return min(
             self.groups_per_step, self._total_groups - self._n * self.groups_per_step
         )
@@ -1644,16 +1847,23 @@ class AsyncTrainer:
                 return None
             result = result_task.result()
             async with self._lock:
-                self.engine.accept(result)
-                if result.id in self._finished:
-                    return False
-                unseen = [t for t in result.trajectories if t.id not in self._received]
-                self._received.update(t.id for t in unseen)
-                result.trajectories = unseen
-                if result.final:
-                    self._active.discard(result.id)
-                    self._finished.add(result.id)
-                    self.engine.acknowledge(result.id)
+                if self.dynamic_sampling:
+                    # Complete groups are accepted/acknowledged atomically. Active
+                    # membership deduplicates deliveries without retaining the ids
+                    # of every rejected group and trajectory in checkpoints.
+                    if result.id not in self._active:
+                        self.engine.accept(result)
+                        return False
+                    unseen = result.trajectories
+                else:
+                    if result.id in self._finished:
+                        self.engine.accept(result)
+                        return False
+                    unseen = [
+                        t for t in result.trajectories if t.id not in self._received
+                    ]
+                prepared = diagnostics = None
+                filtered = False
                 if unseen:
                     if self.stale_policy == "wait":
                         admitted = self._admitted_policy_steps[result.id]
@@ -1667,6 +1877,80 @@ class AsyncTrainer:
                                 "sample policy predates its admission reservation; "
                                 "the sampler must follow this trainer's policy updates"
                             )
+                    if self.dynamic_sampling:
+                        rewards = [
+                            value
+                            for value in _training_rewards(
+                                [unseen],
+                                self.truncation,
+                                estimator=self.advantage,
+                                min_members=self.completion.min_members,
+                            )[0]
+                            if value is not None
+                        ]
+                        # Centering equal fractional rewards can leave rounding
+                        # residue. Reject exact equality without a tolerance that
+                        # would also remove distinct, nearly equal rewards.
+                        prepared = (
+                            await self._prepare_group(result)
+                            if len(rewards) >= max(2, self.completion.min_members)
+                            and any(reward != rewards[0] for reward in rewards[1:])
+                            else (TrainingBatch(), 0)
+                        )
+                        keep = self.admission.dynamic_sampling.keep
+                        if keep is not None and prepared[0].advantaged():
+                            # Before accept: a failing filter keeps the
+                            # delivery replayable, like a preparation failure.
+                            decision = await call(keep, result)
+                            if inspect.isawaitable(decision):
+                                decision = await decision
+                            if type(decision) is not bool:
+                                raise TypeError(
+                                    "DynamicSampling.keep must return a bool"
+                                )
+                            filtered = not decision
+                    diagnostics = _rollout_counts(unseen)
+
+                # Validate/prepare before consuming the engine's delivery. A
+                # failure leaves it active and in the outbox for checkpoint replay.
+                self.engine.accept(result)
+                result.trajectories = unseen
+                if not self.dynamic_sampling:
+                    self._received.update(t.id for t in unseen)
+                if result.final:
+                    self.engine.acknowledge(result.id)
+                    self._active.discard(result.id)
+                    if not self.dynamic_sampling:
+                        self._finished.add(result.id)
+                if unseen:
+                    # Match reward/mean's raw environment scores, before
+                    # truncation policies and group rejection select training data.
+                    scored = [t.reward for t in unseen if not t.dropped]
+                    counts = self._dynamic_sampling_counts
+                    counts["reward_sum"] = counts.get("reward_sum", 0.0) + sum(scored)
+                    counts["reward_count"] = counts.get("reward_count", 0) + len(scored)
+                    counts["trajectories"] = counts.get("trajectories", 0) + len(unseen)
+                    for key, count in diagnostics.items():
+                        counts[key] = counts.get(key, 0) + count
+                    if prepared is not None:
+                        if filtered or not prepared[0].advantaged():
+                            del self._admitted_policy_steps[result.id]
+                            counts["rejected"] += 1
+                            if filtered:
+                                counts["rejected_by_keep"] = (
+                                    counts.get("rejected_by_keep", 0) + 1
+                                )
+                            # Generation spent on groups that never train.
+                            counts["rejected_generated_tokens"] = counts.get(
+                                "rejected_generated_tokens", 0
+                            ) + sum(t.generated_tokens for t in unseen)
+                            return True
+                        if self._overlap:
+                            self._prepared_groups[self._committed_step, result.id] = (
+                                prepared
+                            )
+                    if result.final:
+                        self._dynamic_sampling_counts["kept"] += 1
                     self._pending.append(result)
                 return True
         finally:
@@ -1675,13 +1959,68 @@ class AsyncTrainer:
                     task.cancel()
             await asyncio.gather(result_task, stop_task, return_exceptions=True)
 
+    async def _admit_available(self, rows):
+        self._dataset_exhausted = (
+            not self.repeat_dataset
+            and self._submitted >= len(rows)
+            and not self._active
+        )
+        if not self.repeat_dataset and self._submitted >= len(rows):
+            return
+        if self._sampling_budget_spent():
+            # Stop refilling. Groups already sampling may still fill the batch;
+            # fail once they can no longer reach the minimum batch.
+            if len(self._admitted_policy_steps) < self._min_batch_groups():
+                ratio = self.admission.dynamic_sampling.max_attempted_group_ratio
+                raise SamplingExhausted(
+                    batch=self._n + 1,
+                    rejected=self._dynamic_sampling_counts["rejected"],
+                    limit=f"max_attempted_group_ratio ({ratio})",
+                )
+            return
+        ahead = self.admission.batches_ahead
+        desired = min(
+            (1 + self.max_staleness) * self.groups_per_step,
+            math.ceil((1 + ahead) * self.groups_per_step * self.admission.oversample),
+        )
+        if self.dynamic_sampling:
+            # Attempts have unique ids and advance the dataset cursor, but only
+            # retained groups spend the training horizon. Every outstanding
+            # candidate still reserves a slot until it is rejected or trained.
+            remaining = self._total_groups - self._n * self.groups_per_step
+            limit = (
+                self._submitted
+                + min(desired, remaining)
+                - len(self._admitted_policy_steps)
+            )
+            if not self.repeat_dataset:
+                limit = min(limit, len(rows))
+        else:
+            limit = min(self._total_groups, self._n * self.groups_per_step + desired)
+        if self._submitted < limit:
+            await self._publish_sampling_snapshot()
+        while self._submitted < limit:
+            row = (
+                rows[self._submitted % len(rows)]
+                if self.dataset_scheduler is None
+                else self.dataset_scheduler.row(self._submitted, rows)
+            )
+            self._admit(row, f"group-{self._submitted}")
+            self._submitted += 1
+
     async def run(self, dataset, *, steps: int, after_recovery=None):
         """Yield a :class:`Step` after each completed training batch.
 
         Args:
             dataset: Rows used to create rollout groups.
-            steps: Number of batches to complete. A batch with no usable
-                training data still counts, but does not update the model.
+            steps: Maximum batches with dynamic sampling on a finite dataset;
+                otherwise the number of batches to complete (raises if more than
+                a finite dataset can supply without filtering). A finite dataset
+                ends with a smaller batch if informative groups remain. Without
+                filtering, an unusable batch counts but does not update the model.
+                The learning-rate schedule still uses this requested horizon;
+                early dataset exhaustion does not rescale it. Use repeat_dataset=True
+                to target the full horizon (subject to the sampling budget).
             after_recovery: Optional async callback receiving the number of
                 restored batches before new training starts. It also runs if
                 all requested batches were already complete. Make it
@@ -1691,11 +2030,6 @@ class AsyncTrainer:
             raise RuntimeError("trainer is already running")
         _integer(steps, "steps", 1)
         self._full_weight = getattr(self.engine.model, "full_weight", False) is True
-        if self._full_weight and self.evaluator is not None:
-            raise ValueError(
-                "checkpoint evaluation samples saved checkpoints, which a "
-                "full-weight run cannot serve"
-            )
         rows = list(dataset)
         image_session = self._image_session()
         if not rows or steps < 1:
@@ -1704,8 +2038,11 @@ class AsyncTrainer:
             rows = self.evaluator.exclude_holdout(rows)
             if not rows:
                 raise ValueError("no training rows remain after holdout exclusion")
-        if not self.repeat_dataset and steps > math.ceil(
-            len(rows) / self.groups_per_step
+        available_batches = math.ceil(len(rows) / self.groups_per_step)
+        if (
+            not self.repeat_dataset
+            and not self.dynamic_sampling
+            and steps > available_batches
         ):
             raise ValueError(
                 "steps exceeds the finite dataset; enable repeat_dataset to cycle"
@@ -1730,6 +2067,8 @@ class AsyncTrainer:
         if not self.repeat_dataset:
             self._total_groups = min(self._total_groups, len(rows))
         self._n, self._submitted = 0, 0
+        self._dataset_exhausted = False
+        self._dynamic_sampling_counts = {"kept": 0, "rejected": 0}
         self._active, self._finished, self._received = set(), set(), set()
         self._pending, self._journal = [], []
         self._updates_since_save = 0
@@ -1757,31 +2096,7 @@ class AsyncTrainer:
         if self.checkpoint:
             config = self._config()
             self._fingerprints["config_fingerprint"] = fingerprint(config)
-            compatible_fingerprints = self._loss_binding.compatible_fingerprints(config)
-            if (
-                self.engine._live_full_weight
-                and config["sampling_policy"] == "segment"
-                and config["kv_cache"]
-                == {"max_staleness": 0, "on_limit": "refill", "allow_reprefill": True}
-            ):
-                # v0.17.0 named these defaults trajectory/hold, but full-weight
-                # sampling already used live policies without retained KV.
-                # Accept only that old spelling of the corrected defaults;
-                # every other recipe field must still match, including the
-                # existing equivalence rules for omitted/default loss options.
-                compatible_fingerprints.update(
-                    self._loss_binding.compatible_fingerprints(
-                        config
-                        | {
-                            "sampling_policy": "trajectory",
-                            "kv_cache": {
-                                "max_staleness": 0,
-                                "on_limit": "hold",
-                                "allow_reprefill": False,
-                            },
-                        }
-                    )
-                )
+            compatible_fingerprints = self._compatible_config_fingerprints(config)
         self._run_key = self._fingerprints["plan_fingerprint"][:12]
         store_context = (
             StateStore(self.checkpoint) if self.checkpoint else nullcontext()
@@ -1812,6 +2127,36 @@ class AsyncTrainer:
                     if self.init_checkpoint is not None:
                         raise ValueError(
                             "init_checkpoint is mutually exclusive with automatic resume"
+                        )
+                    if self._uses_admission:
+                        saved_schedule = saved.get("sampling_schedule", {})
+                        saved_ahead = saved_schedule.get("admit_ahead")
+                        if (
+                            type(saved_ahead) is int
+                            and saved_ahead >= 0
+                            and min(saved_ahead, self.max_staleness)
+                            == self.admission.batches_ahead
+                        ):
+                            # Preserve the old spelling of an equivalent clamped
+                            # window, including in subsequent saves for rollback.
+                            self._fingerprint_ahead = saved_ahead
+                        saved_oversample = saved_schedule.get("oversample_factor")
+                        if (
+                            type(saved_oversample) in (int, float)
+                            and saved_oversample == self.admission.oversample
+                        ):
+                            # JSON distinguishes legacy integer and float spellings.
+                            self._fingerprint_oversample = saved_oversample
+                        config = config | {
+                            "schedule": config["schedule"]
+                            | {
+                                "admit_ahead": self._fingerprint_ahead,
+                                "oversample_factor": self._fingerprint_oversample,
+                            }
+                        }
+                        self._fingerprints["config_fingerprint"] = fingerprint(config)
+                        compatible_fingerprints = self._compatible_config_fingerprints(
+                            config
                         )
                     if saved.get("version") != 1 or any(
                         saved.get(k) != v
@@ -1852,6 +2197,14 @@ class AsyncTrainer:
                         self.engine.server_capabilities.require_model(
                             self.engine.model.base_model, "full_weight_rl_v1"
                         )
+                        if (
+                            self.evaluator is not None
+                            and getattr(self.evaluator, "deployment", None) is None
+                        ):
+                            self.engine.server_capabilities.require_model(
+                                self.engine.model.base_model,
+                                "full_weight_checkpoint_sampling_v1",
+                            )
                     await self._refresh_policy()
                     readmit = None
                     checkpoint_recovery = False
@@ -1902,6 +2255,11 @@ class AsyncTrainer:
                             )
                     if saved:
                         self._n, self._submitted = saved["n"], saved["submitted"]
+                        self._dynamic_sampling_counts = dict(
+                            saved.get(
+                                "dynamic_sampling_counts", {"kept": 0, "rejected": 0}
+                            )
+                        )
                         self._active, self._finished, self._received = (
                             set(saved["active"]),
                             set(saved["finished"]),
@@ -1938,7 +2296,9 @@ class AsyncTrainer:
                         )
                         del restored_trajectories
                         if self.evaluator:
-                            self.evaluator.load_state_dict(saved["eval_history"])
+                            self.evaluator.load_state_dict(
+                                saved["eval_history"], model=self.engine.model
+                            )
                         if readmit is not None:
                             for group_id, row in readmit:
                                 self._admit(row, group_id)
@@ -1970,7 +2330,20 @@ class AsyncTrainer:
                         await after_recovery(self._n)
                     self._validate_reservations()
                     if self.evaluator:
-                        await self.evaluator.launch(self.engine.model, self._n)
+                        await self.evaluator.launch(
+                            self.engine.model,
+                            self._n,
+                            **(
+                                {"on_checkpoint": self._save_state}
+                                if self._store
+                                and (
+                                    self._full_weight
+                                    or getattr(self.evaluator, "deployment", None)
+                                    is not None
+                                )
+                                else {}
+                            ),
+                        )
                     for name in self.checkpoint.on_signal if self.checkpoint else ():
                         sig = getattr(signal, name)
                         handlers[sig] = signal.getsignal(sig)
@@ -2004,53 +2377,25 @@ class AsyncTrainer:
                             ):
                                 self._checkpoint_task.result()
                             self._check_step()
-                            if self._submitted < self._total_groups:
-                                async with self._lock:
-                                    await self._publish_sampling_snapshot()
                             self._validate_reservations()
-                            ahead = min(
-                                self.engine.schedule.admit_ahead, self.max_staleness
-                            )
-                            slots = (1 + self.max_staleness) * self.groups_per_step
-                            # Extra whole groups consume the same admission budget.
-                            desired = min(
-                                slots,
-                                math.ceil(
-                                    (1 + ahead)
-                                    * self.groups_per_step
-                                    * self.engine.schedule.oversample_factor
-                                ),
-                            )
                             async with self._lock:
-                                while (
-                                    self._submitted < self._total_groups
-                                    and self._submitted
-                                    < self._n * self.groups_per_step + desired
-                                ):
-                                    row = (
-                                        rows[self._submitted % len(rows)]
-                                        if self.dataset_scheduler is None
-                                        else self.dataset_scheduler.row(
-                                            self._submitted, rows
-                                        )
-                                    )
-                                    self._admit(row, f"group-{self._submitted}")
-                                    self._submitted += 1
+                                await self._admit_available(rows)
                             wait_seconds, wait_count = 0.0, 0
                             # Restored pending groups may already have populated
                             # worker gradients in the old process. Rebuild them.
                             await self._accumulate_ready()
-                            while (
-                                not self._pending_ready()
-                                and self._active
-                                and not self._stop.is_set()
-                            ):
+                            while not self._pending_ready() and not self._stop.is_set():
+                                if not self._active:
+                                    break
                                 blocked = (
                                     self.stale_policy == "wait"
                                     and len(self._pending) >= self.groups_per_step
                                 )
                                 wait_started = time.monotonic()
                                 await self._receive()
+                                if self.dynamic_sampling and not self._stop.is_set():
+                                    async with self._lock:
+                                        await self._admit_available(rows)
                                 await self._accumulate_ready()
                                 if blocked:
                                     wait_seconds += time.monotonic() - wait_started
@@ -2244,6 +2589,46 @@ class AsyncTrainer:
                                         del self._admitted_policy_steps[group.id]
                                     self._validate_reservations()
                                 self._n += 1
+                                counts = self._dynamic_sampling_counts
+                                if self.dynamic_sampling:
+                                    kept = counts["kept"]
+                                    rejected = counts["rejected"]
+                                    metrics.update(
+                                        {
+                                            "sampling/groups_kept": float(kept),
+                                            "sampling/groups_rejected": float(rejected),
+                                            "sampling/rejected_generated_tokens": float(
+                                                counts.get(
+                                                    "rejected_generated_tokens", 0
+                                                )
+                                            ),
+                                            "train/groups": float(len(selected)),
+                                        }
+                                    )
+                                    if self.admission.dynamic_sampling.keep is not None:
+                                        metrics["sampling/groups_rejected_by_keep"] = (
+                                            float(counts.get("rejected_by_keep", 0))
+                                        )
+                                    if kept + rejected:
+                                        metrics["sampling/group_acceptance_rate"] = (
+                                            kept / (kept + rejected)
+                                        )
+                                scored = counts.get("reward_count", 0)
+                                if scored:
+                                    metrics["sampling/reward_mean"] = (
+                                        counts["reward_sum"] / scored
+                                    )
+                                for key, count in counts.items():
+                                    if key.startswith("rollout/"):
+                                        metrics[f"sampling/{key}"] = float(count)
+                                    elif key.startswith("truncated/"):
+                                        metrics[f"sampling/{key}"] = (
+                                            count / counts["trajectories"]
+                                        )
+                                self._dynamic_sampling_counts = {
+                                    "kept": 0,
+                                    "rejected": 0,
+                                }
                                 if self.dataset_scheduler is not None:
                                     metrics.update(
                                         self.dataset_scheduler.commit(self._n, selected)
@@ -2304,13 +2689,37 @@ class AsyncTrainer:
                                     and self._updates_since_save
                                     >= self.checkpoint.weights_every
                                 ):
-                                    await self._save_weights(durable=self._n == steps)
+                                    await self._save_weights(
+                                        durable=self._n == steps
+                                        or (
+                                            self._dataset_exhausted
+                                            and not self._pending
+                                        )
+                                    )
                                 if self.evaluator:
                                     try:
                                         await self.evaluator.launch(
                                             self.engine.model,
                                             self._n,
-                                            final=self._n == steps,
+                                            final=self._n == steps
+                                            or (
+                                                self._dataset_exhausted
+                                                and not self._pending
+                                            ),
+                                            **(
+                                                {"on_checkpoint": self._save_state}
+                                                if self._store
+                                                and (
+                                                    self._full_weight
+                                                    or getattr(
+                                                        self.evaluator,
+                                                        "deployment",
+                                                        None,
+                                                    )
+                                                    is not None
+                                                )
+                                                else {}
+                                            ),
                                         )
                                     except Exception:
                                         # Evaluation cannot roll back an optimizer
@@ -2325,8 +2734,46 @@ class AsyncTrainer:
                                     trajectories,
                                 )
                             yield step
+                        if (
+                            self.dynamic_sampling
+                            and self._dataset_exhausted
+                            and self._n == 0
+                            and not self._stop.is_set()
+                        ):
+                            warnings.warn(
+                                "dynamic_sampling exhausted the finite dataset without "
+                                "a trainable group; no training updates were performed",
+                                RuntimeWarning,
+                                stacklevel=2,
+                            )
                         if self.evaluator:
                             try:
+                                if (
+                                    self._dataset_exhausted
+                                    and self._n > 0
+                                    and not self._pending
+                                    and not self._stop.is_set()
+                                ):
+                                    async with self._lock:
+                                        await self.evaluator.launch(
+                                            self.engine.model,
+                                            self._n,
+                                            final=True,
+                                            **(
+                                                {"on_checkpoint": self._save_state}
+                                                if self._store
+                                                and (
+                                                    self._full_weight
+                                                    or getattr(
+                                                        self.evaluator,
+                                                        "deployment",
+                                                        None,
+                                                    )
+                                                    is not None
+                                                )
+                                                else {}
+                                            ),
+                                        )
                                 await self._finish_evaluation()
                             except Exception:
                                 # Background rollout/logging failures do not
@@ -2335,37 +2782,60 @@ class AsyncTrainer:
                                     async with self._lock:
                                         await self._save_state()
                                 raise
+                    except SamplingExhausted:
+                        # No optimizer was submitted. The normal finalizer drains
+                        # partial backward work and saves pending groups/counters;
+                        # recovery rebuilds gradients from those retained groups.
+                        raise
                     except Exception as error:
                         healthy = False
+                        # Stop periodic writes before the rewind RPC can yield
+                        # with a failed optimizer's state still in memory.
+                        if self._checkpoint_task:
+                            self._checkpoint_task.cancel()
                         if self._full_weight:
                             await self._raise_if_rewound(error)
                         raise
                     finally:
+                        # A failed receive/update may leave transient state that
+                        # must not replace the last recoverable checkpoint while
+                        # outstanding backward calls are being drained.
+                        if self._checkpoint_task:
+                            self._checkpoint_task.cancel()
                         # Submitted RPCs keep running even if their waiter is
                         # cancelled. Drain before closing/checkpointing a model;
                         # failed contributions must never reach an optimizer.
-                        failure = await self._drain_backwards()
-                        backward_failure = failure if healthy else None
-                        if failure is not None:
-                            healthy = False
-                        if self._checkpoint_task:
-                            self._checkpoint_task.cancel()
-                            result = await asyncio.gather(
-                                self._checkpoint_task, return_exceptions=True
-                            )
-                            if isinstance(result[0], Exception):
+                        checkpoint_failure = None
+                        try:
+                            failure = await self._drain_backwards()
+                            backward_failure = failure if healthy else None
+                            if failure is not None:
                                 healthy = False
-                                raise result[0]
+                        finally:
+                            # The drain can re-raise cancellation. Keep the
+                            # directory lock until its writer also finishes.
+                            if self._checkpoint_task:
+                                result = await asyncio.gather(
+                                    self._checkpoint_task, return_exceptions=True
+                                )
+                                if isinstance(result[0], Exception):
+                                    healthy = False
+                                    checkpoint_failure = result[0]
+                        # Preserve cancellation from the backward drain once
+                        # the writer has finished, even if that write failed.
+                        if checkpoint_failure is not None:
+                            raise checkpoint_failure
                         if self._store and healthy and not self._updating:
                             async with self._lock:
-                                if self._n == steps and (
+                                if (
+                                    self._n == steps
+                                    or (self._dataset_exhausted and not self._pending)
+                                ) and (
                                     self._updates_since_save or not self._durable_base
                                 ):
                                     await self._save_weights(durable=True)
                                 else:
                                     await self._save_state()
-                        if self.evaluator:
-                            await self.evaluator.close()
                         if backward_failure is not None:
                             raise backward_failure
         except BaseException as error:
@@ -2376,14 +2846,32 @@ class AsyncTrainer:
             )
             raise
         finally:
-            self._prepared_groups.clear()
-            self.engine._latest_snapshot_sampling = previous_snapshot_sampling
-            if self._status == "running":
-                self._status = "completed" if self._n == steps else "stopped"
-            for sig, handler in handlers.items():
-                asyncio.get_running_loop().remove_signal_handler(sig)
-                signal.signal(sig, handler)
-            self._running = False
+            try:
+                # Recovery and checkpoint writes can fail before the training
+                # loop's cleanup. Always release background evaluation workers.
+                if self.evaluator:
+                    await self.evaluator.close()
+            except BaseException:
+                self._status = "failed"
+                raise
+            finally:
+                self._prepared_groups.clear()
+                self.engine._latest_snapshot_sampling = previous_snapshot_sampling
+                if self._status == "running":
+                    self._status = (
+                        "completed"
+                        if self._n == steps
+                        or (
+                            self._dataset_exhausted
+                            and not self._pending
+                            and not self._stop.is_set()
+                        )
+                        else "stopped"
+                    )
+                for sig, handler in handlers.items():
+                    asyncio.get_running_loop().remove_signal_handler(sig)
+                    signal.signal(sig, handler)
+                self._running = False
 
 
 def run(trainer: AsyncTrainer, dataset, *, steps: int, on_step=None):

@@ -64,6 +64,8 @@ class LinkedinAdsSearchInput(TypedDict, total=False):
     """LinkedIn company identifier."""
     countries: NotRequired[str]
     """Comma-separated two-letter country codes (e.g. "US,CA,MX")."""
+    cursor: NotRequired[str]
+    """Opaque pagination cursor from a previous response's `nextCursor`; omit for the first page."""
     endDate: NotRequired[str]
     """Search end date in YYYY-MM-DD format. Today or a later date is moved back to yesterday in UTC when your range overlaps LinkedIn's accepted dates. When you send startDate without endDate, the search ends yesterday in UTC, the latest day LinkedIn accepts."""
     ignoreSources: NotRequired[list[str]]
@@ -71,7 +73,7 @@ class LinkedinAdsSearchInput(TypedDict, total=False):
     keyword: NotRequired[str]
     """Keyword term for the ad search."""
     paginationToken: NotRequired[str]
-    """Opaque pagination token from a previous response's nextCursor."""
+    """Legacy pagination alias. Prefer `cursor`; omit both fields for the first page."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     source: NotRequired[list[str]]
@@ -1420,7 +1422,7 @@ class LinkedinAdsSearchData(BaseModel):
     ads: list[LinkedinAdsSearchAd] = Field(
         description="Populated whenever the provider has data for the entity."
     )
-    next_cursor: str = Field(alias="nextCursor")
+    next_cursor: str | None = Field(alias="nextCursor")
     total_ads: int = Field(alias="totalAds")
 
 
@@ -5368,6 +5370,29 @@ class LinkedinNamespace:
         )
         return RunResult[LinkedinAdsSearchData].model_validate(raw)
 
+    def iter_ads_search(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[LinkedinAdsSearchInput],
+    ) -> Paginator[LinkedinAdsSearchAd, LinkedinAdsSearchData]:
+        """Iterate LinkedIn Ad Search results, following pagination cursors.
+
+        Yields validated `LinkedinAdsSearchAd` items from the `ads` field of
+        each page. Use `.pages()` on the returned paginator to walk whole
+        `RunResult` pages.
+        """
+        return paginate(
+            self._client,
+            "linkedin.ads_search",
+            dict(input),
+            "ads",
+            item_model=LinkedinAdsSearchAd,
+            data_model=LinkedinAdsSearchData,
+            bare=False,
+            options=options,
+        )
+
     def article(
         self,
         *,
@@ -6313,6 +6338,29 @@ class AsyncLinkedinNamespace:
             "linkedin.ads_search", dict(input), options
         )
         return RunResult[LinkedinAdsSearchData].model_validate(raw)
+
+    def iter_ads_search(
+        self,
+        *,
+        options: RequestOptions | None = None,
+        **input: Unpack[LinkedinAdsSearchInput],
+    ) -> AsyncPaginator[LinkedinAdsSearchAd, LinkedinAdsSearchData]:
+        """Iterate LinkedIn Ad Search results, following pagination cursors.
+
+        Yields validated `LinkedinAdsSearchAd` items from the `ads` field of
+        each page. Use `.pages()` on the returned paginator to walk whole
+        `RunResult` pages.
+        """
+        return apaginate(
+            self._client,
+            "linkedin.ads_search",
+            dict(input),
+            "ads",
+            item_model=LinkedinAdsSearchAd,
+            data_model=LinkedinAdsSearchData,
+            bare=False,
+            options=options,
+        )
 
     async def article(
         self,

@@ -17,8 +17,8 @@ T = TypeVar("T", bound="UploadDeploymentRequest")
 class UploadDeploymentRequest:
     """
     Attributes:
-        file (File):
-        requirements_file (File):
+        file (File): The deployment package: a tar.gz built by dlt that contains `manifest.yaml`.
+        requirements_file (File): The workspace requirements manifest.
     """
 
     file: File

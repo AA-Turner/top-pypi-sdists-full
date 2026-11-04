@@ -18,6 +18,7 @@ from unittest import mock
 
 from sqlalchemy import BigInteger
 from sqlalchemy import Column
+from sqlalchemy import event
 from sqlalchemy import exc
 from sqlalchemy import ForeignKey
 from sqlalchemy import func
@@ -30,6 +31,8 @@ from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy import util
 from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.orm import attribute_keyed_dict
+from sqlalchemy.orm import column_keyed_dict
 from sqlalchemy.orm import column_property
 from sqlalchemy.orm import composite
 from sqlalchemy.orm import DeclarativeBase
@@ -1139,6 +1142,62 @@ class RelationshipDefaultFactoryTest(fixtures.TestBase):
                     )
                 else:
                     collection_type.fail()
+
+    @testing.variation(
+        "collection_type",
+        ["keyed_dict_list", "keyed_dict_separate_class", "list_subclass_set"],
+    )
+    def test_no_funny_business_custom_collection(
+        self,
+        dc_decl_base: Type[MappedAsDataclass],
+        collection_type: testing.Variation,
+    ):
+        """test #13718"""
+
+        class MyList(list):
+            pass
+
+        if (
+            collection_type.keyed_dict_list
+            or collection_type.keyed_dict_separate_class
+        ):
+            expected = (
+                r"<class 'sqlalchemy.orm.mapped_collection.*_MKeyfuncMapped'>"
+                r" or <class 'dict'>"
+            )
+        elif collection_type.list_subclass_set:
+            expected = r"<class '.*MyList'> or <class 'list'>"
+        else:
+            collection_type.fail()
+
+        with expect_raises_message(
+            exc.ArgumentError,
+            r"For relationship A.bs using dataclass options, "
+            rf"default_factory must be exactly {expected}",
+        ):
+
+            class A(dc_decl_base):
+                __tablename__ = "a"
+
+                id: Mapped[int] = mapped_column(primary_key=True, init=False)
+
+                if collection_type.keyed_dict_list:
+                    bs: Mapped[Dict[str, "B"]] = relationship(  # noqa: F821
+                        collection_class=attribute_keyed_dict("data"),
+                        default_factory=list,
+                    )
+                elif collection_type.keyed_dict_separate_class:
+                    # each attribute_keyed_dict() call produces a new
+                    # class, so the default_factory is not the exact
+                    # collection class
+                    bs: Mapped[Dict[str, "B"]] = relationship(  # noqa: F821
+                        collection_class=attribute_keyed_dict("data"),
+                        default_factory=attribute_keyed_dict("data"),
+                    )
+                elif collection_type.list_subclass_set:
+                    bs: Mapped[List["B"]] = relationship(  # noqa: F821
+                        collection_class=MyList, default_factory=set
+                    )
 
     @testing.variation("collection_type", ["write_only", "dynamic"])
     def test_no_funny_business_write_only(
@@ -3398,6 +3457,319 @@ class UseDescriptorDefaultsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         else:
             eq_(mc.__dict__["data"], "default_status")
 
+    @testing.variation("parent_default", [True, False])
+    @testing.variation("use_attr_init", [True, False])
+    def test_use_existing_column_default(
+        self, dc_decl_base, parent_default, use_attr_init
+    ):
+        """test #13748"""
+
+        if use_attr_init:
+            attr_init_kw = {}
+        else:
+            attr_init_kw = {"init": False}
+
+        class Parent(dc_decl_base):
+            __tablename__ = "parent"
+            __mapper_args__ = {
+                "polymorphic_on": "type",
+                "polymorphic_identity": "parent",
+            }
+
+            id: Mapped[int] = mapped_column(primary_key=True, init=False)
+            type: Mapped[str] = mapped_column(init=False)
+
+            if parent_default:
+                data: Mapped[str] = mapped_column(default="parent_default")
+            else:
+                data: Mapped[str] = mapped_column()
+
+        class Child(Parent):
+            __mapper_args__ = {"polymorphic_identity": "child"}
+
+            data: Mapped[str] = mapped_column(
+                default="child_default",
+                use_existing_column=True,
+                **attr_init_kw,
+            )
+
+        is_(Child.__table__.c.data, Parent.__table__.c.data)
+
+        c1 = Child()
+        eq_(c1.data, "child_default")
+
+        if Child.use_descriptor_defaults:
+            assert "data" not in c1.__dict__
+        else:
+            eq_(c1.__dict__["data"], "child_default")
+
+        dc_decl_base.metadata.create_all(testing.db)
+
+        with Session(testing.db) as sess:
+            if parent_default:
+                sess.add(Parent())
+            else:
+                sess.add(Parent(data="parent_data"))
+            sess.add(c1)
+            sess.flush()
+
+            # value delivered to the INSERT is present after the flush,
+            # as is the case for column defaults
+            eq_(c1.__dict__["data"], "child_default")
+
+            sess.commit()
+
+            eq_(
+                sess.execute(
+                    select(Parent.type, Parent.data).order_by(Parent.type)
+                ).all(),
+                [
+                    ("child", "child_default"),
+                    (
+                        "parent",
+                        "parent_default" if parent_default else "parent_data",
+                    ),
+                ],
+            )
+
+    def test_use_existing_column_default_siblings(self, dc_decl_base):
+        """test #13748"""
+
+        class Parent(dc_decl_base):
+            __tablename__ = "parent"
+            __mapper_args__ = {
+                "polymorphic_on": "type",
+                "polymorphic_identity": "parent",
+            }
+
+            id: Mapped[int] = mapped_column(primary_key=True, init=False)
+            type: Mapped[str] = mapped_column(init=False)
+
+        class A(Parent):
+            __mapper_args__ = {"polymorphic_identity": "a"}
+
+            data: Mapped[str] = mapped_column(
+                default="a_default", use_existing_column=True
+            )
+
+        class B(Parent):
+            __mapper_args__ = {"polymorphic_identity": "b"}
+
+            data: Mapped[str] = mapped_column(
+                default="b_default", use_existing_column=True
+            )
+
+        is_(A.__table__.c.data, B.__table__.c.data)
+
+        dc_decl_base.metadata.create_all(testing.db)
+
+        with Session(testing.db) as sess:
+            sess.add_all([A(), B()])
+            sess.commit()
+
+            eq_(
+                sess.execute(
+                    select(Parent.type, Parent.__table__.c.data).order_by(
+                        Parent.type
+                    )
+                ).all(),
+                [("a", "a_default"), ("b", "b_default")],
+            )
+
+    def test_use_existing_column_default_explicit_none(self, dc_decl_base):
+        """test #13748; None given for a use_existing_column attribute
+        with a default is omitted from the INSERT and the default takes
+        effect, as is the case for a column default"""
+
+        class Parent(dc_decl_base):
+            __tablename__ = "parent"
+            __mapper_args__ = {
+                "polymorphic_on": "type",
+                "polymorphic_identity": "parent",
+            }
+
+            id: Mapped[int] = mapped_column(primary_key=True, init=False)
+            type: Mapped[str] = mapped_column(init=False)
+            data: Mapped[Optional[str]] = mapped_column(
+                default="parent_default"
+            )
+
+        class Child(Parent):
+            __mapper_args__ = {"polymorphic_identity": "child"}
+
+            data: Mapped[Optional[str]] = mapped_column(
+                default="child_default", use_existing_column=True
+            )
+
+        dc_decl_base.metadata.create_all(testing.db)
+
+        with Session(testing.db) as sess:
+            p1 = Parent(data=None)
+            c1 = Child(data=None)
+            sess.add_all([p1, c1])
+            sess.flush()
+
+            eq_(
+                (p1.__dict__["data"], c1.__dict__["data"]),
+                (
+                    "parent_default",
+                    (
+                        "child_default"
+                        if Child.use_descriptor_defaults
+                        else "parent_default"
+                    ),
+                ),
+            )
+            sess.commit()
+
+            eq_(
+                sess.execute(
+                    select(Parent.type, Parent.__table__.c.data).order_by(
+                        Parent.type
+                    )
+                ).all(),
+                [
+                    (
+                        "child",
+                        (
+                            "child_default"
+                            if Child.use_descriptor_defaults
+                            else "parent_default"
+                        ),
+                    ),
+                    ("parent", "parent_default"),
+                ],
+            )
+
+    def test_use_existing_column_default_refresh_flush(self, dc_decl_base):
+        """test #13748; a default delivered to the INSERT for a
+        use_existing_column attribute is reported by the refresh_flush
+        event, as is the case for a column default, and an attribute given
+        a value is not"""
+
+        class Parent(dc_decl_base):
+            __tablename__ = "parent"
+            __mapper_args__ = {
+                "polymorphic_on": "type",
+                "polymorphic_identity": "parent",
+            }
+
+            id: Mapped[int] = mapped_column(primary_key=True, init=False)
+            type: Mapped[str] = mapped_column(init=False)
+            data: Mapped[str] = mapped_column(default="parent_default")
+
+        class Child(Parent):
+            __mapper_args__ = {"polymorphic_identity": "child"}
+
+            data: Mapped[str] = mapped_column(
+                default="child_default", use_existing_column=True
+            )
+
+        refreshed = []
+
+        @event.listens_for(Child, "refresh_flush")
+        def refresh_flush(target, flush_context, attrs):
+            refreshed.append((target, attrs))
+
+        dc_decl_base.metadata.create_all(testing.db)
+
+        with Session(testing.db) as sess:
+            c1 = Child()
+            c2 = Child(data="custom_data")
+            sess.add_all([c1, c2])
+            sess.flush()
+
+            eq_(
+                (c1.__dict__["data"], c2.__dict__["data"]),
+                ("child_default", "custom_data"),
+            )
+
+        if Child.use_descriptor_defaults:
+            eq_(refreshed, [(c1, ["data"])])
+        else:
+            eq_(refreshed, [])
+
+    def test_use_existing_column_default_merge(self, dc_decl_base):
+        """test #13748; the default delivered to INSERT for a
+        use_existing_column attribute does not override a persisted
+        value on merge, as established by #12168"""
+
+        class Parent(dc_decl_base):
+            __tablename__ = "parent"
+            __mapper_args__ = {
+                "polymorphic_on": "type",
+                "polymorphic_identity": "parent",
+            }
+
+            id: Mapped[int] = mapped_column(
+                primary_key=True, autoincrement=False
+            )
+            type: Mapped[str] = mapped_column(init=False)
+            data: Mapped[str] = mapped_column(default="parent_default")
+
+        class Child(Parent):
+            __mapper_args__ = {"polymorphic_identity": "child"}
+
+            data: Mapped[str] = mapped_column(
+                default="child_default", use_existing_column=True
+            )
+
+        dc_decl_base.metadata.create_all(testing.db)
+
+        with Session(testing.db) as sess:
+            c1 = Child(id=1, data="custom_data")
+            sess.add(c1)
+            sess.flush()
+
+            c2 = sess.merge(Child(id=1))
+            is_(c2, c1)
+
+            if Child.use_descriptor_defaults:
+                eq_(c2.data, "custom_data")
+            else:
+                # was overridden by the default in __dict__
+                eq_(c2.data, "child_default")
+
+            sess.commit()
+
+            eq_(
+                sess.scalar(select(Parent.__table__.c.data)),
+                (
+                    "custom_data"
+                    if Child.use_descriptor_defaults
+                    else "child_default"
+                ),
+            )
+
+    def test_column_property_default_persisted(self, dc_decl_base):
+        """test #13748; a dataclass default on column_property() is not
+        part of the Column, and is delivered to the INSERT"""
+
+        with expect_deprecated(
+            "The column_property.default parameter is deprecated"
+        ):
+
+            class MyClass(dc_decl_base):
+                __tablename__ = "a"
+
+                id: Mapped[int] = mapped_column(primary_key=True, init=False)
+                data: Mapped[str] = column_property(
+                    Column(String(50)), default="some_default"
+                )
+
+        is_(MyClass.__table__.c.data.default, None)
+
+        dc_decl_base.metadata.create_all(testing.db)
+
+        with Session(testing.db) as sess:
+            sess.add(MyClass())
+            sess.commit()
+
+            eq_(
+                sess.scalar(select(MyClass.__table__.c.data)),
+                "some_default",
+            )
+
     @testing.variation("use_attr_init", [True, False])
     def test_fk_set_scenario(self, dc_decl_base, use_attr_init):
         if use_attr_init:
@@ -3558,6 +3930,99 @@ class UseDescriptorDefaultsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
 
             # field was explicit so is overridden by merge
             eq_(u3.things, [])
+
+    @testing.combinations(
+        ("attr_keyed_dict", lambda: attribute_keyed_dict("name"), dict),
+        (
+            "col_keyed_dict",
+            lambda Thing: column_keyed_dict(Thing.__table__.c.name),
+            dict,
+        ),
+        ("list_subclass", lambda MyList: MyList, list),
+        ("set_subclass", lambda MySet: MySet, set),
+        argnames="collection_class, plain_type",
+        id_="iaa",
+    )
+    @testing.variation("default_factory_type", ["plain", "exact"])
+    def test_default_factory_custom_collection(
+        self, dc_decl_base, collection_class, plain_type, default_factory_type
+    ):
+        """test #13718"""
+
+        class MyList(list):
+            pass
+
+        class MySet(set):
+            pass
+
+        class Thing(dc_decl_base, eq=False):
+            __tablename__ = "thing"
+
+            # identity hash so that instances can be placed in a set
+            __hash__ = object.__hash__
+
+            id: Mapped[int] = mapped_column(primary_key=True, init=False)
+            my_id: Mapped[int] = mapped_column(
+                ForeignKey("myclass.id"), init=False
+            )
+            name: Mapped[str]
+
+        collection_class = testing.resolve_lambda(
+            collection_class, MyList=MyList, MySet=MySet, Thing=Thing
+        )
+
+        if default_factory_type.plain:
+            default_factory = plain_type
+        elif default_factory_type.exact:
+            default_factory = collection_class
+        else:
+            default_factory_type.fail()
+
+        class MyClass(dc_decl_base):
+            __tablename__ = "myclass"
+
+            id: Mapped[int] = mapped_column(primary_key=True, init=False)
+
+            if plain_type is dict:
+                things: Mapped[Dict[str, Thing]] = relationship(
+                    collection_class=collection_class,
+                    default_factory=default_factory,
+                )
+            elif plain_type is list:
+                things: Mapped[List[Thing]] = relationship(
+                    collection_class=collection_class,
+                    default_factory=default_factory,
+                    order_by=Thing.id,
+                )
+            elif plain_type is set:
+                things: Mapped[Set[Thing]] = relationship(
+                    collection_class=collection_class,
+                    default_factory=default_factory,
+                )
+
+        dc_decl_base.metadata.create_all(testing.db)
+
+        t1, t2 = Thing(name="t1"), Thing(name="t2")
+
+        if plain_type is dict:
+            expected = {"t1": t1, "t2": t2}
+        else:
+            expected = plain_type([t1, t2])
+
+        m1 = MyClass()
+        m2 = MyClass(things=plain_type(expected))
+
+        is_true(isinstance(m1.things, collection_class))
+        is_true(isinstance(m2.things, collection_class))
+        eq_([m1.things, m2.things], [plain_type(), expected])
+
+        with Session(testing.db) as sess:
+            sess.add_all([m1, m2])
+            sess.commit()
+
+            is_true(isinstance(m1.things, collection_class))
+            is_true(isinstance(m2.things, collection_class))
+            eq_([m1.things, m2.things], [plain_type(), expected])
 
 
 class SynonymDescriptorDefaultTest(AssertsCompiledSQL, fixtures.TestBase):

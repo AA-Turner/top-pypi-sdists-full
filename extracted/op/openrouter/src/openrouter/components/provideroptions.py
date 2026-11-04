@@ -20,6 +20,7 @@ class ProviderOptionsTypedDict(TypedDict):
     amazon_bedrock_claude_on_aws: NotRequired[Dict[str, Any]]
     amazon_nova: NotRequired[Dict[str, Any]]
     ambient: NotRequired[Dict[str, Any]]
+    antdigital: NotRequired[Dict[str, Any]]
     anthropic: NotRequired[Dict[str, Any]]
     anthropic_2: NotRequired[Dict[str, Any]]
     anyscale: NotRequired[Dict[str, Any]]
@@ -111,9 +112,11 @@ class ProviderOptionsTypedDict(TypedDict):
     ollama: NotRequired[Dict[str, Any]]
     open_inference: NotRequired[Dict[str, Any]]
     openai: NotRequired[Dict[str, Any]]
+    parallel: NotRequired[Dict[str, Any]]
     parasail: NotRequired[Dict[str, Any]]
     pareto_alpha: NotRequired[Dict[str, Any]]
     particle_ai: NotRequired[Dict[str, Any]]
+    pearl_research: NotRequired[Dict[str, Any]]
     perceptron: NotRequired[Dict[str, Any]]
     perplexity: NotRequired[Dict[str, Any]]
     phala: NotRequired[Dict[str, Any]]
@@ -192,6 +195,8 @@ class ProviderOptions(BaseModel):
     ] = None
 
     ambient: Optional[Dict[str, Any]] = None
+
+    antdigital: Optional[Dict[str, Any]] = None
 
     anthropic: Optional[Dict[str, Any]] = None
 
@@ -405,6 +410,8 @@ class ProviderOptions(BaseModel):
 
     openai: Optional[Dict[str, Any]] = None
 
+    parallel: Optional[Dict[str, Any]] = None
+
     parasail: Optional[Dict[str, Any]] = None
 
     pareto_alpha: Annotated[
@@ -413,6 +420,10 @@ class ProviderOptions(BaseModel):
 
     particle_ai: Annotated[
         Optional[Dict[str, Any]], pydantic.Field(alias="particle-ai")
+    ] = None
+
+    pearl_research: Annotated[
+        Optional[Dict[str, Any]], pydantic.Field(alias="pearl-research")
     ] = None
 
     perceptron: Optional[Dict[str, Any]] = None
@@ -536,6 +547,7 @@ class ProviderOptions(BaseModel):
                 "amazon-bedrock/claude-on-aws",
                 "amazon-nova",
                 "ambient",
+                "antdigital",
                 "anthropic",
                 "anthropic/2",
                 "anyscale",
@@ -627,9 +639,11 @@ class ProviderOptions(BaseModel):
                 "ollama",
                 "open-inference",
                 "openai",
+                "parallel",
                 "parasail",
                 "pareto-alpha",
                 "particle-ai",
+                "pearl-research",
                 "perceptron",
                 "perplexity",
                 "phala",

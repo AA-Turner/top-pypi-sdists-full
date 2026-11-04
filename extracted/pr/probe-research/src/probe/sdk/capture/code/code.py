@@ -27,6 +27,12 @@ import unicodedata
 import re
 import socket
 from typing import Any
+from probe.foundation.walk_skips import (  # noqa: F401 -- CACHEDIR_* served here as before
+    CACHEDIR_SIGNATURE,
+    CACHEDIR_TAG,
+    GENERATED_DIRS,
+    is_tagged_cache_dir,
+)
 from ...recording_rules import ignore as _ignore
 from .. import owndirs as _owndirs
 from ...errors import RosError
@@ -361,39 +367,13 @@ def _is_lockfile(name: str) -> bool:
 # Directories that are rebuilt from a lockfile or a cache, never authored. Left
 # in, the first snapshot of an ordinary Python project uploads a few hundred MB
 # of `.venv` and calls it the experiment's code.
-SKIP_GENERATED_DIRS = frozenset({
-    ".git", ".hg", ".svn",
-    ".venv", "venv", "env", "virtualenv",
-    "node_modules", "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache",
-    ".ipynb_checkpoints", ".tox", ".eggs", "site-packages",
-})
+SKIP_GENERATED_DIRS = GENERATED_DIRS | {".hg", ".svn", "env", "virtualenv", ".eggs", "site-packages"}
 #: Credential directories. An agent told to "keep the keys somewhere safe" makes
 #: one of these; a snapshot must not then ship it. Applied to EVERY path
 #: component, on every path: the git listing, the directory walk and `include=`
 #: matches (the git path used to skip them only in the non-git walk, so an
 #: untracked `.secrets/wandb` inside a repo went up).
 SKIP_SECRET_DIRS = frozenset({".secrets", "secrets", ".aws", ".gnupg", ".ssh", ".docker"})
-
-#: The Cache Directory Tagging Specification (https://bford.info/cachedir/): a
-#: tool that writes a cache or build tree marks it with a `CACHEDIR.TAG` file
-#: whose first bytes are this signature. Cargo tags `target/`, Gradle its caches,
-#: pytest `.pytest_cache`. A name list cannot cover these (`target` is also an
-#: ordinary folder name); the folder's own declaration can. Live 2026-10-17: a
-#: non-git run swept 3,674 files of cargo's `target/` (575 MB) up as its code.
-CACHEDIR_TAG = "CACHEDIR.TAG"
-CACHEDIR_SIGNATURE = b"Signature: 8a477f597d28d172789f06886806bc55"
-
-
-def is_tagged_cache_dir(path: str) -> bool:
-    """Does the folder at ``path`` declare itself a cache (``CACHEDIR.TAG``)?
-
-    A tagged folder is rebuilt by the tool that tagged it, so it is never a
-    run's code or output, whatever it is named. Unreadable means no."""
-    try:
-        with open(os.path.join(path, CACHEDIR_TAG), "rb") as fh:
-            return fh.read(len(CACHEDIR_SIGNATURE)) == CACHEDIR_SIGNATURE
-    except OSError:
-        return False
 
 
 class TaggedCaches:

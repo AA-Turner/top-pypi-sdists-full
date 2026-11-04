@@ -1,276 +1,502 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""``client.trigger_instances.manage`` — the generated resource classes.
+
+``ManageResource`` (sync) and ``AsyncManageResource`` (async),
+dispatching through the hand-written httpx kernel with Stainless-style
+flat request fields and raw / streaming response wrappers.
+"""
 
 from __future__ import annotations
 
-from typing_extensions import Literal
+from functools import cached_property
+from typing import Literal
 
 import httpx
 
-from ..._types import Body, Query, Headers, NotGiven, not_given
-from ..._utils import path_template, maybe_transform, async_maybe_transform
-from ..._compat import cached_property
-from ..._resource import SyncAPIResource, AsyncAPIResource
-from ..._response import (
-    to_raw_response_wrapper,
-    to_streamed_response_wrapper,
-    async_to_raw_response_wrapper,
-    async_to_streamed_response_wrapper,
-)
-from ..._base_client import make_request_options
-from ...types.trigger_instances import manage_update_params
+from ..._base_client import BodyParam, RequestOptions
+from ..._models import ManageUpdateBody
+from ..._operations import OPERATIONS_BY_CHAIN
+from ..._response import APIResponse, AsyncAPIResponse, AsyncResponseContextManager, ResponseContextManager
+from ..._types import NOT_GIVEN, Body, Headers, NotGiven, Omit, Query, omit
 from ...types.trigger_instances.manage_delete_response import ManageDeleteResponse
 from ...types.trigger_instances.manage_update_response import ManageUpdateResponse
+from .._base import AsyncAPIResource, SyncAPIResource, build_path, compact, make_request_options, merge_body
 
-__all__ = ["ManageResource", "AsyncManageResource"]
+_UPDATE_OPERATION = OPERATIONS_BY_CHAIN[("trigger_instances", "manage", "update")]
+_DELETE_OPERATION = OPERATIONS_BY_CHAIN[("trigger_instances", "manage", "delete")]
 
 
 class ManageResource(SyncAPIResource):
-    """Trigger management and execution"""
-
     @cached_property
     def with_raw_response(self) -> ManageResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return ManageResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> ManageResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return ManageResourceWithStreamingResponse(self)
 
     def update(
         self,
         trigger_id: str,
+        body: BodyParam | None = None,
         *,
-        status: Literal["enable", "disable"],
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        status: Literal["enable", "disable"] | Omit = omit,
+        user_id: str | Omit = omit,
+        egress_url: str | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ManageUpdateResponse:
-        """Updates the status of a trigger instance to enable or disable it.
-
-        Disabling a
-        trigger pauses event listening without deleting the trigger configuration.
-        Re-enabling restores the trigger to its active state. Use this for temporary
-        maintenance or to control trigger execution.
-
-        Args:
-          trigger_id: The ID of the trigger instance to update
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not trigger_id:
-            raise ValueError(f"Expected a non-empty value for `trigger_id` but received {trigger_id!r}")
-        return self._patch(
-            path_template("/api/v3.1/trigger_instances/manage/{trigger_id}", trigger_id=trigger_id),
-            body=maybe_transform({"status": status}, manage_update_params.ManageUpdateParams),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        body_fields = compact(
+            {
+                "status": status,
+                "user_id": user_id,
+                "egress_url": egress_url,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "patch",
+            build_path(
+                "/api/v3.1/trigger_instances/manage/{triggerId}",
+                {"triggerId": trigger_id},
             ),
             cast_to=ManageUpdateResponse,
+            operation=_UPDATE_OPERATION,
+            body=body_data,
+            body_model=ManageUpdateBody,
+            options=options_data,
         )
 
     def delete(
         self,
         trigger_id: str,
         *,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ManageDeleteResponse:
-        """Permanently deletes a trigger instance.
-
-        This stops the trigger from listening
-        for events and removes it from your project. Use the PATCH endpoint with status
-        "disable" if you want to temporarily pause a trigger instead.
-
-        Args:
-          trigger_id: The ID of the trigger instance to delete
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not trigger_id:
-            raise ValueError(f"Expected a non-empty value for `trigger_id` but received {trigger_id!r}")
-        return self._delete(
-            path_template("/api/v3.1/trigger_instances/manage/{trigger_id}", trigger_id=trigger_id),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "delete",
+            build_path(
+                "/api/v3.1/trigger_instances/manage/{triggerId}",
+                {"triggerId": trigger_id},
             ),
             cast_to=ManageDeleteResponse,
+            operation=_DELETE_OPERATION,
+            options=options_data,
         )
 
 
 class AsyncManageResource(AsyncAPIResource):
-    """Trigger management and execution"""
-
     @cached_property
     def with_raw_response(self) -> AsyncManageResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return AsyncManageResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> AsyncManageResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return AsyncManageResourceWithStreamingResponse(self)
 
     async def update(
         self,
         trigger_id: str,
+        body: BodyParam | None = None,
         *,
-        status: Literal["enable", "disable"],
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        status: Literal["enable", "disable"] | Omit = omit,
+        user_id: str | Omit = omit,
+        egress_url: str | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ManageUpdateResponse:
-        """Updates the status of a trigger instance to enable or disable it.
-
-        Disabling a
-        trigger pauses event listening without deleting the trigger configuration.
-        Re-enabling restores the trigger to its active state. Use this for temporary
-        maintenance or to control trigger execution.
-
-        Args:
-          trigger_id: The ID of the trigger instance to update
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not trigger_id:
-            raise ValueError(f"Expected a non-empty value for `trigger_id` but received {trigger_id!r}")
-        return await self._patch(
-            path_template("/api/v3.1/trigger_instances/manage/{trigger_id}", trigger_id=trigger_id),
-            body=await async_maybe_transform({"status": status}, manage_update_params.ManageUpdateParams),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        body_fields = compact(
+            {
+                "status": status,
+                "user_id": user_id,
+                "egress_url": egress_url,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "patch",
+            build_path(
+                "/api/v3.1/trigger_instances/manage/{triggerId}",
+                {"triggerId": trigger_id},
             ),
             cast_to=ManageUpdateResponse,
+            operation=_UPDATE_OPERATION,
+            body=body_data,
+            body_model=ManageUpdateBody,
+            options=options_data,
         )
 
     async def delete(
         self,
         trigger_id: str,
         *,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ManageDeleteResponse:
-        """Permanently deletes a trigger instance.
-
-        This stops the trigger from listening
-        for events and removes it from your project. Use the PATCH endpoint with status
-        "disable" if you want to temporarily pause a trigger instead.
-
-        Args:
-          trigger_id: The ID of the trigger instance to delete
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not trigger_id:
-            raise ValueError(f"Expected a non-empty value for `trigger_id` but received {trigger_id!r}")
-        return await self._delete(
-            path_template("/api/v3.1/trigger_instances/manage/{trigger_id}", trigger_id=trigger_id),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "delete",
+            build_path(
+                "/api/v3.1/trigger_instances/manage/{triggerId}",
+                {"triggerId": trigger_id},
             ),
             cast_to=ManageDeleteResponse,
+            operation=_DELETE_OPERATION,
+            options=options_data,
         )
 
 
 class ManageResourceWithRawResponse:
-    def __init__(self, manage: ManageResource) -> None:
-        self._manage = manage
+    def __init__(self, resource: ManageResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.update = to_raw_response_wrapper(
-            manage.update,
+    def update(
+        self,
+        trigger_id: str,
+        body: BodyParam | None = None,
+        *,
+        status: Literal["enable", "disable"] | Omit = omit,
+        user_id: str | Omit = omit,
+        egress_url: str | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ManageUpdateResponse]:
+        body_fields = compact(
+            {
+                "status": status,
+                "user_id": user_id,
+                "egress_url": egress_url,
+            }
         )
-        self.delete = to_raw_response_wrapper(
-            manage.delete,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "patch",
+            build_path(
+                "/api/v3.1/trigger_instances/manage/{triggerId}",
+                {"triggerId": trigger_id},
+            ),
+            cast_to=ManageUpdateResponse,
+            operation=_UPDATE_OPERATION,
+            body=body_data,
+            body_model=ManageUpdateBody,
+            options=options_data,
+        )
+
+    def delete(
+        self,
+        trigger_id: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ManageDeleteResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "delete",
+            build_path(
+                "/api/v3.1/trigger_instances/manage/{triggerId}",
+                {"triggerId": trigger_id},
+            ),
+            cast_to=ManageDeleteResponse,
+            operation=_DELETE_OPERATION,
+            options=options_data,
         )
 
 
 class AsyncManageResourceWithRawResponse:
-    def __init__(self, manage: AsyncManageResource) -> None:
-        self._manage = manage
+    def __init__(self, resource: AsyncManageResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.update = async_to_raw_response_wrapper(
-            manage.update,
+    async def update(
+        self,
+        trigger_id: str,
+        body: BodyParam | None = None,
+        *,
+        status: Literal["enable", "disable"] | Omit = omit,
+        user_id: str | Omit = omit,
+        egress_url: str | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ManageUpdateResponse]:
+        body_fields = compact(
+            {
+                "status": status,
+                "user_id": user_id,
+                "egress_url": egress_url,
+            }
         )
-        self.delete = async_to_raw_response_wrapper(
-            manage.delete,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "patch",
+            build_path(
+                "/api/v3.1/trigger_instances/manage/{triggerId}",
+                {"triggerId": trigger_id},
+            ),
+            cast_to=ManageUpdateResponse,
+            operation=_UPDATE_OPERATION,
+            body=body_data,
+            body_model=ManageUpdateBody,
+            options=options_data,
+        )
+
+    async def delete(
+        self,
+        trigger_id: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ManageDeleteResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "delete",
+            build_path(
+                "/api/v3.1/trigger_instances/manage/{triggerId}",
+                {"triggerId": trigger_id},
+            ),
+            cast_to=ManageDeleteResponse,
+            operation=_DELETE_OPERATION,
+            options=options_data,
         )
 
 
 class ManageResourceWithStreamingResponse:
-    def __init__(self, manage: ManageResource) -> None:
-        self._manage = manage
+    def __init__(self, resource: ManageResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.update = to_streamed_response_wrapper(
-            manage.update,
+    def update(
+        self,
+        trigger_id: str,
+        body: BodyParam | None = None,
+        *,
+        status: Literal["enable", "disable"] | Omit = omit,
+        user_id: str | Omit = omit,
+        egress_url: str | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ManageUpdateResponse]]:
+        body_fields = compact(
+            {
+                "status": status,
+                "user_id": user_id,
+                "egress_url": egress_url,
+            }
         )
-        self.delete = to_streamed_response_wrapper(
-            manage.delete,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "patch",
+                build_path(
+                    "/api/v3.1/trigger_instances/manage/{triggerId}",
+                    {"triggerId": trigger_id},
+                ),
+                cast_to=ManageUpdateResponse,
+                operation=_UPDATE_OPERATION,
+                body=body_data,
+                body_model=ManageUpdateBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def delete(
+        self,
+        trigger_id: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ManageDeleteResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "delete",
+                build_path(
+                    "/api/v3.1/trigger_instances/manage/{triggerId}",
+                    {"triggerId": trigger_id},
+                ),
+                cast_to=ManageDeleteResponse,
+                operation=_DELETE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
         )
 
 
 class AsyncManageResourceWithStreamingResponse:
-    def __init__(self, manage: AsyncManageResource) -> None:
-        self._manage = manage
+    def __init__(self, resource: AsyncManageResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.update = async_to_streamed_response_wrapper(
-            manage.update,
+    def update(
+        self,
+        trigger_id: str,
+        body: BodyParam | None = None,
+        *,
+        status: Literal["enable", "disable"] | Omit = omit,
+        user_id: str | Omit = omit,
+        egress_url: str | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ManageUpdateResponse]]:
+        body_fields = compact(
+            {
+                "status": status,
+                "user_id": user_id,
+                "egress_url": egress_url,
+            }
         )
-        self.delete = async_to_streamed_response_wrapper(
-            manage.delete,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "patch",
+                build_path(
+                    "/api/v3.1/trigger_instances/manage/{triggerId}",
+                    {"triggerId": trigger_id},
+                ),
+                cast_to=ManageUpdateResponse,
+                operation=_UPDATE_OPERATION,
+                body=body_data,
+                body_model=ManageUpdateBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def delete(
+        self,
+        trigger_id: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ManageDeleteResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "delete",
+                build_path(
+                    "/api/v3.1/trigger_instances/manage/{triggerId}",
+                    {"triggerId": trigger_id},
+                ),
+                cast_to=ManageDeleteResponse,
+                operation=_DELETE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
         )

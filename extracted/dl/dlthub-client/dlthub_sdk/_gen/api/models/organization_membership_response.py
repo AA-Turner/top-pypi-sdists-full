@@ -22,7 +22,7 @@ class OrganizationMembershipResponse:
     Attributes:
         id (UUID): The ID of the organization membership
         is_active (bool): Whether the membership is active
-        organization (OrganizationResponse): The organization where new workspaces are created by default
+        organization (OrganizationResponse):
         role (OrganizationMembershipRole | str): The role of the user in the organization
     """
 

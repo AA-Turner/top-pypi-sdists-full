@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use statsig_rust::{
     DynamicConfigEvaluationOptions, Statsig, StatsigOptions, StatsigUser,
     interned_string::InternedString,
-    interned_values::InternedStore,
+    interned_values::{InternedStore, MmapPreloadOptions},
     output_logger::LogLevel,
     specs_response::statsig_config_specs::{self as pb, any_value, return_value},
 };
@@ -359,7 +359,7 @@ async fn run_stale_mmap_case() {
     )
     .await
     .unwrap();
-    InternedStore::preload_mmap(&sdk_key).unwrap();
+    InternedStore::preload_mmap(&[&sdk_key], &[], &MmapPreloadOptions::default()).unwrap();
     assert!(InternedStore::has_preloaded_mmap_project(&sdk_key));
     let name = InternedString::from_str_ref(LARGE_CONFIG);
     let stale = InternedStore::try_get_preloaded_dynamic_config(&name).unwrap();

@@ -1,0 +1,79 @@
+definitions:
+  shared_account:
+    type: string
+    title: Account identifier
+    description: Copy the account identifier from the provider's settings. This value scopes requests to the selected account.
+spec:
+  connection_specification:
+    type: object
+    required:
+      - credentials
+      - use_sandbox
+      - start_date
+      - shared_field
+    properties:
+      credentials:
+        type: object
+        title: Authentication method
+        description: Choose the authentication method that gives this connector access to the provider's account and reports.
+        oneOf:
+          - title: API key
+            type: object
+            required:
+              - auth_type
+              - api_key
+            properties:
+              auth_type:
+                type: string
+                const: api_key
+              api_key:
+                type: string
+                title: API key
+                description: Find the API key in the provider's dashboard, then enter it here to authorize this connector to read the account's available reports and settings.
+                airbyte_secret: true
+          - title: OAuth
+            type: object
+            required:
+              - auth_type
+              - access_token
+            properties:
+              auth_type:
+                type: string
+                enum:
+                  - oauth
+              access_token:
+                type: string
+                title: Access token
+                description: This access token is returned after the user grants the requested permissions, then stored for authenticated requests to the provider's API.
+                airbyte_secret: true
+      use_sandbox:
+        type: boolean
+        default: false
+        title: Use sandbox
+        description: Controls whether the connector reads from the provider's sandbox environment instead of production, which changes available records and endpoint behavior.
+      start_date:
+        type: string
+        format: date
+        pattern: '^\d{4}-\d{2}-\d{2}$'
+        pattern_descriptor: YYYY-MM-DD
+        title: Start date
+        description: The first calendar date for which the connector reads records. Choose a date that matches the provider's retention window and the scope of the sync.
+      shared_field:
+        $ref: '#/definitions/shared_account'
+      hidden_password:
+        type: string
+        title: Hidden Password
+        pattern: '^[A-Z]+$'
+        pattern_descriptor: '^[A-Z]+$'
+        default: placeholder
+        airbyte_hidden: true
+  advanced_auth:
+    oauth_config_specification:
+      complete_oauth_output_specification:
+        type: object
+        properties:
+          access_token:
+            type: string
+            path_in_connector_config:
+              - credentials
+              - access_token

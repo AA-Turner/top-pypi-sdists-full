@@ -15,7 +15,8 @@ from ..conditions.base import BaseCondition, ScenarioResult
 from ..control_domain import ControlDomain, movement_of
 from ..entity.registry import find_pedestrian_entity
 from ..entity_role import EntityRole
-from ..kinematics.walker_motion import WalkerVelocities
+from ..kinematics.vector import Vector3
+from ..kinematics.walker_motion import HIDDEN_BELOW_M, WalkerVelocities
 from ..pedestrian.poser import WalkerPoser
 from ..pedestrian.soma import SomaMotion, load_soma_motion
 from .base import BaseAction, TickTiming
@@ -44,8 +45,12 @@ class PlayMotionAction(BaseAction):
     The custom pose is the whole skeleton: the bones the motion does not drive
     hold the frame of the walker's animation the motion began on.  So a walker
     plays a motion standing, and the action fires only while the pedestrian
-    stands (no faster than :data:`STANDING_SPEED_MS`), as well as its
-    *condition* holds: stop it first (``WalkStraightAction`` at speed 0).  The
+    stands (no faster than :data:`STANDING_SPEED_MS`, measured from where it
+    stood a tick before), as well as its *condition* holds: stop it first
+    (``WalkStraightAction`` at speed 0).  A pedestrian parked under the map
+    does not stand, nor one whose speed is not known yet (the first tick it
+    is read, and the tick it is brought in): CARLA reports a walker on its
+    controller standing even while it walks.  The
     hips are never driven: where the walker stands and faces stays CARLA's,
     and the motion is turned to face the way the walker does.
 
@@ -81,8 +86,9 @@ class PlayMotionAction(BaseAction):
 
     Raises:
         FileNotFoundError: If there is no file at *motion_path*.
-        ValueError: If the file is not a SOMA body motion, or *fps* or
-            *duration_s* is not positive.
+        ValueError: If the file is not a SOMA body motion, *fps* (given or
+            the file's) is not finite and positive, or *duration_s* is not
+            finite and positive.
     """
 
     # Declared for the static check (docs/typecheck.md).
@@ -113,10 +119,15 @@ class PlayMotionAction(BaseAction):
         upper_body_only: bool = True,
         overrides: bool = False,
     ) -> None:
-        if fps is not None and fps <= 0:
-            raise ValueError("fps must be positive")
-        if duration_s is not None and duration_s <= 0:
-            raise ValueError("duration_s must be positive")
+        # NaN passes `<= 0`, and NaN or infinity would fail int() mid-run.
+        if fps is not None and (not math.isfinite(fps) or fps <= 0):
+            raise ValueError(f"fps must be finite and positive, not {fps!r}")
+        if duration_s is not None and (
+            not math.isfinite(duration_s) or duration_s <= 0
+        ):
+            raise ValueError(
+                f"duration_s must be finite and positive, not {duration_s!r}"
+            )
         finished: BaseCondition = _MotionPlayed(self, label)
         standing: BaseCondition = _Standing(str(entity_name), label)
         trigger = standing
@@ -258,7 +269,15 @@ class _MotionPlayed(BaseCondition):
 class _Standing(BaseCondition):
     """Satisfied while the pedestrian stands: no faster than
     :data:`STANDING_SPEED_MS`, measured as a walker moves
-    (:class:`~..kinematics.walker_motion.WalkerVelocities`)."""
+    (:meth:`~..kinematics.walker_motion.WalkerVelocities.velocity`).
+
+    Read as the other conditions read an entity, present only: a pedestrian
+    parked under the map (below
+    :data:`~..kinematics.walker_motion.HIDDEN_BELOW_M`) does not stand, and
+    nor does one whose speed is not known yet -- the first read, or the first
+    after it is brought in -- since CARLA reports a walker on its controller
+    standing even while it walks.
+    """
 
     _entity_name: str
     _velocities: WalkerVelocities
@@ -288,7 +307,17 @@ class _Standing(BaseCondition):
         if actor is None:
             return None
         walker: carla.Actor = actor
-        speed = self._velocities.walker(walker, elapsed).magnitude()
+        if float(walker.get_location().z) < HIDDEN_BELOW_M:
+            # Parked under the map: not in the scene.  Forget where it stood,
+            # so it is measured afresh once it is brought in.
+            self._velocities.forget(int(walker.id))
+            return None
+        read = self._velocities.velocity(walker, elapsed)
+        if read is None:
+            return None  # not known yet: nothing measured since it came in
+        # Annotated, so Codon unwraps the Optional (docs/typecheck.md).
+        velocity: Vector3 = read
+        speed = velocity.magnitude()
         if speed > STANDING_SPEED_MS:
             return None
         return ScenarioResult(

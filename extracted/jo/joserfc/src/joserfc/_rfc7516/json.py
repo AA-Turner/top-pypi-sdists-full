@@ -1,26 +1,27 @@
 from typing import Any
+
+from .._keys import Key
+from ..errors import DecodeError
+from ..util import (
+    json_b64decode,
+    json_b64encode,
+    to_bytes,
+    to_str,
+    urlsafe_b64decode,
+    urlsafe_b64encode,
+)
 from .models import (
     BaseJSONEncryption,
-    GeneralJSONEncryption,
     FlattenedJSONEncryption,
+    GeneralJSONEncryption,
     Recipient,
 )
 from .registry import JWERegistry
 from .types import (
-    JSONRecipientDict,
-    GeneralJSONSerialization,
     FlattenedJSONSerialization,
+    GeneralJSONSerialization,
+    JSONRecipientDict,
 )
-from ..util import (
-    to_bytes,
-    to_str,
-    json_b64encode,
-    json_b64decode,
-    urlsafe_b64encode,
-    urlsafe_b64decode,
-)
-from .._keys import Key
-
 
 __all__ = [
     "represent_general_json",
@@ -121,8 +122,11 @@ def __extract_segments(
         "tag": urlsafe_b64decode(base64_segments["tag"]),
     }
     if "aad" in data:
-        registry.validate_aad_size(data["aad"])
-        base64_segments["aad"] = to_bytes(data["aad"])
+        aad_segment = to_bytes(data["aad"])
+        if not aad_segment:
+            raise DecodeError("AAD must be omitted when empty")
+        registry.validate_aad_size(aad_segment)
+        base64_segments["aad"] = aad_segment
         aad = urlsafe_b64decode(base64_segments["aad"])
         bytes_segments["aad"] = aad
     else:

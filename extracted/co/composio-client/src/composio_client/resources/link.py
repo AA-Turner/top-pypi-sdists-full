@@ -1,50 +1,50 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""``client.link`` — the generated resource classes.
+
+``LinkResource`` (sync) and ``AsyncLinkResource`` (async),
+dispatching through the hand-written httpx kernel with Stainless-style
+flat request fields and raw / streaming response wrappers.
+"""
 
 from __future__ import annotations
 
+from functools import cached_property
+
 import httpx
+from typing_extensions import overload
 
+from .._base_client import BodyParam, RequestOptions
+from .._models import LinkCreateBody
+from .._operations import OPERATIONS_BY_CHAIN
+from .._response import APIResponse, AsyncAPIResponse, AsyncResponseContextManager, ResponseContextManager
+from .._types import NOT_GIVEN, Body, Headers, NotGiven, Omit, Query, omit
 from ..types import link_create_params
-from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
-from .._compat import cached_property
-from .._resource import SyncAPIResource, AsyncAPIResource
-from .._response import (
-    to_raw_response_wrapper,
-    to_streamed_response_wrapper,
-    async_to_raw_response_wrapper,
-    async_to_streamed_response_wrapper,
-)
-from .._base_client import make_request_options
 from ..types.link_create_response import LinkCreateResponse
+from ._base import (
+    AsyncAPIResource,
+    SyncAPIResource,
+    compact,
+    make_request_options,
+    merge_body,
+    require_fields,
+)
 
-__all__ = ["LinkResource", "AsyncLinkResource"]
+_CREATE_OPERATION = OPERATIONS_BY_CHAIN[("link", "create")]
 
 
 class LinkResource(SyncAPIResource):
-    """Connected account management"""
-
     @cached_property
     def with_raw_response(self) -> LinkResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return LinkResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> LinkResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return LinkResourceWithStreamingResponse(self)
 
+    @overload
     def create(
         self,
+        body: BodyParam | None = None,
         *,
         auth_config_id: str,
         user_id: str,
@@ -52,84 +52,95 @@ class LinkResource(SyncAPIResource):
         callback_url: str | Omit = omit,
         connection_data: link_create_params.ConnectionData | Omit = omit,
         experimental: link_create_params.Experimental | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> LinkCreateResponse: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        auth_config_id: str | Omit = omit,
+        user_id: str | Omit = omit,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> LinkCreateResponse: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config_id: str | Omit = omit,
+        user_id: str | Omit = omit,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> LinkCreateResponse:
-        """
-        Creates a new authentication link session that users can use to connect their
-        accounts
-
-        Args:
-          auth_config_id: The auth config id to create a link for
-
-          user_id: The user id to create a link for
-
-          alias: A human-readable alias for this connected account. Must be unique per entity and
-              toolkit within the project.
-
-          callback_url: The callback url to create a link for
-
-          connection_data: Optional data to pre-fill connection fields with default values
-
-          experimental: Experimental features - not stable, may be modified or removed in future
-              versions.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return self._post(
+        body_fields = compact(
+            {
+                "auth_config_id": auth_config_id,
+                "user_id": user_id,
+                "alias": alias,
+                "callback_url": callback_url,
+                "connection_data": connection_data,
+                "experimental": experimental,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("auth_config_id", "user_id"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
             "/api/v3.1/connected_accounts/link",
-            body=maybe_transform(
-                {
-                    "auth_config_id": auth_config_id,
-                    "user_id": user_id,
-                    "alias": alias,
-                    "callback_url": callback_url,
-                    "connection_data": connection_data,
-                    "experimental": experimental,
-                },
-                link_create_params.LinkCreateParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=LinkCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=LinkCreateBody,
+            options=options_data,
         )
 
 
 class AsyncLinkResource(AsyncAPIResource):
-    """Connected account management"""
-
     @cached_property
     def with_raw_response(self) -> AsyncLinkResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return AsyncLinkResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> AsyncLinkResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return AsyncLinkResourceWithStreamingResponse(self)
 
+    @overload
     async def create(
         self,
+        body: BodyParam | None = None,
         *,
         auth_config_id: str,
         user_id: str,
@@ -137,91 +148,451 @@ class AsyncLinkResource(AsyncAPIResource):
         callback_url: str | Omit = omit,
         connection_data: link_create_params.ConnectionData | Omit = omit,
         experimental: link_create_params.Experimental | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> LinkCreateResponse: ...
+
+    @overload
+    async def create(
+        self,
+        body: BodyParam,
+        *,
+        auth_config_id: str | Omit = omit,
+        user_id: str | Omit = omit,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> LinkCreateResponse: ...
+
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config_id: str | Omit = omit,
+        user_id: str | Omit = omit,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> LinkCreateResponse:
-        """
-        Creates a new authentication link session that users can use to connect their
-        accounts
-
-        Args:
-          auth_config_id: The auth config id to create a link for
-
-          user_id: The user id to create a link for
-
-          alias: A human-readable alias for this connected account. Must be unique per entity and
-              toolkit within the project.
-
-          callback_url: The callback url to create a link for
-
-          connection_data: Optional data to pre-fill connection fields with default values
-
-          experimental: Experimental features - not stable, may be modified or removed in future
-              versions.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return await self._post(
+        body_fields = compact(
+            {
+                "auth_config_id": auth_config_id,
+                "user_id": user_id,
+                "alias": alias,
+                "callback_url": callback_url,
+                "connection_data": connection_data,
+                "experimental": experimental,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("auth_config_id", "user_id"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
             "/api/v3.1/connected_accounts/link",
-            body=await async_maybe_transform(
-                {
-                    "auth_config_id": auth_config_id,
-                    "user_id": user_id,
-                    "alias": alias,
-                    "callback_url": callback_url,
-                    "connection_data": connection_data,
-                    "experimental": experimental,
-                },
-                link_create_params.LinkCreateParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=LinkCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=LinkCreateBody,
+            options=options_data,
         )
 
 
 class LinkResourceWithRawResponse:
-    def __init__(self, link: LinkResource) -> None:
-        self._link = link
+    def __init__(self, resource: LinkResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = to_raw_response_wrapper(
-            link.create,
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config_id: str,
+        user_id: str,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[LinkCreateResponse]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        auth_config_id: str | Omit = omit,
+        user_id: str | Omit = omit,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[LinkCreateResponse]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config_id: str | Omit = omit,
+        user_id: str | Omit = omit,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[LinkCreateResponse]:
+        body_fields = compact(
+            {
+                "auth_config_id": auth_config_id,
+                "user_id": user_id,
+                "alias": alias,
+                "callback_url": callback_url,
+                "connection_data": connection_data,
+                "experimental": experimental,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("auth_config_id", "user_id"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "post",
+            "/api/v3.1/connected_accounts/link",
+            cast_to=LinkCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=LinkCreateBody,
+            options=options_data,
         )
 
 
 class AsyncLinkResourceWithRawResponse:
-    def __init__(self, link: AsyncLinkResource) -> None:
-        self._link = link
+    def __init__(self, resource: AsyncLinkResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = async_to_raw_response_wrapper(
-            link.create,
+    @overload
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config_id: str,
+        user_id: str,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[LinkCreateResponse]: ...
+
+    @overload
+    async def create(
+        self,
+        body: BodyParam,
+        *,
+        auth_config_id: str | Omit = omit,
+        user_id: str | Omit = omit,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[LinkCreateResponse]: ...
+
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config_id: str | Omit = omit,
+        user_id: str | Omit = omit,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[LinkCreateResponse]:
+        body_fields = compact(
+            {
+                "auth_config_id": auth_config_id,
+                "user_id": user_id,
+                "alias": alias,
+                "callback_url": callback_url,
+                "connection_data": connection_data,
+                "experimental": experimental,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("auth_config_id", "user_id"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "post",
+            "/api/v3.1/connected_accounts/link",
+            cast_to=LinkCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=LinkCreateBody,
+            options=options_data,
         )
 
 
 class LinkResourceWithStreamingResponse:
-    def __init__(self, link: LinkResource) -> None:
-        self._link = link
+    def __init__(self, resource: LinkResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = to_streamed_response_wrapper(
-            link.create,
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config_id: str,
+        user_id: str,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[LinkCreateResponse]]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        auth_config_id: str | Omit = omit,
+        user_id: str | Omit = omit,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[LinkCreateResponse]]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config_id: str | Omit = omit,
+        user_id: str | Omit = omit,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[LinkCreateResponse]]:
+        body_fields = compact(
+            {
+                "auth_config_id": auth_config_id,
+                "user_id": user_id,
+                "alias": alias,
+                "callback_url": callback_url,
+                "connection_data": connection_data,
+                "experimental": experimental,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("auth_config_id", "user_id"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                "/api/v3.1/connected_accounts/link",
+                cast_to=LinkCreateResponse,
+                operation=_CREATE_OPERATION,
+                body=body_data,
+                body_model=LinkCreateBody,
+                options=options_data,
+                stream=True,
+            )
         )
 
 
 class AsyncLinkResourceWithStreamingResponse:
-    def __init__(self, link: AsyncLinkResource) -> None:
-        self._link = link
+    def __init__(self, resource: AsyncLinkResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = async_to_streamed_response_wrapper(
-            link.create,
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config_id: str,
+        user_id: str,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[LinkCreateResponse]]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        auth_config_id: str | Omit = omit,
+        user_id: str | Omit = omit,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[LinkCreateResponse]]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config_id: str | Omit = omit,
+        user_id: str | Omit = omit,
+        alias: str | Omit = omit,
+        callback_url: str | Omit = omit,
+        connection_data: link_create_params.ConnectionData | Omit = omit,
+        experimental: link_create_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[LinkCreateResponse]]:
+        body_fields = compact(
+            {
+                "auth_config_id": auth_config_id,
+                "user_id": user_id,
+                "alias": alias,
+                "callback_url": callback_url,
+                "connection_data": connection_data,
+                "experimental": experimental,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("auth_config_id", "user_id"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                "/api/v3.1/connected_accounts/link",
+                cast_to=LinkCreateResponse,
+                operation=_CREATE_OPERATION,
+                body=body_data,
+                body_model=LinkCreateBody,
+                options=options_data,
+                stream=True,
+            )
         )

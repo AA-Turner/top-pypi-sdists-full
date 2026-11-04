@@ -6,8 +6,11 @@ from fivetran_connector_sdk_common import __version__
 from fivetran_connector_sdk_common.constants import (
     VALID_COMMANDS, DEFAULT_PYTHON_VERSION, SUPPORTED_PYTHON_VERSIONS, TEMPLATE_CONNECTOR_PATH, PACKAGE_SUBCOMMANDS
 )
+from fivetran_connector_sdk_cli.regression_test.max_record_helper import DEFAULT_MAX_RECORDS
 from fivetran_connector_sdk_common.helpers import print_library_log
-from fivetran_connector_sdk_cli.cli_helpers import suggest_correct_command, telemetry
+from fivetran_connector_sdk_cli.cli_helpers import (
+    suggest_correct_command, telemetry, validate_max_records, validate_scenario_name
+)
 from fivetran_connector_sdk_cli.connector_helper import attempted_command_from_argv, safe_option_names_from_argv
 from fivetran_connector_sdk_common.logger import Logging
 
@@ -53,6 +56,18 @@ def _add_state(subparser, hidden=False):
 def _add_configuration(subparser, help_text=None):
     subparser.add_argument("--configuration", type=str, default=None, metavar="<configuration>",
                            help=help_text if help_text else "Path to configuration JSON file")
+
+def _add_record(subparser, hidden=False):
+    subparser.add_argument("--record", type=validate_scenario_name, default=None, metavar="<scenario>",
+                           help=argparse.SUPPRESS if hidden else "Record the connector's @action calls and output into fixtures/<scenario>/")
+
+def _add_replay(subparser, hidden=False):
+    subparser.add_argument("--replay", type=validate_scenario_name, default=None, metavar="<scenario>",
+                           help=argparse.SUPPRESS if hidden else "Replay a recorded scenario from fixtures/<scenario>/ without calling the live source")
+
+def _add_max_records(subparser, hidden=False):
+    subparser.add_argument("--max-records", type=validate_max_records, default=None, metavar="<N>",
+                           help=argparse.SUPPRESS if hidden else f"(--record only) Stop after N write operations. Default: {DEFAULT_MAX_RECORDS}")
 
 def _add_destination_file(subparser):
     subparser.add_argument("--destination-file", type=str, default=None, metavar="<destination-file>",
@@ -192,6 +207,12 @@ def _create_argument_parser():
     _add_naming(debug_subparser)
     _add_proxy_id(debug_subparser, hidden=True)
     _add_proxy_host_config_key(debug_subparser, hidden=True)
+    record_replay_group = debug_subparser.add_mutually_exclusive_group()
+    _add_record(record_replay_group, hidden=True)
+    _add_replay(record_replay_group, hidden=True)
+    _add_max_records(debug_subparser, hidden=True)
+    _add_non_interactive(debug_subparser)
+    _add_yes(debug_subparser)
 
     run_subparser = subparsers.add_parser("run", help=COMMAND_DESCRIPTIONS["run"],
                                           usage="fivetran run [project_path] [options]")

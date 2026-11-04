@@ -49,7 +49,7 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Get contents of a repository directory or file"""
+    """Get contents of a repository directory or file in the caller's org namespace."""
 
     request_args = _build_request_args(
         owner=owner,
@@ -74,7 +74,7 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Get contents of a repository directory or file"""
+    """Get contents of a repository directory or file in the caller's org namespace."""
 
     request_args = _build_request_args(
         owner=owner,

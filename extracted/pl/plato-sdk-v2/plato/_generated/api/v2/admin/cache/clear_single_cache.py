@@ -16,7 +16,9 @@ def _build_request_args(
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
-    url = f"/api/v2/admin/cache/clear/{cache_name}"
+    url = "/api/v2/admin/cache/clear/{cache_name}".format(
+        cache_name=getattr(cache_name, "value", cache_name),
+    )
 
     headers: dict[str, str] = {}
     if authorization is not None:

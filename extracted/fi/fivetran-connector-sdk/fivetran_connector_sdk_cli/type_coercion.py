@@ -153,10 +153,10 @@ def _coerce_string(v):
 
 def _coerce_decimal(v):
     if isinstance(v, bool):
-        raise TypeError("DECIMAL column does not accept bool")
+        raise TypeError("a DECIMAL value does not accept bool")
     if isinstance(v, (str, int)):
         return _PFX_SCALAR, str(v).encode('utf-8')
-    raise TypeError(f"DECIMAL column requires str or int, got {type(v).__name__}")
+    raise TypeError(f"a DECIMAL value must be a str or an int, got {type(v).__name__}; convert it with str()")
 
 
 def _coerce_xml(v):
@@ -208,12 +208,18 @@ _COERCE_FN_BY_TYPE = {
 }
 
 
-def encode_row_data(column_types: dict, data: dict) -> dict:
+def encode_row_data(column_types: dict, data: dict, table: str = None) -> dict:
     row_data = {}
     for key, v in data.items():
         if v is None:
             row_data[key] = _NULL_V
         else:
-            pfx, val_b = _COERCE_FN_BY_TYPE.get(column_types.get(key), _coerce_inferred)(v)
+            coerce = _COERCE_FN_BY_TYPE.get(column_types.get(key), _coerce_inferred)
+            try:
+                pfx, val_b = coerce(v)
+            except TypeError as e:
+                if coerce is not _coerce_decimal:
+                    raise
+                raise TypeError(f"column '{key}'" + (f" of table '{table}'" if table else "") + f": {e}") from None
             row_data[key] = pfx + val_b
     return row_data

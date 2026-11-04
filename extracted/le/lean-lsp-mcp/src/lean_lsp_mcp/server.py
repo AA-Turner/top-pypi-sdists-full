@@ -4,7 +4,6 @@ import importlib.metadata
 import json
 import logging.config
 import os
-import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -46,12 +45,14 @@ from lean_lsp_mcp.diagnostic_utils import (
 from lean_lsp_mcp.file_utils import get_file_contents, require_lean_project_path
 from lean_lsp_mcp.instructions import INSTRUCTIONS
 from lean_lsp_mcp import config
+from lean_lsp_mcp.lean_names import LEAN_NAME_RE
 from lean_lsp_mcp.loogle import LoogleManager
 from lean_lsp_mcp.repl import Repl, repl_enabled
 
 # REPL models not imported - low-level REPL tools not exposed to keep API simple.
 # The model uses lean_multi_attempt which handles REPL internally.
 from lean_lsp_mcp.search_utils import check_ripgrep_status, lean_local_search
+from lean_lsp_mcp.stdio import CancellableMCPServer
 from lean_lsp_mcp.tool_utils import (
     custom_backend as _custom_backend,
     rate_limited,
@@ -66,10 +67,11 @@ _TOOL_DESCRIPTIONS_ENV = "LEAN_MCP_TOOL_DESCRIPTIONS"
 
 
 def _validate_theorem_name(theorem_name: str) -> str:
-    if not re.fullmatch(
-        r"[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*",
-        theorem_name,
-    ):
+    # The name is spliced into `#print axioms _root_.<name>`, and Lean echoes it in
+    # the `depends on axioms: [...]` reply that `parse_axioms` reads. Accept only
+    # plain dot-separated identifiers: no command text, and no `«...»` escapes,
+    # whose contents could spoof that reply.
+    if not LEAN_NAME_RE.fullmatch(theorem_name):
         raise LeanToolError(
             "Invalid theorem name. Use a Lean fully qualified name such as `Namespace.theorem`."
         )
@@ -175,10 +177,8 @@ async def _ensure_shared_loogle(
             elif manager.project_path != lean_project_path:
                 manager.set_project_path(lean_project_path)
 
-            # ensure_installed() can git-clone + `lake build` for many
-            # minutes — keep it off the event loop.
-            installed = await asyncio.to_thread(manager.ensure_installed)
-            _shared_loogle_available = installed and await manager.start()
+            # start() owns installation and reaps its processes on cancellation.
+            _shared_loogle_available = await manager.start()
             if _shared_loogle_available:
                 _shared_loogle_init_done = True
                 logger.info("Shared local loogle started successfully")
@@ -208,6 +208,33 @@ class AppContext:
 
 
 ToolContext = Context[AppContext, Any]
+
+
+async def prepare_project_accelerators(context: AppContext) -> None:
+    """Initialize optional accelerators once a configured or inferred project is known."""
+    project = context.lean_project_path
+    if project is None:
+        return
+    if config.loogle_local_enabled() and not context.loogle_local_available:
+        manager, available = await _ensure_shared_loogle(project)
+        context.loogle_manager = manager
+        context.loogle_local_available = available
+    if not repl_enabled():
+        return
+    if (
+        context.repl is not None
+        and Path(context.repl.project_dir).resolve() != project.resolve()
+    ):
+        await _close_repl_for_project_switch(context)
+    if context.repl is None:
+        from lean_lsp_mcp.repl import find_repl_binary
+
+        binary = find_repl_binary(str(project))
+        if binary:
+            context.repl = Repl(project_dir=str(project), repl_path=binary)
+            context.repl_enabled = True
+        else:
+            logger.warning("REPL binary unavailable for project %s; using LSP", project)
 
 
 _prewarm_started = False
@@ -274,32 +301,6 @@ async def app_lifespan(server: MCPServer) -> AsyncIterator[AppContext]:
         else:
             lean_project_path = require_lean_project_path(lean_project_path_str)
 
-        # Use the shared loogle singleton (initialised at most once)
-        loogle_manager, loogle_local_available = await _ensure_shared_loogle(
-            lean_project_path
-        )
-
-        # Initialize REPL if enabled
-        repl_available = False
-        if repl_enabled():
-            if lean_project_path:
-                from lean_lsp_mcp.repl import find_repl_binary
-
-                repl_bin = find_repl_binary(str(lean_project_path))
-                if repl_bin:
-                    logger.info("REPL enabled, using: %s", repl_bin)
-                    repl = Repl(project_dir=str(lean_project_path), repl_path=repl_bin)
-                    repl_available = True
-                    logger.info("REPL initialized: timeout=%ds", repl.timeout)
-                else:
-                    logger.warning(
-                        "REPL enabled but binary not found. "
-                        'Add `require repl from git "https://github.com/leanprover-community/repl"` '
-                        "to lakefile and run `lake build repl`. Falling back to LSP."
-                    )
-            else:
-                logger.warning("REPL requires LEAN_PROJECT_PATH to be set")
-
         build_mode = _get_build_concurrency_mode()
         build_coordinator = BuildCoordinator(build_mode)
 
@@ -315,16 +316,20 @@ async def app_lifespan(server: MCPServer) -> AsyncIterator[AppContext]:
             lean_search_available=_RG_AVAILABLE,
             active_transport=active_transport,
             project_switching_allowed=project_switching_allowed,
-            loogle_manager=loogle_manager,
-            loogle_local_available=loogle_local_available,
-            repl=repl,
-            repl_enabled=repl_available,
             build_coordinator=build_coordinator,
         )
+        await prepare_project_accelerators(context)
         _maybe_start_prewarm(lean_project_path)
         yield context
     finally:
         logger.info("Session ending — cleaning up per-session resources")
+
+        # Stdio has one session for the process; HTTP sessions share Loogle.
+        if _active_transport() == "stdio" and _shared_loogle_manager is not None:
+            try:
+                await _shared_loogle_manager.stop()
+            except Exception:
+                logger.exception("Loogle close failed during stdio teardown")
 
         # NOTE: Do NOT close context.client here.  The LSP client is a shared
         # singleton managed by client_utils.  Closing it would kill ``lake
@@ -398,6 +403,8 @@ _TOOL_MODULES = (
 
 def create_server() -> MCPServer:
     """Create a server with a catalog fixed by the current startup configuration."""
+    # Fail at startup, not on the first search, if LEAN_LOOGLE_LOCAL_ONLY is malformed.
+    config.loogle_local_only()
     instructions = config.instructions_override()
     kwargs: dict[str, Any] = {
         "name": "Lean LSP",
@@ -416,7 +423,7 @@ def create_server() -> MCPServer:
             validate_token_resource=False,
         )
         kwargs["token_verifier"] = PreSharedTokenVerifier(auth_token)
-    instance = MCPServer(**kwargs)
+    instance = CancellableMCPServer(**kwargs)
     disabled = _parse_disabled_tools(config.disabled_tools_raw())
     descriptions = _load_tool_description_overrides()
     known = register_tools(

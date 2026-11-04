@@ -98,10 +98,13 @@ def sync_detailed(
 ) -> Response[ErrorResponse | WorkspaceResponse]:
     """CreateWorkspace
 
-    Creates a new workspace under an organization. Optionally, you can provide a name and description
-    for the workspace.
+    Creates a workspace in the organization; the caller becomes its owner. Send both `name` and
+    `description` (`description` may be `null`). Answers 409 until the organization's region is
+    set with `set_region_organization`.
 
-    Requires organization MEMBER or OWNER role. The creator becomes the OWNER of the new workspace.
+    Answers 409 when a trial organization already has its one workspace besides playgrounds.
+
+    Requires the organization member or owner role.
 
     Args:
         organization_id (UUID):
@@ -134,10 +137,13 @@ def sync(
 ) -> ErrorResponse | WorkspaceResponse | None:
     """CreateWorkspace
 
-    Creates a new workspace under an organization. Optionally, you can provide a name and description
-    for the workspace.
+    Creates a workspace in the organization; the caller becomes its owner. Send both `name` and
+    `description` (`description` may be `null`). Answers 409 until the organization's region is
+    set with `set_region_organization`.
 
-    Requires organization MEMBER or OWNER role. The creator becomes the OWNER of the new workspace.
+    Answers 409 when a trial organization already has its one workspace besides playgrounds.
+
+    Requires the organization member or owner role.
 
     Args:
         organization_id (UUID):
@@ -165,10 +171,13 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | WorkspaceResponse]:
     """CreateWorkspace
 
-    Creates a new workspace under an organization. Optionally, you can provide a name and description
-    for the workspace.
+    Creates a workspace in the organization; the caller becomes its owner. Send both `name` and
+    `description` (`description` may be `null`). Answers 409 until the organization's region is
+    set with `set_region_organization`.
 
-    Requires organization MEMBER or OWNER role. The creator becomes the OWNER of the new workspace.
+    Answers 409 when a trial organization already has its one workspace besides playgrounds.
+
+    Requires the organization member or owner role.
 
     Args:
         organization_id (UUID):
@@ -199,10 +208,13 @@ async def asyncio(
 ) -> ErrorResponse | WorkspaceResponse | None:
     """CreateWorkspace
 
-    Creates a new workspace under an organization. Optionally, you can provide a name and description
-    for the workspace.
+    Creates a workspace in the organization; the caller becomes its owner. Send both `name` and
+    `description` (`description` may be `null`). Answers 409 until the organization's region is
+    set with `set_region_organization`.
 
-    Requires organization MEMBER or OWNER role. The creator becomes the OWNER of the new workspace.
+    Answers 409 when a trial organization already has its one workspace besides playgrounds.
+
+    Requires the organization member or owner role.
 
     Args:
         organization_id (UUID):

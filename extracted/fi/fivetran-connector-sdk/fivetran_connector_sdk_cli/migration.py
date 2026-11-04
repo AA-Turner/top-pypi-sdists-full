@@ -18,7 +18,7 @@ from fivetran_connector_sdk_cli.connector_helper import NetworkingMethod, _auth_
 from fivetran_connector_sdk_common.helpers import print_library_log
 from fivetran_connector_sdk_common.logger import Logging
 from fivetran_connector_sdk_cli.options_file import (
-    is_options_file_supported, load_options_file, update_profile_fields, write_options_file)
+    is_toml_file_supported, load_options_file, update_profile_fields, write_options_file)
 
 _MIGRATION_CONNECTIONS_PATH = "/v1/connector-sdk/migration/connections"
 _LIST_PAGE_LIMIT = 100
@@ -164,7 +164,7 @@ def run_migration(deploy_key: str, options_file_path: str) -> Optional[str]:
         print_library_log("migration skipped: CI=true", log_icon=Logging.LogIcon.INFO)
         return None
 
-    if not is_options_file_supported():
+    if not is_toml_file_supported():
         return None
 
     if os.path.isfile(options_file_path):

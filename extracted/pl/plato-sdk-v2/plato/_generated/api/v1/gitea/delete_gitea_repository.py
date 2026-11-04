@@ -39,7 +39,7 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> DeleteRepositoryResponse:
-    """Delete a Gitea repository"""
+    """Delete a Gitea repository in the caller's org namespace."""
 
     request_args = _build_request_args(
         owner=owner,
@@ -60,7 +60,7 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> DeleteRepositoryResponse:
-    """Delete a Gitea repository"""
+    """Delete a Gitea repository in the caller's org namespace."""
 
     request_args = _build_request_args(
         owner=owner,

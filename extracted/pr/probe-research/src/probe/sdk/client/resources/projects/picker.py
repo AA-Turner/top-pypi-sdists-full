@@ -4,6 +4,7 @@ one, and offers to save it as this computer's default (twin: app/projects)."""
 
 from __future__ import annotations
 
+import errno
 import os
 import sys
 import time
@@ -11,6 +12,7 @@ from collections.abc import Callable, Mapping
 from typing import Any, TextIO
 
 from probe.generated.enums import ProjectKind
+from probe.foundation.process_rank import LAUNCH_SCHEMES, read_env_int
 
 #: How long each question waits for an answer, in seconds; then the run is refused as before.
 PICK_TIMEOUT_S = 60.0
@@ -64,7 +66,11 @@ class ProjectPicker:
             return False
         if _is_many_processes(self.env):
             return False  # torchrun / accelerate ranks would all ask on one terminal
-        return self._is_notebook() or (_is_terminal(self.stdin) and _is_terminal(self.stderr))
+        if self._is_notebook():
+            return True
+        # A background job (`python train.py &`) keeps the terminal but cannot read it: a read
+        # stops the job (SIGTTIN) until `fg`.
+        return _is_terminal(self.stdin) and _is_terminal(self.stderr) and _is_foreground(self.stdin)
 
     def _is_notebook(self) -> bool:
         """An IPython kernel (Jupyter): `input()` reaches the person through the front end."""
@@ -214,12 +220,23 @@ def _is_terminal(stream: TextIO | None) -> bool:
         return False
 
 
-def _is_many_processes(env: Mapping[str, str]) -> bool:
-    """A distributed launch (`WORLD_SIZE` > 1): every rank would ask on the same terminal."""
+def _is_foreground(stream: TextIO) -> bool:
+    """Reading `stream` will not stop this process: it is not our controlling terminal (ENOTTY),
+    or our process group is its foreground one. A console without job control always is."""
+    if not hasattr(os, "tcgetpgrp"):
+        return True
     try:
-        return int(env.get("WORLD_SIZE") or 1) > 1
-    except ValueError:
-        return False
+        return os.tcgetpgrp(stream.fileno()) == os.getpgrp()
+    except OSError as exc:
+        return exc.errno == errno.ENOTTY
+    except (AttributeError, ValueError):
+        return True  # no descriptor to ask about: as before
+
+
+def _is_many_processes(env: Mapping[str, str]) -> bool:
+    """A distributed launch (torchrun, srun, mpirun: a world size > 1): every rank would ask on
+    the same terminal."""
+    return any((read_env_int(env, scheme.size_var) or 1) > 1 for scheme in LAUNCH_SCHEMES)
 
 
 def _read_line(stream: TextIO, timeout_s: float) -> str | None:

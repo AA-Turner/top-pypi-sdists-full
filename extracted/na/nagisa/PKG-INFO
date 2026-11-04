@@ -1,36 +1,30 @@
 Metadata-Version: 2.4
 Name: nagisa
-Version: 0.3.0
+Version: 0.3.1
 Summary: A Japanese tokenizer based on recurrent neural networks
 Author-email: Taishi Ikeda <taishi.ikeda.0323@gmail.com>
-License: MIT License
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/taishi-i/nagisa
 Project-URL: Repository, https://github.com/taishi-i/nagisa
 Project-URL: Documentation, https://nagisa.readthedocs.io/en/latest/
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: Japanese
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Topic :: Text Processing :: Linguistic
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: six
 Requires-Dist: numpy
-Requires-Dist: DyNet38; python_version >= "3.8"
-Requires-Dist: DyNet; python_version < "3.8"
+Requires-Dist: DyNet38; python_version < "3.15"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Dynamic: license-file
@@ -73,9 +67,9 @@ pip install nagisa
 ````
 
 Supported Platforms:
-- 🐧 Linux: Python 3.6 - 3.14
-- 🍎 macOS: Python 3.9 - 3.14
-- 🪟 Windows: Python 3.9 - 3.14
+- 🐧 Linux: Python 3.10 - 3.15
+- 🍎 macOS: Python 3.10 - 3.15
+- 🪟 Windows: Python 3.10 - 3.15
 
 Basic usage
 =============

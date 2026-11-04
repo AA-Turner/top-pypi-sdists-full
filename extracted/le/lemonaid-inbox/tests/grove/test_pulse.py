@@ -4,6 +4,7 @@ import types
 
 from textual import events
 
+from lemonaid.brief import store
 from lemonaid.grove.draw import canvas, colors, trees
 from lemonaid.grove.tui import pulse, screen
 from lemonaid.grove.tui.app import GroveApp
@@ -88,7 +89,7 @@ def test_a_working_lemon_keeps_changing_color_even_in_a_grove_shown_again(monkey
 
 def test_working_dots_and_tags_keep_at_least_half_their_color_above_the_background():
     ground = _rgb(canvas.BACKGROUND)
-    for status in ("", *colors.STATUS):
+    for status in ("", *store.states()):
         working = dataclasses.replace(lemon("test", status=status), working=True)
         resting = dataclasses.replace(working, working=False)
         tag_colors = []
@@ -104,3 +105,19 @@ def test_working_dots_and_tags_keep_at_least_half_their_color_above_the_backgrou
             dim = sum(abs(a - b) for a, b in zip(_rgb(dark), ground, strict=True))
             assert full > dim >= full / 2, status
         assert colors.lemon_color(resting, 0.0) == colors.lemon_color(resting, 1.0)
+
+
+def test_a_shorter_pulse_cycles_faster_and_never_redraws_faster_than_twenty_times_a_second():
+    assert pulse.phase(1.0, 4.0) == pulse.phase(0.5, 2.0) == 0.5
+    assert pulse.tick(pulse.PERIOD) == 1 / 12
+    assert pulse.tick(2.0) < pulse.tick(pulse.PERIOD)
+    assert pulse.tick(0.5) == 1 / 20
+    assert pulse.tick(60.0) == 1 / 12
+
+
+def test_every_statuss_dot_is_distinguishable_from_every_crown_shade_at_rest():
+    for status in store.states():
+        dot = _rgb(colors.lemon_color(dataclasses.replace(lemon("test", status=status)), 0.0))
+        for leaf in colors.LEAF:
+            gap = sum(abs(a - b) for a, b in zip(dot, _rgb(leaf), strict=True))
+            assert gap >= 40, (status, leaf)

@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import fcntl
 import hashlib
+import importlib.metadata
 import json
 import os
 import subprocess
@@ -37,7 +38,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeGuard
 
-from captain_hook.review.repo import resolve_repo_key
+from captain_hook.review.repo import main_checkout, resolve_repo_key
 from captain_hook.settings import resolve_state_dir
 from captain_hook.types import Event
 from captain_hook.util import reqenv
@@ -72,6 +73,7 @@ class SpawnReport:
         scanned: How many transcripts the incremental scan parsed.
         inserted: How many new feedback events the scan recorded.
         refused: How many transcripts and correction anchors the scan refused because their evidence exceeds its bound.
+        deferred: How many transcripts the owner could not serve now, which the next pass retries.
         triaged: How many surviving create events the junk pre-screen classified.
         triage_junk: How many of those the pre-screen marked junk.
         triage_rejected: How many candidates the pre-screen retired without a judge call.
@@ -82,8 +84,14 @@ class SpawnReport:
         brain_exit: The brain subprocess's exit code, or ``None`` when it did not run.
         brain_seconds: The brain's wall-clock runtime in seconds, or ``None`` when it did not run.
         brain_prs: How many candidates the brain moved into ``pr_open`` this pass.
-        brain_skips: How many eligible candidates the brain left ``watching`` — a
-            logged skip (vanished target, no verifiable evidence), not a failure.
+        brain_skips: How many eligible candidates the brain recorded a skip for
+            (vanished target, no verifiable evidence), which is a decision, not a failure.
+        brain_failed: How many eligible candidates the run left with neither a PR nor a
+            recorded skip, so the brain never decided them.
+        brain_deferred: How many eligible candidates stopped crossing their thresholds during
+            the run, normally because its PRs filled their pool; they return on their own.
+        brain_held: How many candidates cross their thresholds but stay held because
+            the brain already considered them at their current evidence.
         synced_merged: How many open PRs merged, accepting their candidate.
         synced_closed: How many open PRs closed, rejecting their candidate.
         synced_kept: How many open PRs stayed open (fresh or ``gh``-unreachable).
@@ -95,6 +103,7 @@ class SpawnReport:
     scanned: int = 0
     inserted: int = 0
     refused: int = 0
+    deferred: int = 0
     triaged: int = 0
     triage_junk: int = 0
     triage_rejected: int = 0
@@ -106,6 +115,9 @@ class SpawnReport:
     brain_seconds: float | None = None
     brain_prs: int = 0
     brain_skips: int = 0
+    brain_failed: int = 0
+    brain_deferred: int = 0
+    brain_held: int = 0
     synced_merged: int = 0
     synced_closed: int = 0
     synced_kept: int = 0
@@ -289,7 +301,8 @@ def guard_and_spawn(raw: bytes, *, gate_enrollment: bool = False, session_start:
     """Parses the SessionStart/SessionEnd hook payload and detaches the reviewer child.
 
     Every path returns normally so the wired hook always exits 0: a set
-    ``CAPT_HOOK_SPAWNED`` (the reviewer's own spawned sessions), a headless
+    ``CAPT_HOOK_SPAWNED`` (the reviewer's own spawned sessions), a false
+    ``HOOKS_REVIEW_ENABLED``, a headless
     ``claude -p`` / SDK session (``CLAUDE_CODE_ENTRYPOINT`` in the ``sdk-*``
     family; an interactive quit is ``cli``), malformed stdin, a missing
     transcript, and a failed spawn all fall through silently, each leaving a
@@ -322,6 +335,9 @@ def guard_and_spawn(raw: bytes, *, gate_enrollment: bool = False, session_start:
 
     if reqenv.getenv(SPAWNED_ENV):
         breadcrumb("review-run skip: CAPT_HOOK_SPAWNED set")
+        return
+    if not ReviewAdmission().enabled:
+        breadcrumb("review-run skip: HOOKS_REVIEW_ENABLED is off")
         return
     # headless `claude -p` / SDK run — not an interactive session
     if reqenv.is_headless():
@@ -393,6 +409,9 @@ def guard_and_sweep(raw: bytes, *, gate_enrollment: bool = False) -> None:
     if reqenv.getenv(SPAWNED_ENV):
         breadcrumb("sweep skip: CAPT_HOOK_SPAWNED set")
         return
+    if not ReviewAdmission().enabled:
+        breadcrumb("sweep skip: HOOKS_REVIEW_ENABLED is off")
+        return
     if reqenv.is_headless():
         breadcrumb("sweep skip: sdk entrypoint")
         return
@@ -443,11 +462,12 @@ def brain_prompt(transcript: Path) -> str:
     return (
         "/captain-hook:scanning-sessions\n\n"
         f"[{REVIEWER_MARKER}] Review this repo's eligible candidates and open at most one pull request per"
-        " candidate. Verify quotes with `capt-hook review evidence <id>` and cite its snapshot reference; "
-        "use only verified evidence. Work in one continuous run: do not stop to summarize after drafting"
-        " — you are done only"
-        " when every eligible candidate has a PR recorded via `review update <id> pr_open --pr-url <url>` or"
-        " is explicitly skipped with a reason."
+        " candidate. Your working directory is the repo's main checkout, because the session's own worktree"
+        " may already be gone: run read-only `capt-hook review` commands from it, and make every write in a"
+        " worktree or clone as the skill directs. Verify quotes with `capt-hook review evidence <id>` and cite"
+        " its snapshot reference; use only verified evidence. Work in one continuous run: do not stop to"
+        " summarize after drafting — you are done only when every eligible candidate has a PR recorded via"
+        " `review update <id> pr_open --pr-url <url>` or a skip recorded via `review skip <id> --reason <why>`."
     )
 
 
@@ -478,6 +498,13 @@ def brain_plugin_root() -> Path:
     return resolve_claude_config_dir() / "captain-hook" / "headless-plugins"
 
 
+def brain_constraints() -> Path:
+    (path := review_log_path().with_name("brain-constraints.txt")).write_text(
+        f"capt-hook=={importlib.metadata.version('capt-hook')}\n"
+    )
+    return path
+
+
 def spawn_brain(transcript: Path, *, repo_root: Path, settings: ReviewSettings) -> BrainOutcome:
     """Runs the headless PR-drafting brain over the repo's eligible candidates.
 
@@ -492,7 +519,9 @@ def spawn_brain(transcript: Path, *, repo_root: Path, settings: ReviewSettings) 
     re-spawning the reviewer. The brain loads its one plugin through ``--plugin-dir``,
     so ``CLAUDE_CODE_PLUGIN_CACHE_DIR`` points it at a private plugin root, and its
     startup neither sweeps the shared plugin cache for orphans nor re-clones every
-    known marketplace.
+    known marketplace. ``UV_CONSTRAINT`` pins the brain's ``uvx --isolated capt-hook`` to this
+    build: the transcript owner answers only its exact build, and PyPI usually runs ahead of the
+    host, so an unpinned ``review evidence`` could verify nothing.
 
     Args:
         transcript: The just-ended session's transcript, named in the prompt.
@@ -511,7 +540,12 @@ def spawn_brain(transcript: Path, *, repo_root: Path, settings: ReviewSettings) 
                 brain_argv(max_turns=settings.brain_max_turns, max_budget_usd=settings.brain_max_budget_usd),
                 input=brain_prompt(transcript).encode(),
                 cwd=repo_root,
-                env=reqenv.env_map() | {SPAWNED_ENV: "1", PLUGIN_ROOT_ENV: str(brain_plugin_root())},
+                env=reqenv.env_map()
+                | {
+                    SPAWNED_ENV: "1",
+                    PLUGIN_ROOT_ENV: str(brain_plugin_root()),
+                    "UV_CONSTRAINT": str(brain_constraints()),
+                },
                 stdout=log,
                 stderr=log,
                 check=False,
@@ -642,7 +676,8 @@ async def review_session(transcript: Path, *, cwd: str, settings: ReviewSettings
     Scan, judge, and PR sync run whenever the repo is watched — verdicts
     amortize per session, and summary-fidelity verdicts re-judge once their
     windows hydrate again — and the brain spawns only when at least one
-    candidate is eligible. The scan sweeps the transcript's whole parent
+    candidate is eligible, which a candidate it already considered is not until
+    its evidence changes. The scan sweeps the transcript's whole parent
     directory through the mtime watermark, so ending one session also picks up
     the corrections of every still-open sibling session in the same repo, while
     the brain still acts only on the current cwd's eligible candidates.
@@ -664,12 +699,13 @@ async def review_session(transcript: Path, *, cwd: str, settings: ReviewSettings
 
     from captain_hook.review.judge import judge_pass
     from captain_hook.review.scan import scan
-    from captain_hook.review.store import CandidateStatus, ReviewStore
+    from captain_hook.review.store import CandidateStatus, ReviewStore, crosses_thresholds
     from captain_hook.review.sync import sync_open_prs
     from captain_hook.review.triage import triage_pass
 
     if (repo := resolve_repo_key(cwd)) is None:
         return SpawnReport(repo=None, sweep=sweep)
+    brain_root = main_checkout(cwd)
     async with await ReviewStore.open(settings.db_path) as store:
         if not await store.enroll(repo):
             return SpawnReport(repo=repo, sweep=sweep)
@@ -680,6 +716,7 @@ async def review_session(transcript: Path, *, cwd: str, settings: ReviewSettings
             scanned=scan_report.scanned,
             inserted=scan_report.inserted,
             refused=scan_report.refused,
+            deferred=scan_report.deferred,
             sweep=sweep,
         )
         with judge_lock(settings) as claimed:
@@ -701,7 +738,7 @@ async def review_session(transcript: Path, *, cwd: str, settings: ReviewSettings
     brain = False
     brain_exit: int | None = None
     brain_seconds: float | None = None
-    brain_prs = brain_skips = 0
+    brain_prs = brain_skips = brain_failed = brain_deferred = brain_held = 0
     # The global lock spans the eligibility read through the brain and the pr_open set-diff,
     # so a concurrent pass — in this repo or any other sharing the db — can neither
     # double-spawn nor leak its transitions into this count.
@@ -709,20 +746,40 @@ async def review_session(transcript: Path, *, cwd: str, settings: ReviewSettings
         with brain_lock(settings) as claimed:
             if claimed:
                 async with await ReviewStore.open(settings.db_path) as store:
-                    eligible_ids: list[int] = []
-                    for row in await store.candidates(repo, status=CandidateStatus.WATCHING):
-                        candidate_id = int(str(row["id"]))
-                        if await store.eligible(candidate_id, settings=settings):
-                            eligible_ids.append(candidate_id)
-                    eligible = tuple(eligible_ids)
+                    statuses = await store.threshold_statuses(
+                        await store.candidates(repo, status=CandidateStatus.WATCHING), settings=settings
+                    )
+                    eligible = tuple(
+                        candidate_id
+                        for candidate_id, status in statuses.items()
+                        if crosses_thresholds(status, settings=settings)
+                    )
+                    brain_held = sum(
+                        status.considered and crosses_thresholds(replace(status, considered=False), settings=settings)
+                        for status in statuses.values()
+                    )
                     opened_before = await pr_open_ids(store, repo)
+                    prior_outcomes = {
+                        candidate_id: await store.brain_outcome(candidate_id) for candidate_id in eligible
+                    }
                 if eligible:
                     brain = True
-                    outcome = spawn_brain(transcript, repo_root=Path(cwd), settings=settings)
+                    outcome = spawn_brain(transcript, repo_root=brain_root, settings=settings)
                     brain_exit, brain_seconds = outcome.exit_code, outcome.seconds
                     async with await ReviewStore.open(settings.db_path) as store:
                         brain_prs = len(await pr_open_ids(store, repo) - opened_before)
-                        brain_skips = len(set(eligible) & await watching_ids(store, repo))
+                        for candidate_id in set(eligible) & await watching_ids(store, repo):
+                            if await store.brain_outcome(candidate_id) != prior_outcomes[candidate_id]:
+                                brain_skips += 1
+                            elif crosses_thresholds(
+                                await store.threshold_status(candidate_id, settings=settings), settings=settings
+                            ):
+                                brain_failed += 1
+                                await store.record_brain_failure(
+                                    candidate_id, evidence=statuses[candidate_id].evidence, exit_code=outcome.exit_code
+                                )
+                            else:
+                                brain_deferred += 1
             else:
                 logger.bind(repo=repo).info("reviewer brain skipped: another pass holds this repo's lock")
     return replace(
@@ -733,6 +790,9 @@ async def review_session(transcript: Path, *, cwd: str, settings: ReviewSettings
         brain_seconds=brain_seconds,
         brain_prs=brain_prs,
         brain_skips=brain_skips,
+        brain_failed=brain_failed,
+        brain_deferred=brain_deferred,
+        brain_held=brain_held,
         synced_merged=sync.accepted if sync else 0,
         synced_closed=sync.rejected if sync else 0,
         synced_kept=(sync.kept + sync.unreachable) if sync else 0,

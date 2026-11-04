@@ -22,19 +22,12 @@ from repo_standards._machine import (
 )
 from repo_standards.core.canonical import canonical_json
 from repo_standards.core.commit_message import CommitMessageResult, check_local_commit_message_file
-from repo_standards.core.engine import (
-    analyze,
-    baseline_from_report,
-    check_baseline,
-    ratchet_findings,
-)
-from repo_standards.core.errors import ConfigurationError
+from repo_standards.core.engine import baseline_from_report
+from repo_standards.core.errors import BaselineError, ConfigurationError
 from repo_standards.core.inspection import (
     GitIdentity,
     git_identity,
-    git_index_identity,
     inspect_repository,
-    load_repository_snapshot,
     read_tracked_blob_contents,
 )
 from repo_standards.core.models import (
@@ -42,9 +35,9 @@ from repo_standards.core.models import (
     Baseline,
     Diagnostic,
     ExecutionIssue,
-    FindingsReport,
     GitObjectId,
     IncompleteReport,
+    MigrationCouplingException,
     Mode,
     Policy,
     PolicyId,
@@ -52,9 +45,7 @@ from repo_standards.core.models import (
     PullRequestReviewPolicyConfig,
     RepositoryId,
     RepositoryInspection,
-    RepositoryPolicy,
     Rule,
-    RuleId,
 )
 from repo_standards.core.parser import load_manifest
 from repo_standards.core.pull_request_body import missing_required_body_sections
@@ -87,8 +78,8 @@ from repo_standards.core.review_policy import (
     ReviewState,
     SinceReviewEvidence,
     evaluate_review_policy,
+    migration_coupled_paths,
 )
-from repo_standards.core.rule_reviews import RuleVersion, activated_rule_ids
 from repo_standards.policy_sarj import SarjPolicy
 from repo_standards.pull_request._context import NotApplicable
 from repo_standards.pull_request._inputs import (
@@ -96,7 +87,11 @@ from repo_standards.pull_request._inputs import (
     resolve_github_pull_request_inputs,
     resolve_local_pull_request_inputs,
 )
-from repo_standards.repository.comparison import with_makefile_comparison, with_migration_comparison
+from repo_standards.pull_request._trusted_manifest import load_trusted_base_manifest
+from repo_standards.repository.analysis import (
+    RepositoryAnalysisRequest,
+    complete_repository_analysis,
+)
 from repo_standards.rest import (
     InstrumentationDetectionReport,
     TrackedFile as RestTrackedFile,
@@ -157,10 +152,6 @@ class RequestError(ValueError):
     @classmethod
     def fail(cls, message: str) -> NoReturn:
         raise cls(message)
-
-
-class BaselineError(ConfigurationError):
-    """One baseline-specific input failure for explicit ratchet reporting."""
 
 
 class _TransitionExemptionInput(BaseModel):
@@ -615,11 +606,14 @@ def _render_pull_request_documentation(result: PullRequestDocumentation) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _trusted_review_policy(root: Path, manifest: Path | None) -> _TrustedReviewPolicy:
-    manifest_path = manifest or Path(".repo-standards/repository.toml")
-    if not manifest_path.is_absolute():
-        manifest_path = root / manifest_path
-    configured_pull_request = load_manifest(manifest_path).pull_request
+def _trusted_review_policy(
+    root: Path, manifest: Path | None, *, base: GitObjectId
+) -> _TrustedReviewPolicy:
+    if manifest is None:
+        configured = load_trusted_base_manifest(root, base).manifest
+    else:
+        configured = load_manifest(manifest if manifest.is_absolute() else root / manifest)
+    configured_pull_request = configured.pull_request if configured is not None else None
     if configured_pull_request is None or configured_pull_request.review_policy is None:
         ConfigurationError.fail("trusted manifest must define pull_request.review_policy")
     return _TrustedReviewPolicy(configured_pull_request, configured_pull_request.review_policy)
@@ -636,14 +630,21 @@ def pull_request_review_policy_command(  # ruff: ignore[too-many-arguments,too-m
     ] = None,
     manifest: Annotated[
         Path | None,
-        typer.Option(help="Trusted repository manifest."),
+        typer.Option(help="Explicit trusted manifest; defaults to the manifest in --base."),
     ] = None,
     generated_attribute: Annotated[
         str,
         typer.Option(help="Git attribute that marks repository-specific excluded artifacts."),
     ] = "pr-size-excluded",
 ) -> None:
-    """Evaluate the configured review tier from exact Git and provider evidence."""
+    """Require concise descriptions, isolated SQL migrations, and current human consensus.
+
+    Descriptions default to 2,000 characters, including Markdown and comments.
+    Migration-only PRs and declared domain roots need current human approval.
+    Coupling other files requires a tracked migration_exception with reason,
+    alternatives, and every coupled path, plus two human approvals on this head.
+    Trusted promotion exemptions preserve their existing scope behavior.
+    """
     if not re.fullmatch(r"[0-9a-f]{40}", base) or not re.fullmatch(r"[0-9a-f]{40}", head):
         _emit_command_error(
             "pull-request review-policy",
@@ -662,7 +663,7 @@ def pull_request_review_policy_command(  # ruff: ignore[too-many-arguments,too-m
         )
     try:  # ruff: ignore[too-many-statements-in-try-clause] - one fail-closed evidence transaction
         resolved_root = root.resolve(strict=True)
-        trusted_policy = _trusted_review_policy(resolved_root, manifest)
+        trusted_policy = _trusted_review_policy(resolved_root, manifest, base=GitObjectId(base))
         configured_pull_request = trusted_policy.pull_request
         configured = trusted_policy.config
         provider = _load_review_policy_evidence(evidence)
@@ -733,6 +734,10 @@ def pull_request_review_policy_command(  # ruff: ignore[too-many-arguments,too-m
                 latest_human_reviews=reviews,
                 threads_resolved=provider.threads_resolved,
                 author_is_bot=provider.author_is_bot,
+                body=provider.body,
+                migration_exception=_candidate_migration_exception(
+                    resolved_root, GitObjectId(head), changed_paths, configured.migration_roots
+                ),
             ),
             ReviewPolicyConfig(
                 zero_review_below_lines=configured.zero_review_below_counted_lines,
@@ -745,6 +750,8 @@ def pull_request_review_policy_command(  # ruff: ignore[too-many-arguments,too-m
                     CheckConclusion(item) for item in configured.accepted_check_conclusions
                 ),
                 require_resolved_threads=configured.require_resolved_threads,
+                maximum_body_characters=configured.maximum_body_characters,
+                domain_roots=configured.domain_roots,
             ),
         )
     except (ConfigurationError, OSError, ValidationError, ValueError) as error:
@@ -776,6 +783,19 @@ def pull_request_review_policy_command(  # ruff: ignore[too-many-arguments,too-m
         configured=configured,
     ):
         raise typer.Exit(1)
+
+
+def _candidate_migration_exception(
+    root: Path, head: GitObjectId, paths: tuple[str, ...], roots: tuple[str, ...]
+) -> MigrationCouplingException | None:
+    if not migration_coupled_paths(paths, roots):
+        return None
+    candidate = load_trusted_base_manifest(root, head).manifest
+    return (
+        candidate.pull_request.migration_exception
+        if candidate is not None and candidate.pull_request is not None
+        else None
+    )
 
 
 def _since_review_evidence(
@@ -959,6 +979,9 @@ def _pull_request_review_policy_payload(  # ruff: ignore[too-many-arguments] - r
             "accepted_check_conclusions": list(configured.accepted_check_conclusions),
             "require_resolved_threads": configured.require_resolved_threads,
             "required_body_sections": list(configured.required_body_sections),
+            "maximum_body_characters": configured.maximum_body_characters,
+            "domain_roots": list(configured.domain_roots),
+            "require_migration_isolation": True,
             "transition_exemptions": list(configured.transition_exemptions),
             "transition_actors": list(configured.transition_actors),
             "trusted_bot_authors": list(configured.trusted_bot_authors),
@@ -972,6 +995,10 @@ def _pull_request_review_policy_payload(  # ruff: ignore[too-many-arguments] - r
             "current_allowlisted_bot_approvals": len(result.allowlisted_bot_approvers),
             "allowlisted_bot_approvers": list(result.allowlisted_bot_approvers),
             "touches_migration": result.touches_migration,
+            "touches_domain": result.touches_domain,
+            "migration_coupled_paths": list(result.migration_coupled_paths),
+            "migration_exception_accepted": result.migration_exception_accepted,
+            "body_characters": len(provider.body),
             "transition_exemption": transition_exemption,
             "missing_body_sections": list(missing_sections),
             "reasons": reasons,
@@ -2083,7 +2110,7 @@ def _complete_analysis(  # ruff: ignore[too-many-arguments] - explicit analysis 
     root: Path,
     manifest_path: str,
     baseline_path: str,
-    policy: Policy,
+    policy: SarjPolicy,
     mode: Mode,
     as_of: str | None,
     staged: bool,
@@ -2091,50 +2118,21 @@ def _complete_analysis(  # ruff: ignore[too-many-arguments] - explicit analysis 
     base_revision: str | None,
     include_warnings: bool = False,
 ) -> _CompletedAnalysis:
-    try:
-        resolved_root = root.resolve(strict=True)
-    except OSError:
-        ConfigurationError.fail(f"repository root is unavailable: {root}")
-    try:
-        snapshot = load_repository_snapshot(
-            resolved_root,
+    completed = complete_repository_analysis(
+        RepositoryAnalysisRequest(
+            root=root,
             manifest_path=manifest_path,
-            baseline_path=baseline_path if mode is Mode.RATCHET else None,
-            identity=git_index_identity(resolved_root) if staged else None,
-        )
-    except ConfigurationError as error:
-        if mode is Mode.RATCHET and "baseline" in str(error):
-            raise BaselineError(str(error)) from error
-        raise
-    if snapshot.manifest.enabled_rules and enabled_rule_ids:
-        ConfigurationError.fail("manifest enabled_rules cannot be combined with --enable-rule")
-    enabled_rules = activated_rule_ids(
-        snapshot.manifest.enabled_rules or enabled_rule_ids,
-        current_rules=frozenset(RuleVersion(rule.rule_id, rule.version) for rule in policy.rules()),
+            baseline_path=baseline_path,
+            mode=mode,
+            as_of=_parse_date(as_of),
+            staged=staged,
+            enabled_rule_ids=enabled_rule_ids,
+            base_revision=base_revision,
+            include_warnings=include_warnings,
+        ),
+        policy=policy,
     )
-    evaluation_date = _parse_date(as_of)
-    snapshot = with_makefile_comparison(
-        resolved_root,
-        snapshot,
-        enabled_rules=enabled_rules,
-        base_revision=base_revision,
-        as_of=evaluation_date,
-    )
-    snapshot = with_migration_comparison(
-        resolved_root, snapshot, enabled_rules=enabled_rules, base_revision=base_revision
-    )
-    repository_diagnostics = (
-        policy.evaluate_repository(snapshot) if isinstance(policy, RepositoryPolicy) else ()
-    )
-    report = analyze(
-        snapshot.manifest,
-        policy,
-        mode=mode,
-        as_of=evaluation_date,
-        additional_diagnostics=repository_diagnostics,
-        enabled_rules=enabled_rules,
-    )
-    report = replace(report, input_provenance=snapshot.provenance)
+    report = completed.report
     if mode is not Mode.RATCHET:
         return _CompletedAnalysis(
             report,
@@ -2142,11 +2140,15 @@ def _complete_analysis(  # ruff: ignore[too-many-arguments] - explicit analysis 
             {"status": "not-requested", "path": None},
             {"status": "not-requested"},
         )
-    if snapshot.baseline is None:
+    if completed.baseline is None:
         message = "baseline is absent from the selected Git tree"
         raise BaselineError(message)
     return _complete_ratchet_analysis(
-        report, snapshot.baseline, baseline_path, include_warnings=include_warnings
+        report,
+        completed.baseline,
+        baseline_path,
+        regressions=completed.regressions,
+        include_warnings=include_warnings,
     )
 
 
@@ -2155,39 +2157,22 @@ def _complete_ratchet_analysis(
     baseline: Baseline,
     baseline_path: str,
     *,
+    regressions: tuple[Diagnostic, ...],
     include_warnings: bool = False,
 ) -> _CompletedAnalysis:
-    try:
-        regressions = check_baseline(report, baseline, include_warnings=include_warnings)
-    except ConfigurationError as error:
-        raise BaselineError(str(error)) from error
-    stale_rule = RuleId("core/baseline/stale-entry")
-    stale = tuple(item for item in regressions if item.rule_id == stale_rule)
-    new_count = len(regressions) - len(stale)
-    active_count = len(ratchet_findings(report, include_warnings=include_warnings))
+    comparison = report.ratchet
+    if comparison is None:
+        BaselineError.fail("selected ratchet comparison was not completed")
+    new_count = len(regressions)
+    active_count = len(comparison.entries)
     ratchet_summary = {
         **report.summary,
         "ratchet_regressions": len(regressions),
         "ratchet_new": new_count,
-        "ratchet_stale": len(stale),
+        "ratchet_stale": 0,
         "ratchet_known": max(active_count - new_count, 0),
     }
-    if stale:
-        report = FindingsReport(
-            mode=report.mode,
-            repository_id=report.repository_id,
-            policy_id=report.policy_id,
-            policy_version=report.policy_version,
-            scope_digest=report.scope_digest,
-            diagnostics=tuple(
-                sorted(report.diagnostics + stale, key=lambda item: item.fingerprint)
-            ),
-            summary=ratchet_summary,
-            input_provenance=report.input_provenance,
-            ratchet=report.ratchet,
-        )
-    else:
-        report = replace(report, summary=ratchet_summary)
+    report = replace(report, summary=ratchet_summary, ratchet=None)
     baseline_state: Mapping[str, object] = {
         "status": "verified",
         "path": baseline_path,
@@ -2199,7 +2184,7 @@ def _complete_ratchet_analysis(
         "status": "regressions" if regressions else "clean",
         "known": max(active_count - new_count, 0),
         "new": new_count,
-        "stale": len(stale),
+        "stale": 0,
         "regressions": len(regressions),
         "include_warnings": include_warnings,
     }
@@ -2218,7 +2203,7 @@ def _parse_date(value: str | None) -> date | None:
     return parsed
 
 
-def _policy() -> Policy:
+def _policy() -> SarjPolicy:
     return SarjPolicy()
 
 

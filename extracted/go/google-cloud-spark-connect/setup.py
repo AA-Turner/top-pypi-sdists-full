@@ -69,13 +69,30 @@ class _CleanEggInfo(egg_info):
 
 setup(
     name="google-cloud-spark-connect",
-    version="2.1.1",
+    version="2.2.0",
     description="Managed Spark client library for Spark Connect",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Google LLC",
     url="https://github.com/GoogleCloudDataproc/managed-spark-connect-python",
     license="Apache 2.0",
+    # The floor is what the code needs (match statements), which is also what
+    # pyspark>=4.1 needs. Python UDFs additionally need the client's Python
+    # minor version to match the Managed Spark runtime's; the session warns
+    # about a mismatch rather than refusing to install, since everything else
+    # works across Python versions. When changing the floor, also change the
+    # vermin target in .github/workflows/vermin.yaml and the smoke tests in
+    # .github/workflows/tests.yaml.
+    python_requires=">=3.10",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
+    ],
     packages=find_namespace_packages(include=["google.*"]),
     exclude_package_data={"*": [".wh.*"]},
     cmdclass={"egg_info": _CleanEggInfo},
@@ -84,7 +101,9 @@ setup(
         "google-cloud-dataproc>=5.18",
         "packaging>=20.0",
         "tqdm>=4.67",
-        "websockets>=14.0",
+        # 15.0 added keepalive (ping_interval/ping_timeout) to the sync
+        # client, which client/proxy.py configures.
+        "websockets>=15.0",
     ],
     extras_require={
         # client and spark are mutually exclusive: install at most one. Both

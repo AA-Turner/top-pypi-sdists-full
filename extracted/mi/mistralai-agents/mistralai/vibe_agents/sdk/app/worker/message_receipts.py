@@ -1,16 +1,17 @@
-"""Receipts that make the ``send_message`` Workflow Update idempotent.
+"""Receipts that make the message Workflow Updates (``send_message``, ``start_turn``,
+``steer_turn``) idempotent.
 
-``MessageReceiptLedger`` keeps, per command id, the content digest and the Turn each admitted
-message joined, so a retry with the same idempotency key gets that Turn back and a reuse of the
-key with other content conflicts. ``message_command_id`` derives the command id from the Session
-and the key. The Harness Runtime owns admission.
+``MessageReceiptLedger`` keeps, per command id, the Turn each admitted message joined, so a retry
+gets that Turn back. A ``send_message`` receipt also keeps the content digest, so a reuse of its
+key with other content conflicts; a start or steer replays by command id alone (ADR 0038). The
+Harness Runtime owns admission.
 """
 
 import hashlib
 import json
 
 from mistralai.vibe_agents.sdk.app.worker.continuation import MessageReceiptRecord
-from mistralai.vibe_agents.session_workflow.send_message import SendMessageInput, message_command_id
+from mistralai.vibe_agents.session_workflow.update_inputs import SendMessageInput
 
 # ponytail: FIFO past this many message receipts, stored and carried. Retries come within
 # seconds; an older retry still conflicts while the Runtime keeps its command id. Raise the
@@ -31,17 +32,40 @@ class MessageReceiptLedger:
     def get(self, command_id: str) -> MessageReceiptRecord | None:
         return self._receipts.get(command_id)
 
-    def begin(self, command_id: str, *, digest: str) -> MessageReceiptRecord:
+    def begin(self, command_id: str, *, digest: str | None) -> MessageReceiptRecord:
         """Store the receipt of a message about to be handed to the Runtime."""
 
         receipt = MessageReceiptRecord(digest=digest)
+        self._put(command_id, receipt)
+        return receipt
+
+    def keep(self, command_id: str, receipt: MessageReceiptRecord) -> None:
+        """Store an admitted message's receipt again if a concurrent copy dropped it.
+
+        Concurrent copies of one start or steer share a receipt, and a copy that is refused drops
+        it, while /commands needs it to see the id of a committed steer as taken.
+        """
+
+        if command_id not in self._receipts:
+            self._put(command_id, receipt)
+
+    def _put(self, command_id: str, receipt: MessageReceiptRecord) -> None:
         self._receipts[command_id] = receipt
         if len(self._receipts) > _MAX_RECEIPTS:
             del self._receipts[next(iter(self._receipts))]
-        return receipt
 
-    def discard(self, command_id: str) -> None:
-        self._receipts.pop(command_id, None)
+    def discard_unanswered(self, command_id: str) -> None:
+        """Drop the receipt of a message refused before any answer was kept for it."""
+
+        receipt = self._receipts.get(command_id)
+        # A concurrent copy that was admitted or rejected keeps the shared receipt, so /commands
+        # sees the id as taken, also after Continue-As-New.
+        if (
+            receipt is not None
+            and receipt.turn_id is None
+            and not (receipt.committed or receipt.refused or receipt.rejected)
+        ):
+            del self._receipts[command_id]
 
 
 def build_message_digest(message: SendMessageInput) -> str:
@@ -60,5 +84,4 @@ def build_message_digest(message: SendMessageInput) -> str:
 __all__ = [
     "MessageReceiptLedger",
     "build_message_digest",
-    "message_command_id",
 ]

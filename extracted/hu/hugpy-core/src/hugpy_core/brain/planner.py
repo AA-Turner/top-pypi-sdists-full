@@ -92,6 +92,8 @@ def maybe_refresh(w: dict, immediate: bool = False) -> Optional[str]:
     Resource changes must refresh that snapshot through the coalescing gate.
     Refresh unchanged inputs periodically too: pair_live expires after 120s."""
     service = w.get("data_service") or {}
+    if (service.get('capabilities') or {}).get('verdicts') is False:
+        return None
     inputs = {"wrapper_version": w.get("wrapper_version"),
               "store_id": service.get("store_id"),
               "schema_version": service.get("schema_version"),

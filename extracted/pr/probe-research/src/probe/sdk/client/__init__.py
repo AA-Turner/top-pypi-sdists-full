@@ -159,8 +159,6 @@ _HOMES = {
     "Rewind": "probe.sdk.client.resources.runs.reopen.conflict",
     "_repin_bracket_lease": "probe.sdk.client.resources.runs.reopen.conflict",
     "_LEASES_FEATURE": "probe.sdk.client.resources.runs.reopen.conflict",
-    "_LEASE_RANK_VARS": "probe.sdk.client.resources.runs.reopen.conflict",
-    "_env_int": "probe.sdk.client.resources.runs.reopen.conflict",
     "_ATTACH_JITTER_PER_RANK": "probe.sdk.client.resources.runs.reopen.conflict",
     "_ATTACH_JITTER_MAX": "probe.sdk.client.resources.runs.reopen.conflict",
     "_attach_jitter_seconds": "probe.sdk.client.resources.runs.reopen.conflict",

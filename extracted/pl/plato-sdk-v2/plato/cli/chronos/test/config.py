@@ -89,8 +89,9 @@ class TestConfig(BaseModel):
 
         data: dict[str, Any] = json.loads(raw)
         # Only expand env vars in non-world-config fields (dev paths, tags, etc.)
-        # World config ${VAR} placeholders are resolved from Chronos analyzer-env
-        # settings at runtime, not from local env vars.
+        # World config ${VAR} placeholders are resolved from Chronos at runtime,
+        # not from local env vars — `test.pass_env` is the explicit opt-in for
+        # the ones that should come from the local shell instead.
         world_config = None
         if "world" in data and isinstance(data["world"], dict):
             world_config = data["world"].pop("config", None)

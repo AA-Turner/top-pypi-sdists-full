@@ -171,6 +171,11 @@ class PinnedFact(FactEditError):
     caller (a nap's capture subagent) would change pinned content without anyone deciding to."""
 
 
+def _writes_never_off() -> bool:
+    """The switch reading for an engine too old to export memory_writes_off: never off."""
+    return False
+
+
 @dataclass(frozen=True)
 class EngineRules:
     """The engine's live lint surface, injected so the judging below is testable without a store."""
@@ -189,6 +194,13 @@ class EngineRules:
     # The engine's anchor resolver, bound like the parser so the body is read from the store THAT
     # engine writes. None only for an engine too old to export it, which read_fact refuses.
     resolve_anchor: Callable[[str], object] | None = None
+    # The memory-writes switch, bound from the SAME engine's self_improve_signals, so a copy of
+    # this file run outside the plugin reads it through --engine like every other rule. apply
+    # consults it before staging: the engine it launches would refuse too, but only after the
+    # stage dir exists. The defaults stand for an engine too old to know the switch, which
+    # cannot honour it either.
+    writes_off: Callable[[], bool] = field(default=_writes_never_off)
+    writes_off_line: str = ""
 
 
 @dataclass(frozen=True)
@@ -428,19 +440,27 @@ def load_rules(engine: Path) -> EngineRules:
     """Import the engine's lint modules and bind the LIVE caps and predicates."""
     hooks_dir = str(Path(engine).resolve().parent)
     sys.path.insert(0, hooks_dir)
-    # Drop any previously-imported copy first. Both names are plain top-level modules, so a second
+    # Drop any previously-imported copy first. All three are plain top-level modules, so a second
     # call with a DIFFERENT engine dir would otherwise get the cached first one and report that
     # engine's caps under this engine's path - the exact silent-wrong-answer this tool exists to
-    # stop. Nothing else in this process imports them, so evicting them is safe. The anchor
-    # resolver lives in self_improve_signals (uuid_store re-exports it), so that goes too.
+    # stop. In production nothing else in this process imports them, so evicting them is safe.
+    # Under pytest, test modules (statusrot's, for one) bound them at collection, before any
+    # eviction; those keep the module objects they bound, and this load binds fresh copies beside
+    # them. The anchor resolver and the memory-writes switch live in self_improve_signals
+    # (uuid_store re-exports the resolver), so that goes too.
     for name in ("uuid_store", "capture_constraints", "self_improve_signals"):
         sys.modules.pop(name, None)
     importlib.invalidate_caches()
     try:
         us = importlib.import_module("uuid_store")
         cc = importlib.import_module("capture_constraints")
+        sis = importlib.import_module("self_improve_signals")
     except ImportError as exc:
         raise EngineNotFound(f"engine at {engine} is not importable: {exc}") from exc
+    switch = {}
+    if hasattr(sis, "memory_writes_off"):
+        switch = {"writes_off": sis.memory_writes_off,
+                  "writes_off_line": sis.MEMORY_WRITES_OFF_LINE}
     return EngineRules(
         soft_max=us.HOOK_SOFT_MAX,
         hard_max=us.HOOK_HARD_MAX,
@@ -454,6 +474,7 @@ def load_rules(engine: Path) -> EngineRules:
         types=tuple(us.TYPE_PREFIXES),
         engine_path=Path(engine).resolve(),
         resolve_anchor=getattr(us, "resolve_anchor", None),
+        **switch,
     )
 
 
@@ -919,6 +940,8 @@ _SINGLE_ONLY = (("slug", "--slug"), ("hook", "--hook"), ("hook_file", "--hook-fi
 
 
 def cmd_apply(args, rules: EngineRules) -> int:
+    if rules.writes_off():
+        raise BadInput(rules.writes_off_line)
     if args.batch:
         given = [flag for attr, flag in _SINGLE_ONLY if getattr(args, attr) is not None]
         if given:
@@ -1051,6 +1074,8 @@ def cmd_apply_batch(args, rules: EngineRules) -> int:
     way through leaves the earlier entries written. The report names which were applied, which one
     failed and why, and which were never attempted, and nothing after the failure is attempted.
     """
+    if rules.writes_off():
+        raise BadInput(rules.writes_off_line)
     path = Path(args.batch)
     entries, problems = parse_batch(_read_batch_file(path), base=path.resolve().parent,
                                     start=Path(args.start),

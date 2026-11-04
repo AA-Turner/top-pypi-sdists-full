@@ -1,21 +1,23 @@
 import asyncio
+import inspect
+from collections.abc import Callable, Coroutine
 from threading import Timer as _Timer
-from typing import Any, Callable, Coroutine, Optional, cast
+from typing import Any, cast
 
 
 class Timer:
     def __init__(
         self,
         seconds: float,
-        function: Callable[[], Optional[Coroutine[Any, Any, None]]],
+        function: Callable[[], Coroutine[Any, Any, None] | None],
     ) -> None:
         self._milliseconds = seconds
         self._function = function
-        self._task: Optional[asyncio.Task] = None
-        self._timer: Optional[_Timer] = None
+        self._task: asyncio.Task | None = None
+        self._timer: _Timer | None = None
 
     def start(self) -> None:
-        if asyncio.iscoroutinefunction(self._function):
+        if inspect.iscoroutinefunction(self._function):
 
             async def schedule() -> None:
                 await asyncio.sleep(self._milliseconds / 1000)
@@ -33,7 +35,13 @@ class Timer:
 
     def cancel(self) -> None:
         if self._task is not None:
-            self._task.cancel()
+            try:
+                current_task = asyncio.current_task()
+            except RuntimeError:
+                current_task = None
+            # Refresh callbacks replace their timer before persisting the session.
+            if self._task is not current_task:
+                self._task.cancel()
             self._task = None
         if self._timer is not None:
             self._timer.cancel()

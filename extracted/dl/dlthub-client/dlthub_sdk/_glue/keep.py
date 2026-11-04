@@ -17,8 +17,11 @@ class _Keep(Enum):
     KEEP = "keep"
 
 
-#: Leave the field as it is. The default of every optional update argument.
 KEEP: Final = _Keep.KEEP
+"""Leave this field as it is: the default of every optional update argument.
 
-#: The type of :data:`KEEP`, to sit in a union: ``str | None | Keep``.
+Pass `None` to clear a field instead.
+"""
+
 Keep = Literal[_Keep.KEEP]
+"""The type of :data:`KEEP`, for annotating an update argument: `str | None | Keep`."""

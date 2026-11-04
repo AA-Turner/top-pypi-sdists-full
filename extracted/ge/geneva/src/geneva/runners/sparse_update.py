@@ -44,7 +44,7 @@ from geneva.utils.commit_conflict import is_retryable_commit_conflict
 from geneva.utils.schema import field_path_covers, format_field_path
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     from geneva.transformer import UDF
 
@@ -529,6 +529,8 @@ class SparseCommitManager:
     commit_granularity: int | None = None
     storage_options: dict | None = None
     max_conflict_retries: int = 10
+    # Called before each commit attempt; raising stops the commit.
+    before_commit: Callable[[], None] | None = None
 
     _version: int = attrs.field(init=False, default=0)
     _committed: int | None = attrs.field(init=False, default=None)
@@ -593,6 +595,8 @@ class SparseCommitManager:
         # that appear between the read version and the committed version are exactly
         # the ones this Update appended -- record their ids as produced.
         for attempt in range(self.max_conflict_retries + 1):
+            if self.before_commit is not None:
+                self.before_commit()
             try:
                 if self._known_frags is None:
                     self._known_frags = {f.fragment_id for f in self.ds.get_fragments()}

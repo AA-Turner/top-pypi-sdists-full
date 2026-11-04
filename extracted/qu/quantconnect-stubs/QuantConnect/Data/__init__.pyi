@@ -2847,6 +2847,15 @@ class SubscriptionManager(System.Object):
         """
         ...
 
+    def remove_consolidators(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Sequence[QuantConnect.Data.Consolidators.IDataConsolidator]:
+        """
+        Removes all the consolidators registered for the symbol
+        
+        :param symbol: The symbol whose consolidators will be removed
+        :returns: The removed consolidators.
+        """
+        ...
+
     def scan_past_consolidators(self, new_utc_time: typing.Union[datetime.datetime, datetime.date], algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
         """
         Will trigger past consolidator scans

@@ -28,7 +28,12 @@ class HookDecision:
 
 
 def skip(reason: str) -> HookDecision:
-    """Stop the turn, model call or tool call; ``reason`` is what the model sees instead."""
+    """Stop the turn, model call or tool call.
+
+    From ``pre_tool_call``, ``reason`` is what the model sees in place of the tool
+    result. From ``pre_agent_turn`` or ``pre_llm_call``, the turn ends with
+    ``stop_reason="skipped"`` and ``reason`` as its text.
+    """
 
     return HookDecision("skip", reason)
 

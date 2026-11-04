@@ -8,7 +8,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from superdoc.client import AsyncSuperDocClient, SuperDocClient
-from superdoc.document_rpc import build_document_open_params
 from superdoc.errors import SuperDocError
 from superdoc.protocol import InvalidFrame, JsonRpcResponse, parse_jsonrpc_line
 from superdoc.skill_api import get_skill
@@ -23,38 +22,6 @@ POINTS = [*JS_TRIM_POINTS, *OTHER_POINTS]
 
 
 class WhitespaceBoundaryTests(unittest.TestCase):
-    def test_host_selectors_preserve_values_and_refuse_javascript_blanks_without_spawn(self) -> None:
-        for point in POINTS:
-            for asynchronous in [False, True]:
-                for source in ['argument', 'environment']:
-                    with self.subTest(point=hex(point), asynchronous=asynchronous, source=source):
-                        value = chr(point)
-                        env = {'SUPERDOC_CLI_BIN': '/unused/whitespace-cli'}
-                        kwargs = {'env': env}
-                        if source == 'argument':
-                            kwargs['document_host_path'] = value
-                        else:
-                            env['SUPERDOC_SDK_DOCUMENT_HOST_BIN'] = value
-                        before_env = dict(env)
-                        client_type = AsyncSuperDocClient if asynchronous else SuperDocClient
-                        with patch('superdoc.transport.subprocess.Popen') as sync_spawn, patch(
-                            'superdoc.transport.asyncio.create_subprocess_exec',
-                        ) as async_spawn:
-                            if point in JS_TRIM_POINTS:
-                                with self.assertRaises(SuperDocError) as error:
-                                    client_type(**kwargs)
-                                self.assertEqual(error.exception.code, 'INVALID_ARGUMENT')
-                            else:
-                                client = client_type(**kwargs)
-                                self.assertEqual(client._runtime._transport._cli_bin, value)
-                                self.assertEqual(client._runtime._transport._process_mode, 'document')
-                                self.assertIsNone(client._runtime._transport._process)
-                                cleanup = client.dispose()
-                                if asynchronous:
-                                    asyncio.run(cleanup)
-                            sync_spawn.assert_not_called()
-                            async_spawn.assert_not_called()
-                        self.assertEqual(env, before_env)
 
     def test_skill_lookup_uses_javascript_trim_and_keeps_unknown_skill_diagnostics(self) -> None:
         expected = get_skill('editing-docx')
@@ -75,36 +42,7 @@ class WhitespaceBoundaryTests(unittest.TestCase):
                             self.assertEqual(error.exception.code, 'INVALID_ARGUMENT')
                             self.assertEqual(error.exception.details, {'name': supplied})
 
-    def test_author_blankness_matches_the_authored_javascript_set(self) -> None:
-        for point in POINTS:
-            with self.subTest(point=hex(point)):
-                name = chr(point)
-                params = {'doc': 'fixture.docx', 'sessionId': 'whitespace-session'}
-                if point in JS_TRIM_POINTS:
-                    with self.assertRaises(SuperDocError) as error:
-                        build_document_open_params(params, {'name': name})
-                    self.assertEqual(error.exception.code, 'INVALID_ARGUMENT')
-                    self.assertEqual(str(error.exception), 'user.name must be a non-empty string.')
-                else:
-                    _, opened = build_document_open_params(params, {'name': name})
-                    self.assertEqual(opened['author'], {'name': name})
-                _, opened = build_document_open_params(params, {'name': name + 'Ada' + name})
-                self.assertEqual(opened['author'], {'name': name + 'Ada' + name})
 
-    def test_open_path_blankness_matches_the_authored_routing_set(self) -> None:
-        for point in POINTS:
-            with self.subTest(point=hex(point)):
-                path = chr(point)
-                params = {'doc': path, 'sessionId': 'whitespace-session'}
-                if point in JS_TRIM_POINTS:
-                    with self.assertRaises(SuperDocError) as error:
-                        build_document_open_params(params)
-                    self.assertEqual(error.exception.code, 'DOCUMENT_RPC_INPUT_UNSUPPORTED')
-                    self.assertEqual(error.exception.details, {'operationId': 'doc.open'})
-                else:
-                    session, opened = build_document_open_params(params)
-                    self.assertEqual(session, 'whitespace-session')
-                    self.assertEqual(opened['path'], path)
 
     def test_local_lookup_uses_javascript_trim_without_changing_query_metadata(self) -> None:
         for point in POINTS:
@@ -112,7 +50,7 @@ class WhitespaceBoundaryTests(unittest.TestCase):
                 with self.subTest(point=hex(point), asynchronous=asynchronous):
                     query = chr(point) + 'doc.getText' + chr(point)
                     client_type = AsyncSuperDocClient if asynchronous else SuperDocClient
-                    client = client_type(document_host_path='/missing/whitespace-document-host')
+                    client = client_type(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
                     try:
                         def invoke():
                             result = client.describe_command({'operationId': query})

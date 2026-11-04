@@ -7,7 +7,8 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use statsig_rust::{
     DynamicConfigEvaluationOptions, Statsig, StatsigOptions, StatsigUser,
-    interned_string::InternedString, interned_values::InternedStore,
+    interned_string::InternedString,
+    interned_values::{InternedStore, MmapPreloadOptions},
 };
 use tokio::time::{Duration, sleep, timeout};
 use utils::{mock_data_store::MockDataStore, mock_event_logging_adapter::MockEventLoggingAdapter};
@@ -219,7 +220,13 @@ async fn run_case(artifact: Artifact) {
     )
     .await
     .unwrap();
-    InternedStore::preload_mmap(&sdk_key).unwrap();
+    let writer_downloads = count(&server, &remote.path()).await;
+    let has_verified_blob = matches!(
+        artifact,
+        Artifact::Hydrated | Artifact::SameBackingDifferentSpec
+    );
+    assert_eq!(writer_downloads, usize::from(has_verified_blob));
+    InternedStore::preload_mmap(&[&sdk_key], &[], &MmapPreloadOptions::default()).unwrap();
     let name = InternedString::from_str_ref(CONFIG);
     let preloaded = InternedStore::try_get_preloaded_dynamic_config(&name).unwrap();
     assert!(
@@ -271,15 +278,9 @@ async fn run_case(artifact: Artifact) {
     assert_current(&sdk, &remote, &preloaded, artifact);
     let downloads = count(&server, &remote.path()).await;
     assert_eq!(
-        downloads,
-        if matches!(
-            artifact,
-            Artifact::Hydrated | Artifact::SameBackingDifferentSpec
-        ) {
-            2
-        } else {
-            1
-        }
+        downloads - writer_downloads,
+        usize::from(!has_verified_blob),
+        "verified blobs are reused even when changed spec fields require a new config",
     );
 
     *dcs.0.lock().unwrap() = full(2, wire_config);

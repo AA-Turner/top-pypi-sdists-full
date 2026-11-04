@@ -23,21 +23,20 @@ class TriggeredJob:
     Attributes:
         job_id (UUID): The ID of the matched job.
         job_ref (str): The job reference of the matched job.
-        matched_triggers (list[str]): All triggers that matched the selectors.
-        trigger (str): The single trigger picked for this run.
-        job_run (JobRunResponse | None | Unset): Full run details when a run was created. None in dry_run mode or when
-            skipped.
-        job_run_id (None | Unset | UUID): The ID of the created run. None in dry_run mode or when skipped.
-        reasons (list[str] | None | Unset): Human-readable reasons explaining non-'triggered' statuses (e.g. which
-            upstreams failed the freshness check). None when status is 'triggered' or no reasons were captured.
-        status (str | TriggeredJobStatusType0 | Unset): Why the job did or did not start. 'skipped_fresh' — one or more
-            upstream freshness checks failed (see `reasons` for which upstreams). 'skipped_upstream_pending' — upstream
-            being re-run in same batch. 'skipped_out_of_interval' — point-in-time trigger outside job.interval_start/end.
-            'skipped_concurrency_limit' — active run count already at the job's concurrency limit. 'skipped_already_covered'
-            — scheduler/cascade detected prior completed run already covers the period. 'skipped_trial_expired' — trial
-            period has ended for this organization. 'skipped_minutes_limit' — organization has exceeded its cumulative
-            runtime limit. 'skipped_org_concurrency_limit' — organization has reached its maximum number of concurrent runs.
-            'skipped_paused' — the job's scheduled runs are paused, so the scheduler did not start this tick. Default:
+        matched_triggers (list[str]): Every trigger that selected this job: its default trigger when named in `job_ids`,
+            plus any selector matches.
+        trigger (str): The trigger the job fires with.
+        job_run (JobRunResponse | None | Unset): The created run; `null` in dry-run mode or when skipped.
+        job_run_id (None | Unset | UUID): The ID of the created run; `null` in dry-run mode or when skipped.
+        reasons (list[str] | None | Unset): Human-readable reasons for a skip, e.g. which upstream jobs are not fresh;
+            `null` when the job was triggered or no reasons were recorded.
+        status (str | TriggeredJobStatusType0 | Unset): Whether the job started a run: `triggered` if it did; otherwise
+            why not. `skipped_fresh`: an upstream job is not fresh (see `reasons`). `skipped_upstream_pending`: an upstream
+            job is triggered in the same request. `skipped_out_of_interval`: the run would fall outside the job's
+            `interval_start` / `interval_end`. `skipped_concurrency_limit`: the job is already running as many runs as it
+            allows. `skipped_org_concurrency_limit`: the organization has reached its limit of concurrent runs.
+            `skipped_trial_expired`: the organization's trial has ended. `skipped_minutes_limit`: the organization has used
+            up its compute minutes. `skipped_workspace_archived`: the workspace is archived. Default:
             TriggeredJobStatusType0.TRIGGERED.
     """
 

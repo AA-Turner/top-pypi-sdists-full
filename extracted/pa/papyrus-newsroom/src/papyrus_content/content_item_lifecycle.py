@@ -30,13 +30,21 @@ LEGACY_CONTENT_ITEM_STAGE_REPLACEMENTS = {
     "report": "reporting",
     "editor_select": "reporting",
 }
-DEFAULT_CONTENT_ITEM_FORMAT = "article"
-#: The Item types that are stories; the same list as STORY_ITEM_TYPES in lib/content-item-lifecycle.ts (add a type in both).
-STORY_ITEM_TYPES = ("article", "post")
+#: The stored type of a Story that has none yet. `Item.type` is required and `typeStatus` is a key (`<type>#<status>`), so "no type" is an explicit value
+#: rather than a missing one; it is the same string in lib/content-item-lifecycle.ts. A Story of this type can be drafted and edited but not published.
+UNTYPED_ITEM_TYPE = "untyped"
+#: The Item types that are not Stories: the fixed system set, the same list as SYSTEM_ITEM_TYPES in lib/content-item-lifecycle.ts (change both).
+#: Every other type is a Story type, so a site's own new type needs no engine change.
+SYSTEM_ITEM_TYPES = ("wiki_page", "doctrine", "page")
 
 
 def is_story_item_type(item_type: str | None) -> bool:
-    return item_type in STORY_ITEM_TYPES
+    """Every Item type outside the system set is a Story type."""
+    return bool(item_type) and item_type not in SYSTEM_ITEM_TYPES
+
+
+def is_untyped(item_type: str | None) -> bool:
+    return item_type == UNTYPED_ITEM_TYPE
 
 
 def require_content_item_stage(stage: str) -> str:
@@ -68,9 +76,12 @@ def build_new_content_item_version(
     stage: str,
     actor_label: str,
     now: str,
+    item_type: str | None = None,
 ) -> dict[str, Any]:
     section = section_key or None  # a story with no section stores none (a section is a topic, never a placeholder)
-    content_item_format = DEFAULT_CONTENT_ITEM_FORMAT
+    from .story_types import type_for_new_story
+
+    content_item_format = item_type or type_for_new_story()
     return {
         "id": f"{lineage_id}-v1",
         "lineageId": lineage_id,

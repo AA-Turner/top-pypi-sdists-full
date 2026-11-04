@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: composio
-Version: 0.30.0
+Version: 0.31.0
 Summary: SDK for integrating Composio with your applications.
 Home-page: https://github.com/composiohq/composio
 Author: Composio
@@ -13,7 +13,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: pysher==1.0.8
 Requires-Dist: websocket-client<2
 Requires-Dist: pydantic<3,>=2.11.9
-Requires-Dist: composio-client==2.0.0rc19
+Requires-Dist: composio-client==2.0.1
 Requires-Dist: typing-extensions<5,>=4.16.0
 Requires-Dist: openai<4,>=2.48.0
 Requires-Dist: json-schema-to-pydantic<1,>=0.4.11

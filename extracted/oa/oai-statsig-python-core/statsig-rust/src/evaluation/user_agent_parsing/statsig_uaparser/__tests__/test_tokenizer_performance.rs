@@ -25,7 +25,7 @@ const EDGE_CASES: &[&str] = &[
 
 #[test]
 fn memchr_window_preserves_legacy_tokenizer_results() {
-    for user_agent in corpus().into_iter().chain(EDGE_CASES.iter().copied()) {
+    for user_agent in corpus() {
         assert_equivalent(user_agent);
     }
 

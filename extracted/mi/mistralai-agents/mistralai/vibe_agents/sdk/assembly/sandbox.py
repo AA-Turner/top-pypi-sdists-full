@@ -355,6 +355,7 @@ def compile_sandbox(
             )
         case contracts.LocalDockerSandbox():
             definition = LocalDockerSandboxDefinition(
+                network="none" if authored.network.mode == "none" else "all",
                 image=authored.image,
                 shell=authored.shell,
                 default_exec_timeout_seconds=authored.default_exec_timeout_seconds,

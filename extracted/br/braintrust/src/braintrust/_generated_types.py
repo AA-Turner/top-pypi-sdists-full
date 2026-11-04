@@ -137,6 +137,9 @@ class ApiKey(TypedDict):
     Name of the api key
     """
     preview_name: str
+    """
+    Masked preview showing the key prefix and last four characters, e.g. sk-…AbCd.
+    """
     user_id: NotRequired[str | None]
     """
     Unique identifier for the user
@@ -2687,6 +2690,9 @@ class ServiceToken(TypedDict):
     Name of the service token
     """
     preview_name: str
+    """
+    Masked preview showing the token prefix and last four characters, e.g. bt-st-…AbCd.
+    """
     service_account_id: NotRequired[str | None]
     """
     Unique identifier for the service token
@@ -3586,7 +3592,7 @@ class DatasetEvent(TypedDict):
     """
     span_id: str
     """
-    A unique identifier used to link different dataset events together as part of a full trace. See the [tracing guide](https://www.braintrust.dev/docs/instrument) for full details on tracing
+    A unique identifier used to link different dataset events together as part of a full trace. See the [tracing guide](https://docs.braintrust.dev/instrument) for full details on tracing
     """
     root_span_id: str
     """
@@ -3865,6 +3871,10 @@ ModelParams: TypeAlias = (
 
 class OnlineScoreConfig(TypedDict):
     status: NotRequired[AutomationStatus | None]
+    service_tier: NotRequired[Literal['standard', 'flex'] | None]
+    """
+    Service tier for online scoring. If omitted, prompt-level service tiers are preserved.
+    """
     sampling_rate: float
     """
     The sampling rate for online scoring
@@ -4283,7 +4293,7 @@ class ExperimentEvent(TypedDict):
     """
     span_id: str
     """
-    A unique identifier used to link different experiment events together as part of a full trace. See the [tracing guide](https://www.braintrust.dev/docs/instrument) for full details on tracing
+    A unique identifier used to link different experiment events together as part of a full trace. See the [tracing guide](https://docs.braintrust.dev/instrument) for full details on tracing
     """
     span_parents: NotRequired[Sequence[str] | None]
     """
@@ -4471,7 +4481,7 @@ class ProjectLogsEvent(TypedDict):
     """
     span_id: str
     """
-    A unique identifier used to link different project logs events together as part of a full trace. See the [tracing guide](https://www.braintrust.dev/docs/instrument) for full details on tracing
+    A unique identifier used to link different project logs events together as part of a full trace. See the [tracing guide](https://docs.braintrust.dev/instrument) for full details on tracing
     """
     span_parents: NotRequired[Sequence[str] | None]
     """

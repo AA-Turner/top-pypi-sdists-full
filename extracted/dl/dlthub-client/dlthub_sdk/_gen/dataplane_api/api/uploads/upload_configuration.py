@@ -58,6 +58,11 @@ def _parse_response(
 
         return response_403
 
+    if response.status_code == 413:
+        response_413 = ErrorResponse.from_dict(response.json())
+
+        return response_413
+
     if response.status_code == 500:
         response_500 = ErrorResponse.from_dict(response.json())
 
@@ -89,14 +94,16 @@ def sync_detailed(
 ) -> Response[ConfigurationResponse | ErrorResponse]:
     """UploadConfigurationBytes
 
-     Upload configuration tarball bytes. Auth: ``DataplaneUserJwt`` with ``configuration:upload`` grant
-    on the URL ``configuration_id``. Server parses the tarball, stores it + the files manifest in vault,
-    then writes the row back to the CP API. Returns the freshly-created ``ConfigurationResponse``.
+     Uploads the configuration package for the id you got from `configurations/-issue-upload`, using that
+    call's `upload_token`. Profiles are read from `<profile>.config.toml` and `<profile>.secrets.toml`
+    file names. On success the configuration is created and returned. A package that cannot be read
+    answers 400; a request body over 10 MB answers 413.
 
     Args:
         workspace_id (UUID):
         configuration_id (UUID):
-        body (UploadConfigurationBody):
+        body (UploadConfigurationBody): Multipart body with one part, `file`: the configuration
+            package, a tar.gz built by dlt that contains `manifest.yaml`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -127,14 +134,16 @@ def sync(
 ) -> ConfigurationResponse | ErrorResponse | None:
     """UploadConfigurationBytes
 
-     Upload configuration tarball bytes. Auth: ``DataplaneUserJwt`` with ``configuration:upload`` grant
-    on the URL ``configuration_id``. Server parses the tarball, stores it + the files manifest in vault,
-    then writes the row back to the CP API. Returns the freshly-created ``ConfigurationResponse``.
+     Uploads the configuration package for the id you got from `configurations/-issue-upload`, using that
+    call's `upload_token`. Profiles are read from `<profile>.config.toml` and `<profile>.secrets.toml`
+    file names. On success the configuration is created and returned. A package that cannot be read
+    answers 400; a request body over 10 MB answers 413.
 
     Args:
         workspace_id (UUID):
         configuration_id (UUID):
-        body (UploadConfigurationBody):
+        body (UploadConfigurationBody): Multipart body with one part, `file`: the configuration
+            package, a tar.gz built by dlt that contains `manifest.yaml`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -160,14 +169,16 @@ async def asyncio_detailed(
 ) -> Response[ConfigurationResponse | ErrorResponse]:
     """UploadConfigurationBytes
 
-     Upload configuration tarball bytes. Auth: ``DataplaneUserJwt`` with ``configuration:upload`` grant
-    on the URL ``configuration_id``. Server parses the tarball, stores it + the files manifest in vault,
-    then writes the row back to the CP API. Returns the freshly-created ``ConfigurationResponse``.
+     Uploads the configuration package for the id you got from `configurations/-issue-upload`, using that
+    call's `upload_token`. Profiles are read from `<profile>.config.toml` and `<profile>.secrets.toml`
+    file names. On success the configuration is created and returned. A package that cannot be read
+    answers 400; a request body over 10 MB answers 413.
 
     Args:
         workspace_id (UUID):
         configuration_id (UUID):
-        body (UploadConfigurationBody):
+        body (UploadConfigurationBody): Multipart body with one part, `file`: the configuration
+            package, a tar.gz built by dlt that contains `manifest.yaml`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -196,14 +207,16 @@ async def asyncio(
 ) -> ConfigurationResponse | ErrorResponse | None:
     """UploadConfigurationBytes
 
-     Upload configuration tarball bytes. Auth: ``DataplaneUserJwt`` with ``configuration:upload`` grant
-    on the URL ``configuration_id``. Server parses the tarball, stores it + the files manifest in vault,
-    then writes the row back to the CP API. Returns the freshly-created ``ConfigurationResponse``.
+     Uploads the configuration package for the id you got from `configurations/-issue-upload`, using that
+    call's `upload_token`. Profiles are read from `<profile>.config.toml` and `<profile>.secrets.toml`
+    file names. On success the configuration is created and returned. A package that cannot be read
+    answers 400; a request body over 10 MB answers 413.
 
     Args:
         workspace_id (UUID):
         configuration_id (UUID):
-        body (UploadConfigurationBody):
+        body (UploadConfigurationBody): Multipart body with one part, `file`: the configuration
+            package, a tar.gz built by dlt that contains `manifest.yaml`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

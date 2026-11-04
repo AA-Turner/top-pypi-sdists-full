@@ -233,6 +233,8 @@ def apply_state(conn, cols: Columns, worker: str, snapshot: Dict[str, List[dict]
     SELECT or write never holds back the others (or aborts the batch)."""
     counts: Dict[str, int] = {}
     for t in STATE_TABLES:
+        if t == 'models' and ((snapshot.get('data_service') or {}).get('capabilities') or {}).get('physical_inventory') is False:
+            continue  # routable model keys do not assert physical copies
         if t not in snapshot or t not in cols.types:
             continue
         try:

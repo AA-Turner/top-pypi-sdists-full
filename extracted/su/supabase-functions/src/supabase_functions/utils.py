@@ -1,13 +1,7 @@
-import sys
+from enum import StrEnum
 from urllib.parse import urlparse
 
-from httpx import AsyncClient as AsyncClient  # noqa: F401
-
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    from strenum import StrEnum
-
+from httpx import AsyncClient as AsyncClient
 
 DEFAULT_FUNCTION_CLIENT_TIMEOUT = 5
 BASE64URL_REGEX = r"^([a-z0-9_-]{4})*($|[a-z0-9_-]{3}$|[a-z0-9_-]{2}$)$"

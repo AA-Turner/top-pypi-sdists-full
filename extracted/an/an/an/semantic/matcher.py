@@ -372,8 +372,3 @@ def as_choice(x: Any, aspect_name: str) -> Choice | None:
                 f"{m.version!r} — freeze its expansion, or update the pin"
             )
     return c
-
-
-#: The names genre packages imported before they were public (API level < 13); removed by an#709.
-_method = lookup_method
-_as_choice = as_choice

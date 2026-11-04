@@ -1136,31 +1136,37 @@ class DatadogDefaultLayerVersions(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DOTNET")
+    @builtins.classmethod
     def DOTNET(cls) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.sget(cls, "DOTNET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EXTENSION")
+    @builtins.classmethod
     def EXTENSION(cls) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.sget(cls, "EXTENSION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="JAVA")
+    @builtins.classmethod
     def JAVA(cls) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.sget(cls, "JAVA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NODE")
+    @builtins.classmethod
     def NODE(cls) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.sget(cls, "NODE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PYTHON")
+    @builtins.classmethod
     def PYTHON(cls) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.sget(cls, "PYTHON"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RUBY")
+    @builtins.classmethod
     def RUBY(cls) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.sget(cls, "RUBY"))
 
@@ -1238,7 +1244,7 @@ class DatadogECSBaseProps:
         :param dogstatsd: DogStatsD feature configuration.
         :param env: The task environment name. Used for tagging (UST).
         :param environment_variables: Datadog Agent environment variables.
-        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Use a comma-separated list of key:value pairs, for example "env:prod,team:payments". Tag values can't contain commas or whitespace. Overrides any DD_TAGS values in environmentVariables.
         :param image_version: The version of the Datadog Agent container image to use.
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
@@ -1440,6 +1446,8 @@ class DatadogECSBaseProps:
     def global_tags(self) -> typing.Optional[builtins.str]:
         '''Global tags to apply to all data sent by the Agent.
 
+        Use a comma-separated list of key:value pairs, for example "env:prod,team:payments".
+        Tag values can't contain commas or whitespace.
         Overrides any DD_TAGS values in environmentVariables.
         '''
         result = self._values.get("global_tags")
@@ -1579,7 +1587,7 @@ class DatadogECSFargate(
         :param dogstatsd: DogStatsD feature configuration.
         :param env: The task environment name. Used for tagging (UST).
         :param environment_variables: Datadog Agent environment variables.
-        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Use a comma-separated list of key:value pairs, for example "env:prod,team:payments". Tag values can't contain commas or whitespace. Overrides any DD_TAGS values in environmentVariables.
         :param image_version: The version of the Datadog Agent container image to use.
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
@@ -1681,7 +1689,7 @@ class DatadogECSFargate(
         :param dogstatsd: DogStatsD feature configuration.
         :param env: The task environment name. Used for tagging (UST).
         :param environment_variables: Datadog Agent environment variables.
-        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Use a comma-separated list of key:value pairs, for example "env:prod,team:payments". Tag values can't contain commas or whitespace. Overrides any DD_TAGS values in environmentVariables.
         :param image_version: The version of the Datadog Agent container image to use.
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
@@ -1810,7 +1818,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         :param dogstatsd: DogStatsD feature configuration.
         :param env: The task environment name. Used for tagging (UST).
         :param environment_variables: Datadog Agent environment variables.
-        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Use a comma-separated list of key:value pairs, for example "env:prod,team:payments". Tag values can't contain commas or whitespace. Overrides any DD_TAGS values in environmentVariables.
         :param image_version: The version of the Datadog Agent container image to use.
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
@@ -2030,6 +2038,8 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
     def global_tags(self) -> typing.Optional[builtins.str]:
         '''Global tags to apply to all data sent by the Agent.
 
+        Use a comma-separated list of key:value pairs, for example "env:prod,team:payments".
+        Tag values can't contain commas or whitespace.
         Overrides any DD_TAGS values in environmentVariables.
         '''
         result = self._values.get("global_tags")
@@ -2195,7 +2205,7 @@ class DatadogECSFargateTaskDefinition(
         :param dogstatsd: DogStatsD feature configuration.
         :param env: The task environment name. Used for tagging (UST).
         :param environment_variables: Datadog Agent environment variables.
-        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Use a comma-separated list of key:value pairs, for example "env:prod,team:payments". Tag values can't contain commas or whitespace. Overrides any DD_TAGS values in environmentVariables.
         :param image_version: The version of the Datadog Agent container image to use.
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
@@ -2603,7 +2613,7 @@ class DatadogECSManagedInstances(
         :param dogstatsd: DogStatsD feature configuration.
         :param env: The task environment name. Used for tagging (UST).
         :param environment_variables: Datadog Agent environment variables.
-        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Use a comma-separated list of key:value pairs, for example "env:prod,team:payments". Tag values can't contain commas or whitespace. Overrides any DD_TAGS values in environmentVariables.
         :param image_version: The version of the Datadog Agent container image to use.
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
@@ -2766,7 +2776,7 @@ class DatadogECSManagedInstances(
         :param dogstatsd: DogStatsD feature configuration.
         :param env: The task environment name. Used for tagging (UST).
         :param environment_variables: Datadog Agent environment variables.
-        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Use a comma-separated list of key:value pairs, for example "env:prod,team:payments". Tag values can't contain commas or whitespace. Overrides any DD_TAGS values in environmentVariables.
         :param image_version: The version of the Datadog Agent container image to use.
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
@@ -2949,7 +2959,7 @@ class DatadogECSManagedInstancesDaemonTaskDefinition(
         :param dogstatsd: DogStatsD feature configuration.
         :param env: The task environment name. Used for tagging (UST).
         :param environment_variables: Datadog Agent environment variables.
-        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Use a comma-separated list of key:value pairs, for example "env:prod,team:payments". Tag values can't contain commas or whitespace. Overrides any DD_TAGS values in environmentVariables.
         :param image_version: The version of the Datadog Agent container image to use.
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
@@ -3234,7 +3244,7 @@ class DatadogECSManagedInstancesProps(DatadogECSBaseProps):
         :param dogstatsd: DogStatsD feature configuration.
         :param env: The task environment name. Used for tagging (UST).
         :param environment_variables: Datadog Agent environment variables.
-        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Use a comma-separated list of key:value pairs, for example "env:prod,team:payments". Tag values can't contain commas or whitespace. Overrides any DD_TAGS values in environmentVariables.
         :param image_version: The version of the Datadog Agent container image to use.
         :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
         :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
@@ -3542,6 +3552,8 @@ class DatadogECSManagedInstancesProps(DatadogECSBaseProps):
     def global_tags(self) -> typing.Optional[builtins.str]:
         '''Global tags to apply to all data sent by the Agent.
 
+        Use a comma-separated list of key:value pairs, for example "env:prod,team:payments".
+        Tag values can't contain commas or whitespace.
         Overrides any DD_TAGS values in environmentVariables.
         '''
         result = self._values.get("global_tags")
@@ -4214,7 +4226,7 @@ class DatadogLambda(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0b2235362f45dc0197a214709f6a5cf3d466c6d7f3700120c66f6f7b29fa3573)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contextGitShaOverrideKey", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contextGitShaOverrideKey", value)
 
     @builtins.property
     @jsii.member(jsii_name="lambdas")
@@ -4231,7 +4243,7 @@ class DatadogLambda(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__637733c25a7c2850eaee52097e2193a573cd89b62a7c3996ea0fda7addda066c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lambdas", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lambdas", value)
 
     @builtins.property
     @jsii.member(jsii_name="props")
@@ -4243,7 +4255,7 @@ class DatadogLambda(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5cacc2a125e366ff9b1144af9ca07a68614e32ac99686c20a48c623921b3359e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "props", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "props", value)
 
     @builtins.property
     @jsii.member(jsii_name="scope")
@@ -4255,7 +4267,7 @@ class DatadogLambda(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bd01617eb2e87ed512be49dc83a00ad8014edd30800c640e958188cbcb58426f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scope", value)
 
     @builtins.property
     @jsii.member(jsii_name="transport")
@@ -4267,7 +4279,7 @@ class DatadogLambda(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__01077f52f36828b6127966c542bcbf9e86506f40b406b02d331a1f5f35827b96)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "transport", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "transport", value)
 
     @builtins.property
     @jsii.member(jsii_name="gitCommitShaOverride")
@@ -4279,7 +4291,7 @@ class DatadogLambda(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__213e6389c94903631c6747e04649248f0784d5717f40ad071d3c71802a5c3200)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "gitCommitShaOverride", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "gitCommitShaOverride", value)
 
     @builtins.property
     @jsii.member(jsii_name="gitRepoUrlOverride")
@@ -4291,7 +4303,7 @@ class DatadogLambda(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f19e6a46905795090f9f235d7ea2f95c0282dcb3ea533553002ad0708e60f7cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "gitRepoUrlOverride", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "gitRepoUrlOverride", value)
 
 
 @jsii.data_type(
@@ -5299,7 +5311,7 @@ class DatadogStepFunctions(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b10ed674eb55ba6d923f23a99b43b07d2c6f239f5c4ce9e7fa058477b59c90f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "props", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "props", value)
 
     @builtins.property
     @jsii.member(jsii_name="scope")
@@ -5311,7 +5323,7 @@ class DatadogStepFunctions(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9b1d09fd1401fae9805dc0d66cb2c39f536e290d1dc30696de1ad72771731685)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scope", value)
 
     @builtins.property
     @jsii.member(jsii_name="stack")
@@ -5323,7 +5335,7 @@ class DatadogStepFunctions(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ff6ed5d0fcff8c46a1c7c2760ce2c125fa08fba4d53c4e7781f64cd428d87bf6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stack", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "stack", value)
 
 
 @jsii.data_type(
@@ -6360,7 +6372,7 @@ class Transport(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__87d37a95f6dd3d1a31b972e8a18e2e936cbf664a6115834cfcc7603f98c551a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flushMetricsToLogs", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flushMetricsToLogs", value)
 
     @builtins.property
     @jsii.member(jsii_name="site")
@@ -6372,7 +6384,7 @@ class Transport(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d6f64e6254d5b2c7300d506cc6c873060cbbc2f69b870b7754d459d721bfc9fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "site", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "site", value)
 
     @builtins.property
     @jsii.member(jsii_name="apiKey")
@@ -6384,7 +6396,7 @@ class Transport(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__972f96a848003a1b191a5a2b1b385eb8ae5537da456ee82835b121b2f7bee129)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "apiKey", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "apiKey", value)
 
     @builtins.property
     @jsii.member(jsii_name="apiKeySecretArn")
@@ -6396,7 +6408,7 @@ class Transport(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a239562249ca542ce2cf0d1c83a0a743656792a47b3366d1ae3d031f42f5c3ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "apiKeySecretArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "apiKeySecretArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="apiKeySsmArn")
@@ -6408,7 +6420,7 @@ class Transport(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f1bac0920740601316f9c4b816e302dbd50234e5968fa9f99bf66b7e5f4bb76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "apiKeySsmArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "apiKeySsmArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="apiKmsKey")
@@ -6420,7 +6432,7 @@ class Transport(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66a0c11321e5495d2118a192e3d4e7e1cc604ec8c806a36ab92a4dfc5dec7bfa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "apiKmsKey", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "apiKmsKey", value)
 
     @builtins.property
     @jsii.member(jsii_name="extensionLayerArn")
@@ -6432,7 +6444,7 @@ class Transport(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__36104d26f9460abbfc771a11b22aebe8f8924c949c0030d0e2f064812dea0123)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "extensionLayerArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "extensionLayerArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="extensionLayerVersion")
@@ -6444,7 +6456,7 @@ class Transport(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b5e4df65851315cbd779a7d51db28b4f9f2ff24e8d2030ab94830e4548e02f64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "extensionLayerVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "extensionLayerVersion", value)
 
 
 @jsii.data_type(

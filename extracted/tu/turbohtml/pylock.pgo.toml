@@ -54,6 +54,7 @@ environments = [
 requires-python = ">=3.11"
 dependency-groups = [
     "build",
+    "fuzz-build",
     "pgo",
     "project-runtime",
 ]
@@ -331,8 +332,37 @@ size = 37515
 sha256 = "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86"
 
 [[packages]]
+name = "html5lib"
+version = "1.1"
+marker = "\"fuzz-build\" in dependency_groups"
+requires-python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
+dependencies = [
+    { name = "six" },
+    { name = "webencodings" },
+]
+index = "https://pypi.org/simple/"
+
+[packages.sdist]
+name = "html5lib-1.1.tar.gz"
+upload-time = 2020-06-22 23:32:38.834992+00:00
+url = "https://files.pythonhosted.org/packages/ac/b6/b55c3f49042f1df3dcd422b7f224f939892ee94f22abcf503a9b7339eaf2/html5lib-1.1.tar.gz"
+size = 272215
+
+[packages.sdist.hashes]
+sha256 = "b2e5b40261e20f354d198eae92afc10d750afb487ed5e50f9c4eaf07c184146f"
+
+[[packages.wheels]]
+name = "html5lib-1.1-py2.py3-none-any.whl"
+upload-time = 2020-06-22 23:32:36.781398+00:00
+url = "https://files.pythonhosted.org/packages/6c/dd/a834df6482147d48e225a49515aabc28974ad5a4ca3215c18a882565b028/html5lib-1.1-py2.py3-none-any.whl"
+size = 112173
+
+[packages.wheels.hashes]
+sha256 = "0d78f8fde1c230e99fe37986a60526d7049ed4bf8a9fadbad5f00e22e58e041d"
+
+[[packages]]
 name = "httpcore2"
-version = "2.15.1"
+version = "2.16.0"
 marker = "\"pgo\" in dependency_groups"
 requires-python = ">=3.11"
 dependencies = [
@@ -342,26 +372,26 @@ dependencies = [
 index = "https://pypi.org/simple/"
 
 [packages.sdist]
-name = "httpcore2-2.15.1.tar.gz"
-upload-time = 2026-10-19 20:14:23.824092+00:00
-url = "https://files.pythonhosted.org/packages/c2/a9/11bc39967bb9dfaab0981ab4d49f519818acbee662a7e76d06813319c838/httpcore2-2.15.1.tar.gz"
-size = 69859
+name = "httpcore2-2.16.0.tar.gz"
+upload-time = 2026-10-21 07:09:45.310470+00:00
+url = "https://files.pythonhosted.org/packages/c0/61/afa9d6b7452f9eca73f73d45324eb0bb52f098fd5e6049bf6b8263be9b4e/httpcore2-2.16.0.tar.gz"
+size = 69886
 
 [packages.sdist.hashes]
-sha256 = "a94b6b3e6260e1a3f035915408d3dcd7dc8e844c2b544b642e227cf98a747af0"
+sha256 = "c72cd0413563b17e1cd8354677dff887466f8ec2551679759e93126534428643"
 
 [[packages.wheels]]
-name = "httpcore2-2.15.1-py3-none-any.whl"
-upload-time = 2026-10-19 20:14:21.363595+00:00
-url = "https://files.pythonhosted.org/packages/0d/9b/e2b556e26fbc67716ab1dfc18832eb6fe196d88363f7094cb1da3d7c0d3e/httpcore2-2.15.1-py3-none-any.whl"
-size = 85055
+name = "httpcore2-2.16.0-py3-none-any.whl"
+upload-time = 2026-10-21 07:09:42.802531+00:00
+url = "https://files.pythonhosted.org/packages/af/c2/ce417c397afa5181f0e3c6ff01a4d01639414e1adef08730d97571297151/httpcore2-2.16.0-py3-none-any.whl"
+size = 85070
 
 [packages.wheels.hashes]
-sha256 = "730f603058c260a3288378217b464713350c23e3b8fe8bba753701054032d98a"
+sha256 = "5c4358319f2602d984ad93182c9fee5160f22e9da7babdda870a5e7c4e2dc34f"
 
 [[packages]]
 name = "httpx2"
-version = "2.15.1"
+version = "2.16.0"
 marker = "\"pgo\" in dependency_groups"
 requires-python = ">=3.11"
 dependencies = [
@@ -374,22 +404,22 @@ dependencies = [
 index = "https://pypi.org/simple/"
 
 [packages.sdist]
-name = "httpx2-2.15.1.tar.gz"
-upload-time = 2026-10-19 20:14:24.587733+00:00
-url = "https://files.pythonhosted.org/packages/7f/85/07978f4afd168d6b408fa75c1dc13e3010653a81e182aa1b6d89ab94d9c6/httpx2-2.15.1.tar.gz"
-size = 101673
+name = "httpx2-2.16.0.tar.gz"
+upload-time = 2026-10-21 07:09:46.348194+00:00
+url = "https://files.pythonhosted.org/packages/43/73/5ca2cedf5e4e50423d1c258877865a6b62793633b561c58499f8aeb33b7e/httpx2-2.16.0.tar.gz"
+size = 103116
 
 [packages.sdist.hashes]
-sha256 = "ff75485308fbe441e75b1218546e4e78d884df41e1a9741c1f79335ed8fcfef7"
+sha256 = "0d54c98128e8f2ff7fbbde0fca8c359e5f032edeaaaac443cdb7f31f685bcd7f"
 
 [[packages.wheels]]
-name = "httpx2-2.15.1-py3-none-any.whl"
-upload-time = 2026-10-19 20:14:22.789198+00:00
-url = "https://files.pythonhosted.org/packages/7a/bf/56068f774620330c8330e4b4915fae889a5b2d4b52667b3b7c8f66c4a9ad/httpx2-2.15.1-py3-none-any.whl"
-size = 96411
+name = "httpx2-2.16.0-py3-none-any.whl"
+upload-time = 2026-10-21 07:09:44.010669+00:00
+url = "https://files.pythonhosted.org/packages/7b/3d/2e4bc4fd1ef9770871669adb348d612a6e4786b303a23f9935b81c48dd60/httpx2-2.16.0-py3-none-any.whl"
+size = 97880
 
 [packages.wheels.hashes]
-sha256 = "75841cd83d16b417f7d6da8f2089ce8120806efdbf96af37d46c5129c49015be"
+sha256 = "fd2c5d7909e8d86fe92d53020c310ca0e4e431b838c207c5754b9bbf0308d49a"
 
 [[packages]]
 name = "idna"
@@ -417,9 +447,62 @@ size = 69583
 sha256 = "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
 
 [[packages]]
+name = "markdown-it-py"
+version = "4.2.0"
+marker = "\"fuzz-build\" in dependency_groups"
+requires-python = ">=3.10"
+dependencies = [
+    { name = "mdurl" },
+]
+index = "https://pypi.org/simple/"
+
+[packages.sdist]
+name = "markdown_it_py-4.2.0.tar.gz"
+upload-time = 2026-05-07 12:08:28.360612+00:00
+url = "https://files.pythonhosted.org/packages/06/ff/7841249c247aa650a76b9ee4bbaeae59370dc8bfd2f6c01f3630c35eb134/markdown_it_py-4.2.0.tar.gz"
+size = 82454
+
+[packages.sdist.hashes]
+sha256 = "04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49"
+
+[[packages.wheels]]
+name = "markdown_it_py-4.2.0-py3-none-any.whl"
+upload-time = 2026-05-07 12:08:27.182789+00:00
+url = "https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl"
+size = 91687
+
+[packages.wheels.hashes]
+sha256 = "9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a"
+
+[[packages]]
+name = "mdurl"
+version = "0.1.2"
+marker = "\"fuzz-build\" in dependency_groups"
+requires-python = ">=3.7"
+index = "https://pypi.org/simple/"
+
+[packages.sdist]
+name = "mdurl-0.1.2.tar.gz"
+upload-time = 2022-08-14 12:40:10.846281+00:00
+url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz"
+size = 8729
+
+[packages.sdist.hashes]
+sha256 = "bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba"
+
+[[packages.wheels]]
+name = "mdurl-0.1.2-py3-none-any.whl"
+upload-time = 2022-08-14 12:40:09.779676+00:00
+url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl"
+size = 9979
+
+[packages.wheels.hashes]
+sha256 = "84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8"
+
+[[packages]]
 name = "meson"
 version = "1.12.1"
-marker = "\"build\" in dependency_groups or \"pgo\" in dependency_groups"
+marker = "\"build\" in dependency_groups or \"fuzz-build\" in dependency_groups or \"pgo\" in dependency_groups"
 requires-python = ">=3.10"
 index = "https://pypi.org/simple/"
 
@@ -444,7 +527,7 @@ sha256 = "930bc7542cbd9f57009e182fd014eba48cf1a0180a7b9006d2d32d8f168d8b02"
 [[packages]]
 name = "meson-python"
 version = "0.22.1"
-marker = "\"build\" in dependency_groups or \"pgo\" in dependency_groups"
+marker = "\"build\" in dependency_groups or \"fuzz-build\" in dependency_groups or \"pgo\" in dependency_groups"
 requires-python = ">=3.10"
 dependencies = [
     { name = "meson" },
@@ -474,7 +557,7 @@ sha256 = "258fde948cf45aab5df23fcc9e17a9050ee73d4e1002fe6cf86519f61c414778"
 [[packages]]
 name = "ninja"
 version = "1.13.2"
-marker = "\"build\" in dependency_groups or \"pgo\" in dependency_groups"
+marker = "\"build\" in dependency_groups or \"fuzz-build\" in dependency_groups or \"pgo\" in dependency_groups"
 requires-python = ">=3.8"
 index = "https://pypi.org/simple/"
 
@@ -535,7 +618,7 @@ sha256 = "1db9852e528efa7702f5123969f86678663e46d57ff28ab13f5fd84d64a85fb1"
 [[packages]]
 name = "packaging"
 version = "26.3"
-marker = "\"build\" in dependency_groups or \"pgo\" in dependency_groups"
+marker = "\"build\" in dependency_groups or \"fuzz-build\" in dependency_groups or \"pgo\" in dependency_groups"
 requires-python = ">=3.9"
 index = "https://pypi.org/simple/"
 
@@ -594,7 +677,7 @@ sha256 = "b5c3dec03b89db2bb0df301d316360847eeaf72c6fb6ddde0227326655edabb4"
 [[packages]]
 name = "pyproject-metadata"
 version = "0.12.1"
-marker = "\"build\" in dependency_groups or \"pgo\" in dependency_groups"
+marker = "\"build\" in dependency_groups or \"fuzz-build\" in dependency_groups or \"pgo\" in dependency_groups"
 requires-python = ">=3.8"
 dependencies = [
     { name = "packaging" },
@@ -621,28 +704,53 @@ sha256 = "f7162d580a96386a8eb096da06215f981f547d1490f03055ef99e323bc2da427"
 
 [[packages]]
 name = "setuptools"
-version = "84.2.0"
+version = "84.2.1"
 marker = "\"build\" in dependency_groups"
 requires-python = ">=3.10"
 index = "https://pypi.org/simple/"
 
 [packages.sdist]
-name = "setuptools-84.2.0.tar.gz"
-upload-time = 2026-10-19 20:38:03.407523+00:00
-url = "https://files.pythonhosted.org/packages/63/40/e2c41d00a4bfea5548c31420a74c6cf149cc0e7c36b45c4c82202ce867aa/setuptools-84.2.0.tar.gz"
-size = 1227656
+name = "setuptools-84.2.1.tar.gz"
+upload-time = 2026-10-20 19:01:37.742699+00:00
+url = "https://files.pythonhosted.org/packages/70/b3/c19426f783614d625699a4b247faf628ea9ab1db228674491767b417f9e1/setuptools-84.2.1.tar.gz"
+size = 1230289
 
 [packages.sdist.hashes]
-sha256 = "6f445ca2ce864605f81e223f262b4c94ffcb9a4a63473bae0ed7be5aab0291da"
+sha256 = "3ff8b3b5492a0aa66960f4419365a86b84e013070d4313e4d4a6894f5d64d6bc"
 
 [[packages.wheels]]
-name = "setuptools-84.2.0-py3-none-any.whl"
-upload-time = 2026-10-19 20:38:01.629093+00:00
-url = "https://files.pythonhosted.org/packages/dd/a2/2e1af99d56c8145aa69496026c7e5fd7b6ec759b500c3ad697e2062832dc/setuptools-84.2.0-py3-none-any.whl"
-size = 875816
+name = "setuptools-84.2.1-py3-none-any.whl"
+upload-time = 2026-10-20 19:01:35.678013+00:00
+url = "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl"
+size = 876263
 
 [packages.wheels.hashes]
-sha256 = "8cc107ac7a403105dc8d6477664171f36135fab26adf8b5e0edaebc313f39b21"
+sha256 = "ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2"
+
+[[packages]]
+name = "six"
+version = "1.17.0"
+marker = "\"fuzz-build\" in dependency_groups"
+requires-python = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+index = "https://pypi.org/simple/"
+
+[packages.sdist]
+name = "six-1.17.0.tar.gz"
+upload-time = 2024-12-04 17:35:28.174320+00:00
+url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz"
+size = 34031
+
+[packages.sdist.hashes]
+sha256 = "ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"
+
+[[packages.wheels]]
+name = "six-1.17.0-py2.py3-none-any.whl"
+upload-time = 2024-12-04 17:35:26.475808+00:00
+url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl"
+size = 11050
+
+[packages.wheels.hashes]
+sha256 = "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"
 
 [[packages]]
 name = "tenacity"
@@ -668,6 +776,34 @@ size = 32310
 
 [packages.wheels.hashes]
 sha256 = "9e56f17539296baab7beabb08b92f6ee3d7be92d8be72d763360677c2ad6580e"
+
+[[packages]]
+name = "tinycss2"
+version = "1.5.1"
+marker = "\"fuzz-build\" in dependency_groups"
+requires-python = ">=3.10"
+dependencies = [
+    { name = "webencodings" },
+]
+index = "https://pypi.org/simple/"
+
+[packages.sdist]
+name = "tinycss2-1.5.1.tar.gz"
+upload-time = 2025-11-23 10:29:10.082039+00:00
+url = "https://files.pythonhosted.org/packages/a3/ae/2ca4913e5c0f09781d75482874c3a95db9105462a92ddd303c7d285d3df2/tinycss2-1.5.1.tar.gz"
+size = 88195
+
+[packages.sdist.hashes]
+sha256 = "d339d2b616ba90ccce58da8495a78f46e55d4d25f9fd71dfd526f07e7d53f957"
+
+[[packages.wheels]]
+name = "tinycss2-1.5.1-py3-none-any.whl"
+upload-time = 2025-11-23 10:29:08.676338+00:00
+url = "https://files.pythonhosted.org/packages/60/45/c7b5c3168458db837e8ceab06dc77824e18202679d0463f0e8f002143a97/tinycss2-1.5.1-py3-none-any.whl"
+size = 28404
+
+[packages.wheels.hashes]
+sha256 = "3415ba0f5839c062696996998176c4a3751d18b7edaaeeb658c9ce21ec150661"
 
 [[packages]]
 name = "truststore"
@@ -697,7 +833,7 @@ sha256 = "9aaaedaefaf06d8b206278cf8b5012bc897f485a874503501e12d776df78951c"
 [[packages]]
 name = "typing-extensions"
 version = "4.16.0"
-marker = "\"pgo\" in dependency_groups and (python_version == \"3.11\" or python_version == \"3.12\" or python_version == \"3.13\" or python_version == \"3.14\")"
+marker = "\"fuzz-build\" in dependency_groups or (\"pgo\" in dependency_groups and python_version == \"3.11\") or (\"pgo\" in dependency_groups and python_version == \"3.12\") or (\"pgo\" in dependency_groups and python_version == \"3.13\") or (\"pgo\" in dependency_groups and python_version == \"3.14\")"
 requires-python = ">=3.9"
 index = "https://pypi.org/simple/"
 
@@ -720,78 +856,33 @@ size = 45571
 sha256 = "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
 
 [[packages]]
-name = "uv"
-version = "0.13.3"
-marker = "\"pgo\" in dependency_groups"
-requires-python = ">=3.8"
+name = "webencodings"
+version = "0.6.1"
+marker = "\"fuzz-build\" in dependency_groups"
+requires-python = ">=3.10"
 index = "https://pypi.org/simple/"
 
 [packages.sdist]
-name = "uv-0.13.3.tar.gz"
-upload-time = 2026-10-20 01:13:40.241842+00:00
-url = "https://files.pythonhosted.org/packages/b2/0d/0cf59876b94f537055fdcc6a32126fd9abb841620b6589ae3fcbf6e21f69/uv-0.13.3.tar.gz"
-size = 7477898
+name = "webencodings-0.6.1.tar.gz"
+upload-time = 2026-08-15 14:22:57.549569+00:00
+url = "https://files.pythonhosted.org/packages/d5/a0/8fd707bcb776a7be556bad06a2ea5fb9bd519df78ef8e26f70ccf0f38bff/webencodings-0.6.1.tar.gz"
+size = 15001
 
 [packages.sdist.hashes]
-sha256 = "fe8587cb414b324753eb2c1b2a54d2f93b2aed7e9cf02e9c1efa3776547a3aae"
+sha256 = "565f9ad031c702dae404e27a099e3e09186a3ab1b9520f06d215502b651fd910"
 
 [[packages.wheels]]
-name = "uv-0.13.3-py3-none-macosx_11_0_arm64.whl"
-upload-time = 2026-10-20 01:12:48.576592+00:00
-url = "https://files.pythonhosted.org/packages/ee/a6/abad398b7b051685ac952e97f00b5b96080644559d554246e9011f7f262f/uv-0.13.3-py3-none-macosx_11_0_arm64.whl"
-size = 14416963
+name = "webencodings-0.6.1-py3-none-any.whl"
+upload-time = 2026-08-15 14:22:56.310482+00:00
+url = "https://files.pythonhosted.org/packages/77/c6/040cbc72480d789a5f40d63fb484d3106554c4dfa2d2b70ad5022057750f/webencodings-0.6.1-py3-none-any.whl"
+size = 8745
 
 [packages.wheels.hashes]
-sha256 = "6f679430085523fd98fe795ff6545e2bf62fc48478746f6ca1c4dff5cae3daa0"
-
-[[packages.wheels]]
-name = "uv-0.13.3-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl"
-upload-time = 2026-10-20 01:12:51.832349+00:00
-url = "https://files.pythonhosted.org/packages/30/3c/773f640ddf3ecd9d71f576959a2b1fa18b34d4f7a7b9a81779f0d2609d19/uv-0.13.3-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl"
-size = 17664464
-
-[packages.wheels.hashes]
-sha256 = "d8e4ab48719a285eb38ee0397dd8e2c7376f216baff6dc2390686ffae0df650f"
-
-[[packages.wheels]]
-name = "uv-0.13.3-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
-upload-time = 2026-10-20 01:13:11.825804+00:00
-url = "https://files.pythonhosted.org/packages/7e/fa/45e1751beda39226d5472e6bb068747115a06f19c2559a8810aac9b881b7/uv-0.13.3-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
-size = 17301030
-
-[packages.wheels.hashes]
-sha256 = "8d9ba65db55f3701908b09394cb7d3248be28496aab6bd9a96e8e870261ad372"
-
-[[packages.wheels]]
-name = "uv-0.13.3-py3-none-manylinux_2_28_aarch64.whl"
-upload-time = 2026-10-20 01:13:14.877796+00:00
-url = "https://files.pythonhosted.org/packages/bb/c1/f10bff92a0fb3ee4edaaee99ac931190ed8503555bab1e84bc89f3a69155/uv-0.13.3-py3-none-manylinux_2_28_aarch64.whl"
-size = 16593259
-
-[packages.wheels.hashes]
-sha256 = "efdc59a3447aed23f131957db586b53dc78d51ca79986b401e1e7e1e8b9129fe"
-
-[[packages.wheels]]
-name = "uv-0.13.3-py3-none-win_amd64.whl"
-upload-time = 2026-10-20 01:13:34.378227+00:00
-url = "https://files.pythonhosted.org/packages/8b/f0/bf4274a0d2121d013a01e4e1c2550a0d307055d9524bead3c51bf424569d/uv-0.13.3-py3-none-win_amd64.whl"
-size = 15299577
-
-[packages.wheels.hashes]
-sha256 = "62d1d071693d0e2c92ba86266e2c83d885b8d1930e368b6b9704a443e55a190d"
-
-[[packages.wheels]]
-name = "uv-0.13.3-py3-none-win_arm64.whl"
-upload-time = 2026-10-20 01:13:37.336700+00:00
-url = "https://files.pythonhosted.org/packages/be/b6/d29dcbca353c45fccecfceadc9e8286d5be6057bdf5a13af30dfac094278/uv-0.13.3-py3-none-win_arm64.whl"
-size = 15574505
-
-[packages.wheels.hashes]
-sha256 = "90a7d70afec204493dbabafa97bb8298a8b02f4da916bc5aa10a590ab3cea733"
+sha256 = "7fab6269c8bf237c657876b52058ccb182e861518d1c695c1a9aaa8c1c105d5b"
 
 [tool.nab]
 nab-version = "0.0.23"
-created-at = 2026-10-27 13:48:53.141937+00:00
+created-at = 2026-11-03 15:39:35.119876+00:00
 command-line = [
     "nab",
     "lock",
@@ -800,6 +891,7 @@ command-line = [
     "--groups",
     "pgo",
     "build",
+    "fuzz-build",
     "--project-matrix-python",
     ">=3.11,<3.16",
     "--project-matrix-platforms",
@@ -813,7 +905,6 @@ command-line = [
     "pypy",
     "--output",
     "pylock.pgo.toml",
-    "--upgrade",
 ]
 input-path = "pyproject.toml"
 mode = "universal"

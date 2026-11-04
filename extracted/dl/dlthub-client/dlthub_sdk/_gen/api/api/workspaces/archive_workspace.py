@@ -87,10 +87,11 @@ def sync_detailed(
 ) -> Response[ErrorResponse | WorkspaceResponse]:
     """ArchiveWorkspace
 
-    Archives a workspace: clears schedules and rejects further mutations until unarchived.
-    Refuses with 409 if any run is still active, and with 400 for playground workspaces.
+    Archives a workspace: clears schedules and rejects further changes until unarchived.
+    Answers 409 if the workspace is already archived or any run is still active, 400 for a
+    playground.
 
-    Requires MANAGE_WORKSPACE permission.
+    Requires the workspace owner role.
 
     Args:
         workspace_id (UUID):
@@ -120,10 +121,11 @@ def sync(
 ) -> ErrorResponse | WorkspaceResponse | None:
     """ArchiveWorkspace
 
-    Archives a workspace: clears schedules and rejects further mutations until unarchived.
-    Refuses with 409 if any run is still active, and with 400 for playground workspaces.
+    Archives a workspace: clears schedules and rejects further changes until unarchived.
+    Answers 409 if the workspace is already archived or any run is still active, 400 for a
+    playground.
 
-    Requires MANAGE_WORKSPACE permission.
+    Requires the workspace owner role.
 
     Args:
         workspace_id (UUID):
@@ -148,10 +150,11 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | WorkspaceResponse]:
     """ArchiveWorkspace
 
-    Archives a workspace: clears schedules and rejects further mutations until unarchived.
-    Refuses with 409 if any run is still active, and with 400 for playground workspaces.
+    Archives a workspace: clears schedules and rejects further changes until unarchived.
+    Answers 409 if the workspace is already archived or any run is still active, 400 for a
+    playground.
 
-    Requires MANAGE_WORKSPACE permission.
+    Requires the workspace owner role.
 
     Args:
         workspace_id (UUID):
@@ -179,10 +182,11 @@ async def asyncio(
 ) -> ErrorResponse | WorkspaceResponse | None:
     """ArchiveWorkspace
 
-    Archives a workspace: clears schedules and rejects further mutations until unarchived.
-    Refuses with 409 if any run is still active, and with 400 for playground workspaces.
+    Archives a workspace: clears schedules and rejects further changes until unarchived.
+    Answers 409 if the workspace is already archived or any run is still active, 400 for a
+    playground.
 
-    Requires MANAGE_WORKSPACE permission.
+    Requires the workspace owner role.
 
     Args:
         workspace_id (UUID):

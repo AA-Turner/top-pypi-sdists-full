@@ -1,62 +1,105 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+"""The official Python library for the Composio API.
 
-import typing as _t
+Generated from the v3.1 OpenAPI spec with hey-api (pydantic models) over a
+hand-written httpx runtime. Drop-in-shaped against the Stainless
+``composio-client`` package with relaxed types — see MIGRATION.md.
+"""
 
-from . import types
-from ._types import NOT_GIVEN, Omit, NoneType, NotGiven, Transport, ProxiesTypes, omit, not_given
-from ._utils import file_from_path
-from ._client import (
-    ENVIRONMENTS,
-    Client,
-    Stream,
-    Timeout,
-    Composio,
-    Transport,
-    AsyncClient,
-    AsyncStream,
-    AsyncComposio,
-    RequestOptions,
+from __future__ import annotations
+
+from . import types as types
+from ._auth import (
+    AsyncCredential,
+    Auth,
+    AuthMode,
+    AutoAuth,
+    Credential,
+    NoAuth,
+    OrganizationAuth,
+    ProjectAuth,
+    Scope,
+    UserAuth,
+    auth_from_credentials,
 )
-from ._models import BaseModel
-from ._version import __title__, __version__
-from ._response import APIResponse as APIResponse, AsyncAPIResponse as AsyncAPIResponse
-from ._constants import DEFAULT_TIMEOUT, DEFAULT_MAX_RETRIES, DEFAULT_CONNECTION_LIMITS
+from ._base_model import BaseModel
+from ._client import ENVIRONMENTS, AsyncComposio, Composio, EnvironmentMap
+from ._deprecation import ComposioDeprecationWarning
 from ._exceptions import (
+    APIConnectionError,
     APIError,
+    APIResponseValidationError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    BadRequestError,
     ComposioError,
     ConflictError,
-    NotFoundError,
-    APIStatusError,
-    RateLimitError,
-    APITimeoutError,
-    BadRequestError,
-    APIConnectionError,
-    AuthenticationError,
     InternalServerError,
+    NotFoundError,
     PermissionDeniedError,
+    RateLimitError,
     UnprocessableEntityError,
-    APIResponseValidationError,
 )
-from ._base_client import DefaultHttpxClient, DefaultAioHttpClient, DefaultAsyncHttpxClient
-from ._utils._logs import setup_logging as _setup_logging
+from ._files import file_from_path
+from ._identity import ClientIdentity
+from ._types import (
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_TIMEOUT,
+    NOT_GIVEN,
+    DefaultAsyncHttpxClient,
+    DefaultHttpxClient,
+    NoneType,
+    NotGiven,
+    Omit,
+    RequestOptions,
+    Timeout,
+    not_given,
+    omit,
+)
+from ._version import __version__
+
+__title__ = "composio_client"
 
 __all__ = [
     "types",
-    "__version__",
-    "__title__",
+    "Composio",
+    "AsyncComposio",
+    "ClientIdentity",
+    "Auth",
+    "AuthMode",
+    "NoAuth",
+    "ProjectAuth",
+    "UserAuth",
+    "OrganizationAuth",
+    "AutoAuth",
+    "Credential",
+    "AsyncCredential",
+    "Scope",
+    "auth_from_credentials",
+    "RequestOptions",
     "NoneType",
-    "Transport",
-    "ProxiesTypes",
     "NotGiven",
     "NOT_GIVEN",
     "not_given",
     "Omit",
     "omit",
+    "Timeout",
+    "BaseModel",
+    "DEFAULT_TIMEOUT",
+    "DEFAULT_MAX_RETRIES",
+    "DefaultHttpxClient",
+    "DefaultAsyncHttpxClient",
+    "ENVIRONMENTS",
+    "EnvironmentMap",
+    "file_from_path",
+    "__title__",
+    "__version__",
+    "ComposioDeprecationWarning",
     "ComposioError",
     "APIError",
     "APIStatusError",
-    "APITimeoutError",
     "APIConnectionError",
+    "APITimeoutError",
     "APIResponseValidationError",
     "BadRequestError",
     "AuthenticationError",
@@ -66,39 +109,4 @@ __all__ = [
     "UnprocessableEntityError",
     "RateLimitError",
     "InternalServerError",
-    "Timeout",
-    "RequestOptions",
-    "Client",
-    "AsyncClient",
-    "Stream",
-    "AsyncStream",
-    "Composio",
-    "AsyncComposio",
-    "ENVIRONMENTS",
-    "file_from_path",
-    "BaseModel",
-    "DEFAULT_TIMEOUT",
-    "DEFAULT_MAX_RETRIES",
-    "DEFAULT_CONNECTION_LIMITS",
-    "DefaultHttpxClient",
-    "DefaultAsyncHttpxClient",
-    "DefaultAioHttpClient",
 ]
-
-if not _t.TYPE_CHECKING:
-    from ._utils._resources_proxy import resources as resources
-
-_setup_logging()
-
-# Update the __module__ attribute for exported symbols so that
-# error messages point to this module instead of the module
-# it was originally defined in, e.g.
-# composio_client._exceptions.NotFoundError -> composio_client.NotFoundError
-__locals = locals()
-for __name in __all__:
-    if not __name.startswith("__"):
-        try:
-            __locals[__name].__module__ = "composio_client"
-        except (TypeError, AttributeError):
-            # Some of our exported symbols are builtins which we can't set attributes for.
-            pass

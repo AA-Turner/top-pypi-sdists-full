@@ -16,6 +16,8 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
+from plato.utils.ssh import gateway_proxy_command
+
 # Default gateway configuration
 DEFAULT_GATEWAY_HOST = "gateway.plato.so"
 DEFAULT_GATEWAY_PORT = 443
@@ -128,7 +130,7 @@ Host *.plato
     User root
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
-    ProxyCommand openssl s_client -quiet -connect {gateway_host}:{gateway_port} -servername %h--22.{gateway_host} 2>/dev/null
+    ProxyCommand {gateway_proxy_command(gateway_host, "%h--22." + gateway_host, port=gateway_port)}
 
 Host sandbox
     HostName {job_id}.plato

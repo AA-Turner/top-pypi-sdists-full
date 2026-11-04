@@ -28,7 +28,7 @@ def openapi_spec() -> dict:
     if not SPEC_PATH.exists():
         pytest.skip(
             f"OpenAPI spec not found at {SPEC_PATH}. "
-            "Run ./scripts/generate-openapi-spec.sh first."
+            + "Run ./scripts/generate-openapi-spec.sh first."
         )
     with open(SPEC_PATH) as f:
         return json.load(f)
@@ -64,6 +64,22 @@ def spec_route_index(openapi_spec: dict) -> Dict[str, Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
+# Modules that failed to import during discovery: (module name, error).
+# A module that imports a deleted model would otherwise drop out of every
+# contract test without any failure. ``TestApiModulesImport`` asserts this
+# list is empty.
+API_IMPORT_ERRORS: List[Tuple[str, str]] = []
+
+
+def import_api_module(modname: str, errors: List[Tuple[str, str]]):
+    """Import ``modname``. On failure, record the error and return None."""
+    try:
+        return importlib.import_module(modname)
+    except Exception as exc:
+        errors.append((modname, f"{type(exc).__name__}: {exc}"))
+        return None
+
+
 def discover_api_modules_with_get_kwargs() -> List[Tuple[str, str]]:
     """Discover active API endpoint modules (ones with _get_kwargs)."""
     import octostar.api as api_pkg
@@ -74,13 +90,10 @@ def discover_api_modules_with_get_kwargs() -> List[Tuple[str, str]]:
     ):
         if ispkg or modname.endswith("__init__"):
             continue
-        try:
-            module = importlib.import_module(modname)
-            if hasattr(module, "_get_kwargs"):
-                endpoint_name = modname.split(".")[-1]
-                modules.append((modname, endpoint_name))
-        except Exception:
-            pass
+        module = import_api_module(modname, API_IMPORT_ERRORS)
+        if module is not None and hasattr(module, "_get_kwargs"):
+            endpoint_name = modname.split(".")[-1]
+            modules.append((modname, endpoint_name))
     return modules
 
 
@@ -97,22 +110,21 @@ def discover_all_api_modules() -> List[Tuple[str, str, str]]:
     ):
         if ispkg or modname.endswith("__init__"):
             continue
-        try:
-            module = importlib.import_module(modname)
-            endpoint_name = modname.split(".")[-1]
+        module = import_api_module(modname, API_IMPORT_ERRORS)
+        if module is None:
+            continue
+        endpoint_name = modname.split(".")[-1]
 
-            if hasattr(module, "_get_kwargs"):
-                modules.append((modname, endpoint_name, "active"))
-            elif hasattr(module, "sync"):
-                source = inspect.getsource(module.sync)
-                if "DeprecatedEndpointError" in source:
-                    modules.append((modname, endpoint_name, "deprecated"))
-                elif "V1MigrationPendingError" in source:
-                    modules.append((modname, endpoint_name, "migration_pending"))
-                else:
-                    modules.append((modname, endpoint_name, "unknown"))
-        except Exception:
-            pass
+        if hasattr(module, "_get_kwargs"):
+            modules.append((modname, endpoint_name, "active"))
+        elif hasattr(module, "sync"):
+            source = inspect.getsource(module.sync)
+            if "DeprecatedEndpointError" in source:
+                modules.append((modname, endpoint_name, "deprecated"))
+            elif "V1MigrationPendingError" in source:
+                modules.append((modname, endpoint_name, "migration_pending"))
+            else:
+                modules.append((modname, endpoint_name, "unknown"))
     return modules
 
 
@@ -170,7 +182,7 @@ class RequestValidator:
             ]
             errors.append(
                 f"Method {method.upper()} not allowed for {spec_path} "
-                f"(allowed: {', '.join(allowed)})"
+                + f"(allowed: {', '.join(allowed)})"
             )
             return ValidationResult(errors)
 
@@ -207,7 +219,7 @@ class RequestValidator:
             ]
             errors.append(
                 f"Method mismatch: SDK uses {method.upper()} but spec allows "
-                f"[{', '.join(allowed)}] for {spec_path}"
+                + f"[{', '.join(allowed)}] for {spec_path}"
             )
         return ValidationResult(errors)
 
@@ -427,6 +439,9 @@ def mock_client():
         base_url="https://home.example.com",
         headers={"Authorization": "Bearer test-token"},
         timeout=30.0,
+        verify_ssl=True,
+        raise_on_unexpected_status=False,
+        follow_redirects=False,
     )
 
 
@@ -459,6 +474,6 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 
     terminalreporter.write_line(
         "These mismatches should be resolved by updating the SDK "
-        "or adding the missing backend routes."
+        + "or adding the missing backend routes."
     )
     terminalreporter.write_line("")

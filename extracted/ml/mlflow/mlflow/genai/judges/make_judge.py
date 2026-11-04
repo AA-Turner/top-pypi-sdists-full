@@ -122,6 +122,7 @@ def make_judge(
     extra_headers: dict[str, str] | None = None,
     include_timing_in_conversation: bool = False,
     generate_rationale_first: bool = False,
+    session_level: str | None = None,
     model_api: ModelAPI | str = ModelAPI.DEFAULT,
 ) -> Judge:
     """
@@ -183,12 +184,20 @@ def make_judge(
                         (the default, for backward compatibility), the result value is emitted
                         first. Setting this to True can produce more consistent results by
                         preventing the value from contradicting its own rationale.
+        session_level: Name of a session-hierarchy level (e.g. "episode") to group traces
+                        by during ``mlflow.genai.evaluate``, instead of the full
+                        ``mlflow.trace.session`` value. Only valid for conversation judges
+                        (using ``{{ conversation }}``); the experiment must declare the level
+                        in its ``mlflow.experiment.sessionHierarchy`` tag (see
+                        ``mlflow.genai.set_session_hierarchy``).
         model_api: API route for the judge model. ``ModelAPI.DEFAULT`` uses Chat Completions
                         for OpenAI and other chat providers, TypeSafe's System One API for
                         ``typesafe:/`` models, and endpoint detection for ``gateway:/`` models.
                         ``ModelAPI.DECISIONS`` explicitly selects OpenAI's Decision API or
-                        TypeSafe's System One API, according to the provider. Decision models
-                        return probabilities but no rationale and do not support
+                        TypeSafe's System One API, according to the provider. Databricks System
+                        One model services use ``databricks:/<catalog>.<schema>.<model>`` with
+                        ``ModelAPI.DECISIONS`` and Databricks workspace authentication.
+                        Decision models return probabilities but no rationale and do not support
                         ``{{ trace }}`` tool calling. ``ModelAPI.CHAT_COMPLETIONS`` requires
                         the chat route. String values are also accepted.
 
@@ -289,7 +298,7 @@ def make_judge(
     # numeric/bool types support meaningful mean aggregation, categorical/string types do not.
     default_aggregations = ["mean"] if feedback_value_type in (bool, int, float) else []
 
-    return InstructionsJudge(
+    judge = InstructionsJudge(
         name=name,
         instructions=instructions,
         model=model,
@@ -301,5 +310,10 @@ def make_judge(
         inference_params=inference_params,
         base_url=base_url,
         extra_headers=extra_headers,
+        session_level=session_level,
         model_api=model_api,
     )
+    # A judge's level is only known once its template is parsed, so this cannot be
+    # checked at construction; fail eagerly here instead of at evaluate time.
+    judge._validate_session_level()
+    return judge

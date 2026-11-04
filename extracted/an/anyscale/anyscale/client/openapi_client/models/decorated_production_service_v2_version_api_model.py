@@ -46,6 +46,7 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         'compute_config_id': 'str',
         'production_job_ids': 'list[str]',
         'connection_ids': 'list[str]',
+        'connection_config_ids': 'list[str]',
         'current_state': 'ServiceVersionState',
         'global_target_capacity': 'float',
         'placements': 'list[ServiceVersionPlacement]',
@@ -66,13 +67,14 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         'compute_config_id': 'compute_config_id',
         'production_job_ids': 'production_job_ids',
         'connection_ids': 'connection_ids',
+        'connection_config_ids': 'connection_config_ids',
         'current_state': 'current_state',
         'global_target_capacity': 'global_target_capacity',
         'placements': 'placements',
         'traffic_policy': 'traffic_policy'
     }
 
-    def __init__(self, id=None, created_at=None, weight=None, current_weight=None, target_weight=None, version=None, ray_serve_config=None, ray_gcs_external_storage_config=None, tracing_config=None, build_id=None, compute_config_id=None, production_job_ids=None, connection_ids=None, current_state=None, global_target_capacity=None, placements=None, traffic_policy=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, created_at=None, weight=None, current_weight=None, target_weight=None, version=None, ray_serve_config=None, ray_gcs_external_storage_config=None, tracing_config=None, build_id=None, compute_config_id=None, production_job_ids=None, connection_ids=None, connection_config_ids=None, current_state=None, global_target_capacity=None, placements=None, traffic_policy=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedProductionServiceV2VersionAPIModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -91,6 +93,7 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         self._compute_config_id = None
         self._production_job_ids = None
         self._connection_ids = None
+        self._connection_config_ids = None
         self._current_state = None
         self._global_target_capacity = None
         self._placements = None
@@ -115,6 +118,8 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         self.production_job_ids = production_job_ids
         if connection_ids is not None:
             self.connection_ids = connection_ids
+        if connection_config_ids is not None:
+            self.connection_config_ids = connection_config_ids
         self.current_state = current_state
         if global_target_capacity is not None:
             self.global_target_capacity = global_target_capacity
@@ -434,6 +439,29 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         """
 
         self._connection_ids = connection_ids
+
+    @property
+    def connection_config_ids(self):
+        """Gets the connection_config_ids of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
+
+        The list of federated connection config IDs associated with this service version.  # noqa: E501
+
+        :return: The connection_config_ids of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._connection_config_ids
+
+    @connection_config_ids.setter
+    def connection_config_ids(self, connection_config_ids):
+        """Sets the connection_config_ids of this DecoratedProductionServiceV2VersionAPIModel.
+
+        The list of federated connection config IDs associated with this service version.  # noqa: E501
+
+        :param connection_config_ids: The connection_config_ids of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._connection_config_ids = connection_config_ids
 
     @property
     def current_state(self):

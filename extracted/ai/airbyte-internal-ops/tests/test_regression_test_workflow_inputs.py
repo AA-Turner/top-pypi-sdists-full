@@ -2289,6 +2289,26 @@ def test_a_run_with_its_target_image_is_judged_on_its_commands(
 
 
 @needs_bash
+def test_a_read_setup_error_is_a_failed_verdict_not_an_internal_failure(
+    tmp_path: Path,
+) -> None:
+    run = _run_final_status(
+        tmp_path,
+        **{
+            "steps.run-read.outputs.success": "false",
+            "steps.run-read.outputs.setup_error": "true",
+        },
+    )
+
+    assert run.returncode == 1
+    assert run.outputs["internal_failure"] == "false"
+    assert run.outputs["setup_error"] == "true"
+    assert run.outputs["success"] == "false"
+    assert "::error::SETUP ERROR" in run.stdout
+    assert "Workflow failed due to internal infrastructure error(s)" not in run.stdout
+
+
+@needs_bash
 @pytest.mark.parametrize("load", ["failure", "skipped"])
 def test_a_built_image_that_never_loaded_is_an_internal_failure(
     tmp_path: Path, load: str

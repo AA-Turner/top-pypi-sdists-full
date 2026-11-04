@@ -801,7 +801,8 @@ zlib_Compress_copy(compobject *self, PyObject *Py_UNUSED(ignored))
 
     if (!self->is_initialised) {
         PyErr_SetString(PyExc_ValueError, "Cannot copy flushed objects.");
-        goto error;
+        Py_DECREF(return_value);
+        return NULL;
     }
 
     /* Copy the zstream state
@@ -1182,8 +1183,10 @@ decompress_buf(ZlibDecompressor *self, Py_ssize_t max_length)
 
     self->avail_in_real += self->zst.avail_in;
 
-    if (_PyBytes_Resize(&return_value, self->zst.next_out -
-                        (uint8_t *)PyBytes_AS_STRING(return_value)) != 0) {
+    /* Prevent empty string object from being resized. */
+    if (PyBytes_GET_SIZE(return_value) != 0 &&
+        _PyBytes_Resize(&return_value, self->zst.next_out -
+            (uint8_t *)PyBytes_AS_STRING(return_value)) != 0) {
         goto error;
     }
 
@@ -2355,17 +2358,15 @@ GzipReader_read_from_file(GzipReader *self)
     const uint8_t *buffer_end = self->buffer_end;
     size_t remaining = buffer_end - current_pos;
     if (remaining == self->buffer_size) {
-        /* Buffer is full but a new read request was issued. This will be due 
-           to the header being bigger than the header. Enlarge the buffer 
-           to accommodate the hzip header.  */
-        size_t new_buffer_size = self->buffer_size * 2;
-        uint8_t *tmp_buffer = PyMem_Realloc(self->input_buffer, new_buffer_size);
-        if (tmp_buffer == NULL) {
-            PyErr_NoMemory();
-            return -1;
-        }
-        self->input_buffer = tmp_buffer;
-        self->buffer_size = new_buffer_size;
+        /* Buffer is full but a new read request was issued. This will be due
+           to the header being bigger than the buffer. To prevent adverserial
+           inputs with infinite header sizes an error is thrown here. */
+        PyErr_Format(
+            PyExc_OverflowError,
+            "Gzip header exceeds input buffer size of %lu",
+            self->buffer_size
+        );
+        return -1;
     } else if (remaining > 0) {
         memmove(self->input_buffer, current_pos, remaining);
     }

@@ -27,7 +27,7 @@ dependencies = [
 
     # Core workflow orchestration - MOST CRITICAL
     # Pin tightly - only allow tested minor versions, must test before upgrading
-    "temporalio>=1.29.0,<1.30.0",  # Tested: 1.29.0
+    "temporalio>=1.35.0,<1.36.0",  # Tested: 1.35.0
     "pydantic>=2.12.0,<3.0.0",
     "pydantic-settings>=2.9.0,<3.0.0",
     

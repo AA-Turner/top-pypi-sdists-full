@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agentx-harness
-Version: 1.0.12
+Version: 1.0.13
 Summary: SemiAnalysis AgentX inference benchmark harness, built on AIPerf
 Project-URL: Homepage, https://github.com/SemiAnalysisAI/agentx-harness
 Project-URL: Source, https://github.com/SemiAnalysisAI/agentx-harness
@@ -31,7 +31,7 @@ Requires-Dist: nvidia-ml-py
 Requires-Dist: optuna>=3.6
 Requires-Dist: orjson~=3.11.7
 Requires-Dist: pandas~=2.3.3
-Requires-Dist: pillow~=12.2.0
+Requires-Dist: pillow~=12.3.0
 Requires-Dist: plotly~=6.4.0
 Requires-Dist: prometheus-client~=0.23.1
 Requires-Dist: protobuf>=4
@@ -329,6 +329,8 @@ Log File: /home/user/Code/aiperf/artifacts/granite4:350m-openai-chat-concurrency
 - [Synthetic Dataset Generation](docs/tutorials/synthetic-dataset.md) - Generate synthetic datasets
 - [Agentic Code Generator](docs/tutorials/agentic-code-generator.md) - Generate multi-turn coding-agent traces for KV cache benchmarking
 - [Weka Traces](docs/tutorials/weka-trace.md) - Replay real agentic coding sessions with KV-cache-aware Weka traces
+- [TraceLab Traces](docs/tutorials/tracelab-trace.md) - Replay the public TraceLab corpus of real agentic coding sessions
+- [H CUA Perf Traces](docs/tutorials/h-cua-perf.md) - Replay H Company's computer-use agent traces (tool calling, screenshots, recorded think time) from HuggingFace
 - [AgentX scenarios](docs/tutorials/agentx-mvp.md) - InferenceX defaults (`--scenario agentx`) and the original MVP benchmark (`--scenario inferencex-agentx-mvp`)
 - [Fixed Schedule](docs/tutorials/fixed-schedule.md) - Precise timestamp-based execution
 - [Time-based Benchmarking](docs/tutorials/time-based-benchmarking.md) - Duration-based testing

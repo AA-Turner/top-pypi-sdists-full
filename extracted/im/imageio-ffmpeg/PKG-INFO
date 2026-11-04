@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: imageio-ffmpeg
-Version: 0.8.0
+Version: 0.8.1
 Summary: FFMPEG wrapper for Python
 Home-page: https://github.com/imageio/imageio-ffmpeg
 Download-URL: http://pypi.python.org/pypi/imageio-ffmpeg

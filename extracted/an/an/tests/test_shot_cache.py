@@ -422,6 +422,63 @@ def test_the_keyer_compiles_exactly_what_the_renderer_compiles(tmp_path, monkeyp
     assert s1 is s2 and m1 is m2 and kw1 == kw2
 
 
+def test_the_render_path_and_every_other_compile_take_the_same_arguments(
+    tmp_path, monkeypatch
+):
+    """an#713: :func:`rendered_compile_args` (validate, preview, orchestrate,
+    continuity, the bench) gives the keywords `compiled_document` receives under
+    the `RenderContext` the render builds (`_prepare_shots`), with every scene
+    knob set: a style pack, a step grid, a default easing."""
+    from an.render import _prepare_shots
+    from an.stage import cache_key
+    from an.stage import compile as compile_mod
+    from an.styles import StylePack
+
+    root = init(tmp_path / "p")
+    project = load(root)
+    project.mall["styles"]["noir"] = StylePack(
+        name="noir", roles={"sky": "#000000"}
+    ).model_dump()
+    project.mall["scenes"]["main"] = SceneIR(
+        meta=Meta(
+            fps=_FPS,
+            resolution=Resolution(width=160, height=120),
+            style_pack="noir",
+            step_hz=8.0,
+            default_easing="linear",
+        ),
+        timeline=[
+            _shot("a", 1.0),
+            _shot("b", 2.0).model_copy(update={"step_hz": 12.0}),
+        ],
+    )
+    project = load(root)
+    prep = _prepare_shots(
+        project, tmp_path / "work", fps=None, resolution=None, strict_assets=False,
+        supersample=1, pix_fmt=None, capture=None, step_hz=None,
+    )  # fmt: skip
+
+    received = []
+
+    class _Stop(Exception):
+        pass
+
+    def spy(shot, **kw):
+        received.append(kw)
+        raise _Stop
+
+    monkeypatch.setattr(compile_mod, "compile_shot", spy)
+    for shot in prep.scene.timeline:
+        with pytest.raises(_Stop):
+            cache_key.compiled_document(shot, prep.ctx)
+        meta = project.scene.meta
+        expected = compile_mod.rendered_compile_args(shot, meta, project.mall)
+        assert received.pop() == expected
+        assert expected["style_pack"].name == "noir"
+        assert expected["default_easing"] == "linear"
+    assert [s.step_hz for s in prep.scene.timeline] == [None, 12.0]
+
+
 @pytest.mark.genre("cutout_animation")
 def test_the_project_digest_covers_sidecar_art_not_only_the_mapping(tmp_path):
     root = init(tmp_path / "p")
@@ -1088,3 +1145,76 @@ def test_record_itself_refuses_frames_unless_asked(tmp_path):
     plan = ShotPlan("a", "cutout", key="k" * 64, inputs={}, needs_frames=True)
     engine.record(plan, _FakeCutoutRender()(None, shot, ctx), render_s=0.1)
     assert "k" * 64 in store and ("k" * 64) + ".frames" not in store
+
+
+def test_prepared_shots_are_the_render_s_compiled_documents_without_drawing(tmp_path):
+    """an#733: `an.render.prepared_shots` gives each shot as the render
+    prepares it, its stage document exactly as the render's engine compiles it
+    (`compiled_document` under the render's context), and its film start as the
+    film lays it out (a dissolve overlaps: starts are not summed lengths), so a
+    verifier reads a render's timelines without drawing a frame."""
+    import json
+
+    from an.ir.schema import Transition
+    from an.render import PreparedShot, PreparedShots, _prepare_shots, prepared_shots
+    from an.stage import cache_key
+
+    root = init(tmp_path / "p")
+    project = load(root)
+    dissolve = Transition(kind="dissolve", duration=0.5)
+    project.mall["scenes"]["main"] = SceneIR(
+        meta=Meta(fps=_FPS, resolution=Resolution(width=160, height=120), step_hz=8.0),
+        timeline=[_shot("a", 1.0), _shot("b", 2.0).model_copy(update={"transition": dissolve})],
+    )  # fmt: skip
+    got = prepared_shots(root)
+    assert isinstance(got, PreparedShots)
+    assert (got.fps, got.resolution) == (_FPS, (160, 120))
+    assert [type(p) for p in got.shots] == [PreparedShot, PreparedShot]
+    assert [p.shot.id for p in got.shots] == ["a", "b"]
+    assert [p.start for p in got.shots] == [0.0, 0.5]
+    assert all("document" not in vars(p) for p in got.shots)  # compiled on demand
+    prep = _prepare_shots(
+        load(root), tmp_path / "work", fps=None, resolution=None, strict_assets=False,
+        supersample=1, pix_fmt=None, capture=None, step_hz=None,
+    )  # fmt: skip
+    for p, (shot, _, ctx) in zip(got.shots, prep.shot_renderers):
+        expected = cache_key.compiled_document(shot, ctx)
+        assert json.dumps(
+            p.document.model_dump(mode="json"), sort_keys=True
+        ) == json.dumps(expected.model_dump(mode="json"), sort_keys=True)
+
+
+def test_prepared_shots_refuse_an_unmeasured_clock_owned_length_unless_accepted(
+    tmp_path, monkeypatch
+):
+    """an#733: a Manim shot never measured has a placeholder length that moves
+    every later start, so `prepared_shots` refuses it unless the caller accepts
+    it (its finding is returned); a measured one lays out at its measured
+    length. A Manim shot has no stage document."""
+    import an.adapters.manim_adapter as ma
+    from an.adapters._base import DurationMeasurement
+    from an.measurements import UnmeasuredLengthError, is_unmeasured
+    from an.render import prepared_shots
+    from tests.test_manim_renderer import LINEAR
+
+    monkeypatch.setattr(ma, "manim_version", lambda: "0.0.0-fake")
+    root = init(tmp_path / "p")
+    project = load(root)
+    project.mall["sources"]["chart"] = LINEAR
+    project.mall["scenes"]["main"] = SceneIR(
+        meta=Meta(fps=_FPS, resolution=Resolution(width=160, height=120)),
+        timeline=[Shot(id="chart", renderer="manim", options={"source": "chart"}),
+                  _shot("b", 2.0)],
+    )  # fmt: skip
+    with pytest.raises(UnmeasuredLengthError, match="chart"):
+        prepared_shots(root)
+    got = prepared_shots(root, allow_unmeasured=True)
+    assert [is_unmeasured(f) for f in got.findings] == [True]
+    assert got.shots[0].document is None and got.shots[1].document is not None
+
+    def measured(self, shot, ctx, *, render=True, force=False):
+        return DurationMeasurement(duration=2.0)
+
+    monkeypatch.setattr(ma.ManimRenderer, "measure_duration", measured)
+    got = prepared_shots(root)
+    assert [p.start for p in got.shots] == [0.0, 2.0] and got.findings == []

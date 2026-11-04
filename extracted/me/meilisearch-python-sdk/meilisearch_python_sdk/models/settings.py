@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Literal, TypeAlias
 
 from camel_converter.pydantic_base import CamelBase
 from pydantic import field_validator, model_validator
@@ -49,7 +49,7 @@ class Distribution(CamelBase):
 
 
 class OpenAiEmbedder(CamelBase):
-    source: str = "openAi"
+    source: Literal["openAi"] = "openAi"
     url: str | None = None
     model: str | None = None
     dimensions: int | None = None
@@ -61,7 +61,7 @@ class OpenAiEmbedder(CamelBase):
 
 
 class HuggingFaceEmbedder(CamelBase):
-    source: str = "huggingFace"
+    source: Literal["huggingFace"] = "huggingFace"
     model: str | None = None
     revision: str | None = None
     document_template: str | None = None
@@ -73,7 +73,7 @@ class HuggingFaceEmbedder(CamelBase):
 
 
 class OllamaEmbedder(CamelBase):
-    source: str = "ollama"
+    source: Literal["ollama"] = "ollama"
     url: str | None = None
     api_key: str | None = None
     model: str
@@ -85,7 +85,7 @@ class OllamaEmbedder(CamelBase):
 
 
 class RestEmbedder(CamelBase):
-    source: str = "rest"
+    source: Literal["rest"] = "rest"
     url: str
     api_key: str | None = None
     dimensions: int
@@ -108,7 +108,7 @@ class RestEmbedder(CamelBase):
 
 
 class UserProvidedEmbedder(CamelBase):
-    source: str = "userProvided"
+    source: Literal["userProvided"] = "userProvided"
     dimensions: int
     distribution: Distribution | None = None
     document_template: str | None = None
@@ -117,7 +117,7 @@ class UserProvidedEmbedder(CamelBase):
 
 
 class CompositeEmbedder(CamelBase):
-    source: str = "composite"
+    source: Literal["composite"] = "composite"
     search_embedder: (
         OpenAiEmbedder | HuggingFaceEmbedder | OllamaEmbedder | RestEmbedder | UserProvidedEmbedder
     )
@@ -126,16 +126,18 @@ class CompositeEmbedder(CamelBase):
     )
 
 
+Embedder: TypeAlias = (
+    OpenAiEmbedder
+    | HuggingFaceEmbedder
+    | OllamaEmbedder
+    | RestEmbedder
+    | UserProvidedEmbedder
+    | CompositeEmbedder
+)
+
+
 class Embedders(CamelBase):
-    embedders: dict[
-        str,
-        OpenAiEmbedder
-        | HuggingFaceEmbedder
-        | OllamaEmbedder
-        | RestEmbedder
-        | UserProvidedEmbedder
-        | CompositeEmbedder,
-    ]
+    embedders: dict[str, Embedder]
 
 
 class ProximityPrecision(StrEnum):
@@ -185,18 +187,7 @@ class MeilisearchSettings(CamelBase):
     non_separator_tokens: list[str] | None = None
     search_cutoff_ms: int | None = None
     dictionary: list[str] | None = None
-    embedders: (
-        dict[
-            str,
-            OpenAiEmbedder
-            | HuggingFaceEmbedder
-            | OllamaEmbedder
-            | RestEmbedder
-            | UserProvidedEmbedder
-            | CompositeEmbedder,
-        ]
-        | None
-    ) = None  # Optional[Embedders] = None
+    embedders: dict[str, Embedder] | None = None  # Optional[Embedders] = None
     localized_attributes: list[LocalizedAttributes] | None = None
     facet_search: bool | None = None
     prefix_search: Literal["disabled", "indexingTime", "searchTime"] | None = None

@@ -2,20 +2,25 @@
 
 import asyncio
 import functools
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping
-from contextlib import asynccontextmanager
+import weakref
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Mapping
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
+from pathlib import Path
 from types import MappingProxyType
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 import structlog
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
+from pydantic_core import PydanticSerializationError
 
 from mistralai.vibe.harness.app_server.session import (
     CallbackResult,
     ClientToolCallback,
+    EmbeddedResourceContentBlock,
     EventId,
     ProtocolError,
+    ResourceLinkContentBlock,
     SessionCallback,
     SessionCallbackSettledError,
     SessionClient,
@@ -24,18 +29,27 @@ from mistralai.vibe.harness.app_server.session import (
     SessionTransport,
 )
 from mistralai.vibe.harness.app_server.session.file_upload import FileUploader
+from mistralai.vibe.harness.app_server.session.models import AllowApproval, DenyApproval
 from mistralai.vibe.harness.app_server.session.procedures.session import CallbackResultResponse
 from mistralai.vibe.harness.runtime.capabilities import ProvidedToolInvocationFailed
 from mistralai.vibe.harness.runtime.content import to_session_content
 from mistralai.vibe_agents.sdk.assembly import assemble, tool_results
 from mistralai.vibe_agents.sdk.authoring import contracts
 from mistralai.vibe_agents.sdk.authoring import tool as tool_authoring
-from mistralai.vibe_agents.sdk.authoring.errors import ClientToolAnswerError, SdkError
+from mistralai.vibe_agents.sdk.authoring.errors import (
+    ClientToolAnswerError,
+    SdkError,
+    public_errors,
+    sdk_runtime_error,
+)
+from mistralai.vibe_agents.sdk.authoring.keep_open import KeepCallbackOpen
 from mistralai.vibe_agents.sdk.authoring.tool_errors import (
     DEFAULT_TOOL_ERRORS,
+    ToolCodeError,
     ToolError,
     ToolErrors,
     ToolFunctionError,
+    call_is_cancelling,
     failed_tool_result,
 )
 from mistralai.vibe_agents.sdk.authoring.tool_errors import logger as tool_error_logger
@@ -52,6 +66,88 @@ _KEPT_ANSWERS = 256
 _MAX_RESTART_DELAY = 10.0
 
 
+@dataclass(slots=True)
+class _LeftOpenCalls:
+    """The client tool calls that a registry's answers left open, and the waits to wake when one is."""
+
+    # Not bounded: a call dropped while still open would make a wait wait for an answer no handler sends.
+    # One leaves when the registry answers it again, not when it settles otherwise: such an entry is
+    # harmless, as a wait looks only at the callbacks the host lists as open. The set lives as long as
+    # the registry: one run, or the client of create_session.
+    calls: set[tuple[SessionId, str]] = field(default_factory=set)
+    watchers: set[asyncio.Event] = field(default_factory=set)
+
+    def add(self, key: tuple[SessionId, str]) -> None:
+        self.calls.add(key)
+        for watcher in self.watchers:
+            watcher.set()
+
+
+def left_open(client_tools: "ClientToolRegistry", session_id: str, callback_id: str) -> bool:
+    """Whether an answer or the ``on_client_tool`` of ``client_tools`` kept the call open with
+    ``agents.KeepCallbackOpen()``."""
+
+    return (session_id, callback_id) in client_tools._left_open.calls
+
+
+@contextmanager
+def watching_left_open(client_tools: "ClientToolRegistry") -> Iterator[asyncio.Event]:
+    """An event set each time an answer of ``client_tools`` leaves a client tool call open, until the block exits."""
+
+    left = client_tools._left_open
+    event = asyncio.Event()
+    left.watchers.add(event)
+    try:
+        yield event
+    finally:
+        left.watchers.discard(event)
+
+
+@dataclass(slots=True)
+class _SharedAnswer:
+    """One call's answer, shared by the clients of an event loop that see the call open.
+
+    Two waits that run at once, on one handle or on a parent's and a subagent's, each open a client
+    that sees the same open call. The first one starts the answer function; the others wait for it and
+    send the same result, so the function runs once and every wait ends as it would alone.
+    """
+
+    task: asyncio.Task[CallbackResult | KeepCallbackOpen | None]
+    # The exception the function raised with tool_errors="raise", if it did: each client raises it to its caller.
+    raised: list[ToolCodeError] = field(default_factory=list)
+    # The clients using it, from its start until each sent its result or left. When the last one is
+    # done it is forgotten, and cancelled if it still runs.
+    users: int = 0
+
+
+# The answers of each event loop, by the Session that opened the call and the call's id.
+_SHARED_ANSWERS: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, dict[tuple[SessionId, str], _SharedAnswer]] = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _shared_answers() -> dict[tuple[SessionId, str], _SharedAnswer]:
+    return _SHARED_ANSWERS.setdefault(asyncio.get_running_loop(), {})
+
+
+def _release_shared_answer(
+    answers: dict[tuple[SessionId, str], _SharedAnswer], key: tuple[SessionId, str], shared: _SharedAnswer
+) -> bool:
+    """A client is done with ``shared``: it sent its result, the send failed, or it left. Once no
+    client uses it, forget it, so a later wait calls the function again, as it would with no other
+    client; cancel it if it still runs, and return whether it was cancelled."""
+
+    shared.users -= 1
+    if shared.users > 0:
+        return False
+    if answers.get(key) is shared:
+        del answers[key]
+    if shared.task.done():
+        return False
+    shared.task.cancel()
+    return True
+
+
 @dataclass(frozen=True, slots=True)
 class ClientToolCall:
     """One call of a client tool, as ``on_client_tool`` receives it and ``OpenClientToolCall.call`` holds it.
@@ -61,7 +157,8 @@ class ClientToolCall:
     as ``agents.ToolCall.name`` in ``Completed.tool_calls``.
     ``arguments`` is the object the model passed, not validated: the handler checks it.
 
-    A tool whose answer is in ``client_tools=`` never reaches ``on_client_tool``: its answer wins.
+    A tool with its own answer in ``agents.ClientToolAnswers`` never reaches the default handler:
+    its answer wins.
     """
 
     name: str
@@ -74,8 +171,59 @@ def client_tool_call(callback: ClientToolCallback) -> ClientToolCall:
     return ClientToolCall(name=callback.name, arguments=callback.input)
 
 
-type ClientToolHandler = Callable[[ClientToolCall], object | Awaitable[object]]
-"""Answers any client tool call: returns the result the model reads, synchronously or not."""
+class ClientToolHandler(Protocol):
+    """Answers any client tool call: returns the result the model reads, synchronously or not, or
+    ``agents.KeepCallbackOpen()`` to keep the call open. ``None`` is a result: the model reads
+    ``null``. Its parameter may have any name."""
+
+    def __call__(self, call: ClientToolCall, /) -> object | Awaitable[object]: ...
+
+
+class ClientToolAnswers:
+    """Your functions that answer client tools, one per tool, and a default for every other call.
+
+    Pass it as ``on_client_tool=`` to ``agent.run``, ``agent.start_session`` or ``agent.session(id)``::
+
+        answers = agents.ClientToolAnswers(get_location.answer(read_gps), default=handle)
+        state = await agent.run("Find a shop near me", on_client_tool=answers)
+
+    Each answer comes from ``<tool>.answer(function)``, which a type checker checks against the
+    tool's stub. ``default`` gets the calls of every other client tool, as a plain
+    ``on_client_tool=`` handler does: a tool's own answer wins over it.
+
+    Raises ``SdkError`` here when two answers are for the same tool. Before the session starts, the
+    Agent raises ``SdkError`` for an answer to a stub that is not one of its tools or its subagents'.
+    """
+
+    __slots__ = ("_answers", "_default")
+
+    def __init__(
+        self, *answers: tool_authoring.ClientToolAnswer[..., Any], default: ClientToolHandler | None = None
+    ) -> None:
+        by_id: dict[str, tool_authoring.ClientToolAnswer[..., Any]] = {}
+        for answer in answers:
+            if not isinstance(answer, tool_authoring.ClientToolAnswer):
+                raise SdkError(
+                    f"{ClientToolAnswers.__name__} takes the answers that <tool>.answer(function) returns, "
+                    f"got {type(answer).__name__}"
+                )
+            # The call arrives under the tool's ID, `<namespace>.<name>`.
+            tool_id = f"{answer.tool.namespace}.{answer.tool.name}"
+            if tool_id in by_id:
+                raise SdkError(f"{ClientToolAnswers.__name__} answers {tool_id!r} twice")
+            by_id[tool_id] = answer
+        if default is not None and not callable(default):
+            raise SdkError(f"default takes a function, got {type(default).__name__}")
+        self._answers: Mapping[str, tool_authoring.ClientToolAnswer[..., Any]] = MappingProxyType(by_id)
+        self._default = default
+
+    def __repr__(self) -> str:
+        answered = ", ".join(self._answers)
+        return f"{ClientToolAnswers.__name__}({answered}, default={self._default!r})"
+
+
+type OnClientTool = ClientToolHandler | ClientToolAnswers
+"""What ``on_client_tool=`` takes: one handler for every client tool call, or ``ClientToolAnswers``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,36 +237,65 @@ class ClientToolRegistry:
     # What the model sees when an answer or the handler raises anything but agents.ToolError. With
     # "raise", the model sees nothing: the call stays open and the exception raises in the program.
     tool_errors: ToolErrors = DEFAULT_TOOL_ERRORS
+    # The calls these answers left open, for the waits of the same run: a run with other answers
+    # starts with none.
+    _left_open: _LeftOpenCalls = field(default_factory=_LeftOpenCalls, init=False, repr=False, compare=False)
 
     def __bool__(self) -> bool:
         return bool(self.answers) or self.on_client_tool is not None
+
+    def covers(self, name: str) -> bool:
+        """Whether the call of the client tool with this ID gets an answer from this process: its own
+        answer, else ``on_client_tool`` for a tool in a namespace an author can use."""
+
+        return name in self.answers or (self.on_client_tool is not None and _is_program_tool(name))
 
 
 NO_CLIENT_TOOLS = ClientToolRegistry()
 
 
 def build_client_tool_registry(
-    answers: Iterable[tool_authoring.ClientToolAnswer[..., Any]],
-    on_client_tool: ClientToolHandler | None = None,
+    on_client_tool: OnClientTool | None,
     *,
     tool_errors: ToolErrors = DEFAULT_TOOL_ERRORS,
 ) -> ClientToolRegistry:
     """Index the client tool answers by the name the model's call arrives under."""
 
-    registry: dict[str, tool_authoring.ClientToolAnswer[..., Any]] = {}
-    for answer in answers:
-        if not isinstance(answer, tool_authoring.ClientToolAnswer):
-            raise SdkError(f"client_tools takes the functions bound with @<tool>.answer, got {type(answer).__name__}")
-        # The call arrives under the tool's ID, `<namespace>.<name>`.
-        name = f"{answer.tool.namespace}.{answer.tool.name}"
-        if name in registry:
-            raise SdkError(f"client_tools answers {name!r} twice")
-        registry[name] = answer
-    if on_client_tool is not None and not callable(on_client_tool):
-        raise SdkError(f"on_client_tool takes a function, got {type(on_client_tool).__name__}")
-    return ClientToolRegistry(
-        answers=MappingProxyType(registry), on_client_tool=on_client_tool, tool_errors=tool_errors
-    )
+    if on_client_tool is None:
+        return ClientToolRegistry(tool_errors=tool_errors)
+    if isinstance(on_client_tool, ClientToolAnswers):
+        return ClientToolRegistry(
+            answers=on_client_tool._answers, on_client_tool=on_client_tool._default, tool_errors=tool_errors
+        )
+    if isinstance(on_client_tool, tool_authoring.ClientToolAnswer):
+        raise SdkError(
+            f"on_client_tool takes a function or agents.{ClientToolAnswers.__name__}, got the answer to "
+            f"{on_client_tool.tool.name!r}: pass agents.{ClientToolAnswers.__name__}(...) with it"
+        )
+    if not callable(on_client_tool):
+        raise SdkError(
+            f"on_client_tool takes a function or agents.{ClientToolAnswers.__name__}, "
+            f"got {type(on_client_tool).__name__}"
+        )
+    return ClientToolRegistry(on_client_tool=on_client_tool, tool_errors=tool_errors)
+
+
+def check_answered_tools(on_client_tool: OnClientTool | None, tools: Iterable[object]) -> None:
+    """Raise ``SdkError`` when ``on_client_tool`` answers a stub that is not in ``tools``.
+
+    The stub itself must be there, not only a tool with the same ID: an answer to a tool the agent
+    does not have would never be called.
+    """
+
+    if not isinstance(on_client_tool, ClientToolAnswers):
+        return
+    known = {id(tool) for tool in tools}
+    for tool_id, answer in on_client_tool._answers.items():
+        if id(answer.tool) not in known:
+            raise SdkError(
+                f"on_client_tool answers {tool_id!r}, which is not a tool of this Agent, of its guardrails "
+                "and hooks, or of its subagents: add the stub to tools="
+            )
 
 
 class ClientToolSessionClient(SessionClient):
@@ -141,12 +318,12 @@ class ClientToolSessionClient(SessionClient):
         # Each call's answer, computed once, keyed by the Session that opened the call and the
         # call's id. A restarted loop resends it instead of calling again, even after a send that
         # succeeded but whose settlement the loop has not seen yet. None: no answer, the call stays
-        # open (an exception with tool_errors="raise").
+        # open (an exception with tool_errors="raise", or agents.KeepCallbackOpen()).
         self._answers: dict[tuple[SessionId, str], asyncio.Task[CallbackResult | None]] = {}
         # The answers in `_answers` that the transport accepted, which `_forget_old_answers` drops first.
         self._sent: set[tuple[SessionId, str]] = set()
         # The turn of each call in `_answers`, to name it when its answer cannot be sent.
-        self._turns: dict[tuple[SessionId, str], str | None] = {}
+        self._turns: dict[tuple[SessionId, str], str] = {}
         # The first answer that could not be sent: the answering stops, and a run raises it.
         self._send_failure: ClientToolAnswerError | None = None
         # Set once a caller got the error of the failed answers, so close does not raise it again.
@@ -160,8 +337,19 @@ class ClientToolSessionClient(SessionClient):
         self._draining = False
         # The first exception an answer raised with tool_errors="raise" that no caller took yet, and
         # the Session whose call it left open.
-        self._raised: tuple[Exception, SessionId] | None = None
+        self._raised: tuple[ToolCodeError, SessionId] | None = None
         self._raised_set = asyncio.Event()
+
+    @public_errors
+    async def upload_file(
+        self,
+        source: str | Path | bytes | AsyncIterator[bytes],
+        *,
+        name: str | None = None,
+        media_type: str | None = None,
+    ) -> EmbeddedResourceContentBlock | ResourceLinkContentBlock:
+        # The Harness refuses an upload before any request, so its error does not pass the transport's wrapping.
+        return await super().upload_file(source, name=name, media_type=media_type)
 
     async def adopt_session_snapshot(self, state: SessionState, last_event_id: EventId) -> None:
         await super().adopt_session_snapshot(state, last_event_id)
@@ -187,7 +375,7 @@ class ClientToolSessionClient(SessionClient):
             if key not in self._answers:
                 raise
             # An answer this client computed: name its call, so a run can say which one failed.
-            failure = ClientToolAnswerError(callback_id=key[1], session_id=key[0], turn_id=self._turns.get(key))
+            failure = ClientToolAnswerError(callback_id=key[1], session_id=key[0], turn_id=self._turns[key])
             if self._send_failure is None:
                 self._send_failure = failure
             self._mark_sent(key)
@@ -307,8 +495,7 @@ class ClientToolSessionClient(SessionClient):
             run = functools.partial(_run_answer, answer, callback, key[0])
         elif handler is not None and _is_program_tool(callback.name):
             # Only the program's own client tools, in any namespace an author can use: the Harness
-            # opens the same callback kind for its provided tools, such as the connector sign-in
-            # `connectors.ask_enable_connector`.
+            # opens the same callback kind for its provided tools.
             run = functools.partial(_run_handler, handler, callback)
         else:
             # A provided tool, another client tool, or a caller answering this one itself.
@@ -318,11 +505,14 @@ class ClientToolSessionClient(SessionClient):
             if self._draining:
                 # A run that is leaving starts no new answer.
                 return None
+            turn_id = callback_turn_id(callback)
             computed = asyncio.create_task(
                 self._compute(callback, run, key[0]), name=f"client-tool:{key[0]}:{callback.id}"
             )
             self._answers[key] = computed
-            self._turns[key] = callback.turn_id
+            # Answered again here: a wait no longer returns on it as left open.
+            self._client_tools._left_open.calls.discard(key)
+            self._turns[key] = turn_id
             self._unsent.setdefault(key, asyncio.get_running_loop().create_future())
             self._forget_old_answers()
         # Shielded: a failing loop cancels its handlers, but not the answer the next loop sends.
@@ -335,27 +525,55 @@ class ClientToolSessionClient(SessionClient):
         task = asyncio.current_task()
         if task is not None:
             self._running_code(task, True)
-        try:
-            result = await _invoke(
-                callback,
-                run,
-                tool_errors=self._client_tools.tool_errors,
-                on_raise=functools.partial(self._keep_raised, session_id=session_id),
+        key = (session_id, callback.id)
+        answers = _shared_answers()
+        shared = answers.get(key)
+        if shared is None:
+            # The first client of this event loop to see the call open runs the answer function.
+            raised: list[ToolCodeError] = []
+            shared = answers[key] = _SharedAnswer(
+                asyncio.create_task(
+                    _invoke(callback, run, tool_errors=self._client_tools.tool_errors, on_raise=raised.append),
+                    name=f"client-tool-answer:{session_id}:{callback.id}",
+                ),
+                raised,
             )
+        shared.users += 1
+        release = functools.partial(_release_shared_answer, answers, key, shared)
+        sending = False
+        try:
+            # Shielded: a client that leaves does not cancel the answer another client waits for.
+            result = await asyncio.shield(shared.task)
+            for error in shared.raised:
+                self._keep_raised(error, session_id=session_id)
+            if isinstance(result, KeepCallbackOpen):
+                # No answer: the call stays open, and a wait returns Blocked on it.
+                self._client_tools._left_open.add(key)
+                result = None
             if result is None:
-                # It raised with tool_errors="raise": no answer is sent, so a run does not wait for one.
-                self._mark_sent((session_id, callback.id))
+                # It raised with tool_errors="raise", or it left the call open: no answer is sent, so a
+                # run does not wait for one.
+                self._mark_sent(key)
+            unsent = self._unsent.get(key)
+            if unsent is not None and not unsent.done():
+                # Kept until this client sent it, so a client that sees the call open meanwhile sends
+                # the same result rather than calling the function again.
+                unsent.add_done_callback(lambda _: release())
+                sending = True
             return result
         finally:
             if task is not None:
                 self._running_code(task, False)
+            if not sending and release():
+                # The last client left while the function ran: wait for its cleanup, as closing does.
+                await asyncio.gather(shared.task, return_exceptions=True)
 
     def _mark_sent(self, key: tuple[SessionId, str]) -> None:
         waiter = self._unsent.pop(key, None)
         if waiter is not None and not waiter.done():
             waiter.set_result(None)
 
-    def _keep_raised(self, error: Exception, *, session_id: SessionId) -> None:
+    def _keep_raised(self, error: ToolCodeError, *, session_id: SessionId) -> None:
         """Keep the first exception an answer raised with tool_errors="raise", for ``raise_from_client_tools``.
 
         ``session_id`` is the Session whose call got no answer: this one or one of its subagents'.
@@ -365,7 +583,7 @@ class ClientToolSessionClient(SessionClient):
             self._raised = (error, session_id)
             self._raised_set.set()
 
-    async def _take_raised(self) -> tuple[Exception, SessionId]:
+    async def _take_raised(self) -> tuple[ToolCodeError, SessionId]:
         """Wait for an exception that an answer raised with tool_errors="raise", and take it with its Session."""
 
         await self._raised_set.wait()
@@ -471,6 +689,8 @@ async def _run_answer(
     answer: tool_authoring.ClientToolAnswer[..., Any], callback: ClientToolCallback, session_id: SessionId
 ) -> object:
     output = await tool_authoring.call_client_tool_answer(answer, callback.input, _answer_context(callback, session_id))
+    if isinstance(output, KeepCallbackOpen):
+        return output
     try:
         return tool_authoring.dump_client_tool_result(answer, output)
     except Exception as error:
@@ -486,6 +706,10 @@ async def _run_handler(handler: ClientToolHandler, callback: ClientToolCallback)
     # alias, so a list of models, a dataclass or a datetime reach the model as JSON, as an answer's do.
     try:
         return await tool_authoring.call_handler(functools.partial(handler, call))
+    except asyncio.CancelledError as error:
+        if call_is_cancelling():
+            raise
+        raise ToolFunctionError(error) from error
     except Exception as error:
         raise ToolFunctionError(error) from error
 
@@ -495,8 +719,8 @@ async def _invoke(
     run: Callable[[], Awaitable[object]],
     *,
     tool_errors: ToolErrors,
-    on_raise: Callable[[Exception], None],
-) -> CallbackResult | None:
+    on_raise: Callable[[ToolCodeError], None],
+) -> CallbackResult | KeepCallbackOpen | None:
     try:
         output = await run()
     except ToolFunctionError as raised:
@@ -510,6 +734,8 @@ async def _invoke(
                 message=f"{type(error).__name__}: {error}",
             ),
         )
+    if isinstance(output, KeepCallbackOpen):
+        return output
     try:
         return _answered(callback, output)
     except Exception as error:  # noqa: BLE001 - the answer's value cannot be sent: follows tool_errors
@@ -518,10 +744,10 @@ async def _invoke(
 
 def _failed(
     callback: ClientToolCallback,
-    error: Exception,
+    error: ToolCodeError,
     *,
     tool_errors: ToolErrors,
-    on_raise: Callable[[Exception], None],
+    on_raise: Callable[[ToolCodeError], None],
 ) -> CallbackResult | None:
     """The answer to a call whose answer or handler raised, or returned a value that cannot be sent."""
 
@@ -558,7 +784,7 @@ async def raise_from_client_tools[T](client: SessionClient, waiting: Awaitable[T
         or client._client_tools.tool_errors != "raise"
     ):
         return await waiting
-    taken: list[tuple[Exception, SessionId]] = []
+    taken: list[tuple[ToolCodeError, SessionId]] = []
 
     async def take_raised() -> None:
         taken.append(await client._take_raised())
@@ -582,7 +808,7 @@ async def raise_from_client_tools[T](client: SessionClient, waiting: Awaitable[T
     raise _with_raise_note(*taken[0])
 
 
-def _with_raise_note(error: Exception, session_id: SessionId) -> Exception:
+def _with_raise_note(error: ToolCodeError, session_id: SessionId) -> ToolCodeError:
     error.add_note(
         f"A client tool raised with tool_errors='raise', so its call got no answer: the Turn of Session "
         f"{session_id} stays blocked on it, and the Session refuses a new Turn, until the host's "
@@ -607,27 +833,69 @@ def _answered(callback: ClientToolCallback, output: object) -> CallbackResult:
     )
 
 
-def _answer_context(callback: ClientToolCallback, session_id: SessionId) -> contracts.ToolCallbackContext:
-    """The context an answer gets: the Session that called the tool, and the call's ID.
+def callback_turn_id(callback: SessionCallback) -> str:
+    """The turn that opened ``callback``: a Session v1 host names it on every callback."""
+    if callback.turn_id is None:
+        raise sdk_runtime_error(f"Callback {callback.id} names no turn: a Session v1 host names one on every callback")
+    return callback.turn_id
 
-    A callback opened without a turn or a tool call behind it gives ``""`` for that ID. The sandbox
-    is unbound: the answer runs in the application, not where the agent runs.
+
+def given_answer(callback: ClientToolCallback, output: object, tool: object) -> CallbackResult:
+    """The answer to a call with ``output``, the tool's result that the caller gives, as ``turn.answer`` sends it.
+
+    ``tool`` is the agent's tool object for the call, if it has one. A stub with a return type
+    checks ``output`` against it and serializes it as an answer's result is. Otherwise, a tool
+    built with ``output_schema=`` included, ``output`` is sent as JSON, unchecked. A
+    ``ToolResult`` or content blocks say themselves what the model sees.
+
+    Raises ``SdkError`` when ``output`` is an approval answer, does not match the stub's return
+    type, or is not JSON data.
+    """
+
+    if isinstance(output, AllowApproval | DenyApproval):
+        raise SdkError(
+            f"Callback {callback.id} is a call of the client tool {callback.name}: answer it with the "
+            f"tool's result, not {type(output).__name__}"
+        )
+    adapter = tool._output_adapter if isinstance(tool, tool_authoring.ClientTool) else None
+    try:
+        if adapter is not None and not is_rich_tool_result(output):
+            output = adapter.dump_python(adapter.validate_python(output), mode="json", by_alias=True)
+        return _answered(callback, output)
+    except (ValidationError, PydanticSerializationError) as error:
+        raise SdkError(
+            f"The answer to call {callback.id} of the client tool {callback.name} is not the tool's result: {error}"
+        ) from None
+
+
+def _answer_context(callback: ClientToolCallback, session_id: SessionId) -> contracts.ToolCallbackContext:
+    """The context an answer gets: the Session and turn that called the tool, and the call's ID.
+
+    A callback opened without a tool call behind it gives ``""`` for that ID. The sandbox is
+    unbound: the answer runs in the application, not where the agent runs.
     """
 
     return contracts.ToolCallbackContext(
-        contracts.CallbackSession(id=session_id, turn_id=callback.turn_id or ""),
+        contracts.CallbackSession(id=session_id, turn_id=callback_turn_id(callback)),
         tool_call_id=callback.tool_call_id or "",
     )
 
 
 __all__ = [
     "NO_CLIENT_TOOLS",
+    "ClientToolAnswers",
     "ClientToolCall",
     "ClientToolHandler",
     "ClientToolRegistry",
     "ClientToolSessionClient",
+    "OnClientTool",
     "build_client_tool_registry",
+    "callback_turn_id",
+    "check_answered_tools",
     "finish_answers",
+    "given_answer",
+    "left_open",
     "raising_answer_failures",
     "raise_from_client_tools",
+    "watching_left_open",
 ]

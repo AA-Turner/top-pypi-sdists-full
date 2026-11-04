@@ -1,10 +1,18 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.trigger_instances.manage_delete_response."""
 
-from ..._models import BaseModel
+from __future__ import annotations
 
-__all__ = ["ManageDeleteResponse"]
+from pydantic import ConfigDict
+from ..._base_model import BaseModel
 
 
 class ManageDeleteResponse(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     trigger_id: str
-    """The ID of the deleted trigger instance"""
+    "The ID of the deleted trigger instance"
+
+
+__all__ = [
+    "ManageDeleteResponse",
+]

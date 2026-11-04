@@ -1,16 +1,17 @@
-import time
 import datetime
 import json
+import time
 import uuid
 from unittest import TestCase
+
 from joserfc import jwt
-from joserfc.jwk import OctKey
 from joserfc.errors import (
+    ExpiredTokenError,
     InsecureClaimError,
     InvalidClaimError,
     MissingClaimError,
-    ExpiredTokenError,
 )
+from joserfc.jwk import OctKey
 
 
 class UUIDEncoder(json.JSONEncoder):
@@ -128,6 +129,22 @@ class TestJWTClaims(TestCase):
         claims_requests.validate({"foo": False})
         self.assertRaises(InvalidClaimError, claims_requests.validate, {"foo": True})
 
+    def test_option_value_with_list(self):
+        # a list "value" is the expected claim value itself
+        claims_requests = jwt.JWTClaimsRegistry(aud={"essential": True, "value": ["id1"]})
+        claims_requests.validate({"aud": ["id1"]})
+        self.assertRaises(InvalidClaimError, claims_requests.validate, {"aud": ["id2"]})
+
+        claims_requests = jwt.JWTClaimsRegistry(aud={"essential": True, "value": ["id1", "id2"]})
+        claims_requests.validate({"aud": ["id1", "id2"]})
+        self.assertRaises(InvalidClaimError, claims_requests.validate, {"aud": "id1"})
+        self.assertRaises(InvalidClaimError, claims_requests.validate, {"aud": ["id1"]})
+
+        # a scalar "value" still matches any element of a list claim
+        claims_requests = jwt.JWTClaimsRegistry(foo={"essential": True, "value": "id1"})
+        claims_requests.validate({"foo": ["id1"]})
+        self.assertRaises(InvalidClaimError, claims_requests.validate, {"foo": ["id2"]})
+
     def test_option_values(self):
         claims_requests = jwt.JWTClaimsRegistry(foo={"essential": True, "values": ["1", "2", True, False]})
         self.assertRaises(InvalidClaimError, claims_requests.validate, {"foo": "a"})
@@ -180,6 +197,16 @@ class TestJWTClaims(TestCase):
         claims_requests = jwt.JWTClaimsRegistry(aud={"essential": True})
         claims_requests.validate({"aud": "a"})
 
+    def test_validate_exp(self):
+        now = int(time.time())
+        claims_requests = jwt.JWTClaimsRegistry(now=now)
+        claims_requests.validate({"exp": now + 1})
+        self.assertRaises(ExpiredTokenError, claims_requests.validate, {"exp": now})
+
+        claims_requests = jwt.JWTClaimsRegistry(now=now, leeway=500)
+        claims_requests.validate({"exp": now - 499})
+        self.assertRaises(ExpiredTokenError, claims_requests.validate, {"exp": now - 500})
+
     def test_validate_iat(self):
         claims_requests = jwt.JWTClaimsRegistry(leeway=500)
         now = int(time.time())
@@ -191,6 +218,27 @@ class TestJWTClaims(TestCase):
         now = int(time.time())
         claims_requests.validate({"nbf": now})
         self.assertRaises(InvalidClaimError, claims_requests.validate, {"nbf": now + 1000})
+
+    def test_validate_time_claims_must_be_finite(self):
+        # NumericDate is a JSON number, and NaN and Infinity are not. Every comparison with NaN
+        # is false, so "exp": NaN used to give a token that never expires.
+        claims_requests = jwt.JWTClaimsRegistry(now=1000)
+        for claim in ("exp", "nbf", "iat"):
+            for value in (float("nan"), float("inf"), float("-inf"), True, False):
+                with self.subTest(claim=claim, value=value):
+                    self.assertRaises(InvalidClaimError, claims_requests.validate, {claim: value})
+
+    def test_validate_time_claims_accept_large_integers(self):
+        # an integer too large for a float is still a number, and not an OverflowError
+        claims_requests = jwt.JWTClaimsRegistry(now=1000)
+        claims_requests.validate({"exp": 10**400})
+        self.assertRaises(ExpiredTokenError, claims_requests.validate, {"exp": -(10**400)})
+
+    def test_decode_then_validate_a_token_that_never_expires(self):
+        key = OctKey.import_key("secret")
+        # json writes NaN as is, and reads it back as a float
+        token = jwt.decode(jwt.encode({"alg": "HS256"}, {"exp": float("nan")}, key), key)
+        self.assertRaises(InvalidClaimError, jwt.JWTClaimsRegistry().validate, token.claims)
 
     def test_claims_with_uuid_field(self):
         value = uuid.uuid4()

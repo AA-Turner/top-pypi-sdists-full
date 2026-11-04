@@ -71,11 +71,26 @@ ALL_CATEGORIES = {
                 "browse-drives": _native(model_browser.browse_drives, "GET", "worker_browse_drives"),
                 "model-browser": {
                     "catalog": _native(model_browser.catalog, "GET", "worker_browser_catalog"),
+                    "preferences": [_native(model_browser.model_preferences, "GET", "worker_model_preferences"),
+                                    _native(model_browser.model_preferences, "POST", "worker_set_model_preferences")],
                     "pair": _native(model_browser.pair, "GET", "worker_browser_pair"),
                     "limits": [_native(model_browser.limits, "GET", "worker_browser_limits"),
                                _native(model_browser.set_limits, "POST", "worker_browser_set_limits")],
                     "report": _native(model_browser.report, "GET", "worker_browser_report"),
                     "preview": _native(model_browser.preview, "POST", "worker_browser_preview"),
+                    # the Wrapper's own configuration: attributions, layer placement, eviction decisions, stored queries
+                    "attributions": {
+                        "": [_native(model_browser.attributions, "GET", "worker_attributions"),
+                             _native(model_browser.declare_attribution, "POST", "worker_declare_attribution")],
+                        "derive": _native(model_browser.derive_attributions, "POST", "worker_derive_attributions"),
+                    },
+                    "placements": [_native(model_browser.layer_placements, "GET", "worker_layer_placements"),
+                                   _native(model_browser.pin_layers, "POST", "worker_pin_layers")],
+                    "evictions": _native(model_browser.eviction_decisions, "GET", "worker_eviction_decisions"),
+                    "queries": {
+                        "": _native(model_browser.stored_queries, "GET", "worker_stored_queries"),
+                        "run": _native(model_browser.run_query, "POST", "worker_run_query"),
+                    },
                 },
                 "": _native(wc.remove_path, "DELETE", "worker_remove_path"),
                 "reconnect": _native(wc.reconnect_path, "POST", "worker_reconnect_path"),

@@ -166,8 +166,11 @@ def _send_http(client, op: dict, run_ids: dict[str, str]) -> dict | None:
     placed = _placed(client, op)
     if placed is not None:
         return placed["response"]
+    # A queued metrics POST may be acked once durable in the server's queue (I15d).
+    is_metrics = routes.classify(op["method"], op["path"]).op is routes.WriteOp.METRICS
+    ack = build_async_ack_kwargs(client) if is_metrics and op["method"].upper() == "POST" else {}
     try:
-        return client.transport.request(op["method"], op["path"], json_body=op.get("body"))
+        return client.transport.request(op["method"], op["path"], json_body=op.get("body"), **ack)
     except errors.ValidationError:
         resolved = _resolve_queued_run_ref(client, routes.run_ref_of(op["path"]), run_ids)
         if resolved is None:
@@ -179,6 +182,7 @@ def _send_http(client, op: dict, run_ids: dict[str, str]) -> dict | None:
             op["method"],
             op["path"].replace(resolved[0], resolved[1], 1),
             json_body=op.get("body"),
+            **ack,
         )
 
 
@@ -304,4 +308,5 @@ def _hash_deferred_upload(
 from probe.sdk.delivery.ops.classify import _resolve_queued_run_ref  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.op_handlers.http import _placed  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk import routes  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.ops.ingest_queue import build_async_ack_kwargs  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.ops import CATALOG_MANIFEST, _queued_at  # noqa: E402 -- pieces need each other; the front door loads this one first

@@ -1,12 +1,469 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.tool_execute_params."""
 
 from __future__ import annotations
 
-from typing import Dict, Union, Iterable, Optional
-from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
+from typing import Annotated, Dict, Iterable, Literal, Optional, TypeAlias, Union
 
-from .._types import SequenceNotStr
-from .._utils import PropertyInfo
+from typing_extensions import Required, TypedDict
+from .._types import PropertyInfo, SequenceNotStr
+
+
+_CustomAuthParamsParameterReservedKeywords = TypedDict(  # noqa: UP013 - a wire key is not a Python identifier
+    "_CustomAuthParamsParameterReservedKeywords",
+    {
+        "in": Literal['query', 'header'],
+    },
+    total=False,
+)
+
+
+class CustomAuthParamsParameter(_CustomAuthParamsParameterReservedKeywords, total=False):
+    name: Required[str]
+    "The name of the parameter. For example, 'x-api-key', 'Content-Type', etc."
+    value: Required[Union[str, float]]
+    "The value of the parameter. For example, '1234567890', 'application/json', etc."
+    in_: Required[Literal["query", "header"]]
+
+
+class CustomAuthParams(TypedDict, total=False):
+    "Custom authentication parameters for tools that support parameterized authentication"
+
+    base_url: str
+    "The base URL (root address) what you should use while making http requests to\nthe connected account. For example, for gmail, it would be\n'https://gmail.googleapis.com'"
+    body: Dict[str, Optional[object]]
+    "The body to be sent to the endpoint for authentication.\n\nThis is a JSON object. Note: This is very rarely needed and is only required by\nvery few apps."
+    parameters: Iterable[CustomAuthParamsParameter]
+
+
+class CustomConnectionDataUnionMember0ValAuthedUser(TypedDict, total=False):
+    "for slack user scopes"
+
+    access_token: str
+    scope: str
+
+
+class CustomConnectionDataUnionMember0Val(TypedDict, total=False):
+    access_token: Required[str]
+    account_id: str
+    account_url: str
+    api_url: str
+    authed_user: CustomConnectionDataUnionMember0ValAuthedUser
+    "for slack user scopes"
+    base_url: str
+    borneo_dashboard_url: str
+    companydomain: Annotated[str, PropertyInfo(alias='COMPANYDOMAIN')]
+    dc: str
+    domain: str
+    expires_in: Union[float, str, None]
+    extension: str
+    extra_token_data: Dict[str, Optional[object]]
+    form_api_base_url: str
+    id_token: str
+    instance_endpoint: Annotated[str, PropertyInfo(alias='instanceEndpoint')]
+    instance_name: Annotated[str, PropertyInfo(alias='instanceName')]
+    long_redirect_url: bool
+    "Whether to return the redirect url without shortening"
+    proxy_password: str
+    proxy_username: str
+    refresh_token: Optional[str]
+    region: str
+    scope: Union[str, SequenceNotStr[str], None]
+    server_location: str
+    shop: str
+    site_name: str
+    state_prefix: str
+    "The oauth2 state prefix for the connection"
+    subdomain: str
+    token_type: str
+    version: str
+    webhook_signature: str
+    your_domain: Annotated[str, PropertyInfo(alias='your-domain')]
+    your_server: str
+
+
+class CustomConnectionDataUnionMember0(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal['OAUTH2'], PropertyInfo(alias='authScheme')]]
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias='toolkitSlug')]]
+    val: Required[CustomConnectionDataUnionMember0Val]
+
+
+class CustomConnectionDataUnionMember1Val(TypedDict, total=False):
+    access_token: Required[str]
+    account_id: str
+    account_url: str
+    api_url: str
+    base_url: str
+    borneo_dashboard_url: str
+    client_id: Required[str]
+    "Dynamically registered client ID"
+    client_id_issued_at: float
+    client_secret: str
+    "Dynamically registered client secret"
+    client_secret_expires_at: float
+    companydomain: Annotated[str, PropertyInfo(alias='COMPANYDOMAIN')]
+    dc: str
+    domain: str
+    expires_in: Union[float, str, None]
+    extension: str
+    form_api_base_url: str
+    id_token: str
+    instance_endpoint: Annotated[str, PropertyInfo(alias='instanceEndpoint')]
+    instance_name: Annotated[str, PropertyInfo(alias='instanceName')]
+    long_redirect_url: bool
+    "Whether to return the redirect url without shortening"
+    proxy_password: str
+    proxy_username: str
+    refresh_token: Optional[str]
+    region: str
+    scope: Union[str, SequenceNotStr[str], None]
+    server_location: str
+    shop: str
+    site_name: str
+    state_prefix: str
+    "The oauth2 state prefix for the connection"
+    subdomain: str
+    token_type: str
+    version: str
+    your_domain: Annotated[str, PropertyInfo(alias='your-domain')]
+    your_server: str
+
+
+class CustomConnectionDataUnionMember1(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal['DCR_OAUTH'], PropertyInfo(alias='authScheme')]]
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias='toolkitSlug')]]
+    val: Required[CustomConnectionDataUnionMember1Val]
+
+
+class CustomConnectionDataUnionMember2Val(TypedDict, total=False):
+    account_id: str
+    account_url: str
+    api_key: str
+    api_url: str
+    base_url: str
+    basic_encoded: str
+    bearer_token: str
+    borneo_dashboard_url: str
+    companydomain: Annotated[str, PropertyInfo(alias='COMPANYDOMAIN')]
+    dc: str
+    domain: str
+    extension: str
+    form_api_base_url: str
+    generic_api_key: str
+    instance_endpoint: Annotated[str, PropertyInfo(alias='instanceEndpoint')]
+    instance_name: Annotated[str, PropertyInfo(alias='instanceName')]
+    proxy_password: str
+    proxy_username: str
+    region: str
+    server_location: str
+    shop: str
+    site_name: str
+    subdomain: str
+    version: str
+    your_domain: Annotated[str, PropertyInfo(alias='your-domain')]
+    your_server: str
+
+
+class CustomConnectionDataUnionMember2(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal['API_KEY'], PropertyInfo(alias='authScheme')]]
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias='toolkitSlug')]]
+    val: Required[CustomConnectionDataUnionMember2Val]
+
+
+class CustomConnectionDataUnionMember3Val(TypedDict, total=False):
+    account_id: str
+    account_url: str
+    api_url: str
+    base_url: str
+    borneo_dashboard_url: str
+    companydomain: Annotated[str, PropertyInfo(alias='COMPANYDOMAIN')]
+    dc: str
+    domain: str
+    extension: str
+    form_api_base_url: str
+    instance_endpoint: Annotated[str, PropertyInfo(alias='instanceEndpoint')]
+    instance_name: Annotated[str, PropertyInfo(alias='instanceName')]
+    password: Required[str]
+    proxy_password: str
+    proxy_username: str
+    region: str
+    server_location: str
+    shop: str
+    site_name: str
+    subdomain: str
+    username: Required[str]
+    version: str
+    your_domain: Annotated[str, PropertyInfo(alias='your-domain')]
+    your_server: str
+
+
+class CustomConnectionDataUnionMember3(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal['BASIC_WITH_JWT'], PropertyInfo(alias='authScheme')]]
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias='toolkitSlug')]]
+    val: Required[CustomConnectionDataUnionMember3Val]
+
+
+class CustomConnectionDataUnionMember4Val(TypedDict, total=False):
+    account_id: str
+    account_url: str
+    api_url: str
+    base_url: str
+    borneo_dashboard_url: str
+    companydomain: Annotated[str, PropertyInfo(alias='COMPANYDOMAIN')]
+    dc: str
+    domain: str
+    extension: str
+    form_api_base_url: str
+    instance_endpoint: Annotated[str, PropertyInfo(alias='instanceEndpoint')]
+    instance_name: Annotated[str, PropertyInfo(alias='instanceName')]
+    password: str
+    proxy_password: str
+    proxy_username: str
+    region: str
+    server_location: str
+    shop: str
+    site_name: str
+    subdomain: str
+    username: Required[str]
+    version: str
+    your_domain: Annotated[str, PropertyInfo(alias='your-domain')]
+    your_server: str
+
+
+class CustomConnectionDataUnionMember4(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal['BASIC'], PropertyInfo(alias='authScheme')]]
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias='toolkitSlug')]]
+    val: Required[CustomConnectionDataUnionMember4Val]
+
+
+class CustomConnectionDataUnionMember5Val(TypedDict, total=False):
+    account_id: str
+    account_url: str
+    api_url: str
+    base_url: str
+    borneo_dashboard_url: str
+    companydomain: Annotated[str, PropertyInfo(alias='COMPANYDOMAIN')]
+    dc: str
+    domain: str
+    extension: str
+    form_api_base_url: str
+    instance_endpoint: Annotated[str, PropertyInfo(alias='instanceEndpoint')]
+    instance_name: Annotated[str, PropertyInfo(alias='instanceName')]
+    proxy_password: str
+    proxy_username: str
+    region: str
+    server_location: str
+    shop: str
+    site_name: str
+    subdomain: str
+    token: Required[str]
+    version: str
+    your_domain: Annotated[str, PropertyInfo(alias='your-domain')]
+    your_server: str
+
+
+class CustomConnectionDataUnionMember5(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal['BEARER_TOKEN'], PropertyInfo(alias='authScheme')]]
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias='toolkitSlug')]]
+    val: Required[CustomConnectionDataUnionMember5Val]
+
+
+class CustomConnectionDataUnionMember6Val(TypedDict, total=False):
+    account_id: str
+    account_url: str
+    api_url: str
+    base_url: str
+    borneo_dashboard_url: str
+    callback_url: str
+    companydomain: Annotated[str, PropertyInfo(alias='COMPANYDOMAIN')]
+    consumer_key: str
+    dc: str
+    domain: str
+    extension: str
+    form_api_base_url: str
+    instance_endpoint: Annotated[str, PropertyInfo(alias='instanceEndpoint')]
+    instance_name: Annotated[str, PropertyInfo(alias='instanceName')]
+    oauth_token: Required[str]
+    oauth_token_secret: Required[str]
+    oauth_verifier: str
+    proxy_password: str
+    proxy_username: str
+    redirect_url: Annotated[str, PropertyInfo(alias='redirectUrl')]
+    region: str
+    server_location: str
+    shop: str
+    site_name: str
+    subdomain: str
+    version: str
+    your_domain: Annotated[str, PropertyInfo(alias='your-domain')]
+    your_server: str
+
+
+class CustomConnectionDataUnionMember6(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal['OAUTH1'], PropertyInfo(alias='authScheme')]]
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias='toolkitSlug')]]
+    val: Required[CustomConnectionDataUnionMember6Val]
+
+
+class CustomConnectionDataUnionMember7Val(TypedDict, total=False):
+    account_id: str
+    account_url: str
+    api_url: str
+    base_url: str
+    borneo_dashboard_url: str
+    companydomain: Annotated[str, PropertyInfo(alias='COMPANYDOMAIN')]
+    dc: str
+    domain: str
+    extension: str
+    form_api_base_url: str
+    instance_endpoint: Annotated[str, PropertyInfo(alias='instanceEndpoint')]
+    instance_name: Annotated[str, PropertyInfo(alias='instanceName')]
+    proxy_password: str
+    proxy_username: str
+    region: str
+    server_location: str
+    shop: str
+    site_name: str
+    subdomain: str
+    version: str
+    your_domain: Annotated[str, PropertyInfo(alias='your-domain')]
+    your_server: str
+
+
+class CustomConnectionDataUnionMember7(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal['NO_AUTH'], PropertyInfo(alias='authScheme')]]
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias='toolkitSlug')]]
+    val: Required[CustomConnectionDataUnionMember7Val]
+
+
+class CustomConnectionDataUnionMember8Val(TypedDict, total=False):
+    account_id: str
+    account_url: str
+    api_url: str
+    application_id: Required[str]
+    base_url: str
+    borneo_dashboard_url: str
+    companydomain: Annotated[str, PropertyInfo(alias='COMPANYDOMAIN')]
+    dc: str
+    domain: str
+    extension: str
+    form_api_base_url: str
+    installation_id: Required[str]
+    instance_endpoint: Annotated[str, PropertyInfo(alias='instanceEndpoint')]
+    instance_name: Annotated[str, PropertyInfo(alias='instanceName')]
+    private_key: Required[str]
+    proxy_password: str
+    proxy_username: str
+    region: str
+    server_location: str
+    shop: str
+    site_name: str
+    subdomain: str
+    version: str
+    your_domain: Annotated[str, PropertyInfo(alias='your-domain')]
+    your_server: str
+
+
+class CustomConnectionDataUnionMember8(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal['SERVICE_ACCOUNT'], PropertyInfo(alias='authScheme')]]
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias='toolkitSlug')]]
+    val: Required[CustomConnectionDataUnionMember8Val]
+
+
+class CustomConnectionDataUnionMember9Val(TypedDict, total=False):
+    account_id: str
+    account_url: str
+    api_url: str
+    base_url: str
+    borneo_dashboard_url: str
+    companydomain: Annotated[str, PropertyInfo(alias='COMPANYDOMAIN')]
+    credentials_json: Required[str]
+    dc: str
+    domain: str
+    extension: str
+    form_api_base_url: str
+    instance_endpoint: Annotated[str, PropertyInfo(alias='instanceEndpoint')]
+    instance_name: Annotated[str, PropertyInfo(alias='instanceName')]
+    proxy_password: str
+    proxy_username: str
+    region: str
+    server_location: str
+    shop: str
+    site_name: str
+    subdomain: str
+    version: str
+    your_domain: Annotated[str, PropertyInfo(alias='your-domain')]
+    your_server: str
+
+
+class CustomConnectionDataUnionMember9(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal['GOOGLE_SERVICE_ACCOUNT'], PropertyInfo(alias='authScheme')]]
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias='toolkitSlug')]]
+    val: Required[CustomConnectionDataUnionMember9Val]
+
+
+class CustomConnectionDataUnionMember10Val(TypedDict, total=False):
+    access_token: Required[str]
+    account_id: str
+    account_url: str
+    api_url: str
+    base_url: str
+    borneo_dashboard_url: str
+    client_id: str
+    client_secret: str
+    companydomain: Annotated[str, PropertyInfo(alias='COMPANYDOMAIN')]
+    dc: str
+    domain: str
+    expires_at: str
+    expires_in: Union[float, str, None]
+    extension: str
+    form_api_base_url: str
+    instance_endpoint: Annotated[str, PropertyInfo(alias='instanceEndpoint')]
+    instance_name: Annotated[str, PropertyInfo(alias='instanceName')]
+    proxy_password: str
+    proxy_username: str
+    region: str
+    scope: Union[str, SequenceNotStr[str], None]
+    server_location: str
+    shop: str
+    site_name: str
+    subdomain: str
+    token_type: str
+    version: str
+    your_domain: Annotated[str, PropertyInfo(alias='your-domain')]
+    your_server: str
+
+
+class CustomConnectionDataUnionMember10(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal['S2S_OAUTH2'], PropertyInfo(alias='authScheme')]]
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias='toolkitSlug')]]
+    val: Required[CustomConnectionDataUnionMember10Val]
+
+
+class ToolExecuteParams(TypedDict, total=False):
+    connected_account_id: str
+    "Unique identifier for the connected account to use for authentication"
+    entity_id: str
+    "Deprecated: please use user_id instead.\n\nEntity identifier for multi-entity connected accounts (e.g. multiple\nrepositories, organizations)"
+    user_id: str
+    "User id for multi-user connected accounts (e.g. multiple users, organizations)"
+    version: str
+    "Tool version to execute (defaults to \"00000000_00\" if not specified)"
+    custom_auth_params: CustomAuthParams
+    "Custom authentication parameters for tools that support parameterized\nauthentication"
+    custom_connection_data: Union[CustomConnectionDataUnionMember0, CustomConnectionDataUnionMember1, CustomConnectionDataUnionMember2, CustomConnectionDataUnionMember3, CustomConnectionDataUnionMember4, CustomConnectionDataUnionMember5, CustomConnectionDataUnionMember6, CustomConnectionDataUnionMember7, CustomConnectionDataUnionMember8, CustomConnectionDataUnionMember9, CustomConnectionDataUnionMember10]
+    "Custom connection data for tools that support custom connection data"
+    arguments: Dict[str, Optional[object]]
+    "Key-value pairs of arguments required by the tool (mutually exclusive with text)"
+    text: str
+    "Natural language description of the task to perform (mutually exclusive with\narguments)"
+    allow_tracing: Optional[bool]
+    "Deprecated. Enable debug tracing for tool execution (useful for debugging)"
+    x_llm_gateway_headers: Annotated[str, PropertyInfo(alias='x-llm-gateway-headers')]
+    "JSON object containing custom headers to pass to LLM providers (OpenAI, Bedrock,\netc.)"
+
+
+CustomConnectionData: TypeAlias = Union[CustomConnectionDataUnionMember0, CustomConnectionDataUnionMember1, CustomConnectionDataUnionMember2, CustomConnectionDataUnionMember3, CustomConnectionDataUnionMember4, CustomConnectionDataUnionMember5, CustomConnectionDataUnionMember6, CustomConnectionDataUnionMember7, CustomConnectionDataUnionMember8, CustomConnectionDataUnionMember9, CustomConnectionDataUnionMember10]
 
 __all__ = [
     "ToolExecuteParams",
@@ -36,856 +493,4 @@ __all__ = [
     "CustomConnectionDataUnionMember9Val",
     "CustomConnectionDataUnionMember10",
     "CustomConnectionDataUnionMember10Val",
-]
-
-
-class ToolExecuteParams(TypedDict, total=False):
-    allow_tracing: Optional[bool]
-    """Deprecated. Enable debug tracing for tool execution (useful for debugging)"""
-
-    arguments: Dict[str, Optional[object]]
-    """
-    Key-value pairs of arguments required by the tool (mutually exclusive with text)
-    """
-
-    connected_account_id: str
-    """Unique identifier for the connected account to use for authentication"""
-
-    custom_auth_params: CustomAuthParams
-    """
-    Custom authentication parameters for tools that support parameterized
-    authentication
-    """
-
-    custom_connection_data: CustomConnectionData
-    """Custom connection data for tools that support custom connection data"""
-
-    entity_id: str
-    """Deprecated: please use user_id instead.
-
-    Entity identifier for multi-entity connected accounts (e.g. multiple
-    repositories, organizations)
-    """
-
-    text: str
-    """
-    Natural language description of the task to perform (mutually exclusive with
-    arguments)
-    """
-
-    user_id: str
-    """User id for multi-user connected accounts (e.g. multiple users, organizations)"""
-
-    version: str
-    """Tool version to execute (defaults to "00000000_00" if not specified)"""
-
-    x_llm_gateway_headers: Annotated[str, PropertyInfo(alias="x-llm-gateway-headers")]
-    """
-    JSON object containing custom headers to pass to LLM providers (OpenAI, Bedrock,
-    etc.)
-    """
-
-
-_CustomAuthParamsParameterReservedKeywords = TypedDict(
-    "_CustomAuthParamsParameterReservedKeywords",
-    {
-        "in": Literal["query", "header"],
-    },
-    total=False,
-)
-
-
-class CustomAuthParamsParameter(_CustomAuthParamsParameterReservedKeywords, total=False):
-    name: Required[str]
-    """The name of the parameter. For example, 'x-api-key', 'Content-Type', etc."""
-
-    value: Required[Union[str, float]]
-    """The value of the parameter. For example, '1234567890', 'application/json', etc."""
-
-
-class CustomAuthParams(TypedDict, total=False):
-    """
-    Custom authentication parameters for tools that support parameterized authentication
-    """
-
-    base_url: str
-    """
-    The base URL (root address) what you should use while making http requests to
-    the connected account. For example, for gmail, it would be
-    'https://gmail.googleapis.com'
-    """
-
-    body: Dict[str, Optional[object]]
-    """The body to be sent to the endpoint for authentication.
-
-    This is a JSON object. Note: This is very rarely needed and is only required by
-    very few apps.
-    """
-
-    parameters: Iterable[CustomAuthParamsParameter]
-
-
-class CustomConnectionDataUnionMember0ValAuthedUser(TypedDict, total=False):
-    """for slack user scopes"""
-
-    access_token: str
-
-    scope: str
-
-
-class CustomConnectionDataUnionMember0Val(  # type: ignore[call-arg]
-    TypedDict,
-    total=False,
-    extra_items=Optional[object],  # pyright: ignore[reportGeneralTypeIssues]
-):
-    access_token: Required[str]
-
-    account_id: str
-
-    account_url: str
-
-    api_url: str
-
-    authed_user: CustomConnectionDataUnionMember0ValAuthedUser
-    """for slack user scopes"""
-
-    base_url: str
-
-    borneo_dashboard_url: str
-
-    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
-
-    dc: str
-
-    domain: str
-
-    expires_in: Union[float, str, None]
-
-    extension: str
-
-    extra_token_data: Dict[str, Optional[object]]
-
-    form_api_base_url: str
-
-    id_token: str
-
-    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
-
-    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
-
-    long_redirect_url: bool
-    """Whether to return the redirect url without shortening"""
-
-    proxy_password: str
-
-    proxy_username: str
-
-    refresh_token: Optional[str]
-
-    region: str
-
-    scope: Union[str, SequenceNotStr[str], None]
-
-    server_location: str
-
-    shop: str
-
-    site_name: str
-
-    state_prefix: str
-    """The oauth2 state prefix for the connection"""
-
-    subdomain: str
-
-    token_type: str
-
-    version: str
-
-    webhook_signature: str
-
-    your_server: str
-
-    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
-
-
-class CustomConnectionDataUnionMember0(TypedDict, total=False):
-    auth_scheme: Required[Annotated[Literal["OAUTH2"], PropertyInfo(alias="authScheme")]]
-
-    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
-
-    val: Required[CustomConnectionDataUnionMember0Val]
-
-
-class CustomConnectionDataUnionMember1Val(  # type: ignore[call-arg]
-    TypedDict,
-    total=False,
-    extra_items=Optional[object],  # pyright: ignore[reportGeneralTypeIssues]
-):
-    access_token: Required[str]
-
-    client_id: Required[str]
-    """Dynamically registered client ID"""
-
-    account_id: str
-
-    account_url: str
-
-    api_url: str
-
-    base_url: str
-
-    borneo_dashboard_url: str
-
-    client_id_issued_at: float
-
-    client_secret: str
-    """Dynamically registered client secret"""
-
-    client_secret_expires_at: float
-
-    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
-
-    dc: str
-
-    domain: str
-
-    expires_in: Union[float, str, None]
-
-    extension: str
-
-    form_api_base_url: str
-
-    id_token: str
-
-    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
-
-    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
-
-    long_redirect_url: bool
-    """Whether to return the redirect url without shortening"""
-
-    proxy_password: str
-
-    proxy_username: str
-
-    refresh_token: Optional[str]
-
-    region: str
-
-    scope: Union[str, SequenceNotStr[str], None]
-
-    server_location: str
-
-    shop: str
-
-    site_name: str
-
-    state_prefix: str
-    """The oauth2 state prefix for the connection"""
-
-    subdomain: str
-
-    token_type: str
-
-    version: str
-
-    your_server: str
-
-    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
-
-
-class CustomConnectionDataUnionMember1(TypedDict, total=False):
-    auth_scheme: Required[Annotated[Literal["DCR_OAUTH"], PropertyInfo(alias="authScheme")]]
-
-    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
-
-    val: Required[CustomConnectionDataUnionMember1Val]
-
-
-class CustomConnectionDataUnionMember2Val(  # type: ignore[call-arg]
-    TypedDict,
-    total=False,
-    extra_items=Optional[object],  # pyright: ignore[reportGeneralTypeIssues]
-):
-    account_id: str
-
-    account_url: str
-
-    api_key: str
-
-    api_url: str
-
-    base_url: str
-
-    basic_encoded: str
-
-    bearer_token: str
-
-    borneo_dashboard_url: str
-
-    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
-
-    dc: str
-
-    domain: str
-
-    extension: str
-
-    form_api_base_url: str
-
-    generic_api_key: str
-
-    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
-
-    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
-
-    proxy_password: str
-
-    proxy_username: str
-
-    region: str
-
-    server_location: str
-
-    shop: str
-
-    site_name: str
-
-    subdomain: str
-
-    version: str
-
-    your_server: str
-
-    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
-
-
-class CustomConnectionDataUnionMember2(TypedDict, total=False):
-    auth_scheme: Required[Annotated[Literal["API_KEY"], PropertyInfo(alias="authScheme")]]
-
-    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
-
-    val: Required[CustomConnectionDataUnionMember2Val]
-
-
-class CustomConnectionDataUnionMember3Val(  # type: ignore[call-arg]
-    TypedDict,
-    total=False,
-    extra_items=Optional[object],  # pyright: ignore[reportGeneralTypeIssues]
-):
-    password: Required[str]
-
-    username: Required[str]
-
-    account_id: str
-
-    account_url: str
-
-    api_url: str
-
-    base_url: str
-
-    borneo_dashboard_url: str
-
-    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
-
-    dc: str
-
-    domain: str
-
-    extension: str
-
-    form_api_base_url: str
-
-    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
-
-    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
-
-    proxy_password: str
-
-    proxy_username: str
-
-    region: str
-
-    server_location: str
-
-    shop: str
-
-    site_name: str
-
-    subdomain: str
-
-    version: str
-
-    your_server: str
-
-    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
-
-
-class CustomConnectionDataUnionMember3(TypedDict, total=False):
-    auth_scheme: Required[Annotated[Literal["BASIC_WITH_JWT"], PropertyInfo(alias="authScheme")]]
-
-    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
-
-    val: Required[CustomConnectionDataUnionMember3Val]
-
-
-class CustomConnectionDataUnionMember4Val(  # type: ignore[call-arg]
-    TypedDict,
-    total=False,
-    extra_items=Optional[object],  # pyright: ignore[reportGeneralTypeIssues]
-):
-    username: Required[str]
-
-    account_id: str
-
-    account_url: str
-
-    api_url: str
-
-    base_url: str
-
-    borneo_dashboard_url: str
-
-    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
-
-    dc: str
-
-    domain: str
-
-    extension: str
-
-    form_api_base_url: str
-
-    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
-
-    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
-
-    password: str
-
-    proxy_password: str
-
-    proxy_username: str
-
-    region: str
-
-    server_location: str
-
-    shop: str
-
-    site_name: str
-
-    subdomain: str
-
-    version: str
-
-    your_server: str
-
-    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
-
-
-class CustomConnectionDataUnionMember4(TypedDict, total=False):
-    auth_scheme: Required[Annotated[Literal["BASIC"], PropertyInfo(alias="authScheme")]]
-
-    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
-
-    val: Required[CustomConnectionDataUnionMember4Val]
-
-
-class CustomConnectionDataUnionMember5Val(  # type: ignore[call-arg]
-    TypedDict,
-    total=False,
-    extra_items=Optional[object],  # pyright: ignore[reportGeneralTypeIssues]
-):
-    token: Required[str]
-
-    account_id: str
-
-    account_url: str
-
-    api_url: str
-
-    base_url: str
-
-    borneo_dashboard_url: str
-
-    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
-
-    dc: str
-
-    domain: str
-
-    extension: str
-
-    form_api_base_url: str
-
-    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
-
-    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
-
-    proxy_password: str
-
-    proxy_username: str
-
-    region: str
-
-    server_location: str
-
-    shop: str
-
-    site_name: str
-
-    subdomain: str
-
-    version: str
-
-    your_server: str
-
-    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
-
-
-class CustomConnectionDataUnionMember5(TypedDict, total=False):
-    auth_scheme: Required[Annotated[Literal["BEARER_TOKEN"], PropertyInfo(alias="authScheme")]]
-
-    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
-
-    val: Required[CustomConnectionDataUnionMember5Val]
-
-
-class CustomConnectionDataUnionMember6Val(  # type: ignore[call-arg]
-    TypedDict,
-    total=False,
-    extra_items=Optional[object],  # pyright: ignore[reportGeneralTypeIssues]
-):
-    oauth_token: Required[str]
-
-    oauth_token_secret: Required[str]
-
-    account_id: str
-
-    account_url: str
-
-    api_url: str
-
-    base_url: str
-
-    borneo_dashboard_url: str
-
-    callback_url: str
-
-    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
-
-    consumer_key: str
-
-    dc: str
-
-    domain: str
-
-    extension: str
-
-    form_api_base_url: str
-
-    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
-
-    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
-
-    oauth_verifier: str
-
-    proxy_password: str
-
-    proxy_username: str
-
-    redirect_url: Annotated[str, PropertyInfo(alias="redirectUrl")]
-
-    region: str
-
-    server_location: str
-
-    shop: str
-
-    site_name: str
-
-    subdomain: str
-
-    version: str
-
-    your_server: str
-
-    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
-
-
-class CustomConnectionDataUnionMember6(TypedDict, total=False):
-    auth_scheme: Required[Annotated[Literal["OAUTH1"], PropertyInfo(alias="authScheme")]]
-
-    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
-
-    val: Required[CustomConnectionDataUnionMember6Val]
-
-
-class CustomConnectionDataUnionMember7Val(  # type: ignore[call-arg]
-    TypedDict,
-    total=False,
-    extra_items=Optional[object],  # pyright: ignore[reportGeneralTypeIssues]
-):
-    account_id: str
-
-    account_url: str
-
-    api_url: str
-
-    base_url: str
-
-    borneo_dashboard_url: str
-
-    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
-
-    dc: str
-
-    domain: str
-
-    extension: str
-
-    form_api_base_url: str
-
-    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
-
-    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
-
-    proxy_password: str
-
-    proxy_username: str
-
-    region: str
-
-    server_location: str
-
-    shop: str
-
-    site_name: str
-
-    subdomain: str
-
-    version: str
-
-    your_server: str
-
-    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
-
-
-class CustomConnectionDataUnionMember7(TypedDict, total=False):
-    auth_scheme: Required[Annotated[Literal["NO_AUTH"], PropertyInfo(alias="authScheme")]]
-
-    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
-
-    val: Required[CustomConnectionDataUnionMember7Val]
-
-
-class CustomConnectionDataUnionMember8Val(  # type: ignore[call-arg]
-    TypedDict,
-    total=False,
-    extra_items=Optional[object],  # pyright: ignore[reportGeneralTypeIssues]
-):
-    application_id: Required[str]
-
-    installation_id: Required[str]
-
-    private_key: Required[str]
-
-    account_id: str
-
-    account_url: str
-
-    api_url: str
-
-    base_url: str
-
-    borneo_dashboard_url: str
-
-    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
-
-    dc: str
-
-    domain: str
-
-    extension: str
-
-    form_api_base_url: str
-
-    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
-
-    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
-
-    proxy_password: str
-
-    proxy_username: str
-
-    region: str
-
-    server_location: str
-
-    shop: str
-
-    site_name: str
-
-    subdomain: str
-
-    version: str
-
-    your_server: str
-
-    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
-
-
-class CustomConnectionDataUnionMember8(TypedDict, total=False):
-    auth_scheme: Required[Annotated[Literal["SERVICE_ACCOUNT"], PropertyInfo(alias="authScheme")]]
-
-    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
-
-    val: Required[CustomConnectionDataUnionMember8Val]
-
-
-class CustomConnectionDataUnionMember9Val(  # type: ignore[call-arg]
-    TypedDict,
-    total=False,
-    extra_items=Optional[object],  # pyright: ignore[reportGeneralTypeIssues]
-):
-    credentials_json: Required[str]
-
-    account_id: str
-
-    account_url: str
-
-    api_url: str
-
-    base_url: str
-
-    borneo_dashboard_url: str
-
-    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
-
-    dc: str
-
-    domain: str
-
-    extension: str
-
-    form_api_base_url: str
-
-    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
-
-    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
-
-    proxy_password: str
-
-    proxy_username: str
-
-    region: str
-
-    server_location: str
-
-    shop: str
-
-    site_name: str
-
-    subdomain: str
-
-    version: str
-
-    your_server: str
-
-    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
-
-
-class CustomConnectionDataUnionMember9(TypedDict, total=False):
-    auth_scheme: Required[Annotated[Literal["GOOGLE_SERVICE_ACCOUNT"], PropertyInfo(alias="authScheme")]]
-
-    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
-
-    val: Required[CustomConnectionDataUnionMember9Val]
-
-
-class CustomConnectionDataUnionMember10Val(  # type: ignore[call-arg]
-    TypedDict,
-    total=False,
-    extra_items=Optional[object],  # pyright: ignore[reportGeneralTypeIssues]
-):
-    access_token: Required[str]
-
-    account_id: str
-
-    account_url: str
-
-    api_url: str
-
-    base_url: str
-
-    borneo_dashboard_url: str
-
-    client_id: str
-
-    client_secret: str
-
-    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
-
-    dc: str
-
-    domain: str
-
-    expires_at: str
-
-    expires_in: Union[float, str, None]
-
-    extension: str
-
-    form_api_base_url: str
-
-    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
-
-    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
-
-    proxy_password: str
-
-    proxy_username: str
-
-    region: str
-
-    scope: Union[str, SequenceNotStr[str], None]
-
-    server_location: str
-
-    shop: str
-
-    site_name: str
-
-    subdomain: str
-
-    token_type: str
-
-    version: str
-
-    your_server: str
-
-    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
-
-
-class CustomConnectionDataUnionMember10(TypedDict, total=False):
-    auth_scheme: Required[Annotated[Literal["S2S_OAUTH2"], PropertyInfo(alias="authScheme")]]
-
-    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
-
-    val: Required[CustomConnectionDataUnionMember10Val]
-
-
-CustomConnectionData: TypeAlias = Union[
-    CustomConnectionDataUnionMember0,
-    CustomConnectionDataUnionMember1,
-    CustomConnectionDataUnionMember2,
-    CustomConnectionDataUnionMember3,
-    CustomConnectionDataUnionMember4,
-    CustomConnectionDataUnionMember5,
-    CustomConnectionDataUnionMember6,
-    CustomConnectionDataUnionMember7,
-    CustomConnectionDataUnionMember8,
-    CustomConnectionDataUnionMember9,
-    CustomConnectionDataUnionMember10,
 ]

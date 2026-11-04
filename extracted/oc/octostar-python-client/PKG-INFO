@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: octostar-python-client
-Version: 0.1.1137
+Version: 0.1.1151
 Summary: A client library for accessing Octostar API
 Author-email: Octostar <systems@octostar.com>
 License-Expression: MIT
@@ -11,13 +11,12 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: httpx<0.28.0,>=0.20.0

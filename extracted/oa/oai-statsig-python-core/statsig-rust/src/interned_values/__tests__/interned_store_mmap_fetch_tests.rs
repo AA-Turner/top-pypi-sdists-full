@@ -7,11 +7,9 @@ use crate::{
     interned_values::{
         InternedStore, MmapArtifactState, MmapPreloadOptions, MmapSyncCursor, MmapWriteOutcome,
         interned_store::{
-            LEGACY_MMAP_FORMAT_VERSION, acquire_mmap_write_lock_for_test,
-            legacy_mmap_v1_path_for_sdk_key, mmap_lock_path_for_sdk_key,
+            acquire_mmap_write_lock_for_test, mmap_lock_path_for_sdk_key,
             mmap_manifest_path_for_sdk_key, mmap_v2_path_for_sdk_key, validate_mmap_v2_for_test,
             write_mmap_manifest_for_test, write_mmap_v2_for_test,
-            write_mmap_v2_only_manifest_for_test,
         },
         mmap_data_v2::{ArchivedMmapDataV2, MmapDataV2},
     },
@@ -68,7 +66,6 @@ const MMAP_CONCURRENT_SAME_KEY: &str = "interned-store-concurrent-same-key";
 const EVAL_PROJ_JSON: &str = include_str!("../../../tests/data/eval_proj_dcs.json");
 const EVAL_PROJ_PROTO: &[u8] = include_bytes!("../../../tests/data/eval_proj_dcs.pb.br");
 const BIG_NUMBER_JSON: &str = include_str!("../../../tests/data/big_number_dcs.json");
-const LEGACY_V1_TEST_BYTES: &[u8] = b"legacy v1 artifact";
 const DOWNLOAD_PATH_PREFIX: &str = "/v1/dynamic_config_value/";
 
 fn config_json_with_cursor(lcut: u64, checksum: Option<&str>) -> String {
@@ -182,8 +179,6 @@ fn query_params(request: &Request) -> HashMap<String, String> {
 #[tokio::test]
 async fn fetch_and_write_mmap_uses_header_auth_and_authoritative_storage_key() {
     let server = MockServer::start().await;
-    let v1_path = legacy_mmap_v1_path_for_sdk_key(MMAP_FETCH_SDK_KEY);
-    let _ = fs::remove_file(&v1_path);
     Mock::given(method("GET"))
         .and(path("/v2/download_config_specs"))
         .and(header("statsig-api-key", MMAP_FETCH_SDK_KEY))
@@ -208,7 +203,6 @@ async fn fetch_and_write_mmap_uses_header_auth_and_authoritative_storage_key() {
         "{}_v2_interned_store.mmap",
         hashing::djb2(MMAP_FETCH_SDK_KEY)
     );
-    assert!(!v1_path.exists());
     assert_eq!(
         v2_path.file_name().and_then(|name| name.to_str()),
         Some(expected_v2_filename.as_str())
@@ -952,7 +946,8 @@ rusty_fork_test! {
             )
             .await
             .unwrap();
-            InternedStore::preload_mmap(MMAP_V2_PUBLIC_SDK_KEY).unwrap();
+            InternedStore::preload_mmap(&[MMAP_V2_PUBLIC_SDK_KEY], &[], &MmapPreloadOptions::default())
+                .unwrap();
 
             let specs: SpecsResponseFull = serde_json::from_str(EVAL_PROJ_JSON).unwrap();
             assert!(specs.feature_gates.0.values().all(|spec| spec.is_mmap()));
@@ -1033,7 +1028,7 @@ rusty_fork_test! {
 
 #[cfg(unix)]
 #[tokio::test]
-async fn fetch_and_write_mmap_replaces_v2_and_leaves_v1_untouched() {
+async fn fetch_and_write_mmap_atomically_replaces_v2() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/v2/download_config_specs"))
@@ -1045,12 +1040,9 @@ async fn fetch_and_write_mmap_replaces_v2_and_leaves_v1_untouched() {
         .mount(&server)
         .await;
 
-    let v1_path = legacy_mmap_v1_path_for_sdk_key(MMAP_REPLACE_SDK_KEY);
     let v2_path = mmap_v2_path_for_sdk_key(MMAP_REPLACE_SDK_KEY);
-    fs::create_dir_all(v1_path.parent().unwrap()).unwrap();
-    fs::write(&v1_path, b"previous v1 artifact").unwrap();
+    fs::create_dir_all(v2_path.parent().unwrap()).unwrap();
     fs::write(&v2_path, b"previous v2 artifact").unwrap();
-    let mut previous_v1_artifact = File::open(&v1_path).unwrap();
     let mut previous_v2_artifact = File::open(&v2_path).unwrap();
 
     InternedStore::fetch_and_write_mmap_with_specs_url(
@@ -1060,18 +1052,12 @@ async fn fetch_and_write_mmap_replaces_v2_and_leaves_v1_untouched() {
     .await
     .unwrap();
 
-    let mut previous_v1_contents = Vec::new();
-    previous_v1_artifact
-        .read_to_end(&mut previous_v1_contents)
-        .unwrap();
-    assert_eq!(previous_v1_contents, b"previous v1 artifact");
     let mut previous_v2_contents = Vec::new();
     previous_v2_artifact
         .read_to_end(&mut previous_v2_contents)
         .unwrap();
     assert_eq!(previous_v2_contents, b"previous v2 artifact");
 
-    assert_eq!(fs::read(&v1_path).unwrap(), b"previous v1 artifact");
     let published_v2 = fs::read(&v2_path).unwrap();
     assert_ne!(published_v2, b"previous v2 artifact");
     rkyv::access::<ArchivedMmapDataV2, rkyv::rancor::Error>(&published_v2).unwrap();
@@ -1096,7 +1082,12 @@ async fn uid_10001_can_preload_artifact_written_by_uid_1000() {
             return;
         }
         Ok("reader") => {
-            InternedStore::preload_mmap(MMAP_CROSS_UID_SDK_KEY).unwrap();
+            InternedStore::preload_mmap(
+                &[MMAP_CROSS_UID_SDK_KEY],
+                &[],
+                &MmapPreloadOptions::default(),
+            )
+            .unwrap();
             return;
         }
         Ok(role) => panic!("unexpected cross-UID test role {role}"),
@@ -1188,10 +1179,6 @@ async fn uid_10001_can_preload_artifact_written_by_uid_1000() {
 #[test]
 fn mmap_paths_are_scoped_by_sdk_key() {
     assert_ne!(
-        legacy_mmap_v1_path_for_sdk_key(MMAP_FETCH_SDK_KEY),
-        legacy_mmap_v1_path_for_sdk_key(OTHER_MMAP_FETCH_SDK_KEY)
-    );
-    assert_ne!(
         mmap_v2_path_for_sdk_key(MMAP_FETCH_SDK_KEY),
         mmap_v2_path_for_sdk_key(OTHER_MMAP_FETCH_SDK_KEY)
     );
@@ -1206,9 +1193,14 @@ fn mmap_paths_are_scoped_by_sdk_key() {
 }
 
 #[test]
-fn inspect_mmap_artifact_reports_missing_and_legacy_v1() {
-    let sdk_key = "interned-store-inspect-legacy-v1";
+fn inspect_mmap_artifact_ignores_retired_v1_artifacts() {
+    let sdk_key = "interned-store-inspect-retired-v1";
     remove_mmap_artifacts(sdk_key);
+    let retired_path = std::env::temp_dir()
+        .join("statsig-interned-store")
+        .join(format!("{}_v1_interned_store.mmap", hashing::djb2(sdk_key)));
+    fs::create_dir_all(retired_path.parent().unwrap()).unwrap();
+    fs::write(&retired_path, b"retired artifact is ignored").unwrap();
 
     let missing = InternedStore::inspect_mmap_artifact(sdk_key).unwrap();
     assert_eq!(missing.state, MmapArtifactState::Missing);
@@ -1219,21 +1211,8 @@ fn inspect_mmap_artifact_reports_missing_and_legacy_v1() {
     assert_eq!(missing.manifest_bytes, None);
     assert_eq!(missing.total_linked_bytes, 0);
     assert_eq!(missing.linked_file_count, 0);
-
-    let v1_path = legacy_mmap_v1_path_for_sdk_key(sdk_key);
-    fs::create_dir_all(v1_path.parent().unwrap()).unwrap();
-    fs::write(&v1_path, LEGACY_V1_TEST_BYTES).unwrap();
-
-    let legacy = InternedStore::inspect_mmap_artifact(sdk_key).unwrap();
-    assert_eq!(legacy.state, MmapArtifactState::LegacyV1);
-    assert_eq!(legacy.state.as_str(), "legacy_v1");
-    assert_eq!(legacy.format_version, Some(LEGACY_MMAP_FORMAT_VERSION));
-    assert_eq!(legacy.v1_bytes, Some(LEGACY_V1_TEST_BYTES.len() as u64));
-    assert_eq!(legacy.v2_bytes, None);
-    assert_eq!(legacy.manifest_bytes, None);
-    assert_eq!(legacy.total_linked_bytes, LEGACY_V1_TEST_BYTES.len() as u64);
-    assert_eq!(legacy.linked_file_count, 1);
-    assert!(legacy.newest_linked_modified_unix_seconds.is_some());
+    assert_eq!(missing.newest_linked_modified_unix_seconds, None);
+    fs::remove_file(retired_path).unwrap();
 }
 
 #[test]
@@ -1244,7 +1223,7 @@ fn inspect_mmap_artifact_reports_committed_and_incomplete_v2() {
     let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
     fs::create_dir_all(v2_path.parent().unwrap()).unwrap();
     write_mmap_v2_for_test(EVAL_PROJ_JSON.as_bytes(), &v2_path).unwrap();
-    write_mmap_v2_only_manifest_for_test(&manifest_path, &v2_path).unwrap();
+    write_mmap_manifest_for_test(&manifest_path, &v2_path).unwrap();
 
     let committed = InternedStore::inspect_mmap_artifact(sdk_key).unwrap();
     let v2_bytes = fs::metadata(&v2_path).unwrap().len();
@@ -1283,39 +1262,25 @@ fn inspect_mmap_artifact_reports_committed_and_incomplete_v2() {
 }
 
 #[test]
-fn inspect_mmap_artifact_reports_v1_fallback_after_identity_failure() {
-    let sdk_key = "interned-store-inspect-v1-fallback";
+fn inspect_mmap_artifact_reports_invalid_manifest() {
+    let sdk_key = "interned-store-inspect-invalid-manifest";
     remove_mmap_artifacts(sdk_key);
-    let v1_path = legacy_mmap_v1_path_for_sdk_key(sdk_key);
     let v2_path = mmap_v2_path_for_sdk_key(sdk_key);
     let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
-    fs::create_dir_all(v1_path.parent().unwrap()).unwrap();
-    fs::write(&v1_path, LEGACY_V1_TEST_BYTES).unwrap();
+    fs::create_dir_all(v2_path.parent().unwrap()).unwrap();
     write_mmap_v2_for_test(EVAL_PROJ_JSON.as_bytes(), &v2_path).unwrap();
-    write_mmap_manifest_for_test(&manifest_path, &v1_path, &v2_path).unwrap();
+    fs::write(&manifest_path, b"invalid manifest").unwrap();
 
-    let replacement = tempfile::NamedTempFile::new_in(v2_path.parent().unwrap()).unwrap();
-    fs::write(replacement.path(), b"replacement v2 generation").unwrap();
-    replacement.persist(&v2_path).unwrap();
-
-    let fallback = InternedStore::inspect_mmap_artifact(sdk_key).unwrap();
-    assert_eq!(fallback.state, MmapArtifactState::FallbackV1);
-    assert_eq!(fallback.state.as_str(), "fallback_v1");
-    assert_eq!(fallback.format_version, Some(LEGACY_MMAP_FORMAT_VERSION));
-    assert_eq!(fallback.v1_bytes, Some(LEGACY_V1_TEST_BYTES.len() as u64));
-    assert_eq!(
-        fallback.v2_bytes,
-        Some(b"replacement v2 generation".len() as u64)
-    );
-    assert!(fallback.manifest_bytes.is_some());
-    assert_eq!(fallback.linked_file_count, 3);
-
-    fs::remove_file(v1_path).unwrap();
     let invalid = InternedStore::inspect_mmap_artifact(sdk_key).unwrap();
     assert_eq!(invalid.state, MmapArtifactState::Invalid);
     assert_eq!(invalid.state.as_str(), "invalid");
     assert_eq!(invalid.format_version, None);
     assert_eq!(invalid.v1_bytes, None);
+    assert_eq!(invalid.v2_bytes, Some(fs::metadata(v2_path).unwrap().len()));
+    assert_eq!(
+        invalid.manifest_bytes,
+        Some(b"invalid manifest".len() as u64)
+    );
     assert_eq!(invalid.linked_file_count, 2);
 }
 
@@ -1353,7 +1318,6 @@ fn sdk_key_write_lock_rejects_a_second_file_handle() {
 
 fn remove_mmap_artifacts(sdk_key: &str) {
     for path in [
-        legacy_mmap_v1_path_for_sdk_key(sdk_key),
         mmap_v2_path_for_sdk_key(sdk_key),
         mmap_manifest_path_for_sdk_key(sdk_key),
         mmap_lock_path_for_sdk_key(sdk_key),
@@ -1366,15 +1330,13 @@ fn remove_mmap_artifacts(sdk_key: &str) {
 #[test]
 fn committed_v2_validation_keeps_the_validated_file_handle() {
     let sdk_key = "interned-store-open-handle";
-    let v1_path = legacy_mmap_v1_path_for_sdk_key(sdk_key);
     let v2_path = mmap_v2_path_for_sdk_key(sdk_key);
     let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
-    fs::create_dir_all(v1_path.parent().unwrap()).unwrap();
-    fs::write(&v1_path, b"paired v1 generation").unwrap();
+    fs::create_dir_all(v2_path.parent().unwrap()).unwrap();
     write_mmap_v2_for_test(EVAL_PROJ_JSON.as_bytes(), &v2_path).unwrap();
-    write_mmap_manifest_for_test(&manifest_path, &v1_path, &v2_path).unwrap();
+    write_mmap_manifest_for_test(&manifest_path, &v2_path).unwrap();
 
-    let validated = open_committed_mmap_v2_for_test(&manifest_path, &v1_path, &v2_path)
+    let validated = open_committed_mmap_v2_for_test(&manifest_path, &v2_path)
         .unwrap()
         .unwrap();
     let replacement = tempfile::NamedTempFile::new_in(v2_path.parent().unwrap()).unwrap();
@@ -1388,17 +1350,20 @@ fn committed_v2_validation_keeps_the_validated_file_handle() {
 
 rusty_fork_test! {
     #[test]
-    fn preload_mmap_prefers_v2_when_both_artifacts_exist() {
-        let sdk_key = "interned-store-prefer-v2";
-        let v1_path = legacy_mmap_v1_path_for_sdk_key(sdk_key);
+    fn preload_mmap_ignores_retired_manifest_metadata() {
+        let sdk_key = "interned-store-retired-manifest-metadata";
         let v2_path = mmap_v2_path_for_sdk_key(sdk_key);
         let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
-        fs::create_dir_all(v1_path.parent().unwrap()).unwrap();
-        fs::write(&v1_path, b"malformed v1 that must not be read").unwrap();
+        fs::create_dir_all(v2_path.parent().unwrap()).unwrap();
         write_mmap_v2_for_test(EVAL_PROJ_JSON.as_bytes(), &v2_path).unwrap();
-        write_mmap_manifest_for_test(&manifest_path, &v1_path, &v2_path).unwrap();
+        write_mmap_manifest_for_test(&manifest_path, &v2_path).unwrap();
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+        // Old paired manifests remain readable without a V1 artifact.
+        manifest["v1"] = manifest["v2"].clone();
+        fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
 
-        InternedStore::preload_mmap(sdk_key).unwrap();
+        InternedStore::preload_mmap(&[sdk_key], &[], &MmapPreloadOptions::default()).unwrap();
         let specs: SpecsResponseFull = serde_json::from_str(EVAL_PROJ_JSON).unwrap();
         assert!(specs.feature_gates.0.values().all(|spec| spec.is_mmap()));
         assert!(specs.dynamic_configs.0.values().all(|spec| spec.is_mmap()));
@@ -1406,18 +1371,17 @@ rusty_fork_test! {
     }
 
     #[test]
-    fn preload_mmap_accepts_v2_only_manifest_without_v1() {
+    fn preload_mmap_accepts_committed_v2_manifest() {
         let sdk_key = "interned-store-v2-only-manifest";
-        let v1_path = legacy_mmap_v1_path_for_sdk_key(sdk_key);
         let v2_path = mmap_v2_path_for_sdk_key(sdk_key);
         let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
         fs::create_dir_all(v2_path.parent().unwrap()).unwrap();
-        let _ = fs::remove_file(v1_path);
         write_mmap_v2_for_test(EVAL_PROJ_JSON.as_bytes(), &v2_path).unwrap();
-        write_mmap_v2_only_manifest_for_test(&manifest_path, &v2_path).unwrap();
+        write_mmap_manifest_for_test(&manifest_path, &v2_path).unwrap();
 
-        let report = InternedStore::preload_mmap_with_options(
-            sdk_key,
+        let report = InternedStore::preload_mmap(
+            &[sdk_key],
+            &[],
             &MmapPreloadOptions::default(),
         )
         .unwrap();
@@ -1430,42 +1394,41 @@ rusty_fork_test! {
     }
 
     #[test]
-    fn preload_mmap_multi_rejects_a_legacy_only_required_key() {
-        let required_key = "interned-store-multi-legacy-only-required";
+    fn preload_mmap_rejects_a_missing_required_key() {
+        let required_key = "interned-store-multi-missing-required";
         let optional_key = "interned-store-multi-committed-optional";
         remove_mmap_artifacts(required_key);
         remove_mmap_artifacts(optional_key);
 
-        let required_v1_path = legacy_mmap_v1_path_for_sdk_key(required_key);
-        fs::create_dir_all(required_v1_path.parent().unwrap()).unwrap();
-        fs::write(&required_v1_path, b"legacy artifact must not be preloaded").unwrap();
-
         let optional_v2_path = mmap_v2_path_for_sdk_key(optional_key);
         let optional_manifest_path = mmap_manifest_path_for_sdk_key(optional_key);
         write_mmap_v2_for_test(EVAL_PROJ_JSON.as_bytes(), &optional_v2_path).unwrap();
-        write_mmap_v2_only_manifest_for_test(&optional_manifest_path, &optional_v2_path)
+        write_mmap_manifest_for_test(&optional_manifest_path, &optional_v2_path)
             .unwrap();
 
         assert!(matches!(
-            InternedStore::preload_mmap_multi(&[required_key], &[optional_key]),
+            InternedStore::preload_mmap(&[required_key], &[optional_key], &MmapPreloadOptions::default()),
             Err(StatsigErr::InvalidOperation(message))
                 if message == "No committed interned mmap V2 artifact was found"
         ));
     }
 
     #[test]
-    fn preload_mmap_multi_reports_missing_optional_key() {
+    fn preload_mmap_reports_missing_optional_key() {
         let required_key = "interned-store-multi-required";
         let optional_key = "interned-store-multi-optional-missing";
         let v2_path = mmap_v2_path_for_sdk_key(required_key);
         let manifest_path = mmap_manifest_path_for_sdk_key(required_key);
         fs::create_dir_all(v2_path.parent().unwrap()).unwrap();
         write_mmap_v2_for_test(EVAL_PROJ_JSON.as_bytes(), &v2_path).unwrap();
-        write_mmap_v2_only_manifest_for_test(&manifest_path, &v2_path).unwrap();
+        write_mmap_manifest_for_test(&manifest_path, &v2_path).unwrap();
         let _ = fs::remove_file(mmap_manifest_path_for_sdk_key(optional_key));
 
-        let report =
-            InternedStore::preload_mmap_multi(&[required_key], &[optional_key]).unwrap();
+        let report = InternedStore::preload_mmap(
+            &[required_key],
+            &[optional_key],
+            &MmapPreloadOptions::default(),
+        ).unwrap();
 
         assert_eq!(report.loaded, 1);
         assert_eq!(report.skipped_optional.len(), 1);
@@ -1475,44 +1438,22 @@ rusty_fork_test! {
     }
 
     #[test]
-    fn preload_mmap_retries_during_v2_only_refresh() {
+    fn preload_mmap_retries_during_refresh() {
         let sdk_key = "interned-store-v2-only-refresh";
-        let v1_path = legacy_mmap_v1_path_for_sdk_key(sdk_key);
         let v2_path = mmap_v2_path_for_sdk_key(sdk_key);
         let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
-        fs::create_dir_all(v1_path.parent().unwrap()).unwrap();
-        fs::write(&v1_path, b"stale v1 generation").unwrap();
+        fs::create_dir_all(v2_path.parent().unwrap()).unwrap();
         write_mmap_v2_for_test(EVAL_PROJ_JSON.as_bytes(), &v2_path).unwrap();
-        write_mmap_v2_only_manifest_for_test(&manifest_path, &v2_path).unwrap();
+        write_mmap_manifest_for_test(&manifest_path, &v2_path).unwrap();
 
         let replacement = tempfile::NamedTempFile::new_in(v2_path.parent().unwrap()).unwrap();
         fs::write(replacement.path(), b"next v2 generation").unwrap();
         replacement.persist(&v2_path).unwrap();
 
         assert!(matches!(
-            InternedStore::preload_mmap(sdk_key),
+            InternedStore::preload_mmap(&[sdk_key], &[], &MmapPreloadOptions::default()),
             Err(StatsigErr::InvalidOperation(message))
                 if message == "Interned mmap V2 publication is incomplete; retry preload"
-        ));
-    }
-
-    #[test]
-    fn preload_mmap_rejects_v2_when_paired_v1_was_replaced() {
-        let sdk_key = "interned-store-v1-only-refresh";
-        let v1_path = legacy_mmap_v1_path_for_sdk_key(sdk_key);
-        let v2_path = mmap_v2_path_for_sdk_key(sdk_key);
-        let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
-        fs::create_dir_all(v1_path.parent().unwrap()).unwrap();
-        fs::write(&v1_path, b"old v1 generation").unwrap();
-        write_mmap_v2_for_test(EVAL_PROJ_JSON.as_bytes(), &v2_path).unwrap();
-        write_mmap_manifest_for_test(&manifest_path, &v1_path, &v2_path).unwrap();
-
-        fs::write(&v1_path, b"replacement v1 generation").unwrap();
-
-        assert!(matches!(
-            InternedStore::preload_mmap(sdk_key),
-            Err(StatsigErr::InvalidOperation(message))
-                if message == "No committed interned mmap V2 artifact was found"
         ));
     }
 
@@ -1525,10 +1466,10 @@ rusty_fork_test! {
         let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
         fs::create_dir_all(v2_path.parent().unwrap()).unwrap();
         write_mmap_v2_for_test(EVAL_PROJ_JSON.as_bytes(), &v2_path).unwrap();
-        write_mmap_v2_only_manifest_for_test(&manifest_path, &v2_path).unwrap();
+        write_mmap_manifest_for_test(&manifest_path, &v2_path).unwrap();
         let expected_mapped_bytes = fs::metadata(&v2_path).unwrap().len();
 
-        InternedStore::preload_mmap(sdk_key).unwrap();
+        InternedStore::preload_mmap(&[sdk_key], &[], &MmapPreloadOptions::default()).unwrap();
         let loaded = InternedStore::mmap_reader_memory_snapshot()
             .unwrap()
             .unwrap();
@@ -1560,10 +1501,10 @@ rusty_fork_test! {
         let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
         fs::create_dir_all(v2_path.parent().unwrap()).unwrap();
         fs::write(&v2_path, b"malformed v2").unwrap();
-        write_mmap_v2_only_manifest_for_test(&manifest_path, &v2_path).unwrap();
+        write_mmap_manifest_for_test(&manifest_path, &v2_path).unwrap();
 
         assert!(matches!(
-            InternedStore::preload_mmap(sdk_key),
+            InternedStore::preload_mmap(&[sdk_key], &[], &MmapPreloadOptions::default()),
             Err(StatsigErr::SerializationError(_))
         ));
     }
@@ -1576,10 +1517,10 @@ fn preload_mmap_rejects_malformed_archive() {
     let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(&path, b"not an rkyv archive").unwrap();
-    write_mmap_v2_only_manifest_for_test(&manifest_path, &path).unwrap();
+    write_mmap_manifest_for_test(&manifest_path, &path).unwrap();
 
     assert!(matches!(
-        InternedStore::preload_mmap(sdk_key),
+        InternedStore::preload_mmap(&[sdk_key], &[], &MmapPreloadOptions::default()),
         Err(StatsigErr::SerializationError(_))
     ));
 }
@@ -1597,10 +1538,10 @@ fn preload_mmap_rejects_unsupported_format_version() {
     };
     let archived = rkyv::to_bytes::<rkyv::rancor::Error>(&mmap_data).unwrap();
     fs::write(&path, archived).unwrap();
-    write_mmap_v2_only_manifest_for_test(&manifest_path, &path).unwrap();
+    write_mmap_manifest_for_test(&manifest_path, &path).unwrap();
 
     assert!(matches!(
-        InternedStore::preload_mmap(sdk_key),
+        InternedStore::preload_mmap(&[sdk_key], &[], &MmapPreloadOptions::default()),
         Err(StatsigErr::SerializationError(message))
             if message == "Unsupported interned mmap format version 3; expected 2"
     ));
@@ -1616,8 +1557,141 @@ fn preload_mmap_rejects_uncommitted_v2() {
     let _ = fs::remove_file(manifest_path);
 
     assert!(matches!(
-        InternedStore::preload_mmap(sdk_key),
+        InternedStore::preload_mmap(&[sdk_key], &[], &MmapPreloadOptions::default()),
         Err(StatsigErr::InvalidOperation(message))
             if message == "Interned mmap V2 publication is incomplete; retry preload"
     ));
+}
+
+#[test]
+#[ignore = "subprocess helper for same_key_refreshes_serialize_across_processes"]
+fn mmap_writer_process_child() {
+    let key = std::env::var("STATSIG_TEST_MMAP_WRITER_KEY").unwrap();
+    let url = std::env::var("STATSIG_TEST_MMAP_WRITER_URL").unwrap();
+    let expected_lcut: u64 = std::env::var("STATSIG_TEST_MMAP_WRITER_LCUT")
+        .unwrap()
+        .parse()
+        .unwrap();
+    tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
+        let previous = MmapSyncCursor { lcut: 100, checksum: Some("checksum100".to_owned()) };
+        let outcome = InternedStore::fetch_and_write_mmap_with_specs_url_if_changed(&key, &url, Some(&previous)).await.unwrap();
+        assert!(matches!(outcome, MmapWriteOutcome::Published(cursor) if cursor.lcut == expected_lcut));
+    });
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn same_key_refreshes_serialize_across_processes() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::time::timeout;
+
+    struct WriterChild(std::process::Child);
+    impl Drop for WriterChild {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+    fn spawn_writer(key: &str, url: &str, lcut: u64) -> WriterChild {
+        WriterChild(std::process::Command::new(std::env::current_exe().unwrap())
+            .arg("--exact")
+            .arg("interned_values::__tests__::interned_store_mmap_fetch_tests::mmap_writer_process_child")
+            .arg("--ignored")
+            .arg("--nocapture")
+            .env("STATSIG_TEST_MMAP_WRITER_KEY", key)
+            .env("STATSIG_TEST_MMAP_WRITER_URL", url)
+            .env("STATSIG_TEST_MMAP_WRITER_LCUT", lcut.to_string())
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .spawn().unwrap())
+    }
+    async fn wait_writer(child: &mut WriterChild) {
+        timeout(Duration::from_secs(10), async {
+            loop {
+                if let Some(status) = child.0.try_wait().unwrap() {
+                    assert!(status.success(), "writer subprocess failed: {status}");
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("writer subprocess must complete without deadlock");
+    }
+
+    let key = format!("mmap-process-order-{}", uuid::Uuid::new_v4());
+    let first_started = Arc::new(tokio::sync::Notify::new());
+    let release_first = Arc::new(tokio::sync::Notify::new());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let first_url = format!("http://{}/old_specs", listener.local_addr().unwrap());
+    let first_server = tokio::spawn({
+        let first_started = Arc::clone(&first_started);
+        let release_first = Arc::clone(&release_first);
+        async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0; 2048];
+            while !request.windows(4).any(|bytes| bytes == b"\r\n\r\n") {
+                let count = socket.read(&mut buffer).await.unwrap();
+                assert_ne!(count, 0);
+                request.extend_from_slice(&buffer[..count]);
+                assert!(request.len() < 16_384);
+            }
+            first_started.notify_one();
+            release_first.notified().await;
+            let body = config_json_with_marker(101, "checksum101", "process-old");
+            let headers = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            socket.write_all(headers.as_bytes()).await.unwrap();
+            socket.write_all(body.as_bytes()).await.unwrap();
+        }
+    });
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/new_specs"))
+        .respond_with(config_response(
+            config_json_with_marker(102, "checksum102", "process-new"),
+            102,
+            Some("checksum102"),
+        ))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let mut first = spawn_writer(&key, &first_url, 101);
+    timeout(Duration::from_secs(10), first_started.notified())
+        .await
+        .unwrap();
+    let mut second = spawn_writer(&key, &format!("{}/new_specs", server.uri()), 102);
+    let second_fetched_early = timeout(Duration::from_millis(200), async {
+        loop {
+            if !server.received_requests().await.unwrap().is_empty() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .is_ok();
+    release_first.notify_one();
+    tokio::join!(wait_writer(&mut first), wait_writer(&mut second));
+    timeout(Duration::from_secs(10), first_server)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        !second_fetched_early,
+        "same-key file lock must cover DCS fetching in separate processes"
+    );
+
+    let file = File::open(mmap_v2_path_for_sdk_key(&key)).unwrap();
+    let mmap = unsafe { Mmap::map(&file).unwrap() };
+    let archived = rkyv::access::<ArchivedMmapDataV2, rkyv::rancor::Error>(&mmap).unwrap();
+    for (marker, expected) in [("process-old", false), ("process-new", true)] {
+        let hash = rkyv::primitive::ArchivedU64::from_native(hashing::hash_one(marker.as_bytes()));
+        assert_eq!(archived.feature_gates.get(&hash).is_some(), expected);
+    }
+    drop((mmap, file));
+    remove_mmap_artifacts(&key);
 }

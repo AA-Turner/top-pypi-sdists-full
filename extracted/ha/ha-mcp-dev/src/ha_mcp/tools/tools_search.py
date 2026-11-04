@@ -11,8 +11,8 @@ from pydantic import Field
 from ha_mcp._vendor.fastmcp import Context
 from ha_mcp._vendor.fastmcp.tools import tool
 
-from ..config import get_global_settings
 from ..errors import create_validation_error
+from ..tool_catalog import tool_search_active
 from ..transforms.categorized_search import DEFAULT_PINNED_TOOLS
 from .coercion import JSON_STRING_COERCION, parse_string_list_param
 from .component_api import (
@@ -620,11 +620,10 @@ class SearchTools(ComponentSearchMixin, OverviewMixin, StateMixin):
                 )
             )
 
-        settings = get_global_settings()
-        if settings.enable_tool_search:
+        if tool_search_active():
             result["tool_discovery"] = {
                 "hint": (
-                    "This server uses search-based tool discovery. "
+                    "This connection uses search-based tool discovery. "
                     "Use ha_search_tools(query='...') to find tools, "
                     "ha_search_tools(tools=['<name>']) for the full input "
                     "schema of the one you will call, then "
@@ -647,17 +646,17 @@ class SearchTools(ComponentSearchMixin, OverviewMixin, StateMixin):
                 ),
             }
 
-        # Surface the stdio settings UI sidecar URL when a URL file is present.
+        # Surface the stdio settings UI sidecar URL while a sidecar serves it.
         # Added *after* ``project_fields`` so it survives every ``fields=`` projection
         # (issue #863).
-        from ..stdio_settings_sidecar import read_sidecar_url
+        from ..stdio_settings_sidecar import live_sidecar_url
 
         projected = project_fields(
             result,
             parsed_fields,
             available_fields=_OVERVIEW_AVAILABLE_FIELDS,
         )
-        sidecar_url = read_sidecar_url()
+        sidecar_url = live_sidecar_url()
         if sidecar_url:
             projected["settings_url"] = sidecar_url
         else:

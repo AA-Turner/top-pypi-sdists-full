@@ -14,15 +14,14 @@ T = TypeVar("T", bound="OrganizationResponse")
 
 @_attrs_define
 class OrganizationResponse:
-    """The organization where new workspaces are created by default
-
+    """
     Attributes:
-        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        dataplane_id (None | str): Data plane id for this org; null until a region is set.
-        description (None | str): The description of the organization
-        id (UUID): The unique ID of the entity
+        created_at (datetime.datetime): When it was created.
+        dataplane_id (None | str): Data plane of the organization's workspaces; `null` until a region is set.
+        description (None | str): Free-text description of the organization; `null` when none is set.
+        id (UUID): Unique ID (a UUID).
         name (str): The name of the organization
-        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
+        updated_at (datetime.datetime): When it was last changed.
     """
 
     created_at: datetime.datetime

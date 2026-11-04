@@ -16,6 +16,8 @@ import httpx
 
 from mistralai.vibe.harness.app_server import session as _harness_session
 from mistralai.vibe.harness.app_server.session import SessionEventStreamLostError
+from mistralai.vibe.harness.runtime.capabilities.plugins import mistral_connectors as _harness_connectors
+from mistralai.vibe.harness.runtime.errors import ToolNameCollisionError
 
 
 class AgentsError(Exception):
@@ -47,6 +49,25 @@ class UnsupportedAgentFeatureError(SdkError, RuntimeError):
         super().__init__(f"Unsupported Agents SDK feature {feature!r}: {reason}")
 
 
+class LegacySessionError(UnsupportedAgentFeatureError):
+    """A deployed Session uses the legacy task protocol, which this SDK no longer reads.
+
+    Sessions the ``Agent`` API starts use Session v1. A Session started otherwise in the legacy
+    format cannot be read, followed or sent commands: start a new Session.
+    """
+
+    def __init__(self, session_id: str) -> None:
+        self.session_id = session_id
+        self.feature = "legacy task protocol"
+        self.reason = "this SDK reads Session v1 Sessions only"
+        # Not `super().__init__`: the base class builds a message for a feature of an Agent, not of a Session.
+        AgentsError.__init__(
+            self,
+            f"Session {session_id} uses the legacy task protocol. This SDK reads Session v1 sessions only. "
+            "Start a new session.",
+        )
+
+
 class SessionNotFoundError(AgentsError, LookupError):
     """A call named a session its host does not know.
 
@@ -64,14 +85,42 @@ class SessionBusyError(AgentsError, _harness_session.SessionBusyError):
     """The session cannot take the message yet, and nothing was applied.
 
     Each host retries for a bounded time before it raises this error: retry the same request later.
-    It is still the Harness's ``SessionBusyError``, so an ``except`` on that class catches it.
+    It is also an ``experimental.session_protocol.SessionBusyError``, so an ``except`` on that class catches it.
+    """
+
+
+class SessionIdempotencyConflictError(AgentsError, _harness_session.SessionIdempotencyConflictError):
+    """An idempotency key was reused for a different request, or the host cannot compare the requests.
+
+    The host cannot compare them when a deployment-backed receipt is too old, or when a local call was
+    cancelled after it applied the message but before it stored its receipt. In both cases the key's
+    first request was applied: do not send that message again with a new key. This call applied nothing.
+    ``idempotency_key`` is the key. Use a new key for a new request. It is still the Harness's
+    ``SessionIdempotencyConflictError``, a ``RuntimeError``, so an ``except`` on either catches it.
     """
 
 
 class SessionTerminatedError(AgentsError, _harness_session.SessionTerminatedError):
     """The session is closed or has ended, and takes no more calls.
 
-    It is still the Harness's ``SessionTerminatedError``, so an ``except`` on that class catches it.
+    It is also an ``experimental.session_protocol.SessionTerminatedError``, so an ``except`` on that class
+    catches it.
+    """
+
+
+class UnsupportedSessionProcedureError(AgentsError, _harness_session.UnsupportedSessionProcedureError):
+    """The session's host cannot run this call, and nothing was sent.
+
+    ``method``, ``backend`` and ``reason`` say which call, which host and why. It is still the Harness's
+    ``UnsupportedSessionProcedureError``, so an ``except`` on that class catches it.
+    """
+
+
+class MistralConnectorNotFoundError(AgentsError, _harness_connectors.MistralConnectorNotFoundError):
+    """An Agent's connector name matches no connector the API key's user can see.
+
+    ``connector_name`` is the name, and ``close_matches`` the names of visible connectors close to it.
+    It is still the Harness's ``MistralConnectorNotFoundError``, so an ``except`` on that class catches it.
     """
 
 
@@ -127,7 +176,7 @@ class ClientToolAnswerError(AgentsError, RuntimeError):
     ``agent.session(session_id).turn(turn_id)``.
     """
 
-    def __init__(self, *, callback_id: str, session_id: str, turn_id: str | None) -> None:
+    def __init__(self, *, callback_id: str, session_id: str, turn_id: str) -> None:
         self.callback_id = callback_id
         self.session_id = session_id
         self.turn_id = turn_id
@@ -277,8 +326,12 @@ def as_agents_error(error: Exception) -> Exception:
 
     An ``AgentsError`` is returned as it is. An httpx status error becomes an ``APIStatusError``
     (``AuthenticationError`` for 401, and so on), an httpx timeout an ``APITimeoutError``, another
-    httpx transport error an ``APIConnectionError``. The Harness's ``SessionBusyError`` and
-    ``SessionTerminatedError`` become the classes of the same names here. Any other error of httpx, the
+    httpx transport error an ``APIConnectionError``. The Harness's ``SessionBusyError``,
+    ``SessionIdempotencyConflictError``, ``SessionTerminatedError``,
+    ``UnsupportedSessionProcedureError`` and ``MistralConnectorNotFoundError`` become the classes of
+    the same names here, and its ``ToolNameCollisionError``, raised when two tools of a Session's
+    capabilities take one name, and its ``SessionCallbackRejectedError``, raised for a callback
+    answer the Session refuses, an ``SdkError``. Any other error of httpx, the
     Mistral client or the Harness becomes an ``AgentsError`` with its own name. The copy has the same
     arguments and attributes. Other errors, such as ``ValueError`` for a bad argument, and errors the
     caller's own code raised (see ``mark_caller_error``) are returned as they are.
@@ -306,6 +359,14 @@ def as_agents_error(error: Exception) -> Exception:
         public = SessionBusyError
     elif isinstance(error, _harness_session.SessionTerminatedError):
         public = SessionTerminatedError
+    elif isinstance(error, _harness_session.SessionIdempotencyConflictError):
+        public = SessionIdempotencyConflictError
+    elif isinstance(error, _harness_session.UnsupportedSessionProcedureError):
+        public = UnsupportedSessionProcedureError
+    elif isinstance(error, _harness_connectors.MistralConnectorNotFoundError):
+        public = MistralConnectorNotFoundError
+    elif isinstance(error, (ToolNameCollisionError, _harness_session.SessionCallbackRejectedError)):
+        public = SdkError
     return _rebuild((public, type(error)), error.args, error.__dict__)
 
 
@@ -315,6 +376,14 @@ def sdk_runtime_error(message: str) -> AgentsError:
     For a state the SDK cannot go on from, such as a closed transport, which has no class of its own.
     """
     return _rebuild((AgentsError, RuntimeError), (message,), {})
+
+
+def described_value(value: object) -> str:
+    """``value`` as an error names it: its repr when it is a plain value, else its type."""
+    if value is None or isinstance(value, bool | int | float | str | dict | list):
+        text = repr(value)
+        return text if len(text) <= 80 else f"{type(value).__name__} {text[:77]}..."
+    return type(value).__name__
 
 
 # Set on an error the caller's own code raised, such as an ``on_event`` handler: it is not wrapped.
@@ -343,6 +412,9 @@ def _rebuild(
     return copy
 
 
+# Harness subclasses of a class this module mirrors that keep their own name when wrapped.
+_OWN_NAMES = frozenset({_harness_session.ChildSessionProcedureRefusedError})
+
 _WRAPPED_CLASSES: dict[tuple[type[AgentsError], type[Exception]], type[AgentsError]] = {}
 _WRAPPED_PAIRS: dict[type[AgentsError], tuple[type[AgentsError], type[Exception]]] = {}
 
@@ -352,8 +424,10 @@ def _wrapped_class(public: type[AgentsError], original: type[Exception]) -> type
         return public
     if (cached := _WRAPPED_CLASSES.get((public, original))) is not None:
         return cached
-    # The public class names an HTTP error; any other keeps the Harness name it was raised with.
-    named = public if public is not AgentsError else original
+    # The public class names an HTTP error, or a Harness error's private subclass such as a local session's
+    # busy error; any other error keeps the Harness name it was raised with, as does a subagent's refusal, which
+    # the docs name.
+    named = original if public is AgentsError or original in _OWN_NAMES else public
     wrapped = type(
         named.__name__,
         (public, original),
@@ -447,7 +521,9 @@ __all__ = [
     "AgentsError",
     "AuthenticationError",
     "InternalServerError",
+    "LegacySessionError",
     "LocalSessionNotFoundError",
+    "MistralConnectorNotFoundError",
     "ObservationLost",
     "OutcomeUnknownError",
     "PermissionDeniedError",
@@ -456,10 +532,12 @@ __all__ = [
     "SdkError",
     "SessionBusyError",
     "SessionConfigMismatchError",
+    "SessionIdempotencyConflictError",
     "SessionInUseError",
     "SessionNotFoundError",
     "SessionStartupTimeoutError",
     "SessionTerminatedError",
     "TurnNotFoundError",
     "UnsupportedAgentFeatureError",
+    "UnsupportedSessionProcedureError",
 ]

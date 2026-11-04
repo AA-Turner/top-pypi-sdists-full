@@ -1,8 +1,12 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.triggers_type_retrieve_enum_response."""
 
-from typing import List
-from typing_extensions import TypeAlias
+from __future__ import annotations
 
-__all__ = ["TriggersTypeRetrieveEnumResponse"]
+from typing import TypeAlias
 
-TriggersTypeRetrieveEnumResponse: TypeAlias = List[str]
+TriggersTypeRetrieveEnumResponse: TypeAlias = list[str]
+
+__all__ = [
+    "TriggersTypeRetrieveEnumResponse",
+]

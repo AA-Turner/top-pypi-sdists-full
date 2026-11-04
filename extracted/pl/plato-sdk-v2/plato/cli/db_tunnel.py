@@ -76,7 +76,9 @@ def db_tunnel_start(
                         import psycopg2
                     except ImportError:
                         console.print("[red]psycopg2 required for postgres. Install with:[/red]")
-                        console.print("  uv tool install plato-sdk-v2 --with psycopg2-binary")
+                        console.print(
+                            '  uv tool install plato-sdk-v2 --with psycopg2-binary --index-url "https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"'
+                        )
                         raise typer.Exit(1)
 
                     conn = psycopg2.connect(
@@ -100,7 +102,9 @@ def db_tunnel_start(
                         import pymysql
                     except ImportError:
                         console.print("[red]pymysql required for mysql. Install with:[/red]")
-                        console.print("  uv tool install plato-sdk-v2 --with pymysql")
+                        console.print(
+                            '  uv tool install plato-sdk-v2 --with pymysql --index-url "https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"'
+                        )
                         raise typer.Exit(1)
 
                     conn = pymysql.connect(
@@ -145,7 +149,7 @@ def db_tunnel_start(
                     except ImportError:
                         console.print("[red]db-cleanup deps missing. Reinstall with:[/red]")
                         console.print(
-                            '  uv tool install plato-sdk-v2 --with psycopg2-binary --with "sqlalchemy[asyncio]>=2.0" --with "asyncpg>=0.29" --force --reinstall'
+                            '  uv tool install plato-sdk-v2 --with psycopg2-binary --with "sqlalchemy[asyncio]>=2.0" --with "asyncpg>=0.29" --force --reinstall --index-url "https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"'
                         )
                         continue
 

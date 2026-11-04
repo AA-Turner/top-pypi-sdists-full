@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Protocol, TypeGuard
 
 import httpx
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
 
 from mistralai.vibe.harness.app_server import session as harness_session
 
@@ -263,7 +263,16 @@ def _is_assistant_message(entry: harness_session.HistoryEntry) -> TypeGuard[harn
 
 
 def _message_text(entry: harness_session.MessageHistoryEntry) -> str:
-    return "".join(block.text for block in entry.content if isinstance(block, harness_session.TextContentBlock))
+    return "".join(_block_text(block) for block in entry.content)
+
+
+def _block_text(block: harness_session.ContentBlock) -> str:
+    """What the chat prints of one block: its text, ``[<type>]`` for a block type this SDK does not know."""
+    if isinstance(block, harness_session.TextContentBlock):
+        return block.text
+    if isinstance(block, harness_session.UnknownContentBlock):
+        return f"[{block.original_type}]"
+    return ""
 
 
 def _text_of_entry_value(value: JsonValue, *, default: str) -> str:
@@ -273,11 +282,18 @@ def _text_of_entry_value(value: JsonValue, *, default: str) -> str:
     if not isinstance(content, list):
         return default
     texts: list[str] = []
-    for block in content:
-        if isinstance(block, dict) and block.get("type") == "text":
-            text = block.get("text")
+    for item in content:
+        if isinstance(item, dict) and item.get("type") == "text":
+            text = item.get("text")
             if isinstance(text, str):
                 texts.append(text)
+            continue
+        try:
+            block = harness_session.ContentBlockAdapter.validate_python(item)
+        except ValidationError:
+            continue
+        if isinstance(block, harness_session.UnknownContentBlock):
+            texts.append(_block_text(block))
     return "".join(texts)
 
 
@@ -350,3 +366,5 @@ def _report_termination(termination: harness_session.Termination | None, output:
         output.turn_failed(terminal_safe(termination.error.message))
     elif isinstance(termination, harness_session.CancelledTermination):
         output.turn_cancelled(termination.reason)
+    elif isinstance(termination, harness_session.UnknownTermination):
+        output.notice(f"The turn ended: {terminal_safe(termination.original_outcome)}.")

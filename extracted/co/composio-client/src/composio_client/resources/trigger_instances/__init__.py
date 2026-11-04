@@ -1,33 +1,14 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Generated exports for ``client.trigger_instances``."""
 
-from .manage import (
-    ManageResource,
-    AsyncManageResource,
-    ManageResourceWithRawResponse,
-    AsyncManageResourceWithRawResponse,
-    ManageResourceWithStreamingResponse,
-    AsyncManageResourceWithStreamingResponse,
-)
-from .trigger_instances import (
-    TriggerInstancesResource,
-    AsyncTriggerInstancesResource,
-    TriggerInstancesResourceWithRawResponse,
-    AsyncTriggerInstancesResourceWithRawResponse,
-    TriggerInstancesResourceWithStreamingResponse,
-    AsyncTriggerInstancesResourceWithStreamingResponse,
-)
+from __future__ import annotations
+
+from .manage import AsyncManageResource, ManageResource
+from .trigger_instances import AsyncTriggerInstancesResource, TriggerInstancesResource
 
 __all__ = [
-    "ManageResource",
-    "AsyncManageResource",
-    "ManageResourceWithRawResponse",
-    "AsyncManageResourceWithRawResponse",
-    "ManageResourceWithStreamingResponse",
-    "AsyncManageResourceWithStreamingResponse",
     "TriggerInstancesResource",
     "AsyncTriggerInstancesResource",
-    "TriggerInstancesResourceWithRawResponse",
-    "AsyncTriggerInstancesResourceWithRawResponse",
-    "TriggerInstancesResourceWithStreamingResponse",
-    "AsyncTriggerInstancesResourceWithStreamingResponse",
+    "ManageResource",
+    "AsyncManageResource",
 ]

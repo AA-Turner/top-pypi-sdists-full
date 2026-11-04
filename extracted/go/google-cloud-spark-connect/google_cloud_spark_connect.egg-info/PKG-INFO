@@ -1,17 +1,25 @@
 Metadata-Version: 2.4
 Name: google-cloud-spark-connect
-Version: 2.1.1
+Version: 2.2.0
 Summary: Managed Spark client library for Spark Connect
 Home-page: https://github.com/GoogleCloudDataproc/managed-spark-connect-python
 Author: Google LLC
 License: Apache 2.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: google-api-core>=2.19
 Requires-Dist: google-cloud-dataproc>=5.18
 Requires-Dist: packaging>=20.0
 Requires-Dist: tqdm>=4.67
-Requires-Dist: websockets>=14.0
+Requires-Dist: websockets>=15.0
 Provides-Extra: client
 Requires-Dist: pyspark-client~=4.0.0; extra == "client"
 Provides-Extra: spark
@@ -22,6 +30,7 @@ Requires-Dist: ipython>=7.34.0; extra == "interactive"
 Requires-Dist: sqlparse>=0.5.0; extra == "interactive"
 Requires-Dist: traitlets>=5.1; extra == "interactive"
 Dynamic: author
+Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
@@ -29,6 +38,7 @@ Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 # Managed Spark Connect Client
@@ -68,6 +78,13 @@ Other installation options:
 > later uninstalled. In particular, never combine the `client` and `spark`
 > extras (`'[client,spark]'`).
 
+### Python versions
+
+This package requires Python 3.10 or later. To use Python UDFs (including
+`applyInPandas`, `mapInPandas`, and similar APIs), the client's Python minor
+version must match the Python of the Managed Spark runtime the session runs on,
+for example Python 3.12 for runtime 3.0. The client warns when they differ.
+
 ## Uninstall
 
 ```sh
@@ -81,7 +98,7 @@ extra instead, uninstall `pyspark` too if nothing else needs it.
 ## Setup
 
 This client requires permissions to
-manage [Managed Spark Sessions and Session Templates](https://cloud.google.com/dataproc-serverless/docs/concepts/iam).
+manage [Managed Spark Sessions and Runtime Profiles (formerly known as Session Templates)](https://cloud.google.com/dataproc-serverless/docs/concepts/iam).
 
 If you are running the client outside of Google Cloud, you need to provide
 authentication credentials. Set the `GOOGLE_APPLICATION_CREDENTIALS` environment
@@ -144,11 +161,35 @@ The `ManagedSparkSession.builder` provides a fluent API to configure the session
 | `labels(labels)` | Adds multiple labels to the session. |
 | `location(location)` | Sets the Google Cloud region. |
 | `projectId(project_id)` | Sets the Google Cloud project ID. |
+| `runtimeProfile(profile)` | Sets the Runtime Profile to use. |
 | `runtimeVersion(version)` | Sets the Managed Spark runtime version (e.g., "3.0"). |
 | `serviceAccount(account)` | Sets the service account for the session. |
-| `sessionTemplate(profile)` | Sets the Session Template to use. |
+| `sessionTemplate(profile)` | Alias for `runtimeProfile(profile)`. |
 | `subnetwork(subnet)` | Sets the subnetwork URI for the session. |
 | `ttl(duration)` | Sets the time-to-live (TTL) for the session using a `datetime.timedelta` object. |
+| `instrumentation(inst)` | Records what the library does on your behalf; see [Instrumentation (opt-in)](#instrumentation-opt-in). |
+| `showOperationLinks(enabled)` | Show each query's Spark UI link (default `True`). Links only appear in notebooks and interactive terminals; `False` hides them there too. |
+| `showProgressBar(enabled)` | Show session-creation and query progress bars (default `True`). Like links, they only appear in notebooks and interactive terminals. |
+| `progressBarLeave(leave)` | Keep a query's progress bar on screen once it finishes (default `False`). |
+
+The three display settings apply when `getOrCreate()` creates or attaches to a session, not to a session it reuses from this process.
+
+### Configuration (environment variables)
+
+These environment variables change how the client behaves.
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `MANAGED_SPARK_CONNECT_REPLAY_ON_POSITION_LOST` | `1` | When a read query (`collect`, `toPandas`, `count`, ...) fails with `INVALID_CURSOR.POSITION_NOT_AVAILABLE` because the server no longer buffers the result the client has to resume from, re-run it once under a new operation id and log a `WARNING`. Commands (writes, DDL) are never re-run, and neither are queries whose plan contains a UDF, UDTF, `mapInPandas`, `mapInArrow` or `applyInPandas`, or that come from `foreach` or `foreachPartition`, since re-running them re-runs any side effects of that code. UDFs only called by name (registered with `spark.udf.register` and called from SQL) aren't detected. Set to `0` to disable, e.g. for queries that are expensive or not deterministic, or that call side-effecting UDFs by name. Read when the session is created. |
+| `MANAGED_SPARK_CONNECT_WS_SILENCE_LIMIT_S` | `300` | Cut the proxy WebSocket connection if a query's result stream (a reattachable `ExecutePlan` or `ReattachExecute`) has been waiting this many seconds for its next response and nothing at all was received, so a wedged stream fails and pyspark reattaches instead of hanging. By default the server ends these streams every 2 minutes even when it has nothing to send, so that much silence means the connection is broken. Other RPCs, such as a long `AnalyzePlan`, and result streams that nobody is reading from don't count. The check runs on each 60 s WebSocket receive poll, so the cut happens between this limit and the limit plus 60 s. Set to `0` to disable. |
+| `MANAGED_SPARK_CONNECT_LIVENESS_TTL_SECONDS` | unset | Before an RPC, the client checks that the Dataproc session is still alive. Once a check finds it `ACTIVE`, that answer is reused for this many seconds: unset or negative reuses it until an RPC fails, `0` checks before every RPC. A failed RPC always triggers a fresh check. The session only counts as gone when Dataproc reports it not found or in a terminal state; when the check itself fails (for example during a control-plane outage), the RPC proceeds. An RPC on a gone session raises `SessionNotActiveError` (a `RuntimeError`, from `google.cloud.managed_spark_connect.exceptions`) saying what Dataproc reported, e.g. `FAILED` and why. |
+| `MANAGED_SPARK_CONNECT_SESSION_START_RETRIES` | `1` | `getOrCreate()` makes a new session's first RPC itself, and if that fails and Dataproc reports the session gone (failed or terminated before it could be used), creates another session in its place, this many times, logging a `WARNING`. Only for generated session IDs: a session created with `sessionId()` raises `SessionNotActiveError` instead. `0` disables retrying. |
+| `GRPC_VERBOSITY` | `ERROR` | gRPC's own variable. If it is unset when this package is imported, and gRPC hasn't been imported yet, the package sets it to `ERROR` for the whole process to silence gRPC's informational fork messages. Set it yourself to override. |
+| `MANAGED_SPARK_CONNECT_LOG_LEVEL` | unset | A level name (`DEBUG`, `INFO`, ...) or a positive number for the `google.cloud.managed_spark_connect` loggers. If the root logger has no handlers when the package is imported, the library logs to stderr itself, and its records then don't reach root handlers configured later: configure logging before importing the package to send them elsewhere. The library never configures the root logger. Setting it also lets pyspark print its query-context JSON for failed queries (see `SPARK_CONNECT_LOG_LEVEL`). |
+| `SPARK_CONNECT_LOG_LEVEL` | unset | pyspark's own variable. Unless it or `MANAGED_SPARK_CONNECT_LOG_LEVEL` is set, creating a session silences pyspark's `SQLQueryContextLogger` and `DataFrameQueryContextLogger`, which otherwise print a JSON dump to stderr for every failed query. This applies to the whole process. |
+| `MANAGED_SPARK_CONNECT_SHOW_OPERATION_LINKS` | `true` | Default for `showOperationLinks()`. |
+| `MANAGED_SPARK_CONNECT_PROGRESS_BAR` | `true` | Default for `showProgressBar()`. |
+| `MANAGED_SPARK_CONNECT_PROGRESS_BAR_LEAVE` | `false` | Default for `progressBarLeave()`. |
 
 ### Reusing Named Sessions Across Notebooks
 
@@ -181,6 +222,25 @@ To create or connect to a named session:
 4. Named sessions persist until explicitly terminated or reach their configured TTL.
 
 5. If a session with the specified ID is already in a `TERMINATED` or `FAILED` state (or is `TERMINATING`), the client emits a warning, deletes the old session, and creates a new session with the same ID. Deleting the old session removes its previous metadata and Spark UI history from Dataproc, though logs remain available in Cloud Logging.
+
+### Instrumentation (opt-in)
+
+The library can record what it does on your behalf — Dataproc session
+lifecycle steps, every Spark Connect gRPC call (with and without the local
+proxy's overhead), the proxy's own connections, and the client-side plan and
+result conversions — as timed *spans*. It is off by default; opt in via
+`ManagedSparkSession.builder.instrumentation(...)` or the
+`MANAGED_SPARK_CONNECT_INSTRUMENTATION_FILE` and
+`MANAGED_SPARK_CONNECT_INSTRUMENTATION_LOG` environment variables.
+
+Without instrumentation the session still hooks a few pyspark client methods
+on its own client (operation ids and links, progress bars, the
+`INVALID_CURSOR.POSITION_NOT_AVAILABLE` replay; see
+[Configuration](#configuration-environment-variables)) and coalesces the
+`ReleaseExecute` RPCs of its result streams.
+
+See [docs/instrumentation.md](https://github.com/GoogleCloudDataproc/managed-spark-connect-python/blob/main/docs/instrumentation.md)
+for usage, the API, the record schema, and the span and event catalogues.
 
 ### Interactive Extras
 

@@ -1,7 +1,6 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.trigger_instances."""
 
 from __future__ import annotations
 
-from .manage_update_params import ManageUpdateParams as ManageUpdateParams
-from .manage_delete_response import ManageDeleteResponse as ManageDeleteResponse
-from .manage_update_response import ManageUpdateResponse as ManageUpdateResponse
+__all__ = []

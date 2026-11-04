@@ -7,6 +7,7 @@ name, so a connector written against the SDK runs unchanged under `fivetran debu
 import sys
 import fivetran_connector_sdk_common as _common
 from fivetran_connector_sdk_common.logger import Logging
+from fivetran_connector_sdk_cli.regression_test.decorator_helper import action
 from fivetran_connector_sdk_cli import cli_commands as _cli_commands
 from fivetran_connector_sdk_cli import configuration_form, connector as _connector, file_upload, form_field, operations, test
 from fivetran_connector_sdk_cli.configuration_form import ConfigurationForm

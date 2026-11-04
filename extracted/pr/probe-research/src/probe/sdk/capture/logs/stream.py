@@ -53,8 +53,9 @@ DELIVERY is a direct POST, NOT a journal op: a live view that arrives after the
 run ended has no reader, and the journal's durability is for the final log.
 Positions make it safe to repeat: every chunk carries its raw offset, the
 server ignores one it already covers and answers where the stream continues,
-and a failed POST is retried with the IDENTICAL body (backoff from
-`durable.RETRY_BACKOFF`, and never sooner than a 429's ``retry_after``). A
+and a failed POST is retried with the IDENTICAL body at a later tick, never
+inline (backoff from `durable.RETRY_BACKOFF`, each wait jittered over its step,
+and never sooner than a 429's ``retry_after``). A
 segment is deleted once everything in it is sent; the cursor is kept on disk,
 so a recovery after a hard death resumes from it, as the attempt the dead
 process recorded (its write epoch: a newer attempt's run refuses it). A log
@@ -81,6 +82,8 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from probe.foundation.compat.compat import StrEnum
+from probe.foundation.durable import durable
+from probe.foundation.process_rank import read_process_rank
 
 from ... import errors
 from .logs import list_segments, live_dir, read_eof
@@ -126,7 +129,6 @@ _BACKOFF_START, _BACKOFF_CAP = 2.0, 300.0
 CURSOR_NAME = "cursor"
 
 _OFF = frozenset({"0", "false", "no", "off", "none"})
-_RANK_ENVS = ("RANK", "SLURM_PROCID", "OMPI_COMM_WORLD_RANK", "PMI_RANK")
 _STREAM_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 #: The gate's own boundaries for a private key block (tap_core/secrets.py).
 _PEM_BEGIN = re.compile(rb"-----BEGIN[ A-Z0-9]{0,30}PRIVATE KEY(?: BLOCK)?-----")
@@ -156,11 +158,8 @@ def mode() -> Mode:
 
 def global_rank() -> int | None:
     """This process's rank in a distributed job, or None outside one."""
-    for name in _RANK_ENVS:
-        value = (os.environ.get(name) or "").strip()
-        if value.isdigit():
-            return int(value)
-    return None
+    launched = read_process_rank(os.environ)
+    return None if launched is None else launched.rank
 
 
 def wanted_here() -> bool:
@@ -593,9 +592,12 @@ class LogStreamer:
                     self._pending = None
                     break
                 self._failures += 1
-                delay = min(_BACKOFF_START * 2 ** (self._failures - 1), _BACKOFF_CAP)
-                # A 429 says how long: never sooner than that.
-                delay = max(delay, min(self._retry_after, _BACKOFF_CAP))
+                step = min(_BACKOFF_START * 2 ** (self._failures - 1), _BACKOFF_CAP)
+                # Jittered over the step (I14), so a fleet's streams do not come back in one
+                # second; a 429 says how long: never sooner than that.
+                delay = durable.honor_retry_after(
+                    durable.pick_jittered_wait(step), self._retry_after or None, ceiling=_BACKOFF_CAP
+                )
                 self._retry_after = 0.0
                 self._next_try = time.monotonic() + delay
                 break
@@ -699,18 +701,18 @@ class LogStreamer:
         }
         if chunk.write_epoch is not None:
             body["write_epoch"] = chunk.write_epoch
-        from ...delivery.transport.deadlines import deadline_scope, without_patience
+        from ...delivery.transport.deadlines import deadline_scope, without_patience, disable_retries
 
-        # The transport retries a 429/5xx itself, waiting out a Retry-After of
-        # up to 10 s each time: unbounded, one POST could hold a close or a
-        # recovery ~40 s. The whole POST gets POST_TIMEOUT_SECONDS, and never
-        # more than the pass's own deadline; no enclosing patience scope
+        # Sent once (I14): a failed chunk waits for a later tick (`ship`'s backoff). Retried
+        # inline, each failed one cost 4 requests in an outage, and waiting out a Retry-After
+        # of up to 10 s each time could hold a close ~40 s. The POST gets POST_TIMEOUT_SECONDS,
+        # never more than the pass's own deadline; no enclosing patience scope
         # (`probe.init()`'s) stretches it.
         post_by = time.monotonic() + POST_TIMEOUT_SECONDS
         if deadline is not None:
             post_by = min(post_by, max(deadline, time.monotonic() + 0.5))
         try:
-            with without_patience(), deadline_scope(post_by):
+            with without_patience(), disable_retries(), deadline_scope(post_by):
                 response = self.client.transport.request(
                     "POST",
                     f"/v1/runs/{self.run_id}/log-chunks",

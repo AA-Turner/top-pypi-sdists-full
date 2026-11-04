@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sarj-iac-lint
-Version: 0.32.2
+Version: 0.33.2
 Summary: Custom Terraform / IaC lint rules, pre-commit-friendly.
 Project-URL: Homepage, https://code-standards.sarj.ai/rules/iac/
 Project-URL: Documentation, https://code-standards.sarj.ai/rules/iac/

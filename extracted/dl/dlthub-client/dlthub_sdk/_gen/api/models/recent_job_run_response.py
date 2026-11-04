@@ -21,7 +21,8 @@ class RecentJobRunResponse:
     Attributes:
         id (UUID): The run ID
         status (RunStatus | str): The status of the run
-        duration_seconds (float | None | Unset): The run duration in seconds, null if not finished (may be fractional)
+        duration_seconds (float | None | Unset): Duration of the run in seconds, possibly fractional; `null` until it
+            has finished.
         rows_loaded (int | None | Unset): Total rows loaded across the run's pipeline runs; null when not reported.
         started_at (datetime.datetime | None | Unset): When the run started, null if not yet started
     """

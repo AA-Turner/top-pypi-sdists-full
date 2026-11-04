@@ -1036,7 +1036,11 @@ register_action_spec(
                 options=_DIRECTIONS,
             ),
         ),
-        description="Force a lane change through the CARLA TrafficManager.",
+        description=(
+            "Ask a vehicle to change one lane, through the traffic backend "
+            "driving it (the TrafficManager by default, or SUMO); an ego "
+            "driven by its own stack refuses."
+        ),
     )
 )
 
@@ -3671,7 +3675,9 @@ register_condition_spec(
                 required=False,
                 help=(
                     "The place as one route vertex ('kind key=value ...', as Route "
-                    "vertices take them), placed on the scenario's route; it "
+                    "vertices take them), placed on the scenario's route (one "
+                    "without an anchor follows the ego, placed afresh every "
+                    "tick); it "
                     "takes the place of lanelet and s."
                 ),
             ),
@@ -4611,7 +4617,9 @@ register_condition_spec(
                 required=False,
                 help=(
                     "The place as one route vertex ('kind key=value ...', as Route "
-                    "vertices take them), placed on the scenario's route; it "
+                    "vertices take them), placed on the scenario's route (one "
+                    "without an anchor follows the ego, placed afresh every "
+                    "tick); it "
                     "takes the place of lanelet, s, t and heading."
                 ),
             ),
@@ -4960,7 +4968,8 @@ register_condition_spec(
                     SelectOption(ActionState.RUNNING.value, "Running -- under way"),
                     SelectOption(
                         ActionState.END_TRANSITION.value,
-                        "End -- the tick it finished on",
+                        "End -- the tick it finished on (only an action that "
+                        "runs on)",
                     ),
                     SelectOption(ActionState.COMPLETE.value, "Complete -- finished"),
                 ),
@@ -4968,7 +4977,14 @@ register_condition_spec(
                     "OpenSCENARIO storyboard element states.  Complete means the "
                     "action met its own completion criteria -- a forced lane "
                     "change is only complete once the vehicle has settled onto "
-                    "the next lane, not when the command was issued."
+                    "the next lane, not when the command was issued.  Running "
+                    "and End are only reached by an action that runs on -- one "
+                    "with an until condition, or one that re-sends its command "
+                    "every tick.  An action that is over the moment it is "
+                    "commanded (a traffic light set, say) goes from Start "
+                    "straight to Complete (or back to Standby when it repeats), "
+                    "so waiting on Running or End for it never holds: wait on "
+                    "Complete."
                 ),
             ),
         ),

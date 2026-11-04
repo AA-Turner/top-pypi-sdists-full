@@ -47,6 +47,8 @@ from anyscale.commands.output_format import (
 from anyscale.commands.policy_commands import policy_cli
 from anyscale.commands.project_commands import project_cli
 from anyscale.commands.resource_quota_commands import resource_quota_cli
+from anyscale.commands.role_binding_commands import role_binding_cli
+from anyscale.commands.role_commands import role_cli
 from anyscale.commands.schedule_commands import schedule_cli
 from anyscale.commands.scheduler_commands import scheduler_cli
 from anyscale.commands.scim_commands import scim_cli
@@ -220,6 +222,8 @@ cli.add_command(organization_invitation_cli)
 cli.add_command(user_group_cli)
 cli.add_command(scim_cli)
 cli.add_command(policy_cli)
+cli.add_command(role_cli)
+cli.add_command(role_binding_cli)
 cli.add_command(skills_cli)
 
 ALIASES = {

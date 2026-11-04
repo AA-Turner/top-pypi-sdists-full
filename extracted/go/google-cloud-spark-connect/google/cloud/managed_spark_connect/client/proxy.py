@@ -14,15 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse
+import calendar
 import contextlib
+import datetime
 import logging
+import os
 import socket
 import threading
+import time
 
+import websockets.exceptions
 import websockets.sync.client as websocketclient
 
 from google import auth as googleauth
 from google.auth.transport import requests as googleauthrequests
+
+from google.cloud.managed_spark_connect import environment
+from google.cloud.managed_spark_connect.instrumentation import NOOP_RECORDER
 
 parser = argparse.ArgumentParser()
 parser.add_argument("port")
@@ -31,15 +39,123 @@ parser.add_argument("target_host")
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_SCOPES = ("https://www.googleapis.com/auth/cloud-platform",)
+_AUTH_LOCK = threading.RLock()
+_CREDENTIALS_CACHE = {}
+
+RECV_BUFFER_SIZE = 65536
+MAX_WS_MESSAGE_SIZE = 64 * 1024 * 1024
+# How long the gRPC-side socket and the websocket may block in one call.
+SOCKET_TIMEOUT_S = 10
+WS_RECV_TIMEOUT_S = 60
+
+CLIENT_TO_SERVER = "client_to_server"
+SERVER_TO_CLIENT = "server_to_client"
+
+_MAX_EVENT_MESSAGE_CHARS = 200
+
+# Cut a connection whose server stays silent this long while a result stream
+# is waiting for its next response (see forward_bytes). 0 disables.
+_SILENCE_LIMIT_ENV = "MANAGED_SPARK_CONNECT_WS_SILENCE_LIMIT_S"
+_DEFAULT_SILENCE_LIMIT_S = 300.0
+
+
+def clear_credentials_cache():
+    """Clear process-wide cached Application Default Credentials."""
+    with _AUTH_LOCK:
+        _CREDENTIALS_CACHE.clear()
+
+
+def get_default_credentials(scopes=None):
+    """Obtain Application Default Credentials with Cloud Platform scopes."""
+    scopes_tuple = tuple(scopes) if scopes is not None else _DEFAULT_SCOPES
+    auth_default = googleauth.default
+    cache_key = (
+        auth_default,
+        scopes_tuple,
+        os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"),
+        os.environ.get("CLOUDSDK_CONFIG"),
+        os.environ.get("APPDATA"),
+        os.environ.get("GOOGLE_CLOUD_PROJECT"),
+        os.environ.get("GCLOUD_PROJECT"),
+        os.environ.get("DEVSHELL_PROJECT_ID"),
+        os.environ.get("HOME"),
+    )
+    with _AUTH_LOCK:
+        cached = _CREDENTIALS_CACHE.get(cache_key)
+        if cached is None:
+            cached = auth_default(scopes=list(scopes_tuple))
+            _CREDENTIALS_CACHE[cache_key] = cached
+        return cached
+
+
+def _expiry_wall_ns(creds):
+    """``creds.expiry`` (a naive UTC datetime in google-auth) as epoch ns."""
+    expiry = getattr(creds, "expiry", None)
+    if not isinstance(expiry, datetime.datetime):
+        return None
+    # Integer arithmetic: a float timestamp loses sub-microsecond precision.
+    # utctimetuple() treats a naive datetime as UTC and converts an aware one.
+    try:
+        seconds = calendar.timegm(expiry.utctimetuple())
+    except (OSError, OverflowError, ValueError):
+        return None
+    return seconds * 10**9 + expiry.microsecond * 1000
+
+
+def get_refreshed_credentials(recorder=NOOP_RECORDER, scopes=None):
+    """Obtain and refresh Application Default Credentials for bearer-token auth.
+
+    With instrumentation on, an ``auth.token_refreshed`` event (attrs
+    ``expiry_wall_ns`` of the new token and ``had_token``, whether a token
+    existed before) is emitted whenever a refresh actually happened.
+    """
+    with recorder.span("auth.default"):
+        creds, _ = get_default_credentials(scopes=scopes)
+    with recorder.span("auth.refresh"):
+        refreshed_attrs = None
+        with _AUTH_LOCK:
+            if not (creds.valid and creds.token):
+                had_token = bool(creds.token)
+                try:
+                    creds.refresh(googleauthrequests.Request())
+                except Exception:
+                    _CREDENTIALS_CACHE.clear()
+                    raise
+                if recorder.enabled:
+                    refreshed_attrs = (
+                        _expiry_wall_ns(creds),
+                        had_token,
+                    )
+        if refreshed_attrs is not None:
+            recorder.event(
+                "auth.token_refreshed",
+                expiry_wall_ns=refreshed_attrs[0],
+                had_token=refreshed_attrs[1],
+            )
+    return creds
+
 
 class bridged_socket(object):
     """Socket-like object that uses a websocket-over-TCP Bridge transport.
 
     See: https://github.com/google/inverting-proxy/tree/master/utils/tcpbridge
+
+    Args:
+        websocket_conn: The connected WebSocket.
+        waiting_since: Optional zero-argument callable returning the
+            ``time.monotonic()`` at which the longest-waiting consumer of a
+            reattachable result stream started waiting for its next
+            response, or ``None`` if no consumer is waiting. When set,
+            forward_bytes cuts the connection if nothing has been received
+            for too long while a consumer waits (see
+            ``MANAGED_SPARK_CONNECT_WS_SILENCE_LIMIT_S``). Wrappers around
+            this socket that delegate attribute access keep the cut armed.
     """
 
-    def __init__(self, websocket_conn):
+    def __init__(self, websocket_conn, waiting_since=None):
         self._conn = websocket_conn
+        self.waiting_since = waiting_since
 
     def recv(self, buff_size):
         # N.B. The websockets [recv method](https://websockets.readthedocs.io/en/stable/reference/sync/client.html#websockets.sync.client.ClientConnection.recv)
@@ -48,18 +164,66 @@ class bridged_socket(object):
         #
         # We set that timeout to 60 seconds to prevent any scenarios where we wind up stuck waiting for a message from a websocket connection
         # that never comes.
-        msg = self._conn.recv(timeout=60)
+        msg = self._conn.recv(timeout=WS_RECV_TIMEOUT_S)
         return bytes.fromhex(msg)
 
     def send(self, msg_bytes):
         msg = bytes.hex(msg_bytes)
         self._conn.send(msg)
+        return len(msg_bytes)
 
     def close(self):
         return self._conn.close()
 
+    def close_abrupt(self):
+        """Close the WebSocket without waiting for a Close handshake."""
+        try:
+            self._conn.close_socket()
+        except Exception:
+            pass
+        try:
+            return self._conn.close()
+        except Exception:
+            return None
 
-def connect_tcp_bridge(hostname):
+
+class SendTimeout(Exception):
+    """Sending one frame timed out on every retry."""
+
+
+def _http_status_of(exc):
+    """The HTTP status of a failed websocket handshake, if the error has one."""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    return status if isinstance(status, int) else None
+
+
+def _shutdown_and_close(*socks):
+    """Shut down both directions of each socket (if supported), then close it.
+
+    The shutdown wakes a peer thread blocked in ``recv()`` on the same socket
+    immediately, instead of leaving it to wait for its socket timeout.
+    """
+    for sock in socks:
+        shutdown = getattr(sock, "shutdown", None)
+        if callable(shutdown):
+            try:
+                shutdown(socket.SHUT_RDWR)
+            except Exception:
+                pass
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+
+def _short_message(exc):
+    message = str(exc)
+    if len(message) > _MAX_EVENT_MESSAGE_CHARS:
+        return message[:_MAX_EVENT_MESSAGE_CHARS]
+    return message
+
+
+def connect_tcp_bridge(hostname, recorder=NOOP_RECORDER, conn_number=None):
     """Create a socket-like connection to the given hostname using websocket.
 
     The backend server connected to over the websocket connection must be
@@ -67,29 +231,113 @@ def connect_tcp_bridge(hostname):
 
     Args:
         hostname: The hostname of the server running the TCP-bridge backend.
+        recorder: Instrumentation recorder for the ``proxy.ws_connect`` span
+            (and a ``proxy.ws_connect_failed`` event when it fails).
+        conn_number: The proxy connection this websocket serves, if any.
 
     Returns:
         A socket-like object with `recv` and `send` methods.
     """
     path = "tcp-over-websocket-bridge/35218cb7-1201-4940-89e8-48d8f03fed96"
-    creds, _ = googleauth.default(
-        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+    with recorder.span("proxy.ws_connect", conn=conn_number, host=hostname):
+        try:
+            creds = get_refreshed_credentials(recorder=recorder)
+
+            with recorder.span("ws.handshake"):
+                return websocketclient.connect(
+                    f"wss://{hostname}/{path}",
+                    additional_headers={
+                        "Authorization": f"Bearer {creds.token}"
+                    },
+                    open_timeout=30,
+                    # Don't wait the default 10 s for a Close handshake from a
+                    # backend that has already broken or reset.
+                    close_timeout=3,
+                    compression=None,
+                    max_size=MAX_WS_MESSAGE_SIZE,
+                    # Unbounded in websockets so a slow gRPC consumer does not
+                    # pause the WS reader thread and starve keepalive PONGs;
+                    # memory remains bounded by HTTP/2 flow-control windows.
+                    # Trade-off: more of a result can sit between the server
+                    # and pyspark, and the server may already have trimmed it
+                    # from its reattach buffer if the stream then breaks
+                    # (see client/reattach_patch.py).
+                    max_queue=None,
+                    # A PONG queues behind the data frames the server is
+                    # already sending, so it can arrive late on a saturated
+                    # link. A dead peer is still detected within
+                    # ping_interval (20 s) + ping_timeout.
+                    ping_timeout=60,
+                )
+        except Exception as exc:
+            if recorder.enabled:
+                recorder.event(
+                    "proxy.ws_connect_failed",
+                    conn=conn_number,
+                    error_type=type(exc).__name__,
+                    http_status=_http_status_of(exc),
+                )
+            raise
+
+
+class _DirectionStats:
+    """Byte and frame counters for one forwarding direction.
+
+    Each direction is driven by exactly one thread, so plain attributes are
+    enough; the totals are read only after both threads have finished.
+    """
+
+    __slots__ = ("bytes", "frames")
+
+    def __init__(self):
+        self.bytes = 0
+        self.frames = 0
+
+
+def _emit_eof(recorder, conn, direction, stats, start_mono_ns, **extra):
+    if not recorder.enabled:
+        return
+    recorder.event(
+        "proxy.eof",
+        conn=conn,
+        direction=direction,
+        bytes_forwarded=stats.bytes if stats else 0,
+        age_ns=(
+            None
+            if start_mono_ns is None
+            else time.perf_counter_ns() - start_mono_ns
+        ),
+        **extra,
     )
-    creds.refresh(googleauthrequests.Request())
-
-    return websocketclient.connect(
-        f"wss://{hostname}/{path}",
-        additional_headers={"Authorization": f"Bearer {creds.token}"},
-        open_timeout=30,
-    )
 
 
-def forward_bytes(name, from_sock, to_sock):
+def forward_bytes(
+    name,
+    from_sock,
+    to_sock,
+    stats=None,
+    recorder=NOOP_RECORDER,
+    conn=None,
+    direction=None,
+    start_mono_ns=None,
+):
     """Continuously stream bytes from the `from_sock` to the `to_sock`.
 
     This method terminates when either the `from_sock` is closed (causing
     it to return a Falsy value from its `recv` method), or the first time
     it hits an exception.
+
+    In the ``server_to_client`` direction, if `from_sock` has a callable
+    ``waiting_since`` attribute (see :class:`bridged_socket`), a consumer
+    waiting for the next response of a reattachable result stream arms the
+    silence cut: if nothing has been received for
+    ``MANAGED_SPARK_CONNECT_WS_SILENCE_LIMIT_S`` seconds, all of them while
+    that consumer waited, both sockets are closed. The server ends those
+    streams every couple of minutes even when it has nothing to send, so
+    that much silence means the connection is wedged; other RPCs, which can
+    legitimately be silent for a long time, never arm the cut. The check
+    runs on each receive timeout, so the cut happens up to
+    ``WS_RECV_TIMEOUT_S`` after the limit.
 
     This method is intended to be run in a separate thread of execution.
 
@@ -97,47 +345,148 @@ def forward_bytes(name, from_sock, to_sock):
         name: forwarding thread name
         from_sock: A socket-like object to stream bytes from.
         to_sock: A socket-like object to stream bytes to.
+        stats: Optional :class:`_DirectionStats` to count what was forwarded.
+        recorder: Instrumentation recorder for the ``proxy.eof``,
+            ``proxy.socket_timeout``, ``proxy.forward_error`` and
+            ``proxy.silence_cut`` events.
+        conn: The proxy connection number, for the events.
+        direction: ``client_to_server`` or ``server_to_client``.
+        start_mono_ns: ``perf_counter_ns`` at which the connection was
+            accepted, for ``age_ns`` on ``proxy.eof``.
     """
+    silence_limit_s = environment.env_float(
+        _SILENCE_LIMIT_ENV, default=_DEFAULT_SILENCE_LIMIT_S, min_value=0.0
+    )
+    waiting_since = None
+    if direction == SERVER_TO_CLIENT and silence_limit_s > 0:
+        waiting_since = getattr(from_sock, "waiting_since", None)
+        if not callable(waiting_since):
+            waiting_since = None
+    last_rx = time.monotonic()
+
     while True:
         try:
-            bs = from_sock.recv(1024)
+            bs = from_sock.recv(RECV_BUFFER_SIZE)
+            last_rx = time.monotonic()
             if not bs:
-                to_sock.close()
+                _emit_eof(recorder, conn, direction, stats, start_mono_ns)
+                _shutdown_and_close(to_sock, from_sock)
                 return
+            frame_len = len(bs)
             attempt = 0
             while bs and (attempt < 10):
                 attempt += 1
                 try:
-                    to_sock.send(bs)
-                    bs = None
+                    sent = to_sock.send(bs)
+                    if sent == 0:
+                        raise ConnectionError(
+                            f"Socket connection broken while forwarding for {name}"
+                        )
+                    if isinstance(sent, int) and 0 < sent < len(bs):
+                        bs = bs[sent:]
+                        attempt = 0
+                    else:
+                        bs = None
                 except TimeoutError:
                     # On timeouts during a send, we retry just the send
-                    # to make sure we don't lose any bytes.
-                    pass
+                    # to make sure we don't lose any bytes. (Only the gRPC-side
+                    # TCP socket has a send timeout; a websocket send has none.)
+                    if recorder.enabled:
+                        recorder.event(
+                            "proxy.socket_timeout",
+                            conn=conn,
+                            direction=direction,
+                            timeout_s=(
+                                to_sock.gettimeout()
+                                if isinstance(to_sock, socket.socket)
+                                else None
+                            ),
+                        )
             if bs:
-                raise Exception(f"Failed to forward bytes for {name}")
+                raise SendTimeout(f"Failed to forward bytes for {name}")
+            if stats is not None:
+                stats.bytes += frame_len
+                stats.frames += 1
         except TimeoutError:
-            # On timeouts during a receive, we retry the entire flow.
-            pass
+            # On timeouts during a receive, we retry the entire flow. These
+            # are routine polls of an idle connection, so no event, unless
+            # the server has been silent too long while a consumer waits.
+            since = waiting_since() if waiting_since is not None else None
+            if since is not None:
+                # Silence from before the consumer started waiting doesn't
+                # count: the server may have been blocked by flow control.
+                silent_s = time.monotonic() - max(last_rx, since)
+                if silent_s >= silence_limit_s:
+                    logger.warning(
+                        f"[{name}] Silence limit exceeded"
+                        f" ({silent_s:.1f}s >= {silence_limit_s}s)"
+                    )
+                    if recorder.enabled:
+                        recorder.event(
+                            "proxy.silence_cut",
+                            conn=conn,
+                            silent_s=silent_s,
+                        )
+                    _shutdown_and_close(to_sock, from_sock)
+                    return
         except Exception as ex:
             logger.debug(f"[{name}] Exception forwarding bytes: {ex}")
-            to_sock.close()
+            if recorder.enabled:
+                if isinstance(ex, websockets.exceptions.ConnectionClosed):
+                    # The websocket's way of saying the remote end closed.
+                    rcvd = getattr(ex, "rcvd", None)
+                    _emit_eof(
+                        recorder,
+                        conn,
+                        direction,
+                        stats,
+                        start_mono_ns,
+                        error_type=type(ex).__name__,
+                        close_code=getattr(rcvd, "code", None),
+                    )
+                else:
+                    recorder.event(
+                        "proxy.forward_error",
+                        conn=conn,
+                        direction=direction,
+                        error_type=type(ex).__name__,
+                        message=_short_message(ex),
+                    )
+            _shutdown_and_close(to_sock, from_sock)
             return
 
 
-def connect_sockets(conn_number, from_sock, to_sock):
+def connect_sockets(
+    conn_number, from_sock, to_sock, span=None, recorder=NOOP_RECORDER
+):
     """Create a connection between the two given ports.
 
     This method continuously streams bytes in both directions between the
     given `from_sock` and `to_sock` socket-like objects.
 
     The caller is responsible for creating and closing the supplied sockets.
+    When ``span`` is given, ``bytes_out``/``frames_out`` (``from_sock`` to
+    ``to_sock``) and ``bytes_in``/``frames_in`` (the other way) are set on
+    it once both directions have finished. ``recorder`` receives the
+    per-direction events of :func:`forward_bytes`.
     """
+    track_stats = span is not None or recorder.enabled
+    out_stats = _DirectionStats() if track_stats else None
+    in_stats = _DirectionStats() if track_stats else None
+    start_mono_ns = getattr(span, "start_mono_ns", None)
+    if start_mono_ns is None and track_stats:
+        start_mono_ns = time.perf_counter_ns()
     forward_name = f"{conn_number}-forward"
     t1 = threading.Thread(
         name=forward_name,
         target=forward_bytes,
-        args=[forward_name, from_sock, to_sock],
+        args=[forward_name, from_sock, to_sock, out_stats],
+        kwargs=dict(
+            recorder=recorder,
+            conn=conn_number,
+            direction=CLIENT_TO_SERVER,
+            start_mono_ns=start_mono_ns,
+        ),
         daemon=True,
     )
     t1.start()
@@ -145,15 +494,38 @@ def connect_sockets(conn_number, from_sock, to_sock):
     t2 = threading.Thread(
         name=backward_name,
         target=forward_bytes,
-        args=[backward_name, to_sock, from_sock],
+        args=[backward_name, to_sock, from_sock, in_stats],
+        kwargs=dict(
+            recorder=recorder,
+            conn=conn_number,
+            direction=SERVER_TO_CLIENT,
+            start_mono_ns=start_mono_ns,
+        ),
         daemon=True,
     )
     t2.start()
     t1.join()
     t2.join()
+    if span is not None:
+        span.set(
+            bytes_in=in_stats.bytes,
+            bytes_out=out_stats.bytes,
+            frames_in=in_stats.frames,
+            frames_out=out_stats.frames,
+        )
 
 
-def forward_connection(conn_number, conn, addr, target_host):
+def forward_connection(
+    conn_number,
+    conn,
+    addr,
+    target_host,
+    recorder=NOOP_RECORDER,
+    accepted_ns=None,
+    proxy_instance=None,
+    on_backend_open=None,
+    on_backend_close=None,
+):
     """Create a connection to the target and forward `conn` to it.
 
     This method creates a socket-like object holding a connection to the given
@@ -165,16 +537,70 @@ def forward_connection(conn_number, conn, addr, target_host):
 
     This method should be run inside a daemon thread so that it will not
     block program termination.
+
+    Args:
+        conn_number: Sequence number of this connection within the proxy.
+        conn: The accepted client socket.
+        addr: The client address (for logging).
+        target_host: The backend host to connect to.
+        recorder: Instrumentation recorder. A ``proxy.connection`` span
+            covers this call (its children: ``proxy.ws_connect`` and the
+            auth/handshake steps) and carries the traffic counters.
+        accepted_ns: ``(perf_counter_ns, time_ns)`` of the accept, so the
+            span starts when the client connected rather than when this
+            thread got scheduled.
+        proxy_instance: Optional :class:`ManagedSparkSessionProxy` whose
+            waiting result-stream consumers arm the backend socket's
+            silence cut.
+        on_backend_open: Optional callback invoked with the backend
+            :class:`bridged_socket` once the WebSocket bridge is connected.
+            If it raises, the connection is abandoned.
+        on_backend_close: Optional callback invoked with the backend
+            :class:`bridged_socket` when forwarding finishes.
     """
-    with conn:
-        with connect_tcp_bridge(target_host) as websocket_conn:
-            backend_socket = bridged_socket(websocket_conn)
-            # Set a timeout on how long we will allow send/recv calls to block
-            #
-            # The code that reads and writes to this connection will retry
-            # on timeouts, so this is a safe change.
-            conn.settimeout(10)
-            connect_sockets(conn_number, conn, backend_socket)
+    waiting_since = (
+        proxy_instance.waiting_since if proxy_instance is not None else None
+    )
+    if accepted_ns is None:
+        span = recorder.start_span("proxy.connection", conn=conn_number)
+    else:
+        span = recorder.start_span_at(
+            "proxy.connection", *accepted_ns, conn=conn_number
+        )
+    with span:
+        with conn:
+            try:
+                conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            except OSError:
+                pass
+            with connect_tcp_bridge(
+                target_host, recorder, conn_number
+            ) as websocket_conn:
+                backend_socket = bridged_socket(
+                    websocket_conn, waiting_since=waiting_since
+                )
+                if on_backend_open is not None:
+                    on_backend_open(backend_socket)
+                try:
+                    # Set a timeout on how long we will allow send/recv calls to block
+                    #
+                    # The code that reads and writes to this connection will retry
+                    # on timeouts, so this is a safe change.
+                    conn.settimeout(SOCKET_TIMEOUT_S)
+                    connect_sockets(
+                        conn_number,
+                        conn,
+                        backend_socket,
+                        span if recorder.enabled else None,
+                        recorder,
+                    )
+                finally:
+                    if on_backend_close is not None:
+                        on_backend_close(backend_socket)
+
+
+# Total time ManagedSparkSessionProxy.stop() waits for its threads to exit.
+_STOP_JOIN_TIMEOUT_S = 5.0
 
 
 class ManagedSparkSessionProxy(object):
@@ -188,17 +614,53 @@ class ManagedSparkSessionProxy(object):
     Default Credentials.
     """
 
-    def __init__(self, port, target_host):
+    def __init__(self, port, target_host, recorder=None):
         self._port = port
         self._target_host = target_host
+        self._recorder = recorder if recorder is not None else NOOP_RECORDER
         self._started = False
         self._killed = False
         self._conn_number = 0
+        # Consumers waiting in next() on a reattachable result stream,
+        # registered by core's _GuardedStream via begin_wait()/end_wait():
+        # token -> time.monotonic() when the wait started. Backend sockets
+        # read the oldest through waiting_since() to arm the silence cut.
+        self._waits = {}
+        self._waits_lock = threading.Lock()
+        self._frontend_socket = None
+        self._accept_thread = None
+        # Guards _killed transitions and the three sets below, so stop()
+        # sees every socket and thread registered before it ran, and
+        # anything registering afterwards sees _killed.
+        self._conn_lock = threading.Lock()
+        self._active_client_sockets = set()
+        self._active_backend_sockets = set()
+        self._conn_threads = set()
+        # Whether a failed connection was logged at WARNING since the last
+        # successful one.
+        self._conn_failure_logged = False
 
     @property
     def port(self):
         """The local port the proxy is listening on"""
         return self._port
+
+    def begin_wait(self):
+        """Register a consumer starting to wait; returns a token for end_wait."""
+        token = object()
+        with self._waits_lock:
+            self._waits[token] = time.monotonic()
+        return token
+
+    def end_wait(self, token):
+        """Unregister a wait that begin_wait() started."""
+        with self._waits_lock:
+            self._waits.pop(token, None)
+
+    def waiting_since(self):
+        """When the longest current wait started, or None if nobody waits."""
+        with self._waits_lock:
+            return min(self._waits.values(), default=None)
 
     def start(self, daemon=True):
         """Start the proxy.
@@ -209,29 +671,122 @@ class ManagedSparkSessionProxy(object):
         if self._started:
             raise Exception("Managed Spark session proxy already started")
         self._started = True
-        s = threading.Semaphore(value=0)
-        t = threading.Thread(target=self._run, args=[s], daemon=daemon)
-        t.start()
-        s.acquire()
+        with self._recorder.span("proxy.start") as span:
+            s = threading.Semaphore(value=0)
+            t = threading.Thread(target=self._run, args=[s], daemon=daemon)
+            self._accept_thread = t
+            t.start()
+            s.acquire()
+            span.set(port=self._port)
+
+    def _register_backend_socket(self, backend_socket):
+        with self._conn_lock:
+            if not self._killed:
+                self._active_backend_sockets.add(backend_socket)
+                self._conn_failure_logged = False
+                return
+        # stop() ran while this thread was still connecting.
+        backend_socket.close_abrupt()
+        raise ConnectionAbortedError("proxy stopped")
+
+    def _unregister_backend_socket(self, backend_socket):
+        with self._conn_lock:
+            self._active_backend_sockets.discard(backend_socket)
+
+    def _handle_connection(self, conn_number, conn, addr, accepted_ns):
+        try:
+            forward_connection(
+                conn_number,
+                conn,
+                addr,
+                self._target_host,
+                self._recorder,
+                accepted_ns,
+                proxy_instance=self,
+                on_backend_open=self._register_backend_socket,
+                on_backend_close=self._unregister_backend_socket,
+            )
+        except Exception:
+            if not self._killed:
+                # gRPC reconnects quickly, so an outage (e.g. a backend 503)
+                # fails one connection after another: warn once, until a
+                # connection succeeds again.
+                if self._conn_failure_logged:
+                    level = logging.DEBUG
+                else:
+                    level = logging.WARNING
+                    self._conn_failure_logged = True
+                logger.log(
+                    level,
+                    "Proxy connection %s failed",
+                    conn_number,
+                    exc_info=True,
+                )
+        finally:
+            # forward_connection closes conn itself once it enters
+            # `with conn`; this covers a failure before that point.
+            _shutdown_and_close(conn)
+            with self._conn_lock:
+                self._active_client_sockets.discard(conn)
+                self._conn_threads.discard(threading.current_thread())
 
     def _run(self, s):
         with socket.create_server(("127.0.0.1", self._port)) as frontend_socket:
+            self._frontend_socket = frontend_socket
             if self._port == 0:
                 self._port = frontend_socket.getsockname()[1]
             s.release()
             while not self._killed:
-                conn, addr = frontend_socket.accept()
+                try:
+                    conn, addr = frontend_socket.accept()
+                except OSError:
+                    if self._killed:
+                        break
+                    raise
+                accepted_ns = None
+                if self._recorder.enabled:
+                    accepted_ns = (time.perf_counter_ns(), time.time_ns())
                 logger.debug(f"Accepted a connection from {addr}...")
                 self._conn_number += 1
-                threading.Thread(
-                    target=forward_connection,
-                    args=[self._conn_number, conn, addr, self._target_host],
+                t = threading.Thread(
+                    target=self._handle_connection,
+                    args=[self._conn_number, conn, addr, accepted_ns],
                     daemon=True,
-                ).start()
+                )
+                with self._conn_lock:
+                    if self._killed:
+                        _shutdown_and_close(conn)
+                        break
+                    self._active_client_sockets.add(conn)
+                    self._conn_threads.add(t)
+                t.start()
 
     def stop(self):
-        """Stop the proxy."""
-        self._killed = True
+        """Stop the proxy, close its sockets and wait for its threads.
+
+        The threads get one shared deadline of ``_STOP_JOIN_TIMEOUT_S``. A
+        connection still opening its WebSocket can't be interrupted; it is
+        abandoned as soon as the WebSocket connects.
+        """
+        with self._conn_lock:
+            self._killed = True
+            client_sockets = list(self._active_client_sockets)
+            backend_sockets = list(self._active_backend_sockets)
+            threads = [self._accept_thread, *self._conn_threads]
+            self._active_client_sockets.clear()
+            self._active_backend_sockets.clear()
+
+        if self._frontend_socket is not None:
+            _shutdown_and_close(self._frontend_socket)
+        _shutdown_and_close(*client_sockets)
+        for backend_socket in backend_sockets:
+            backend_socket.close_abrupt()
+
+        current = threading.current_thread()
+        deadline = time.monotonic() + _STOP_JOIN_TIMEOUT_S
+        for t in threads:
+            if t is not None and t is not current:
+                t.join(timeout=max(0.0, deadline - time.monotonic()))
 
 
 @contextlib.contextmanager

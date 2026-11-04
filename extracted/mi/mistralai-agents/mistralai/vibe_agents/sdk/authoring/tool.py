@@ -53,13 +53,18 @@ from mistralai.vibe.sdk.capabilities.types import ToolResult as AnnotatedToolRes
 # `contracts` imports this module first, so its names are read when a tool is built, not at import.
 from . import contracts, session_input
 from .errors import SdkError
+from .keep_open import KeepCallbackOpen
 from .tool_definition import ToolAnnotations, ToolDefinition
-from .tool_errors import ToolFunctionError
+from .tool_errors import ToolCodeError, ToolFunctionError, call_is_cancelling
 from .tool_result import ToolResult, is_rich_tool_result, is_rich_tool_result_type
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from typing_extensions import TypeIs
+
+    from mistralai.vibe_agents.sdk.client.records import OpenCallback, OpenClientToolCall
+
     from .contracts import ToolCallbackContext
 
 # Threads the rebuilt Session input objects through to the handler, past the argument validation.
@@ -591,15 +596,14 @@ class PythonTool[**P, R]:
         ``context`` reaches a function that takes a ``ToolCallbackContext``; without it, that function
         gets ``ToolCallbackContext.local()``. A tool whose function takes no context ignores it.
 
-        The Harness supplies ``injected_session_inputs`` as the JSON values it
-        selected for the IDs this tool declared; each value is rebuilt into the
-        annotated input class and passed to the handler under its parameter
-        name, never through the model-visible schema. A tool that declares no
-        Session inputs leaves an ``injected_session_inputs`` keyword to the
-        model-argument mapping, where a schema field may legitimately use it.
+        A tool that declares Session inputs takes their JSON values as
+        ``injected_session_inputs={input_id: value}``: each is rebuilt into its annotated class and
+        passed to the handler under its parameter name, never through the schema the model sees.
+        Without that keyword, such a tool raises ``ValueError``. A tool that declares no Session inputs
+        treats an ``injected_session_inputs`` keyword as a model argument, checked by its input schema.
         """
 
-        error: Exception | None = None
+        error: ToolCodeError | None = None
         try:
             result = await self._invoke_unconverted(context, kwargs)
         except ToolFunctionError as raised:
@@ -642,6 +646,10 @@ class PythonTool[**P, R]:
             if self._handler_is_async:
                 return await cast(Awaitable[Any], self.handler(*handler_args, **handler_kwargs))
             return await call_handler(self.handler, *handler_args, **handler_kwargs)
+        except asyncio.CancelledError as error:
+            if call_is_cancelling():
+                raise
+            raise ToolFunctionError(error) from error
         except Exception as error:
             raise ToolFunctionError(error) from error
 
@@ -809,12 +817,37 @@ class _ToolDecorator(Protocol):
     def __call__[**P, R](self, handler: Callable[P, R], /) -> PythonTool[P, R]: ...
 
 
+# A handler with or without keywords: `@agents.tool` or `agents.tool(fn, name=...)`.
 @overload
-def tool[**P, R](handler: Callable[Concatenate["ToolCallbackContext", P], R], /) -> PythonToolWithContext[P, R]: ...
+def tool[**P, R](
+    handler: Callable[Concatenate["ToolCallbackContext", P], R],
+    /,
+    *,
+    name: str | None = None,
+    namespace: str = DEFAULT_TOOL_NAMESPACE,
+    description: str | None = None,
+    input_schema: type[BaseModel] | None = None,
+    output_schema: type[BaseModel] | None = None,
+    model_access: ToolModelAccess | None = None,
+    result_schema: type[BaseModel] | None = None,
+    annotations: ToolAnnotations | None = None,
+) -> PythonToolWithContext[P, R]: ...
 
 
 @overload
-def tool[**P, R](handler: Callable[P, R], /) -> PythonTool[P, R]: ...
+def tool[**P, R](
+    handler: Callable[P, R],
+    /,
+    *,
+    name: str | None = None,
+    namespace: str = DEFAULT_TOOL_NAMESPACE,
+    description: str | None = None,
+    input_schema: type[BaseModel] | None = None,
+    output_schema: type[BaseModel] | None = None,
+    model_access: ToolModelAccess | None = None,
+    result_schema: type[BaseModel] | None = None,
+    annotations: ToolAnnotations | None = None,
+) -> PythonTool[P, R]: ...
 
 
 @overload
@@ -911,8 +944,8 @@ class ClientTool[**P, R]:
 
     The agent holds only its declaration: no code runs for it where the agent runs. When the model
     calls it, the turn waits until the application sends the result. Bind the function that answers
-    it with ``@<tool>.answer``, and pass that function to ``Agent.run(client_tools=[...])`` or the
-    deprecated ``Agent.create_session(client_tools=[...])``.
+    it with ``@<tool>.answer``, and pass that function to ``Agent.run`` in
+    ``on_client_tool=agents.ClientToolAnswers(...)``.
 
     Build one with ``@agents.client_tool`` on a stub function, or with
     ``agents.client_tool(name=..., description=..., input_schema=...)``.
@@ -965,22 +998,28 @@ class ClientTool[**P, R]:
     @overload
     def answer(
         self,
-        handler: Callable[Concatenate["ToolCallbackContext", P], R | ToolResult | Awaitable[R | ToolResult]],
+        handler: Callable[
+            Concatenate["ToolCallbackContext", P],
+            R | ToolResult | KeepCallbackOpen | Awaitable[R | ToolResult | KeepCallbackOpen],
+        ],
         /,
     ) -> "ClientToolAnswer[P, R]": ...
 
     @overload
     def answer(
-        self, handler: Callable[P, R | ToolResult | Awaitable[R | ToolResult]], /
+        self,
+        handler: Callable[P, R | ToolResult | KeepCallbackOpen | Awaitable[R | ToolResult | KeepCallbackOpen]],
+        /,
     ) -> "ClientToolAnswer[P, R]": ...
 
     def answer(self, handler: Callable[..., Any], /) -> "ClientToolAnswer[P, R]":
         """Bind the function that answers this tool's calls, in the process that runs the agent.
 
         It takes the tool's parameters and returns its result, synchronously or not: a value of
-        the stub's return type, or an ``agents.ToolResult`` to choose what the model sees. Pass
-        what this returns to ``Agent.run(client_tools=[...])`` or the deprecated
-        ``Agent.create_session(client_tools=[...])``.
+        the stub's return type, or an ``agents.ToolResult`` to choose what the model sees. It
+        returns ``agents.KeepCallbackOpen()`` to leave the call open: nothing is sent, and a run returns
+        ``Blocked`` on the call, which ``turn.answer`` or another client answers. Pass
+        what this returns to ``Agent.run`` in ``on_client_tool=agents.ClientToolAnswers(...)``.
         It may take an ``agents.ToolCallbackContext`` first, positional-only, as a tool does:
         ``def answer(ctx: agents.ToolCallbackContext, /, city: str)``. It gets the Session and the
         call's ID there; its sandbox is unbound.
@@ -990,6 +1029,22 @@ class ClientTool[**P, R]:
         """
 
         return ClientToolAnswer(tool=self, handler=handler)
+
+    def called(self, callback: "OpenCallback", /) -> "TypeIs[OpenClientToolCall[P, R]]":
+        """Whether ``callback`` is an open call of this tool: an ``OpenClientToolCall`` whose
+        ``call.name`` is this tool's ID, ``<namespace>.<name>``.
+
+        A type checker then types ``callback.run(fn)`` by this stub: ``fn`` takes the stub's
+        parameters and returns its return type::
+
+            for callback in state.callbacks:
+                if get_location.called(callback):
+                    await turn.answer(callback.id, await callback.run(read_gps))
+        """
+
+        from mistralai.vibe_agents.sdk.client.records import OpenClientToolCall
+
+        return isinstance(callback, OpenClientToolCall) and callback.call.name == f"{self.namespace}.{self.name}"
 
     def __repr__(self) -> str:
         return f"ClientTool(name={self.name!r})"
@@ -1001,8 +1056,11 @@ class ClientToolAnswer[**P, R]:
 
     tool: ClientTool[P, R]
     handler: (
-        Callable[P, R | ToolResult | Awaitable[R | ToolResult]]
-        | Callable[Concatenate["ToolCallbackContext", P], R | ToolResult | Awaitable[R | ToolResult]]
+        Callable[P, R | ToolResult | KeepCallbackOpen | Awaitable[R | ToolResult | KeepCallbackOpen]]
+        | Callable[
+            Concatenate["ToolCallbackContext", P],
+            R | ToolResult | KeepCallbackOpen | Awaitable[R | ToolResult | KeepCallbackOpen],
+        ]
     )
     # True when the handler takes an ``agents.ToolCallbackContext`` first: read from the handler, so it
     # always matches it.
@@ -1029,11 +1087,22 @@ async def call_client_tool_answer(
     if answer._takes_context:
         handler = functools.partial(handler, contracts.ToolCallbackContext.local() if context is None else context)
     try:
-        if tool._by_name:
-            return await call_handler(handler, **{name: getattr(parsed, name) for name in type(parsed).model_fields})
-        return await call_handler(functools.partial(handler, parsed))
+        return await call_with_arguments(tool, handler, parsed)
+    except asyncio.CancelledError as error:
+        if call_is_cancelling():
+            raise
+        raise ToolFunctionError(error) from error
     except Exception as error:
         raise ToolFunctionError(error) from error
+
+
+async def call_with_arguments(tool: ClientTool[..., Any], handler: Callable[..., Any], parsed: BaseModel) -> Any:
+    """Call ``handler`` with a client tool's validated arguments, as the stub takes them: by name
+    for a stub function, as the input model otherwise. A synchronous handler runs in a tool thread."""
+
+    if tool._by_name:
+        return await call_handler(handler, **{name: getattr(parsed, name) for name in type(parsed).model_fields})
+    return await call_handler(functools.partial(handler, parsed))
 
 
 def dump_client_tool_result(answer: ClientToolAnswer[..., Any], result: object) -> object:
@@ -1108,12 +1177,31 @@ class _ClientToolDecorator(Protocol):
     def __call__[**P, R](self, function: Callable[P, R], /) -> ClientTool[P, R]: ...
 
 
+# A stub with or without keywords: `@agents.client_tool` or `agents.client_tool(fn, name=...)`.
 @overload
-def client_tool[**P, R](function: Callable[P, Awaitable[R]], /) -> ClientTool[P, R]: ...
+def client_tool[**P, R](
+    function: Callable[P, Awaitable[R]],
+    /,
+    *,
+    name: str | None = None,
+    namespace: str = DEFAULT_TOOL_NAMESPACE,
+    description: str | None = None,
+    model_access: ToolModelAccess | None = None,
+    annotations: ToolAnnotations | None = None,
+) -> ClientTool[P, R]: ...
 
 
 @overload
-def client_tool[**P, R](function: Callable[P, R], /) -> ClientTool[P, R]: ...
+def client_tool[**P, R](
+    function: Callable[P, R],
+    /,
+    *,
+    name: str | None = None,
+    namespace: str = DEFAULT_TOOL_NAMESPACE,
+    description: str | None = None,
+    model_access: ToolModelAccess | None = None,
+    annotations: ToolAnnotations | None = None,
+) -> ClientTool[P, R]: ...
 
 
 @overload
@@ -1186,7 +1274,8 @@ def client_tool(
     ``request.tool.annotations``.
 
     The worker never runs a client tool: the turn waits until the application sends the result.
-    Answer it with a function bound by ``@<tool>.answer``, or by hand with ``Session.answer_callback``.
+    Answer it with a function bound by ``@<tool>.answer``, or by hand with
+    ``turn.answer(callback.id, result)`` when a run returns ``Blocked``.
     """
 
     if input_schema is not None:

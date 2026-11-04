@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sequence-ai
-Version: 0.56.0
+Version: 0.56.2
 Summary: The inference and benchmark platform for physical AI: deploy a robot policy, run it on your robot, score it.
 Project-URL: Homepage, https://generalsequences.com
 Project-URL: Documentation, https://generalsequences.com/docs/
@@ -27,7 +27,7 @@ Requires-Python: >=3.9
 Requires-Dist: httpx<1,>=0.24
 Requires-Dist: pillow>=10
 Requires-Dist: pydantic>=2; python_version >= '3.10'
-Requires-Dist: sequence-base<0.9,>=0.8.3; python_version >= '3.10'
+Requires-Dist: sequence-base<0.9,>=0.8.4; python_version >= '3.10'
 Provides-Extra: data
 Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'data'
 Requires-Dist: numpy>=1.24; extra == 'data'
@@ -39,7 +39,7 @@ Requires-Dist: numpy>=1.24; extra == 'dev'
 Requires-Dist: pillow>=10; extra == 'dev'
 Requires-Dist: pyarrow>=14; extra == 'dev'
 Requires-Dist: pytest>=7; extra == 'dev'
-Requires-Dist: sequence-base<0.9,>=0.8.3; (python_version >= '3.10') and extra == 'dev'
+Requires-Dist: sequence-base<0.9,>=0.8.4; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: zstandard>=0.22; extra == 'dev'
 Provides-Extra: observe
 Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'observe'
@@ -413,6 +413,9 @@ mistakable for a hang (`on_warming=` replaces the line):
 ```python
 sequence_ai.connect(model="my-pi05", startup_timeout_s=0)     # opt out: raise at once on a cold worker
 ```
+
+`wait_until_ready()` waits within `startup_timeout_s` too, unless you pass it its own `timeout_s`; with
+`startup_timeout_s=0` it still waits, as long as the platform gives the start.
 
 Before the first action nothing is moving, so waiting is free. Once the arm is in motion, a wait of minutes is your
 loop's to handle: an arm whose rows run out while `act()` waits should hold, and `interrupt()` ends the wait.
@@ -932,10 +935,11 @@ policy as it starts (see below).
   card.
 - Workers start in the region nearest each robot, or in the one `region=` names
   ([below](#state-across-steps-and-more-than-one-robot-at-a-time)).
-- **`timeouts=seq.Timeouts(startup=900, request=5)`**: a worker that has not loaded within `startup` seconds
-  fails (the build check is held to the same), and one inference longer than `request` seconds is answered `504`;
-  one still running a `request` later ends its copy, and a fresh copy starts on the same worker (`seq policy logs`
-  says `reason=hung`). Defaults: 1800 and 300.
+- **Time limits are the platform's**: a worker that has not loaded within 30 minutes fails (the build check is held to
+  the same), and one inference longer than 300 s is answered `504`; one still running that long again ends its copy,
+  and a fresh copy starts on the same worker (`seq policy logs` says `reason=hung`). A version whose check measured a
+  slower load or slower acts is given longer - three times its load, up to 5 hours, and ten times its slowest p95, up
+  to an hour.
 - **`seq deploy`** shows each phase of the build as it begins — the weights, the machine, the image, the worker
   loading, the `/act` check — with the newest line of the build's log; **`seq policy logs <name> --build`** prints the newest version's
   phases and its whole log, then or later (`seq policy logs <name>@v3 --build`: version 3's).
@@ -985,8 +989,8 @@ adapter's `__init__` keywords and a benchmark's constructor keywords the same wa
   `@seq.observe` method keeps an episode's state in `episode.state` when that method and its `@seq.infer` one both
   take `episode`, and on itself, a copy an episode, when either takes none. A robot ends its episode with
   `policy.end_episode()`, and `close()` ends one left open; an episode with no act for 5 minutes (a robot that
-  crashed) is ended by the worker once its place is wanted for a new episode (`seq.Timeouts(episode_idle=...)` sets
-  another time). A policy gets every
+  crashed) is ended by the worker once its place is wanted for a new episode - or after three times its robot's usual
+  time between acts, where that is longer, up to a day. A policy gets every
   observation as the robot makes it: `policy.observe(obs, episode_id=...)` hands it over at once - posted to the worker on a connection of its own; a
   first call, the one that connects, waits out a worker that is starting as a first `act()` does, and one made while
   its worker restarts mid-episode is kept for the next act -
@@ -1183,8 +1187,7 @@ the code says. From Python, `seq.policy_settings(name)` and `seq.policy_set(name
   workers placed from then on;
 - `params.<name>=VALUE`: an inference parameter, what every robot runs with - each running worker takes it within a
   minute, for the episodes begun after it (an act carries none);
-- `timeouts.request`, `timeouts.episode_idle`, `plan.every_s` - each running worker takes it within a minute -, and
-  `timeouts.startup` for the workers started from then on;
+- `plan.every_s` - each running worker takes it within a minute;
 - `action_chunk_valid_len` and `action_chunk_replan_at`, how its answers play: a robot takes them with its next connect
   (one that connects then, one already on as its lease renews), each running worker seats and batches its robots by
   them within a minute, and an eval of it plays by them - its report says whether each was set or is the code's. The
@@ -1193,7 +1196,7 @@ the code says. From Python, `seq.policy_settings(name)` and `seq.policy_set(name
   takes it with its next connect and each running worker seats and batches its robots by it within a minute; an eval
   plays as before, its world held still for every answer;
 - `capture=on|off` and `capture.retention_days` ([Field data](#field-data-capture-label-export));
-- `budget.monthly_usd`, and alerts - `alerts.webhook`, `alerts.error_rate`, `alerts.p95_ms`;
+- `budget.monthly_usd`, and `alerts.webhook`;
 - `models`;
 - the machine - `gpu`, `weights`, `cpu`, `cpu_limit`, `memory`, `memory_limit`, `replica_start`: one of these builds a
   new version from the same image and code, which takes over once its check passes.
@@ -1210,9 +1213,9 @@ A setting changed this way stays when you deploy again; `seq deploy` says where 
   `seq policy start <name>`; under a budget already reached, `seq policy start` is refused.
 - `seq policy set <name> schedule.hours="Mon-Fri 08:00-18:00" schedule.min_workers=2 schedule.tz=America/Los_Angeles`
   keeps two workers warm in those hours (billed whether or not a robot is connected); `schedule.hours=` removes it.
-- `seq policy set <name> alerts.webhook=https://… alerts.error_rate=0.05 alerts.p95_ms=500` posts JSON to your https
-  endpoint when a version fails to build, the hour's error rate or p95 crosses the threshold, or the month's spend
-  reaches 80% and then 100% of `budget.monthly_usd`. Each body is signed: `X-Seq-Signature: sha256=HMAC(secret, body)` with the secret printed
+- `seq policy set <name> alerts.webhook=https://…` posts JSON to your https endpoint when a version fails to build, an
+  hour's error rate reaches twice its last 7 days' and 5 points over it or its p95 twice theirs (each over at least 20
+  acts), or the month's spend reaches 80% and then 100% of `budget.monthly_usd`. Each body is signed: `X-Seq-Signature: sha256=HMAC(secret, body)` with the secret printed
   once.
 
 ### Robot keys, and production
@@ -1393,8 +1396,8 @@ What the platform fixes; everything else is your code's. Each value is what the 
 
 | | |
 |---|---|
-| One inference | `timeouts=seq.Timeouts(request=…)`, default 300 s. Past it the call is answered `504`; one still running a timeout later ends its copy, and a fresh copy starts on the same worker (`reason=hung`). |
-| Loading a worker | `timeouts.startup`, default 1800 s. A worker that has not loaded by then fails; the build check is held to the same. |
+| One inference | 300 s, or ten times the slowest p95 its version's check measured, up to an hour. Past it the call is answered `504`; one still running a timeout later ends its copy, and a fresh copy starts on the same worker (`reason=hung`). |
+| Loading a worker | 1800 s, or three times the load its version's check measured, up to 5 hours. A worker that has not loaded by then fails; the build check is held to the same. |
 | Observations waiting for an act | An act carries no data: a robot's observations go to its worker ahead of it. A worker holds at most 1,024 observations and 64 MiB of an episode that its policy has not read yet, and 1 GiB across its episodes; past it an observation is answered `413 payload_too_large`. |
 | A management request | 16 MiB; a deploy or a benchmark's registration, which carries its code and its build context, 24 MiB. |
 | The code a deploy uploads | 8 MiB compressed: the folder, whole, and what `seq.Image.add_local_*` names outside it. A source tree over 64 MiB is refused before it is sent; the refusal names the largest paths and how to leave them out (`.seqignore`). Weights never travel with the code — they go in `weights=`. |

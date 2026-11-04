@@ -256,7 +256,9 @@ class Xr1YamAdapter:
         wrapped = _Xr1JointPolicy(
             policy, rig, self.pose, getattr(policy, "runtime_contract", None), on_conversion,
         )
-        self.pose.bind_limits(rig)
+        # Connected while the arms are closed: the first conversion binds their bounds.
+        if isinstance(getattr(rig, "limits", None), dict) and rig.limits:
+            wrapped.bind_limits()
         return wrapped
 
 

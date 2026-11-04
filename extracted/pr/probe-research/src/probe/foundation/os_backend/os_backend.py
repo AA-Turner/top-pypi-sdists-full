@@ -33,6 +33,8 @@ did before it came through this module. Only Windows takes the other branch.
   another process has open (a reader of ``status.json``, say) fails with
   ``PermissionError`` for as long as that handle lives -- Python opens files
   without ``FILE_SHARE_DELETE`` -- so it is retried for up to a second there.
+- ``is_windows()``: whether this computer runs Windows, asked here so no caller
+  branches on ``sys.platform`` itself (install refuses Windows, plan R17).
 - ``O_BINARY``: 0 on POSIX. On Windows ``os.open`` without it hands back a TEXT
   descriptor, which turns every ``\\n`` written into ``\\r\\n`` and ends a read at
   the first 0x1A byte -- ``tempfile`` adds it for the same reason.
@@ -57,6 +59,7 @@ __all__ = [
     "LOCK_UN",
     "O_BINARY",
     "flock",
+    "is_windows",
     "probe_pid",
     "replace",
 ]
@@ -67,6 +70,11 @@ __all__ = [
 LOCK_OFFSET = 0x7FFFFFFF
 
 O_BINARY: int = getattr(os, "O_BINARY", 0)
+
+
+def is_windows() -> bool:
+    """Whether this computer runs Windows (`os.name == "nt"`)."""
+    return os.name == "nt"
 
 try:
     import fcntl as _fcntl

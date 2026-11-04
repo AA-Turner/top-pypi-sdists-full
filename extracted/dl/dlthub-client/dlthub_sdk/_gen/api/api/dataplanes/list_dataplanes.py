@@ -65,7 +65,7 @@ def sync_detailed(
 ) -> Response[DataplaneCatalog | ErrorResponse]:
     """ListDataplanes
 
-     List the data planes the operator has declared for this deployment.
+     Lists the regions (data planes) an organization can choose with `set_region_organization`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -89,7 +89,7 @@ def sync(
 ) -> DataplaneCatalog | ErrorResponse | None:
     """ListDataplanes
 
-     List the data planes the operator has declared for this deployment.
+     Lists the regions (data planes) an organization can choose with `set_region_organization`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -109,7 +109,7 @@ async def asyncio_detailed(
 ) -> Response[DataplaneCatalog | ErrorResponse]:
     """ListDataplanes
 
-     List the data planes the operator has declared for this deployment.
+     Lists the regions (data planes) an organization can choose with `set_region_organization`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -131,7 +131,7 @@ async def asyncio(
 ) -> DataplaneCatalog | ErrorResponse | None:
     """ListDataplanes
 
-     List the data planes the operator has declared for this deployment.
+     Lists the regions (data planes) an organization can choose with `set_region_organization`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

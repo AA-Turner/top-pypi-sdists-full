@@ -3,34 +3,50 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import logging
 import os
 import tempfile
 import time
+from collections.abc import Generator, Iterable
+from contextlib import closing, contextmanager, suppress
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any
+from typing import IO, Annotated, Any, cast
 
 import httpx
 import typer
+from pydantic import ValidationError
 from rich.table import Table
 
+from plato.chronos.analysis import ProgressCallback, SpanFilters, SpanStream, analyze_session
 from plato.chronos.api.settings import get_setting, update_setting
 from plato.chronos.errors import NotFoundError
-from plato.chronos.models import UpdateSettingRequest
+from plato.chronos.models import (
+    OTelSpanSchema,
+    SessionStatus,
+    SpanSearchField,
+    SpanSearchRequest,
+    SpanSearchSource,
+    UpdateSettingRequest,
+)
 from plato.chronos.sdk import Chronos
+from plato.cli.chronos.import_traces import import_app
 from plato.cli.chronos.settings import get_settings
 from plato.cli.chronos.workspace_upload import (
     download_git_workspace_via_archive,
+    download_manifest_workspace,
     download_session_workspace_archive,
+    ref_has_archive_dvc,
     workspace_app,
 )
 from plato.cli.utils import console, safe_print
 
 chronos_app = typer.Typer(help="Chronos job management commands.")
 chronos_app.add_typer(workspace_app, name="workspace")
+chronos_app.add_typer(import_app, name="import")
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
@@ -83,8 +99,6 @@ def launch(
 
     """
     import json
-
-    from pydantic import ValidationError
 
     from plato.chronos.models import LaunchJobRequest
 
@@ -452,9 +466,29 @@ _api_key_option = typer.Option(None, "--api-key", "-k", envvar="PLATO_API_KEY", 
 _output_option = typer.Option(None, "--output", "-o", help="Override output file path")
 
 
-def _default_output_path(command: str, session_id: str) -> Path:
+def _default_output_path(command: str, session_id: str, suffix: str = ".json") -> Path:
     """Generate a default output file path in /tmp."""
-    return Path(tempfile.gettempdir()) / f"chronos-{command}-{session_id[:12]}.json"
+    return Path(tempfile.gettempdir()) / f"chronos-{command}-{session_id[:12]}{suffix}"
+
+
+@contextmanager
+def _span_stream_progress(label: str):
+    """Yield an ``on_progress(span_count, page_count)`` callback backed by a
+    transient Rich spinner that reports streaming progress live."""
+    from rich.progress import Progress, SpinnerColumn, TextColumn
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task(f"{label}: 0 spans", total=None)
+
+        def on_progress(span_count: int, page_count: int) -> None:
+            progress.update(task, description=f"{label}: {span_count:,} spans ({page_count} pages)")
+
+        yield on_progress
 
 
 def _write_output(data: str, output: Path, command: str = "") -> None:
@@ -462,6 +496,192 @@ def _write_output(data: str, output: Path, command: str = "") -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(data)
     console.print(f"[green]{output}[/green]")
+
+
+def _spans_cache_path(session_id: str) -> Path:
+    """On-disk cache of a session's full (unfiltered) span set, one span per line.
+
+    Shared by ``traces`` and ``analysis`` so a session's 90k+ spans only have
+    to be streamed once — the second command reuses the cache unless
+    ``--refresh`` is passed. Written as the spans stream in and moved into
+    place only once the stream completed, so it is never partial."""
+    return Path(tempfile.gettempdir()) / f"chronos-spans-{session_id}.ndjson"
+
+
+def _valid_span_cache(session_id: str) -> Path | None:
+    """The session's span cache, if present and every line is a span.
+
+    Checked line by line (nothing kept), so a big cache costs no memory."""
+    path = _spans_cache_path(session_id)
+    try:
+        with path.open() as f:
+            for line in f:
+                OTelSpanSchema.model_validate_json(line)
+    # OSError: missing or unreadable; ValueError (covers ValidationError): a
+    # line that isn't a span. Either way: stream fresh.
+    except (OSError, ValueError):
+        return None
+    return path
+
+
+def _read_span_cache(path: Path) -> Generator[OTelSpanSchema]:
+    with path.open() as f:
+        for line in f:
+            yield OTelSpanSchema.model_validate_json(line)
+
+
+def _staging_file(path: Path) -> tuple[IO[str], Path]:
+    """A new, uniquely named file next to ``path`` to write into, then rename onto it.
+
+    Unique per writer, so two commands pulling the same session (or writing
+    the same output) never write into each other's file."""
+    fd, name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".part")
+    return os.fdopen(fd, "w"), Path(name)
+
+
+def _tee_to_cache(spans: Iterable[OTelSpanSchema], session_id: str) -> Generator[OTelSpanSchema]:
+    """Yield ``spans``, writing each to the span cache on the way.
+
+    The cache goes to its own staging file and is renamed into place only
+    after the last span, so a failed or abandoned stream never leaves a
+    partial cache. The cache is best-effort: any cache error (write, close,
+    rename) stops caching, never the command."""
+    path = _spans_cache_path(session_id)
+    cache: IO[str] | None = None
+    part: Path | None = None
+    try:
+        cache, part = _staging_file(path)
+    except OSError:
+        pass
+
+    def drop_cache() -> None:
+        nonlocal cache
+        if cache is not None:
+            with suppress(OSError):
+                cache.close()
+            cache = None
+        if part is not None:
+            with suppress(OSError):
+                part.unlink(missing_ok=True)
+
+    try:
+        for span in spans:
+            if cache is not None:
+                try:
+                    cache.write(span.model_dump_json() + "\n")
+                except OSError:
+                    drop_cache()
+            yield span
+        if cache is not None and part is not None:
+            try:
+                cache.close()
+                cache = None
+                part.replace(path)
+                part = None
+            except OSError:
+                pass
+    finally:
+        drop_cache()
+
+
+def _open_spans(
+    client: Chronos,
+    session_id: str,
+    filters: SpanFilters,
+    *,
+    refresh: bool = False,
+    max_spans: int | None = None,
+    cursor: str | None = None,
+    on_progress: ProgressCallback | None = None,
+) -> tuple[Generator[OTelSpanSchema], SpanStream | None]:
+    """The session's spans as a generator, from the cache or streamed live.
+
+    Only the full, unfiltered span set is cached and reused; with any filter,
+    ``max_spans`` or ``cursor`` the stream always runs live (filters are
+    applied by Chronos). The ``SpanStream`` is returned for its ``has_more`` /
+    ``cursor`` once iterated; it is None when the spans come from the cache.
+    """
+    cacheable = filters == SpanFilters() and max_spans is None and cursor is None
+    if cacheable and not refresh:
+        cached = _valid_span_cache(session_id)
+        if cached is not None:
+            console.print(f"[dim]Using cached spans ({cached}) — pass --refresh to re-download[/dim]")
+            return _read_span_cache(cached), None
+
+    stream = client.iter_traces(session_id, filters, max_spans=max_spans, cursor=cursor, on_progress=on_progress)
+    spans = cast(Generator[OTelSpanSchema], iter(stream))
+    if cacheable:
+        spans = _tee_to_cache(spans, session_id)
+    return spans, stream
+
+
+def _get_spans(
+    client: Chronos,
+    session_id: str,
+    *,
+    atif_only: bool = False,
+    errors_only: bool = False,
+    search: str | None = None,
+    refresh: bool = False,
+    label: str = "Streaming spans",
+) -> list[OTelSpanSchema]:
+    """Return all spans for a session (in memory), reusing the on-disk cache when possible."""
+    filters = SpanFilters(search=search, errors_only=errors_only, atif_only=atif_only)
+    with _span_stream_progress(label) as on_progress:
+        spans, _ = _open_spans(client, session_id, filters, refresh=refresh, on_progress=on_progress)
+        with closing(spans):
+            return list(spans)
+
+
+class _SpanFileWriter:
+    """Writes spans to a file as they arrive, so no command holds a whole session.
+
+    ``json`` keeps the shape ``traces`` always wrote (``filters``, ``session_id``,
+    ``spans``, ``total_count``) with one span per line; ``ndjson`` is one span
+    per line and nothing else. Spans go to a staging file of this writer's own,
+    renamed onto ``output`` by ``finish``. Used as a context manager, leaving
+    without ``finish`` (an error, Ctrl+C) deletes the staging file.
+    """
+
+    def __init__(self, output: Path, fmt: TraceFormat, header: dict[str, Any]) -> None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        self.output = output
+        self.count = 0
+        self._fmt = fmt
+        self._file, self._part = _staging_file(output)
+        self._done = False
+        if fmt is TraceFormat.json:
+            head = json.dumps(header)[:-1]  # drop the closing brace
+            try:
+                self._file.write(f'{head}{", " if header else ""}"spans": [')
+            except BaseException:
+                self.__exit__()
+                raise
+
+    def __enter__(self) -> _SpanFileWriter:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        if not self._done:
+            with suppress(OSError):
+                self._file.close()
+            self._part.unlink(missing_ok=True)
+
+    def write(self, span: OTelSpanSchema) -> None:
+        if self._fmt is TraceFormat.json:
+            self._file.write(",\n" if self.count else "\n")
+            self._file.write(span.model_dump_json())
+        else:
+            self._file.write(span.model_dump_json() + "\n")
+        self.count += 1
+
+    def finish(self, trailer: dict[str, Any]) -> None:
+        if self._fmt is TraceFormat.json:
+            tail = json.dumps({"total_count": self.count, **trailer})[1:]  # drop the opening brace
+            self._file.write(f"\n], {tail}\n")
+        self._file.close()
+        self._part.replace(self.output)
+        self._done = True
 
 
 # ---------------------------------------------------------------------------
@@ -497,44 +717,274 @@ def session_info(
 # ---------------------------------------------------------------------------
 
 
+class TraceFormat(str, Enum):
+    json = "json"
+    ndjson = "ndjson"
+
+
+class SpanStatusFilter(str, Enum):
+    unset = "unset"
+    ok = "ok"
+    error = "error"
+
+
+_TIME_FORMATS = [
+    "%Y-%m-%d",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S.%f",
+    "%Y-%m-%dT%H:%M:%S%z",
+    "%Y-%m-%dT%H:%M:%S.%f%z",
+]
+
+
 @chronos_app.command("traces")
 def traces(
     session_id: Annotated[str, typer.Argument(help="Session ID")],
     atif_only: Annotated[bool, typer.Option("--atif-only", help="Agent traces only")] = False,
     errors_only: Annotated[bool, typer.Option("--errors-only", help="Error traces only")] = False,
     search: Annotated[str | None, typer.Option(help="Search filter")] = None,
+    names: Annotated[
+        list[str] | None,
+        typer.Option("--name", help="Span name (repeatable); a trailing * matches a prefix, e.g. 'tool.*'"),
+    ] = None,
+    kinds: Annotated[
+        list[str] | None, typer.Option("--kind", help="atif.kind attribute (repeatable): agent, llm")
+    ] = None,
+    status: Annotated[SpanStatusFilter | None, typer.Option(help="OTel span status")] = None,
+    since: Annotated[
+        datetime | None,
+        typer.Option(
+            help="Spans that started at or after this time (UTC unless an offset is given)", formats=_TIME_FORMATS
+        ),
+    ] = None,
+    until: Annotated[
+        datetime | None,
+        typer.Option(help="Spans that started before this time (UTC unless an offset is given)", formats=_TIME_FORMATS),
+    ] = None,
+    attrs: Annotated[
+        list[str] | None,
+        typer.Option("--attr", help="Attribute match (repeatable): key=value, or a bare key for 'present'"),
+    ] = None,
+    ancestors: Annotated[
+        bool | None,
+        typer.Option(
+            "--ancestors/--no-ancestors",
+            help="Include matched spans' ancestor chains (default: on, off with --limit or --name/--kind/--status/--since/--until/--attr)",
+        ),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        typer.Option(min=1, help="Stop after this many spans; the output then says where to --cursor from"),
+    ] = None,
+    cursor: Annotated[str | None, typer.Option(help="Continue a --limit'ed pull from this cursor")] = None,
+    fmt: Annotated[
+        TraceFormat, typer.Option("--format", help="json (one document) or ndjson (one span per line)")
+    ] = TraceFormat.json,
+    refresh: Annotated[bool, typer.Option("--refresh", help="Ignore the local span cache and re-download")] = False,
     chronos_url: str = _chronos_url_option,
     api_key: str = _api_key_option,
     output: Path | None = _output_option,
 ):
-    """Fetch session traces (OTel spans with filtering)."""
+    """Fetch session traces (OTel spans) via the logs-stream endpoint.
+
+    Spans are written to the output file as they stream in, so even 200k+ span
+    sessions run in little memory. Filters are applied by Chronos, so a slice
+    of a big session downloads only that slice. The unfiltered span set is
+    cached locally and reused by ``analysis``; pass ``--refresh`` to
+    re-download.
+    """
     chronos_url = chronos_url or settings.chronos_url
     api_key = _require_api_key(api_key)
 
+    filters = SpanFilters(
+        search=search,
+        errors_only=errors_only,
+        atif_only=atif_only,
+        names=tuple(names or ()),
+        kinds=tuple(kinds or ()),
+        status=status.value if status else None,
+        started_after=since,
+        started_before=until,
+        attributes=tuple(attrs or ()),
+    )
+    # A field-level slice or a --limit'ed pull is what was asked for:
+    # ancestors only on request.
+    include_ancestors = ancestors if ancestors is not None else not (filters.field_level or limit)
+    if limit and include_ancestors and filters.active:
+        raise typer.BadParameter("--limit counts matched spans, so it can't be combined with --ancestors and filters")
+    filters = dataclasses.replace(filters, include_ancestors=include_ancestors)
+
+    shown: dict[str, Any] = {}
+    if atif_only:
+        shown["atif_only"] = True
+    if errors_only:
+        shown["errors_only"] = True
+    if search:
+        shown["search"] = search
+    if filters.names:
+        shown["name"] = list(filters.names)
+    if filters.kinds:
+        shown["kind"] = list(filters.kinds)
+    if filters.status:
+        shown["status"] = filters.status
+    if since:
+        shown["since"] = since.isoformat()
+    if until:
+        shown["until"] = until.isoformat()
+    if filters.attributes:
+        shown["attr"] = list(filters.attributes)
+    if ancestors is not None:
+        shown["ancestors"] = ancestors
+    if limit:
+        shown["limit"] = limit
+    if cursor:
+        shown["cursor"] = cursor
+    header: dict[str, Any] = {"filters": shown} if shown else {}
+    header["session_id"] = session_id
+
+    out = output or _default_output_path("traces", session_id, ".ndjson" if fmt is TraceFormat.ndjson else ".json")
     try:
-        with Chronos(base_url=chronos_url, api_key=api_key) as client:
-            result = client.get_traces(
+        with (
+            Chronos(base_url=chronos_url, api_key=api_key) as client,
+            _span_stream_progress("Streaming spans") as on_progress,
+        ):
+            spans, stream = _open_spans(
+                client,
                 session_id,
-                atif_only=atif_only,
-                errors_only=errors_only,
-                search=search,
+                filters,
+                refresh=refresh,
+                max_spans=limit,
+                cursor=cursor,
+                on_progress=on_progress,
             )
-        output_dict = result.model_dump()
-        filters: dict[str, str | bool] = {}
-        if atif_only:
-            filters["atif_only"] = True
-        if errors_only:
-            filters["errors_only"] = True
-        if search:
-            filters["search"] = search
-        if filters:
-            output_dict = {"filters": filters, **output_dict}
-        data = json.dumps(output_dict, indent=2)
-        out = output or _default_output_path("traces", session_id)
-        _write_output(data, out)
+            # Both clean up on any exit, Ctrl+C included: no partial output or cache.
+            with closing(spans), _SpanFileWriter(out, fmt, header) as writer:
+                for span in spans:
+                    writer.write(span)
+                trailer: dict[str, Any] = {}
+                if stream is not None and stream.has_more:
+                    trailer = {"has_more": True, "next_cursor": stream.cursor}
+                writer.finish(trailer)
+
+        console.print(f"[green]{writer.count:,}[/green] spans")
+        if stream is not None and stream.dropped_locally:
+            console.print(
+                f"[yellow]Chronos ignored the span filters (an older deploy?): streamed the whole session "
+                f"and dropped {stream.dropped_locally:,} non-matching spans locally[/yellow]"
+            )
+        if stream is not None and stream.has_more:
+            console.print(f"[yellow]More spans left: continue with --cursor {stream.cursor}[/yellow]")
+        console.print(f"[green]{out}[/green]")
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
         raise typer.Exit(1)
+
+
+@chronos_app.command("search")
+def search(
+    terms: Annotated[list[str], typer.Argument(help="Terms to match, as case-insensitive substrings")],
+    tag: Annotated[
+        str | None,
+        typer.Option(
+            help="Sessions with a tag containing this ('platform_task_run' matches 'platform_task_run.<world>')"
+        ),
+    ] = None,
+    session_ids: Annotated[
+        list[str] | None, typer.Option("--session-id", help="Search this session (repeatable)")
+    ] = None,
+    since: Annotated[
+        datetime | None,
+        typer.Option(help="Sessions created at or after this UTC time", formats=["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"]),
+    ] = None,
+    until: Annotated[
+        datetime | None,
+        typer.Option(help="Sessions created before this UTC time", formats=["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"]),
+    ] = None,
+    status: Annotated[SessionStatus | None, typer.Option(help="Only sessions in this status")] = None,
+    all_terms: Annotated[bool, typer.Option("--all", help="A span must contain every term (default: any)")] = False,
+    fields: Annotated[
+        list[SpanSearchField] | None,
+        typer.Option(
+            "--field",
+            help="Only match this step attribute (repeatable): tool_calls is tool input, observation tool output",
+        ),
+    ] = None,
+    sources: Annotated[
+        list[SpanSearchSource] | None,
+        typer.Option("--source", help="Only step spans from this source (repeatable); tool results are 'system'"),
+    ] = None,
+    errors_only: Annotated[bool, typer.Option("--errors-only", help="Only error spans")] = False,
+    org_ids: Annotated[
+        list[int] | None,
+        typer.Option("--org-id", help="Search this org's sessions (repeatable); other orgs need a Plato-org admin key"),
+    ] = None,
+    limit: Annotated[int, typer.Option(help="Max hits returned")] = 200,
+    per_session: Annotated[int, typer.Option(help="Max hits per session")] = 20,
+    snippet_chars: Annotated[int, typer.Option(help="Snippet length around the first match")] = 300,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the full JSON response to stdout")] = False,
+    chronos_url: str = _chronos_url_option,
+    api_key: str = _api_key_option,
+    output: Path | None = _output_option,
+):
+    """Search span text across sessions: messages, reasoning, tool input and tool output.
+
+    Pick the sessions with --tag, --session-id and/or --since/--until (at most 500 per search; search
+    long ranges in windows). Hits come back with a snippet around the first match.
+    """
+    chronos_url = chronos_url or settings.chronos_url
+    api_key = _require_api_key(api_key)
+    try:
+        request = SpanSearchRequest.model_validate(
+            {
+                "tag": tag,
+                "session_ids": session_ids or None,
+                "created_after": since,
+                "created_before": until,
+                "status": status,
+                "query": terms,
+                "mode": "all" if all_terms else "any",
+                "fields": fields or None,
+                "sources": sources or None,
+                "is_error": True if errors_only else None,
+                "org_ids": org_ids or None,
+                "limit": limit,
+                "per_session_limit": per_session,
+                "snippet_chars": snippet_chars,
+            }
+        )
+    except ValidationError as e:
+        typer.echo(f"Invalid search: {e}", err=True)  # stderr keeps --json stdout parseable
+        raise typer.Exit(1)
+
+    try:
+        with Chronos(base_url=chronos_url, api_key=api_key) as client:
+            result = client.search_spans(request)
+    except Exception as e:
+        typer.echo(f"Search failed: {e}", err=True)
+        raise typer.Exit(1)
+
+    data = result.model_dump_json(indent=2)
+    if as_json:
+        typer.echo(data)  # plain stdout, so it pipes into jq
+        return
+    shown = 20
+    table = Table("session", "hits")
+    for count in result.session_counts[:shown]:
+        table.add_row(count.session_id, str(count.hits))
+    console.print(table)
+    if len(result.session_counts) > shown:
+        console.print(f"(top {shown} of {len(result.session_counts)} sessions by hits; all of them are in the file)")
+    console.print(
+        f"[green]{sum(c.hits for c in result.session_counts):,}[/green] matching spans in "
+        f"{len(result.session_counts)} of {result.sessions_searched} sessions"
+        + (" (hits truncated; raise --limit/--per-session)" if result.truncated else "")
+    )
+    if output is None:
+        # snippets carry reasoning and tool output: a private (0600), uniquely named file
+        fd, name = tempfile.mkstemp(prefix="chronos-search-", suffix=".json")
+        os.close(fd)
+        output = Path(name)
+    _write_output(data, output)
 
 
 # ---------------------------------------------------------------------------
@@ -545,19 +995,27 @@ def traces(
 @chronos_app.command("analysis")
 def analysis(
     session_id: Annotated[str, typer.Argument(help="Session ID")],
+    refresh: Annotated[bool, typer.Option("--refresh", help="Ignore the local span cache and re-download")] = False,
     chronos_url: str = _chronos_url_option,
     api_key: str = _api_key_option,
     output: Path | None = _output_option,
 ):
-    """Run OTel-based session analysis (token usage, phases, durations)."""
+    """Run OTel-based session analysis (token usage, phases, durations).
+
+    Reuses the span cache populated by ``traces`` (or a prior ``analysis``) when
+    present, so large sessions (10k+ spans) aren't re-streamed every run; pass
+    ``--refresh`` to re-download.
+    """
     chronos_url = chronos_url or settings.chronos_url
     api_key = _require_api_key(api_key)
 
     try:
         with Chronos(base_url=chronos_url, api_key=api_key) as client:
-            result = client.get_session_analysis(session_id)
+            spans = _get_spans(client, session_id, refresh=refresh)
+        result = analyze_session(spans, session_id)
         data = result.model_dump_json(indent=2)
         out = output or _default_output_path("analysis", session_id)
+        console.print(f"[green]{result.total_spans:,}[/green] spans analyzed")
         _write_output(data, out)
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
@@ -622,6 +1080,15 @@ def metrics(
 # ---------------------------------------------------------------------------
 
 
+def _human_size(n: int) -> str:
+    value = float(n)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if value < 1024 or unit == "TB":
+            return f"{value:.1f} {unit}" if unit != "B" else f"{int(value)} B"
+        value /= 1024
+    return f"{value:.1f} TB"
+
+
 @chronos_app.command("workspace-refs")
 def workspace_refs(
     session_id: Annotated[str, typer.Argument(help="Session ID")],
@@ -652,19 +1119,23 @@ def workspace_refs(
             # Pretty-print refs table
             from rich.table import Table
 
+            from plato.worlds.dvc_models import dvc_files_size_summary
+
             table = Table(title=f"Workspace Refs for {session_id[:12]}...")
             table.add_column("Repo", style="cyan")
             table.add_column("Step", style="green")
             table.add_column("Ref ID", style="dim")
-            table.add_column("DVC Files", style="yellow")
+            table.add_column("Size", style="magenta", justify="right")
+            table.add_column("Files", style="yellow", justify="right")
 
             for ref in refs:
-                dvc_count = len(ref.get("dvc_files") or {})
+                total_bytes, total_files = dvc_files_size_summary(ref.get("dvc_files") or {})
                 table.add_row(
                     ref.get("repo_name", ""),
                     ref.get("step_name", ""),
                     ref.get("public_id", "")[:12] + "...",
-                    str(dvc_count),
+                    _human_size(total_bytes),
+                    str(total_files),
                 )
             console.print(table)
 
@@ -685,86 +1156,6 @@ def workspace_refs(
                 console.print(",\n".join(entries))
                 console.print("    }")
                 console.print("  }")
-
-    except typer.Exit:
-        raise
-    except Exception as e:
-        console.print(f"[red]Failed: {e}[/red]")
-        raise typer.Exit(1)
-
-
-# ---------------------------------------------------------------------------
-# Filesystem audit
-# ---------------------------------------------------------------------------
-
-
-@chronos_app.command("audit")
-def audit_command(
-    session_id: Annotated[str, typer.Argument(help="Session public ID")],
-    step: Annotated[str | None, typer.Option("--step", help="Filter by step name")] = None,
-    repo: Annotated[str | None, typer.Option("--repo", help="Filter by repo name")] = None,
-    path: Annotated[str | None, typer.Option("--path", help="Filter by path prefix")] = None,
-    trace: Annotated[str | None, typer.Option("--trace", help="Filter by trace ID")] = None,
-    agent: Annotated[str | None, typer.Option("--agent", help="Filter by agent name")] = None,
-    operation: Annotated[str | None, typer.Option("--operation", help="Filter by operation name")] = None,
-    format: Annotated[str, typer.Option("--format", help="Output format: table or json")] = "table",
-    limit: Annotated[int, typer.Option("--limit", help="Max events to return")] = 500,
-    output: Path | None = _output_option,
-    chronos_url: str = _chronos_url_option,
-    api_key: str = _api_key_option,
-):
-    """Query filesystem audit events for a session."""
-    chronos_url = chronos_url or settings.chronos_url
-    api_key = _require_api_key(api_key)
-
-    try:
-        with Chronos(base_url=chronos_url, api_key=api_key) as client:
-            audit_response = client.get_audit_events(
-                session_id,
-                step_name=step,
-                repo_name=repo,
-                path=path,
-                trace_id=trace,
-                agent_name=agent,
-                operation=operation,
-                limit=limit,
-            )
-            data = audit_response.model_dump(mode="json")
-
-        events: list[dict[str, str]] = data.get("events", [])
-
-        if format == "json":
-            json_str = json.dumps(data, indent=2)
-            if output:
-                _write_output(json_str, output)
-            else:
-                console.print(json_str)
-        else:
-            if not events:
-                console.print("[yellow]No audit events found[/yellow]")
-                raise typer.Exit(0)
-
-            table = Table(title=f"Audit Events for {session_id[:12]}...")
-            table.add_column("Timestamp", style="dim")
-            table.add_column("Op", style="cyan")
-            table.add_column("Path", style="green")
-            table.add_column("Agent", style="yellow")
-            table.add_column("Exe", style="magenta")
-            table.add_column("Trace", style="dim")
-
-            for event in events:
-                table.add_row(
-                    event.get("timestamp", ""),
-                    event.get("operation", ""),
-                    event.get("path", ""),
-                    event.get("agent_name", ""),
-                    event.get("exe", ""),
-                    event.get("trace_id", "")[:12] + "..." if event.get("trace_id") else "",
-                )
-            console.print(table)
-
-            if output:
-                _write_output(json.dumps(data, indent=2), output)
 
     except typer.Exit:
         raise
@@ -799,9 +1190,16 @@ def mount(
 ):
     """Mount a workspace locally and return a short mount alias.
 
-    This starts a detached helper that keeps the VM, tunnel, and local mount alive.
-    The helper records mount metadata in `~/plato-workspaces/.plato-mounts/state.json`.
-    Use `plato chronos unmount <alias>` to tear it down later.
+    On Linux the workspace is mounted directly with the local `plato-fuse` binary —
+    no VM, tunnel, or NFS hop (install the `fuse3` package if prompted). On macOS,
+    which cannot run the Linux FUSE binary, a lightweight VM exports the mount over
+    NFS instead; the `--cpus`/`--memory`/`--disk` options only apply to that path.
+    Set `PLATO_MOUNT_VIA_VM=1` to force the VM path on Linux.
+
+    This starts a detached helper that keeps the mount (and, on macOS, the VM and
+    tunnel) alive. The helper records metadata in
+    `~/plato-workspaces/.plato-mounts/state.json`. Use `plato chronos unmount <alias>`
+    to tear it down later.
 
     Examples:
 
@@ -924,21 +1322,24 @@ def download(
     chronos_url = chronos_url or settings.chronos_url
     api_key = _require_api_key(api_key)
 
+    def _extract_git_workspace() -> None:
+        dest_dir = output or Path.cwd() / f"{session_id[:12]}-{repo_name.replace('/', '-')}-workspace"
+        dest_dir.parent.mkdir(parents=True, exist_ok=True)
+        repo_dir = download_git_workspace_via_archive(
+            dest_dir,
+            session_id=session_id,
+            repo_name=repo_name,
+            step_name=step_name,
+            dir_name=dir_name,
+            chronos_url=chronos_url,
+            api_key=api_key,
+        )
+        console.print(f"[green]Extracted git workspace to {dest_dir}[/green]")
+        console.print(f"[dim]Repo: {repo_dir}[/dim]")
+
     try:
         if extract:
-            dest_dir = output or Path.cwd() / f"{session_id[:12]}-{repo_name.replace('/', '-')}-workspace"
-            dest_dir.parent.mkdir(parents=True, exist_ok=True)
-            repo_dir = download_git_workspace_via_archive(
-                dest_dir,
-                session_id=session_id,
-                repo_name=repo_name,
-                step_name=step_name,
-                dir_name=dir_name,
-                chronos_url=chronos_url,
-                api_key=api_key,
-            )
-            console.print(f"[green]Extracted git workspace to {dest_dir}[/green]")
-            console.print(f"[dim]Repo: {repo_dir}[/dim]")
+            _extract_git_workspace()
             return
 
         if session_workspace:
@@ -955,11 +1356,13 @@ def download(
             return
 
         with Chronos(base_url=chronos_url, api_key=api_key) as client:
-            # First get refs to find the step name if not provided
-            refs = client.get_workspace_refs(session_id, repo_name=repo_name)
+            # The refs endpoint ignores the repo_name filter and returns every
+            # ref for the session (across all repos), so filter client-side —
+            # otherwise a same-named step from a different repo can be picked,
+            # and its objects live under a different S3 prefix.
+            all_refs = client.get_workspace_refs(session_id, repo_name=repo_name)
+            refs = [r for r in all_refs if r.get("repo_name") == repo_name]
             if not refs:
-                # Show available repos to help the user
-                all_refs = client.get_workspace_refs(session_id)
                 available = sorted({r.get("repo_name", "") for r in all_refs}) if all_refs else []
                 if available:
                     console.print(f"[red]No workspace refs for repo '{repo_name}'[/red]")
@@ -973,28 +1376,42 @@ def download(
                 step_name = refs[-1].get("step_name", "")
                 console.print(f"[dim]Using latest step: {step_name}[/dim]")
 
-            ref_id = None
+            selected_ref = None
             for ref in reversed(refs):
                 if ref.get("step_name") == step_name:
-                    ref_id = ref.get("public_id")
+                    selected_ref = ref
                     break
 
-            # Download the zip
-            from plato.chronos.api.workspace_repos import download_workspace_files
+            # Auto-detect git/archive workspaces (format: archive dvc_files) and
+            # extract + clone from .git-bare, so callers get a working git tree
+            # without having to pass --extract. Plain workspaces fall through to
+            # the direct-S3 manifest pull below.
+            if selected_ref is not None and ref_has_archive_dvc(selected_ref):
+                console.print("[dim]Detected git workspace — extracting and cloning from .git-bare[/dim]")
+                _extract_git_workspace()
+                return
 
-            zip_bytes = download_workspace_files.sync(
-                client._client,
-                session_public_id=session_id,
-                step_name=step_name,
-                repo_name=repo_name,
-                ref_public_id=ref_id,
-            )
+            # Manifest workspace: pull content-addressed objects directly from
+            # S3 (read-only creds), verify md5, and zip locally — instead of the
+            # legacy server-side byte-proxy ZIP, which buffered whole files in
+            # RAM and silently truncated large files on a mid-stream S3 read.
+            dvc_files = (selected_ref or {}).get("dvc_files") or {}
+            repo_public_id = (selected_ref or {}).get("repo_public_id")
+            if not dvc_files or not repo_public_id:
+                console.print(f"[red]Workspace ref for step '{step_name}' has no DVC files to download[/red]")
+                raise typer.Exit(1)
 
             out_path = output or Path(tempfile.gettempdir()) / f"{session_id[:12]}-{repo_name.replace('/', '-')}.zip"
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_bytes(zip_bytes)
+            file_count, total_bytes = download_manifest_workspace(
+                out_path,
+                repo_name=repo_name,
+                repo_public_id=repo_public_id,
+                dvc_files=dvc_files,
+                chronos_url=chronos_url,
+                api_key=api_key,
+            )
             console.print(f"[green]Downloaded to {out_path}[/green]")
-            console.print(f"[dim]Size: {len(zip_bytes) / 1024 / 1024:.1f} MB[/dim]")
+            console.print(f"[dim]{file_count} files, {total_bytes / 1024 / 1024:.1f} MB (verified)[/dim]")
 
     except typer.Exit:
         raise

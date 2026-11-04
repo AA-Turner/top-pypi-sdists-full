@@ -1,6 +1,7 @@
 # Copyright (c) 2023 Airbyte, Inc., all rights reserved.
 from .assets import ENABLED_CHECKS as ASSETS_CHECKS
 from .documentation import ENABLED_CHECKS as DOCUMENTATION_CHECKS
+from .form_ux import ENABLED_CHECKS as FORM_UX_CHECKS
 from .metadata import ENABLED_CHECKS as METADATA_CORRECTNESS_CHECKS
 from .packaging import ENABLED_CHECKS as PACKAGING_CHECKS
 from .security import ENABLED_CHECKS as SECURITY_CHECKS
@@ -8,6 +9,7 @@ from .version import ENABLED_CHECKS as VERSION_CHECKS
 
 ENABLED_CHECKS = (
     DOCUMENTATION_CHECKS
+    + FORM_UX_CHECKS
     + METADATA_CORRECTNESS_CHECKS
     + PACKAGING_CHECKS
     + ASSETS_CHECKS

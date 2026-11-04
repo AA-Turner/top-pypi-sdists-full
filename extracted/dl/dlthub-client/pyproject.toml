@@ -1,27 +1,27 @@
 [project]
 name = "dlthub-client"
-version = "0.28.7"
-description = "CLI tool for accessing dltHub runtime"
+version = "0.28.8"
+description = "dltHub Runtime client: the dlthub CLI commands, MCP tools and the dlthub_sdk Python SDK"
 authors = [{ name = "dltHub Inc.", email = "services@dlthub.com" }]
-requires-python = ">=3.10, <3.15"
+requires-python = ">=3.11, <3.15"
 readme = "README.md"
 license = "Apache-2.0"
+license-files = ["LICENSE.txt"]
 maintainers = [
     { name = "Marcin Rudolf", email = "marcin@dlthub.com" },
-    { name = "David Sharf", email = "dave@dlthub.com" },
+    { name = "David Scharf", email = "david@dlthub.com" },
 ]
-keywords = ["etl"]
+keywords = ["etl", "dlt", "dlthub", "data-pipelines", "sdk", "cli", "mcp"]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
+    "Framework :: AsyncIO",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: Linux",
     "Operating System :: Microsoft :: Windows",
@@ -40,6 +40,13 @@ dependencies = [
     "regex>=2024.4.16",
     "typing-extensions>=4.9",
 ]
+
+[project.urls]
+Homepage = "https://dlthub.com"
+Documentation = "https://dlthub.com/docs/hub/introduction"
+"CLI reference" = "https://dlthub.com/docs/hub/command-line-interface"
+"SDK reference" = "https://dlthub.com/docs/hub/reference/python-sdk"
+"API reference" = "https://dlthub.com/docs/hub/reference/api"
 
 [dependency-groups]
 dev = [
@@ -84,9 +91,6 @@ constraint-dependencies = [
     "requests>=2.33.0",
     "starlette>=1.3.1",
 ]
-
-[tool.uv.sources]
-dlt = { url = "https://github.com/dlt-hub/dlt/archive/refs/tags/1.31.0.zip" }
 
 # mark as OSS dlt extension
 [project.entry-points.dlt]
@@ -133,7 +137,7 @@ exclude_lines = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.sdist]
@@ -153,7 +157,7 @@ include = [
 
 
 [tool.mypy]
-python_version="3.10"
+python_version="3.11"
 ignore_missing_imports=false
 strict_optional=true
 warn_redundant_casts=true

@@ -6,7 +6,7 @@ Parses map files generated via ``-Wl,-Map=output.map`` (GCC, Clang, Rust).
 """
 
 import re
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .mapfilter import OutputSectionFilter
 
@@ -67,6 +67,37 @@ _OUTPUT_ADDRESS_ONLY_RE = re.compile(r'^\s+' + _OUTPUT_ADDRESS_SIZE)
 # CMake builds (especially on Windows hosts) emit objects with a .obj suffix.
 _ARCHIVE_RE = re.compile(r'^(.+\.a)\((.+\.(?:o|obj))\)$')
 
+# An explicit alignment of the location counter inside an output section,
+# printed with the address it produced:
+#                 0x0c074000                        . = ALIGN (COREAPP_ALIGNMENT)
+#                 0x0c074000                        . = ALIGN (., 0x200)
+_ALIGN_ASSIGNMENT_RE = re.compile(
+    r'^\s+0x[0-9a-fA-F]+\s+\.\s*=\s*ALIGN\s*\(')
+
+# Padding the linker inserted; the fill pattern may follow the size:
+#  *fill*         0x0c073800      0x800
+#  *fill*         0x0c073800      0x800 ff
+_FILL_RE = re.compile(
+    r'^\s+\*fill\*\s+0x[0-9a-fA-F]+\s+(0x[0-9a-fA-F]+)')
+
+# A row that places bytes: an input section (on one line or wrapped), a
+# data statement (``LONG 0xdeadbeef``); group 1 is its size. Symbol and
+# assignment rows carry only an address:
+#  .text.add      0x08002608       0x1c fw.o
+#                 0x08002624       0x20 fw.o
+#                 0x08002000        0x4 LONG 0xdeadbeef
+_PLACED_RE = re.compile(
+    r'^\s+(?:[^\s*]\S*\s+)?0x[0-9a-fA-F]+\s+(0x[0-9a-fA-F]+)(?:\s|$)')
+
+# Mergeable string and constant input sections (SHF_MERGE): .rodata.str1.4,
+# .rodata.<function>.str1.1, .rodata.cst8. GNU LD merges their contents into
+# the first of them and lists every one at the address where merging started
+# with its size before merging, so a row's range may hold another input
+# section's bytes:
+#  .rodata.str1.4 0x1011bd58       0x47 libc.a(libc_a-rand.o)
+#  .rodata        0x1011bd58       0x60 libc.a(libc_a-mktime.o)
+_MERGE_SECTION_RE = re.compile(r'\.(?:str\d+\.\d+|cst\d+)$')
+
 
 class _OutputSectionState:
     """Track the current output section and whether its rows are dropped."""
@@ -77,6 +108,11 @@ class _OutputSectionState:
         # True right after a wrapped header, whose address comes next.
         self._expect_address = False
         self.skip = False
+
+    @property
+    def name(self) -> Optional[str]:
+        """Name of the current output section, None before the first."""
+        return self._name
 
     def _enter(self, name: str, address: Optional[int]) -> None:
         self._name = name
@@ -147,22 +183,25 @@ class MapFileParser:  # pylint: disable=too-few-public-methods
             ``start``. ``archive`` is "" for bare .o files. Zero-size and
             zero-address entries are skipped.
         """
-        ranges: List[Tuple[int, int, str, str]] = []
-        seen_starts = set()
+        # start -> ((start, end, archive, object), from a merge section)
+        by_start: Dict[int, Tuple[Tuple[int, int, str, str], bool]] = {}
         pending_section = None
         output = _OutputSectionState(section_filter)
 
-        def emit(address: int, size: int, file_field: str) -> None:
+        def emit(section: str, address: int, size: int, file_field: str) -> None:
             if address == 0 or size == 0:
                 return
-            if address in seen_starts:
-                # First occurrence wins (GNU LD lists in link order).
+            merge = bool(_MERGE_SECTION_RE.search(section))
+            seen = by_start.get(address)
+            if seen is not None and (merge or not seen[1]):
+                # First occurrence wins (GNU LD lists in link order), but
+                # a merge section gives way to an input section placed
+                # where it is listed.
                 return
             archive, obj = self._parse_file_field(file_field.strip())
             if not obj:
                 return
-            seen_starts.add(address)
-            ranges.append((address, address + size, archive, obj))
+            by_start[address] = ((address, address + size, archive, obj), merge)
 
         for line in content.splitlines():
             if line and not line[0].isspace():
@@ -177,7 +216,8 @@ class MapFileParser:  # pylint: disable=too-few-public-methods
             match = _SECTION_CONTRIB_RE.match(line)
             if match:
                 pending_section = None
-                emit(int(match.group(2), 16),
+                emit(match.group(1),
+                     int(match.group(2), 16),
                      int(match.group(3), 16),
                      match.group(4))
                 continue
@@ -187,8 +227,9 @@ class MapFileParser:  # pylint: disable=too-few-public-methods
             if pending_section is not None:
                 cont_match = _CONTINUATION_RE.match(line)
                 if cont_match:
-                    pending_section = None
-                    emit(int(cont_match.group(1), 16),
+                    section, pending_section = pending_section, None
+                    emit(section,
+                         int(cont_match.group(1), 16),
                          int(cont_match.group(2), 16),
                          cont_match.group(3))
                     continue
@@ -203,8 +244,69 @@ class MapFileParser:  # pylint: disable=too-few-public-methods
                 pending_section = name_match.group(1)
                 continue
 
-        ranges.sort(key=lambda r: r[0])
-        return ranges
+        return sorted(entry for entry, _ in by_start.values())
+
+    @staticmethod
+    def alignment_fill(content: str) -> Dict[str, int]:
+        """Sum the padding produced by explicit ``. = ALIGN (...)``
+        statements, per output section.
+
+        GNU LD prints the assignment and, on the next line, the ``*fill*``
+        it produced. Only a fill directly below an ALIGN line counts:
+        fill between input sections (object alignment) and fill from
+        reservations such as ``. = (. + 0x400)`` stay part of the section.
+        Matching by proximity instead would take the reservation fill in::
+
+                            0x0c050600      . = (. + 0x400)
+             *fill*         0x0c050200      0x400
+                            0x0c050600      . = ALIGN (CODE_ALIGNMENT)
+
+        Only ALIGN fill at the end of the section counts: bytes placed
+        after it (an input section, a data statement, other fill) keep it
+        inside the section, where taking it off the size would leave that
+        content past the section's end.
+
+        Args:
+            content: Full text content of a GNU LD map file.
+
+        Returns:
+            Output section name -> padding bytes, for sections with any.
+        """
+        padding: Dict[str, int] = {}
+        output = _OutputSectionState(None)
+        after_align = False
+        trailing = 0
+
+        def commit() -> None:
+            if trailing and output.name:
+                padding[output.name] = padding.get(output.name, 0) + trailing
+
+        for line in content.splitlines():
+            if not line.strip():
+                continue
+            if not line[0].isspace():
+                commit()
+                trailing = 0
+                output.column0(line)
+                after_align = False
+                continue
+            if output.wrapped_address(line):
+                after_align = False
+                continue
+            fill = _FILL_RE.match(line)
+            if fill:
+                size = int(fill.group(1), 16)
+                if after_align:
+                    trailing += size
+                elif size:
+                    trailing = 0
+            else:
+                placed = _PLACED_RE.match(line)
+                if placed and int(placed.group(1), 16):
+                    trailing = 0
+            after_align = bool(_ALIGN_ASSIGNMENT_RE.match(line))
+        commit()
+        return padding
 
     @staticmethod
     def _parse_file_field(field: str) -> Tuple[str, str]:

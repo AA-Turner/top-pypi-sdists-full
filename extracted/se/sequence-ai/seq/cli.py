@@ -101,7 +101,10 @@ def _your_clock(base_url: str | None) -> None:
 
 def _main(argv: list[str] | None = None) -> int:
     ap = build_parser()
+    argv, command = _shell_command(list(sys.argv[1:] if argv is None else argv))
     args = ap.parse_args(argv)
+    if command is not None:
+        args.command = command
     if not args.cmd:
         ap.print_help()
         return 2
@@ -146,6 +149,7 @@ _OWN_FLAGS = {
     (None, "stopped"): "seq policy start <name>",
     (None, "storage_full"): "seq account set --storage-limit <GB>",
     (None, "unauthenticated"): "seq login, or set SEQUENCES_API_KEY",
+    (None, "person_only"): "seq login",
     (None, "policy_error"): "seq policy logs <name>",
     ("deploy", "name_held"): "add --override to take it over, or give it another name with --name",
     ("deploy", "name_taken"): "give it another name with --name",
@@ -361,6 +365,18 @@ def _eval_ls(args: argparse.Namespace) -> int:
                          **_page_kw(args))
 
 
+def _shell_command(argv: list[str]) -> tuple[list[str], list[str] | None]:
+    """`seq policy shell NAME [options] -- COMMAND...` (and `seq benchmark shell`): its command's words - all after the
+    first `--` past `shell`, options of theirs and `--` among them - taken out before the parser reads the rest, which
+    an argparse before Python 3.12 does not hand a subcommand whole; (argv, None) for any other command."""
+    at = next((i for i in range(len(argv) - 1) if argv[i:i + 2] in (["policy", "shell"], ["benchmark", "shell"])),
+              None)
+    if at is None or "--" not in argv[at + 2:]:
+        return argv, None
+    cut = argv.index("--", at + 2)
+    return argv[:cut], argv[cut + 1:]
+
+
 def _cmd_policy(args: argparse.Namespace) -> int:
     from seq import data_cli, deployments_cli as dc
 
@@ -369,6 +385,14 @@ def _cmd_policy(args: argparse.Namespace) -> int:
         return _cmd_platform(args, dc.list_remote, **_page_kw(args))
     if sub == "status":
         return _cmd_status(args)
+    if sub == "shell":
+        from seq import shell_cli
+
+        out = shell_cli.shell(name, args.command, worker=args.worker, timeout_s=args.timeout, base_url=args.base_url,
+                              echo=_quiet if args.json else print)
+        if args.json:
+            _print_json(out)
+        return shell_cli.exit_code(out)
     if sub == "logs":
         name, version = at_version(name)
         if args.build:
@@ -601,6 +625,17 @@ def _cmd_benchmark(args: argparse.Namespace) -> int:
 
     if args.benchmark_cmd == "ls":
         return _cmd_platform(args, listing.ls, **_page_kw(args))
+    if args.benchmark_cmd == "shell":
+        from seq import shell_cli
+
+        name, version = at_version(args.name)
+        echo = _quiet if args.json else print
+        out = (shell_cli.benchmark_stop(name, base_url=args.base_url, echo=echo) if args.stop else
+               shell_cli.benchmark_shell(name, args.command, version=version, timeout_s=args.timeout,
+                                         base_url=args.base_url, echo=echo))
+        if args.json:
+            _print_json(out)
+        return 0 if args.stop else shell_cli.exit_code(out)
     if args.benchmark_cmd == "upgrade":
         from seq import upgrade_cli
 

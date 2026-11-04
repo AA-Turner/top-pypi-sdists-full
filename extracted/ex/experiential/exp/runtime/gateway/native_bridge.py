@@ -295,9 +295,8 @@ class NativeControlPlane(
         """Decode, authorize, inspect, route, and durably accept one request.
 
         Args:
-            argument: JSON object with ``raw_key``, ``body`` (raw request
-                body text), optional ``surface`` (``"chat"`` or
-                ``"responses"``, defaulting to chat), and caller app headers.
+            argument: JSON object with ``raw_key``, ``body`` (raw request body text), optional
+                ``surface`` (``"chat"`` or ``"responses"``, default chat), and caller app headers.
 
         Returns:
             The ordered certified ``route`` with dispatch and retry configuration,
@@ -305,8 +304,7 @@ class NativeControlPlane(
             the native plane cannot serve without writing an attempt row.
 
         Raises:
-            NativeBridgeError: Decoding, authorization, routing, or
-                capability admission failed.
+            NativeBridgeError: Decoding, authorization, routing, or capability admission failed.
         """
         assert_not_internal_classification()
         data = json.loads(argument)
@@ -332,7 +330,7 @@ class NativeControlPlane(
             )
             authorization = authorize_serving_model_chains(self._components, authorization)
             authorization = with_client_identity(authorization, data)  # reporting-only app facts
-            self._accounting.require_clear()
+            self._accounting.require_clear(authorization.organization_id)
         except Exception as exc:  # noqa: BLE001 - boundary sanitizes every failure.
             mapped = _authority_error(exc)
             pointer = self._batch_pointer_error(alias=decoded.alias, mapped=mapped)
@@ -860,6 +858,10 @@ class NativeControlPlane(
             NativeBridgeError: Write failed; the entry remains available for retry.
         """
         return self._accounting.settle(argument)
+
+    def price(self, argument: str) -> str:
+        """Price one decided settlement before terminal bytes flush; nothing is written."""
+        return self._accounting.price(argument)
 
     def abandon(self, argument: str) -> str:
         """Terminalize one accepted request through the accounting registry.

@@ -31,6 +31,7 @@ def drain(
     window: "CollectWindow | None" = None,
     priority_runs: "set | frozenset | None" = None,
     set_best_effort_aside: bool = False,
+    senders: "SenderClients | None" = None,
     _include_receipts: bool = True,
 ) -> DrainReport:
     """Deliver queued ops, FIFO within each run and runs round-robin (plan 1.6); one pass per
@@ -44,8 +45,10 @@ def drain(
     ``priority_runs``: runs a `finish()` is waiting on (R2): their lanes go first.
     ``set_best_effort_aside``: the worker's passes only (it lets held writes out again): a failing
     best-effort write leaves its run's line at once instead of holding it (`outbox/held`).
-    ``client_factory``: tests. ``on_error`` may raise to keep the op as it was; ``on_delivered``
-    runs after a delivery is durable and cannot fail it. DESIGN.md has the full contract."""
+    ``senders``: the worker's `SenderClients`, kept across passes (I13); without one a pass builds
+    its own and closes them at its end. ``client_factory``: tests. ``on_error`` may raise to keep
+    the op as it was; ``on_delivered`` runs after a delivery is durable and cannot fail it.
+    DESIGN.md has the full contract."""
     if _include_receipts and not journal.receipt_enabled:
         namespaces = journal.namespaces()
         if len(namespaces) > 1:
@@ -65,6 +68,7 @@ def drain(
                 window=window,
                 priority_runs=priority_runs,
                 set_best_effort_aside=set_best_effort_aside,
+                senders=senders,
             )
     options = DrainOptions(
         run_ref=run_ref,
@@ -80,6 +84,7 @@ def drain(
         window=window,
         priority_runs=priority_runs,
         set_best_effort_aside=set_best_effort_aside,
+        senders=senders,
     )
     return DrainPass(journal, options).run()
 
@@ -101,6 +106,7 @@ def _drain_namespaces(
     window,
     priority_runs=None,
     set_best_effort_aside=False,
+    senders=None,
 ) -> DrainReport:
     """One pass per namespace (the root queue and its credential queues), reports summed."""
     combined = DrainReport()
@@ -132,6 +138,7 @@ def _drain_namespaces(
             window=window,
             priority_runs=priority_runs,
             set_best_effort_aside=set_best_effort_aside,
+            senders=senders,
             _include_receipts=False,
         )
         _add_part_report(combined, part)
@@ -189,6 +196,9 @@ def _add_part_report(combined: DrainReport, part: DrainReport) -> None:
     combined.lane_refs.update(part.lane_refs)
     combined.held_again += part.held_again
     combined.lane_held += part.lane_held
+    combined.answered_servers |= part.answered_servers
+    combined.failing_servers |= part.failing_servers
+    combined.server_storing.update(part.server_storing)
 
 
 @dataclass(frozen=True)
@@ -208,6 +218,7 @@ class DrainOptions:
     window: "CollectWindow | None" = None
     priority_runs: "set | frozenset | None" = None
     set_best_effort_aside: bool = False
+    senders: "SenderClients | None" = None
 
 
 if TYPE_CHECKING:
@@ -382,11 +393,8 @@ class DrainPass(_DrainPassParts):
         """Close what the pass opened, gc blobs, write status.json, release the drain lock."""
         journal = self.journal
         report = self.report
-        for client in self.constructed:
-            try:
-                client.close()
-            except Exception:  # noqa: BLE001
-                pass
+        if self.should_close_senders:  # the worker's own outlive the pass (I13)
+            self.sender_clients.close()
         if self.settled_upload:  # no upload left the queue: no blob can be unreferenced
             try:
                 journal.gc_blobs()
@@ -462,7 +470,7 @@ from probe.sdk.delivery.outbox.drain.lanes import _multipart_pending_count  # no
 from probe.sdk.delivery.outbox.drain.lock import _DrainHold, _LockNotBack, _take_drain_lock  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.report import DrainReport  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.settle import DrainSettleMixin  # noqa: E402 -- pieces need each other; the front door loads this one first
-from probe.sdk.delivery.outbox.drain.senders import DrainSendersMixin  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.outbox.drain.senders import DrainSendersMixin, SenderClients  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.lanes import DrainLanesMixin  # noqa: E402 -- pieces need each other; the front door loads this one first
 
 # DrainPass's parts read it back at import time, so they load after it and are folded in here.

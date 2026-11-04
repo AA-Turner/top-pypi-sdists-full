@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: plato-sdk-v2
-Version: 2.99.5
+Version: 2.198.0
 Summary: Python SDK for the Plato API
 Author-email: Plato <support@plato.so>
 License-Expression: MIT
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Typing :: Typed
 Requires-Python: <3.14,>=3.11
-Requires-Dist: aiohttp==3.13.4
+Requires-Dist: aiohttp==3.14.1
 Requires-Dist: blake3==1.0.8
 Requires-Dist: boto3==1.42.52
 Requires-Dist: cloudpickle==3.1.2
@@ -24,14 +24,15 @@ Requires-Dist: gitpython==3.1.50
 Requires-Dist: google-genai==1.59.0
 Requires-Dist: httpx==0.28.1
 Requires-Dist: jinja2==3.1.6
-Requires-Dist: litellm==1.83.14
+Requires-Dist: jsonschema==4.23.0
+Requires-Dist: litellm==1.90.0
 Requires-Dist: openapi-pydantic==0.5.1
 Requires-Dist: opentelemetry-api==1.39.1
 Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.39.1
 Requires-Dist: opentelemetry-instrumentation-system-metrics==0.60b1
 Requires-Dist: opentelemetry-sdk==1.39.1
-Requires-Dist: pathspec==1.0.4
-Requires-Dist: pydantic-settings==2.12.0
+Requires-Dist: pillow<13,>=12.2.0
+Requires-Dist: pydantic-settings==2.14.2
 Requires-Dist: pydantic==2.12.5
 Requires-Dist: python-dotenv==1.2.2
 Requires-Dist: pyyaml==6.0.3
@@ -40,6 +41,7 @@ Requires-Dist: rich==14.2.0
 Requires-Dist: tenacity==9.1.2
 Requires-Dist: tomli==2.4.0
 Requires-Dist: typer==0.21.1
+Requires-Dist: typesafe-sdk==0.7.2
 Provides-Extra: db-cleanup
 Requires-Dist: aiomysql>=0.2; extra == 'db-cleanup'
 Requires-Dist: aiosqlite>=0.20; extra == 'db-cleanup'
@@ -48,11 +50,14 @@ Requires-Dist: sqlalchemy[asyncio]>=2.0; extra == 'db-cleanup'
 Provides-Extra: dev
 Requires-Dist: basedpyright>=1.18; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.21; extra == 'dev'
-Requires-Dist: pytest>=7.0; extra == 'dev'
+Requires-Dist: pytest>=9.1.1; extra == 'dev'
 Requires-Dist: ruff>=0.1; extra == 'dev'
+Provides-Extra: pi
+Requires-Dist: onepassword-sdk==0.4.1; extra == 'pi'
+Requires-Dist: playwright==1.58.0; extra == 'pi'
+Requires-Dist: vncdotool==1.4.2; extra == 'pi'
 Provides-Extra: segmentation
 Requires-Dist: numpy>=1.24.0; extra == 'segmentation'
-Requires-Dist: pillow>=10.0.0; extra == 'segmentation'
 Provides-Extra: worlds
 Requires-Dist: dvc; extra == 'worlds'
 Requires-Dist: dvc-s3; extra == 'worlds'
@@ -60,23 +65,24 @@ Description-Content-Type: text/markdown
 
 # Plato Python SDK
 
-Python SDK for the Plato platform. Uses [Harbor](https://harborframework.com) for agent execution.
+Python SDK for the Plato platform.
 
 ## Installation
 
-```bash
-pip install plato-sdk-v2
+The package is private — install it from the Plato package index (it upstreams PyPI, so dependencies resolve normally):
 
-# For agent functionality (requires Python 3.12+)
-pip install 'plato-sdk-v2[agents]'
+```bash
+pip install plato-sdk-v2 --index-url "https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"
 ```
 
 Or with uv:
 
 ```bash
-uv add plato-sdk-v2
-uv add 'plato-sdk-v2[agents]'  # for agent support
+uv add plato-sdk-v2 --index "https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"
 ```
+
+Agent support is in the base package — there is no `[agents]` extra. The declared
+extras are `dev`, `segmentation`, `worlds` and `db-cleanup` (see `pyproject.toml`).
 
 ## Configuration
 
@@ -95,109 +101,23 @@ export PLATO_API_KEY=your-api-key
 
 ## Agents
 
-The SDK uses Harbor's agent framework. All agents are `BaseInstalledAgent` subclasses that run in containers.
-
-### Available Agents
-
-**Harbor built-in agents** (code agents):
-| Agent | Description |
-|-------|-------------|
-| `claude-code` | Claude Code CLI |
-| `openhands` | OpenHands/All Hands AI |
-| `codex` | OpenAI Codex CLI |
-| `aider` | Aider pair programming |
-| `gemini-cli` | Google Gemini CLI |
-| `goose` | Block Goose |
-| `swe-agent` | SWE-agent |
-| `mini-swe-agent` | Mini SWE-agent |
-| `cline-cli` | Cline CLI |
-| `cursor-cli` | Cursor CLI |
-| `opencode` | OpenCode |
-| `qwen-coder` | Qwen Coder |
-
-**Plato custom agents** (browser/automation):
-| Agent | Description |
-|-------|-------------|
-| `computer-use` | Browser automation (install: `pip install plato-agent-computer-use`) |
-
-### Python Usage
-
-```python
-from plato.agents import ClaudeCode, OpenHands, AgentFactory, AgentName
-from pathlib import Path
-
-# Option 1: Use AgentFactory
-agent = AgentFactory.create_agent_from_name(
-    AgentName.CLAUDE_CODE,
-    logs_dir=Path("./logs"),
-    model_name="anthropic/claude-sonnet-4",
-)
-
-# Option 2: Import agent class directly
-agent = ClaudeCode(
-    logs_dir=Path("./logs"),
-    model_name="anthropic/claude-sonnet-4",
-)
-
-# Option 3: Create custom BaseInstalledAgent
-from plato.agents import BaseInstalledAgent
-```
+Agents run inside Plato VMs. The first-party agent is `computer-use` (browser
+automation, install: `pip install plato-agent-computer-use`); custom agents
+subclass `plato.agents.BaseAgent` — see `plato/agents/base.py` for the interface
+and the module docstring in `plato/agents/__init__.py` for the exported API and
+worked examples.
 
 ### CLI Usage
 
 ```bash
-# Run an agent
-plato agent run -a claude-code -m anthropic/claude-sonnet-4 -d swe-bench-lite
-
 # List available agents
 plato agent list
 
 # Get agent config schema
-plato agent schema claude-code
+plato agent schema computer-use
 
-# Publish custom agent to Plato PyPI
+# Publish a custom agent to Plato PyPI
 plato agent publish ./my-agent
-```
-
-### Agent Schemas
-
-Get configuration schemas for any agent:
-
-```python
-from plato.agents import get_agent_schema, AGENT_SCHEMAS
-
-# Get schema for specific agent
-schema = get_agent_schema("claude-code")
-print(schema)
-
-# List all available schemas
-print(list(AGENT_SCHEMAS.keys()))
-```
-
-### Custom Agents
-
-Create a custom agent by extending `BaseInstalledAgent`:
-
-```python
-from harbor.agents.installed.base import BaseInstalledAgent, ExecInput
-from pathlib import Path
-
-class MyAgent(BaseInstalledAgent):
-    @staticmethod
-    def name() -> str:
-        return "my-agent"
-
-    @property
-    def _install_agent_template_path(self) -> Path:
-        return Path(__file__).parent / "install.sh.j2"
-
-    def create_run_agent_commands(self, instruction: str) -> list[ExecInput]:
-        return [ExecInput(command=f"my-agent --task '{instruction}'")]
-```
-
-Publish to Plato PyPI:
-```bash
-plato agent publish ./my-agent-package
 ```
 
 ---
@@ -244,9 +164,9 @@ async def main():
 asyncio.run(main())
 ```
 
-### Flow 2: Create Session from Task
+### Flow 2: Create Session from Test Case
 
-Use this when running evaluations against predefined tasks. This flow includes task evaluation at the end.
+Use this when running evaluations against predefined test cases. This flow includes evaluation at the end.
 
 ```python
 import asyncio
@@ -255,11 +175,10 @@ from plato.v2 import AsyncPlato
 async def main():
     plato = AsyncPlato()
 
-    # Create session from task ID
-    session = await plato.sessions.create(task=123, timeout=600)
-
-    # Reset environments to initial state
-    await session.reset()
+    # Create session from a test case public ID.
+    # Unlike `envs=`/`artifacts=`, this auto-resets for mutation logging,
+    # so no explicit session.reset() is needed.
+    session = await plato.sessions.create(testcase="tc_abc123", timeout=600)
 
     # Get public URLs for browser access
     public_urls = await session.get_public_url()
@@ -342,18 +261,10 @@ session.close()
 plato.close()
 ```
 
-## Architecture
-
-```
-plato/
-├── agents/          # Harbor agent re-exports + schemas
-├── sims/            # Simulator clients (Spree, Firefly, etc.)
-├── world/           # World/environment abstractions
-├── v1/              # Legacy SDK + CLI
-└── v2/              # New API client
-```
-
 ## Documentation
 
 - [Generating Simulator SDKs](docs/GENERATING_SIM_SDKS.md) - How to create API clients for simulators
 - [Building Simulators](BUILDING_SIMS.md) - Internal docs for snapshotting simulators
+- [Vault CLI](../docs/exploration/vault-cli.md) - `plato vault`: accounts, logins, personas and sign-ups (`plato vault signup`)
+
+Part of the [useplato/plato-client](https://github.com/useplato/plato-client) monorepo.

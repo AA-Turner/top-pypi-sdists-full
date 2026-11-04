@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from functools import partial
 from itertools import pairwise
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Any
 
 from cc_transcript.tools import tool_name_matches
 
-from captain_hook.bindings import dequote
-from captain_hook.cmd import Target, Targets, git_location
+from captain_hook.bindings import Ref, dequote, segments, skip_group
+from captain_hook.cmd import Cmd, Target, Targets, git_location
 from captain_hook.command_schema_core import (
     Arguments,
     CommandSchema,
@@ -32,9 +33,21 @@ if TYPE_CHECKING:
 
     from cc_transcript.command import Word
 
-    from captain_hook.cmd import Call, Cmd
+    from captain_hook.cmd import Call
 
 POOLS = (".claude/worktrees",)
+GUARDED_ROOT = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*:\?")
+WHOLE_REFERENCE = re.compile(r"\$(?:[A-Za-z_][A-Za-z0-9_]*|\{[A-Za-z_][A-Za-z0-9_]*(?::-)?\})")
+LINE_COUNT = re.compile(r"-\d+|-n\d*|\+?\d+|--lines=\+?\d+")
+LINE_MATCH = re.compile(r"-[EFivwx]+")
+WHOLE_LINE_FILTERS = {
+    "grep": LINE_MATCH,
+    "head": LINE_COUNT,
+    "rg": LINE_MATCH,
+    "sort": re.compile(r"-[fnruV]+"),
+    "tail": LINE_COUNT,
+    "uniq": re.compile(r"-[diu]+"),
+}
 
 
 HOME_POOL_LEVELS = dict.fromkeys(POOLS, 1)
@@ -148,6 +161,7 @@ GREP = CommandSchema(
     "grep",
     operands=(Operand("operands", count="*"),),
     options=(
+        Option("matching_files", ("-L", "-l", "--files-with-matches", "--files-without-match"), bool),
         Option("patterns", ("-e", "--regexp")),
         Option("pattern_files", ("-f", "--file")),
         Option("recursive", ("-r", "-R", "--recursive", "--dereference-recursive"), bool),
@@ -178,7 +192,7 @@ GREP = CommandSchema(
             "mode",
             (
                 *(f"-{digit}" for digit in range(10)),
-                *(f"-{letter}" for letter in "EFGHIJLMOPSTUXZabchilnopqsuvwxyz"),
+                *(f"-{letter}" for letter in "EFGHIJMOPSTUXZabchinopqsuvwxyz"),
                 "--basic-regexp",
                 "--extended-regexp",
                 "--fixed-strings",
@@ -188,8 +202,6 @@ GREP = CommandSchema(
                 "--color",
                 "--colour",
                 "--count",
-                "--files-with-matches",
-                "--files-without-match",
                 "--ignore-case",
                 "--no-ignore-case",
                 "--initial-tab",
@@ -420,6 +432,7 @@ RG = CommandSchema(
         Option("type", ("-t", "--type")),
         Option("type_add", ("--type-add",)),
         Option("files", ("--files",), bool),
+        Option("matching_files", ("-l", "--files-with-matches", "--files-without-match"), bool),
         Option("listing", ("--type-list",), bool),
         Option("generate", ("--generate",)),
         Option("info", ("-h", "--help", "-V", "--version", "--pcre2-version"), bool),
@@ -470,7 +483,7 @@ RG = CommandSchema(
         Option(
             "mode",
             (
-                *(f"-{letter}" for letter in "0FHILNPSUabcilnopqsuvwxz."),
+                *(f"-{letter}" for letter in "0FHILNPSUabcinopqsuvwxz."),
                 "--auto-hybrid-regex",
                 "--binary",
                 "--block-buffered",
@@ -481,8 +494,6 @@ RG = CommandSchema(
                 "--count-matches",
                 "--crlf",
                 "--debug",
-                "--files-with-matches",
-                "--files-without-match",
                 "--fixed-strings",
                 "--follow",
                 "--glob-case-insensitive",
@@ -693,8 +704,100 @@ GIT_GREP = CommandSchema(
 )
 
 
+@dataclass(frozen=True, slots=True)
+class CommandPattern:
+    schema: CommandSchema
+    only_if: tuple[Callable[[Arguments], bool], ...] = ()
+    skip_if: tuple[Callable[[Arguments], bool], ...] = ()
+
+
+GIT_LS_FILES = CommandSchema(
+    "git",
+    subcommand=("ls-files",),
+    operands=(Operand("operands", count="*"),),
+    options=(
+        Option("selection", ("-c", "--cached", "-m", "--modified", "-o", "--others", "--exclude-standard"), bool),
+    ),
+)
+
+
+def lists_matching_files(arguments: Arguments) -> bool:
+    return any(arguments.values.get(role) for role in ("files", "matching_files"))
+
+
+PATH_LISTERS = (
+    CommandPattern(RG, only_if=(lists_matching_files,)),
+    CommandPattern(GREP, only_if=(lists_matching_files,)),
+    CommandPattern(GIT_LS_FILES, only_if=(lambda arguments: arguments.complete,)),
+)
+
+
 def narrows(glob: Scalar | None) -> bool:
     return isinstance(glob, str) and any(character.isalnum() for character in glob)
+
+
+def lists_paths(source: str | None) -> bool:
+    text = (source or "").strip('"')
+    if not text.startswith("$(") or skip_group(text, 1, "(", ")") != len(text):
+        return False
+    if (cmd := Cmd.parse(text[2:-1])) is None or not (calls := cmd.calls()):
+        return False
+    head, *rest = calls
+    return all(map(passes_whole_lines, rest)) and any(
+        head.name == pattern.schema.program
+        and pattern.schema.invokes(head)
+        and all(predicate(pattern.schema.bind(head)) for predicate in pattern.only_if)
+        for pattern in PATH_LISTERS
+    )
+
+
+def passes_whole_lines(call: Call) -> bool:
+    allowed = WHOLE_LINE_FILTERS.get(call.name)
+    if (
+        allowed is None
+        or call.occurrence.prev_op != "|"
+        or any(redirect.op in STDIN_REDIRECTS for redirect in call.redirects)
+    ):
+        return False
+    others = [word for word in call.command.words[1:] if word.value is None or not allowed.fullmatch(word.value)]
+    return len(others) <= int(allowed is LINE_MATCH) and not any((word.value or "").startswith("-") for word in others)
+
+
+def file_shaped(raw: str) -> bool:
+    _, slash, name = raw.replace('"', "").replace("'", "").rpartition("/")
+    return bool(slash) and not any(character in name for character in "$`)}") and narrows(PurePath(name).suffix)
+
+
+def expansions_quoted(raw: str) -> bool:
+    parts = segments(raw)
+    return (
+        raw.startswith('"') and raw.endswith('"') and raw.count('"') == 2
+        if parts is None
+        else all(part.quoted for part in parts if isinstance(part, Ref))
+    )
+
+
+def names_only_files(target: Target) -> bool:
+    return target.value is None and (
+        (expansions_quoted(target.raw) and file_shaped(target.raw))
+        or (WHOLE_REFERENCE.fullmatch(target.raw.strip('"')) is not None and lists_paths(target.source))
+    )
+
+
+def expansion_targets(target: Target) -> tuple[Target, ...]:
+    if target.value is not None:
+        return (target,)
+    raw = target.raw.strip('"')
+    if (GUARDED_ROOT.match(raw) and expansions_quoted(target.raw)) or names_only_files(target):
+        return ()
+    source = target.source or ""
+    pieces = tuple(Target(piece, piece, target.cwd) for piece in source.split())
+    written_out = WHOLE_REFERENCE.fullmatch(raw) and source and not set("$`(") & set(source)
+    return pieces if written_out and all(not piece.has_glob or names_files(piece) for piece in pieces) else (target,)
+
+
+def settled(roots: Iterable[Target]) -> Iterator[Target]:
+    return (known for target in roots for known in expansion_targets(target))
 
 
 def names_files(target: Target) -> bool:
@@ -806,7 +909,7 @@ def find_searches_broadly(arguments: Arguments) -> bool:
         SYSTEM_ROOTS(target)
         or spans_checkouts(target)
         or ((root := canonical(target)) is not None and encloses_roots(root, layout().collections))
-        for target in roots
+        for target in settled(roots)
     )
 
 
@@ -827,7 +930,7 @@ def searches_broadly(
 ) -> bool:
     known = known_search_roots(cwd, pack_roots=pack_roots) if known_roots is None else known_roots
     return not roots.complete or any(
-        broad(target, known_roots=known, pack_roots=pack_roots) for target in roots or (Target(".", ".", cwd),)
+        broad(target, known_roots=known, pack_roots=pack_roots) for target in settled(roots or (Target(".", ".", cwd),))
     )
 
 
@@ -862,6 +965,7 @@ def grep_searches_broadly(arguments: Arguments) -> bool:
         or any(
             target.value != "-" and (target.has_glob or not ((path := target.path) is not None and path.is_file()))
             for target in roots or (Target(".", ".", arguments.cwd),)
+            if not names_only_files(target)
         )
     )
 
@@ -1066,7 +1170,7 @@ def lists_files(arguments: Arguments) -> bool:
 
 def lists_home_or_pool(arguments: Arguments) -> bool:
     roots = arguments.paths("operands")
-    return not roots.complete or any(map(spans_checkouts, roots or (Target(".", ".", arguments.cwd),)))
+    return not roots.complete or any(map(spans_checkouts, settled(roots or (Target(".", ".", arguments.cwd),))))
 
 
 def vanishing(words: Iterable[Word], arguments: Arguments, *, lifted: bool = True) -> bool:
@@ -1183,8 +1287,9 @@ MCP_GREP_MESSAGE = (
 )
 SEARCH_MESSAGE = (
     "A recursive `grep` over a directory reads every file under it; bound `grep` by f"
-    "ilename and scope other searches below broad roots. Name files, use `--include='"
-    "*.py'`, `-g '*.py'`, or `-- '*.py'`, or run `ccx code grep` with scoped paths."
+    "ilename and scope other searches below broad roots. Name files, write a variable"
+    " path as `\"${file:?}\"`, use `--include='*.py'`, `-g '*.py'`, or `-- '*.py'`, or"
+    " run `ccx code grep` with scoped paths."
 )
 FILES_MESSAGE = (
     "`rg --files` over `~`, a worktree pool, or any directory above them is blocked e"
@@ -1204,16 +1309,9 @@ PROTECTED_ROOT_MESSAGE = (
 )
 EMPTY_ROOT_MESSAGE = (
     "A search whose only path is an unquoted expansion such as `$dir` or `$(...)` wal"
-    "ks the working directory when that expansion is empty. Write the path as `${dir:"
-    "?}` so an empty value stops the command, or pass a literal path."
+    'ks the working directory when that expansion is empty. Write the path as `"${dir'
+    ':?}"` so an empty value stops the command, or pass a literal path.'
 )
-
-
-@dataclass(frozen=True, slots=True)
-class CommandPattern:
-    schema: CommandSchema
-    only_if: tuple[Callable[[Arguments], bool], ...] = ()
-    skip_if: tuple[Callable[[Arguments], bool], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

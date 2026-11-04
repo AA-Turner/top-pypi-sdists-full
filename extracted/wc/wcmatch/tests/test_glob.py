@@ -1314,6 +1314,41 @@ class TestCWD(_TestGlob):
 
         self.assert_equal(glob.glob('EF', root_dir=self.tempdir), ['EF'])
 
+    @pytest.mark.parametrize("pattern, root_dir, expected", [
+        ('EF', '', ['EF']),
+        ('E*', '', ['EF']),
+        ('**/EF', '', ['EF', os.path.join('a', 'bcd', 'EF')]),
+        (b'EF', b'', [b'EF']),
+        (b'E*', b'', [b'EF']),
+        (b'**/EF', b'', [b'EF', os.path.join(b'a', b'bcd', b'EF')]),
+    ])
+    def test_cwd_empty_root_dir(self, pattern, root_dir, expected):
+        """Treat an empty root directory as the current directory."""
+
+        with change_cwd(self.tempdir):
+            self.assert_equal(sorted(glob.glob(pattern, root_dir=root_dir, flags=glob.G)), sorted(expected))
+
+    @pytest.mark.skipif(not glob.SUPPORT_DIR_FD, reason="dir_fd is not supported on this system")
+    @pytest.mark.parametrize("pattern, root_dir, expected", [
+        ('EF', '', ['EF']),
+        ('E*', '', ['EF']),
+        ('**/EF', '', ['EF', os.path.join('a', 'bcd', 'EF')]),
+        (b'EF', b'', [b'EF']),
+        (b'E*', b'', [b'EF']),
+        (b'**/EF', b'', [b'EF', os.path.join(b'a', b'bcd', b'EF')]),
+    ])
+    def test_cwd_fd_empty_root_dir(self, pattern, root_dir, expected):
+        """Resolve an empty root directory relative to the supplied descriptor."""
+
+        dir_fd = os.open(self.tempdir, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            self.assert_equal(
+                sorted(glob.glob(pattern, root_dir=root_dir, dir_fd=dir_fd, flags=glob.G)),
+                sorted(expected)
+            )
+        finally:
+            os.close(dir_fd)
+
     def test_cwd_root_dir_pathlike(self):
         """Test root level glob when we switch directory via `root_dir` with a path-like object."""
 
@@ -1326,6 +1361,57 @@ class TestCWD(_TestGlob):
         dir_fd = os.open(self.tempdir, os.O_RDONLY | os.O_DIRECTORY)
         self.assert_equal(glob.glob('EF', dir_fd=dir_fd), ['EF'])
         os.close(dir_fd)
+
+    @pytest.mark.skipif(not glob.SUPPORT_DIR_FD, reason="dir_fd is not supported on this system")
+    @pytest.mark.parametrize("pattern, root_dir, expected", [
+        (b'EF', None, [b'EF']),
+        (b'E*', None, [b'EF']),
+        (b'a/bcd/E*', None, [b'a/bcd/EF']),
+        (b'**/EF', None, [b'EF', b'a/bcd/EF']),
+        (b'E*', b'a/bcd', [b'EF']),
+        ('**/EF', None, ['EF', 'a/bcd/EF']),
+    ])
+    def test_cwd_fd_dir_name_type(self, pattern, root_dir, expected):
+        """Keep descriptor-based directory entries in the pattern's string type."""
+
+        dir_fd = os.open(self.tempdir, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            self.assert_equal(
+                sorted(glob.glob(pattern, root_dir=root_dir, dir_fd=dir_fd, flags=glob.G)),
+                sorted(expected)
+            )
+        finally:
+            os.close(dir_fd)
+
+    @pytest.mark.skipif(not glob.SUPPORT_DIR_FD, reason="dir_fd is not supported on this system")
+    @pytest.mark.skipif(sys.platform == "darwin", reason="macOS cannot create file names with undecodable bytes")
+    def test_cwd_fd_dir_bytes_surrogateescape(self):
+        """Preserve undecodable bytes when scanning through a directory descriptor."""
+
+        name = b'raw-\xff'
+        path = os.path.join(os.fsencode(self.tempdir), name)
+        with open(path, 'wb'):
+            pass
+        dir_fd = os.open(self.tempdir, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            self.assert_equal(glob.glob(b'raw-*', dir_fd=dir_fd), [name])
+        finally:
+            os.close(dir_fd)
+            os.unlink(path)
+
+    @pytest.mark.skipif(not glob.SUPPORT_DIR_FD, reason="dir_fd is not supported on this system")
+    def test_cwd_fd_dir_zero(self):
+        """Test file descriptor `0`, which is a valid directory descriptor when standard input was closed."""
+
+        dir_fd = os.open(self.tempdir, os.O_RDONLY | os.O_DIRECTORY)
+        stdin = os.dup(0)
+        try:
+            os.dup2(dir_fd, 0)
+            self.assert_equal(glob.glob('EF', dir_fd=0), ['EF'])
+        finally:
+            os.dup2(stdin, 0)
+            os.close(stdin)
+            os.close(dir_fd)
 
     @pytest.mark.skipif(not glob.SUPPORT_DIR_FD, reason="dir_fd is not supported on this system")
     def test_cwd_dir_fd_globmatch(self):
@@ -1415,6 +1501,59 @@ class TestCase(_TestGlob):
             pytest.skip("Skipped")
         else:
             assert sorted(glob.glob(patterns, flags=glob.I, root_dir=self.tempdir)) == ['A', 'a']
+
+
+@pytest.mark.parametrize(
+    ('name', 'literal', 'matched'),
+    [
+        ('\u0131', 'i', True),
+        ('\u0130', 'i', True),
+        ('\u017f', 's', True),
+        ('\u03c2', '\u03c3', True),
+        ('i\u0307', '\u0130', False),
+        ('\u212a', 'k', True),
+        ('Name', 'name', True),
+        ('x', 'i', False)
+    ]
+)
+@pytest.mark.parametrize('layout', ['file', 'directory', 'wildcard-parent'])
+def test_case_insensitive_unicode_literals(tmp_path, name, literal, matched, layout):
+    """Literal path parts use the same case rules as wildcard parts and `globmatch`."""
+
+    if layout == 'directory':
+        relative = os.path.join(name, 'leaf.txt')
+        pattern = literal + '/leaf.txt'
+    elif layout == 'wildcard-parent':
+        relative = os.path.join('sub', name + '.txt')
+        pattern = '*/' + literal + '.txt'
+    else:
+        relative = name + '.txt'
+        pattern = literal + '.txt'
+
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+    expected = [relative] if matched else []
+
+    assert glob.globmatch(relative, pattern, flags=glob.I) == matched
+    assert glob.glob(pattern, root_dir=tmp_path, flags=glob.I) == expected
+    assert list(glob.iglob(pattern, root_dir=tmp_path, flags=glob.I)) == expected
+    assert [os.path.relpath(p, tmp_path) for p in pathlib.Path(tmp_path).glob(pattern, flags=glob.I)] == expected
+    assert glob.glob(pattern, root_dir=tmp_path, flags=glob.I | glob.C) == []
+
+
+@pytest.mark.parametrize('binary', [False, True])
+def test_case_insensitive_escaped_literals(tmp_path, binary):
+    """Case-insensitive literal matching preserves escaped punctuation and byte patterns."""
+
+    name = 'name[.+].TXT'
+    (tmp_path / name).touch()
+    root = os.fsencode(tmp_path) if binary else str(tmp_path)
+    filename = os.fsencode(name) if binary else name
+    pattern = glob.escape(filename.lower())
+
+    assert glob.glob(pattern, root_dir=root, flags=glob.I) == [filename]
+    assert glob.glob(pattern, root_dir=root, flags=glob.I | glob.C) == []
 
 
 class TestGlobCornerCase(_TestGlob):
@@ -1877,6 +2016,66 @@ def test_optional_group_glob_directory(tmp_path, as_bytes, dotmatch):
         expected = [name.encode() for name in expected]
 
     assert sorted(glob.glob(pattern, root_dir=root_dir, flags=flags)) == expected
+
+
+@pytest.mark.parametrize('as_bytes', [False, True])
+@pytest.mark.parametrize('dotmatch', [False, True])
+@pytest.mark.parametrize('pattern', ['*.env', '?(old-)@(*.env)', '@(*).env', '?(a)*.env', '*@(*.env)'])
+def test_wildcard_start_glob_directory(tmp_path, as_bytes, dotmatch, pattern):
+    """Directory scans do not let a wildcard that matches nothing reveal a hidden entry."""
+
+    for name in ['.env', 'a.env', '.notes.env']:
+        (tmp_path / name).touch()
+    flags = glob.EXTGLOB
+    expected = ['a.env']
+    if dotmatch:
+        flags |= glob.DOTMATCH
+        expected = ['.env', '.notes.env', 'a.env']
+    root_dir = str(tmp_path)
+    if as_bytes:
+        pattern, root_dir = pattern.encode(), os.fsencode(root_dir)
+        expected = [name.encode() for name in expected]
+
+    assert sorted(glob.glob(pattern, root_dir=root_dir, flags=flags)) == expected
+
+
+@pytest.mark.parametrize('globber', [glob.glob, glob.iglob], ids=['glob', 'iglob'])
+@pytest.mark.parametrize('encode', [str, os.fsencode], ids=['str', 'bytes'])
+@pytest.mark.parametrize('target_is_directory', [False, True], ids=['file', 'directory'])
+@pytest.mark.parametrize('suffix, flags', [('**', glob.GLOBSTAR), ('***', glob.GLOBSTARLONG)])
+def test_globstar_requires_directory_prefix(tmp_path, globber, encode, target_is_directory, suffix, flags):
+    """A literal prefix of a recursive glob must name a directory."""
+
+    target = tmp_path / 'target'
+    if target_is_directory:
+        target.mkdir()
+    else:
+        target.touch()
+    expected = [encode(os.path.join('target', ''))] if target_is_directory else []
+
+    assert list(globber(
+        encode('target/' + suffix), root_dir=encode(str(tmp_path)), flags=flags
+    )) == expected
+
+
+@pytest.mark.parametrize('as_bytes', [False, True])
+@pytest.mark.parametrize('root_kind', ['missing', 'file', 'directory'])
+@pytest.mark.parametrize('globber', [glob.glob, glob.iglob])
+def test_scandotdir_requires_directory_scan(tmp_path, as_bytes, root_kind, globber):
+    """Synthetic dot entries are only returned for directories that can be scanned."""
+
+    root = tmp_path / 'root'
+    if root_kind == 'file':
+        root.touch()
+    elif root_kind == 'directory':
+        root.mkdir()
+    pattern, root_dir = '.*', str(root)
+    expected = ['.', '..'] if root_kind == 'directory' else []
+    if as_bytes:
+        pattern, root_dir = pattern.encode(), os.fsencode(root_dir)
+        expected = [name.encode() for name in expected]
+
+    assert sorted(globber(pattern, root_dir=root_dir, flags=glob.SCANDOTDIR)) == expected
 
 
 class TestInputTypes(unittest.TestCase):

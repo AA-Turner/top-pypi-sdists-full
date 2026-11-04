@@ -9,23 +9,25 @@ Originally designed in ``authlib.jose.rfc7518``.
 .. _`Section 3`: https://tools.ietf.org/html/rfc7518#section-3
 """
 
-import hmac
 import hashlib
-import typing as t
+import hmac
+from typing import Any, Literal
+
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.ec import ECDSA
 from cryptography.hazmat.primitives.asymmetric.utils import (
     decode_dss_signature,
     encode_dss_signature,
 )
-from cryptography.hazmat.primitives.asymmetric.ec import ECDSA
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.exceptions import InvalidSignature
+
 from .._rfc7515.model import JWSAlgModel
 from ..errors import InvalidKeyCurveError
+from .ec_key import ECKey
 from .oct_key import OctKey
 from .rsa_key import RSAKey
-from .ec_key import ECKey
-from .util import encode_int, decode_int
+from .util import decode_int, encode_int
 
 
 class NoneAlgorithm(JWSAlgModel):
@@ -33,10 +35,10 @@ class NoneAlgorithm(JWSAlgModel):
     description = "No digital signature or MAC performed"
     security_warning = 'JWS algorithm "none" is deprecated, via draft-ietf-jose-deprecate-none-rsa15-02'
 
-    def sign(self, msg: bytes, key: t.Any) -> bytes:
+    def sign(self, msg: bytes, key: Any) -> bytes:
         return b""
 
-    def verify(self, msg: bytes, sig: bytes, key: t.Any) -> bool:
+    def verify(self, msg: bytes, sig: bytes, key: Any) -> bool:
         return sig == b""
 
 
@@ -52,7 +54,7 @@ class HMACAlgorithm(JWSAlgModel):
     SHA384 = hashlib.sha384
     SHA512 = hashlib.sha512
 
-    def __init__(self, sha_type: t.Literal[256, 384, 512], recommended: bool = False):
+    def __init__(self, sha_type: Literal[256, 384, 512], recommended: bool = False):
         self.name = f"HS{sha_type}"
         self.description = f"HMAC using SHA-{sha_type}"
         self.recommended = recommended
@@ -85,7 +87,7 @@ class _RSAAlgModel(JWSAlgModel):
     SHA512 = hashes.SHA512
     padding: padding.AsymmetricPadding
 
-    def __init__(self, sha_type: t.Literal[256, 384, 512], recommended: bool = False):
+    def __init__(self, sha_type: Literal[256, 384, 512], recommended: bool = False):
         self.recommended = recommended
         self.hash_alg = getattr(self, f"SHA{sha_type}")
         self.algorithm_security = sha_type
@@ -113,7 +115,7 @@ class RSAAlgorithm(_RSAAlgModel):
 
     padding = padding.PKCS1v15()
 
-    def __init__(self, sha_type: t.Literal[256, 384, 512], recommended: bool = False):
+    def __init__(self, sha_type: Literal[256, 384, 512], recommended: bool = False):
         super().__init__(sha_type, recommended)
         self.name = f"RS{sha_type}"
         self.description = f"RSASSA-PKCS1-v1_5 using SHA-{sha_type}"
@@ -133,7 +135,7 @@ class ESAlgorithm(JWSAlgModel):
     SHA384 = hashes.SHA384
     SHA512 = hashes.SHA512
 
-    def __init__(self, name: str, curve: str, sha_type: t.Literal[256, 384, 512], recommended: bool = False):
+    def __init__(self, name: str, curve: str, sha_type: Literal[256, 384, 512], recommended: bool = False):
         self.name = name
         self.curve = curve
         self.description = f"ECDSA using {self.curve} and SHA-{sha_type}"
@@ -180,7 +182,7 @@ class RSAPSSAlgorithm(_RSAAlgModel):
     - PS512: RSASSA-PSS using SHA-512 and MGF1 with SHA-512
     """
 
-    def __init__(self, sha_type: t.Literal[256, 384, 512]):
+    def __init__(self, sha_type: Literal[256, 384, 512]):
         super().__init__(sha_type, False)
         self.name = f"PS{sha_type}"
         self.description = f"RSASSA-PSS using SHA-{sha_type} and MGF1 with SHA-{sha_type}"

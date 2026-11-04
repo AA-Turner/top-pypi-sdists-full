@@ -32,7 +32,9 @@ from an.audio.pipeline import (
 from an.audio.recorded import (
     RECORDINGS_STORE,
     RecordedVoicesError,
+    RecordedVoicesWarning,
     RecordingMissingError,
+    TranscriberUnavailableError,
     find_recording,
     import_recordings,
 )
@@ -527,7 +529,9 @@ def test_overlapping_cues_are_refused_before_anything_is_written(tmp_path):
         "1\n00:00:01,000 --> 00:00:05,000\ncarl: Hello there, Ned.\n\n"
         "2\n00:00:02,000 --> 00:00:03,000\ncarl: Fine, thanks.\n"
     )
-    with pytest.raises(RecordedVoicesError, match="leaves no audio to cut"):
+    with pytest.raises(
+        RecordedVoicesError, match="overlap"
+    ):  # an#739: said before any cut
         import_recordings(
             root,
             _take(tmp_path, seconds=6.0),
@@ -1028,10 +1032,11 @@ class _Listening(NullLipSync):
     """Records the phones of every clip it is asked to align."""
 
     def __init__(self):
-        self.heard = []
+        self.heard, self.alphabets = [], []
 
     def align(self, audio, transcript):
         self.heard.append(audio.phones)
+        self.alphabets.append(audio.phone_alphabet)
         return super().align(audio, transcript)
 
 
@@ -1054,6 +1059,11 @@ def test_a_takes_phones_reach_the_lip_sync_fresh_and_read_back(tmp_path):
         lipsync = _Listening()
         produce_audio_for_scene(proj.scene, proj.mall, lipsync=lipsync, announce=None)
         first = next(p for p in lipsync.heard if p and p[0][0] == "HH")
+        # the take's alphabet travels with ITS phones (an#726), fresh and read back
+        paired = dict(
+            zip(map(tuple, (p or () for p in lipsync.heard)), lipsync.alphabets)
+        )
+        assert paired[tuple(first)] == "arpabet", paired
         assert first[-1] == (
             "N",
             pytest.approx(0.65),
@@ -1186,12 +1196,224 @@ def test_a_take_in_any_format_reaches_the_aligner_as_a_wav(tmp_path):
     import subprocess
 
     m4a = tmp_path / "take.m4a"
-    subprocess.run(["ffmpeg", "-v", "error", "-i", str(_take(tmp_path)), str(m4a)], check=True)
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(_take(tmp_path)), str(m4a)], check=True
+    )
     align = _Aligner()
     import_recordings(
-        _project(tmp_path), m4a, transcript=_plain(tmp_path), license=LICENSE, align=align
+        _project(tmp_path),
+        m4a,
+        transcript=_plain(tmp_path),
+        license=LICENSE,
+        align=align,
     )
     assert align.heard[0][0] == ".wav"
+
+
+class _LineAligner(_Aligner):
+    """A fake line aligner (an#716): MFA's grid for the lines it is handed,
+    which it records."""
+
+    def __init__(self):
+        super().__init__()
+        self.lines = []
+
+    def align_lines(self, path, lines):
+        from an.audio.transcripts import parse_textgrid
+
+        self.lines.append([(s.text, s.start, s.end) for s in lines])
+        return parse_textgrid(MFA_GRID)
+
+
+def test_a_long_take_s_lines_are_aligned_each_in_its_rough_interval(tmp_path):
+    """an#716: with several lines and an aligner that aligns lines (MFA), the
+    lines are first timed roughly by the transcriber's words, and each is
+    aligned within its own interval, padded but never past its neighbour's;
+    the phones are those the one-utterance form gives. With no rough words,
+    or an aligner without lines, the whole text is one utterance (an#637)."""
+    from an.audio.recorded import DFLT_ALIGN_LINE_PAD_S
+    from an.audio.transcripts import parse_textgrid
+
+    heard = parse_textgrid(ALIGNED)  # the transcriber's words, roughly where said
+    by_lines = _project(tmp_path / "l")
+    align = _LineAligner()
+    import_recordings(
+        by_lines, _take(tmp_path), transcript=_plain(tmp_path), license=LICENSE,
+        align=align, transcribe=lambda path: heard,
+    )  # fmt: skip
+    ((first, second),) = align.lines
+    assert first[0] == HELLO and second[0] == FINE
+    pad = DFLT_ALIGN_LINE_PAD_S
+    assert first[1] == pytest.approx(0.5 - pad) and second[2] == pytest.approx(
+        3.3 + pad
+    )
+    assert first[2] <= second[1], "the intervals never overlap"
+    assert align.heard == [], "the one-utterance form is not used"
+    by_one = _project(tmp_path / "o")
+    import_recordings(
+        by_one, _take(tmp_path), transcript=_plain(tmp_path), license=LICENSE,
+        align=_Aligner(), transcribe=lambda path: pytest.fail("not transcribed"),
+    )  # fmt: skip
+    phones = lambda root: {r["text"]: r["phones"] for r in _records(root).values()}  # noqa: E731
+    assert phones(by_lines) == phones(by_one)
+    unplaced = _LineAligner()
+    with pytest.warns(RecordedVoicesWarning, match="one utterance"):
+        import_recordings(
+            _project(tmp_path / "u"), _take(tmp_path), transcript=_plain(tmp_path),
+            license=LICENSE, align=unplaced, transcribe=lambda path: [],
+        )  # fmt: skip
+    assert unplaced.lines == [] and len(unplaced.heard) == 1
+
+
+def _heard(*words):
+    """A transcriber hearing ``words`` (``(word, start, end)``) in any take."""
+    from an.audio.transcripts import TranscriptSegment
+
+    return lambda path: [TranscriptSegment(" ".join(w[0] for w in words), words=words)]
+
+
+#: The take's words as a transcriber hears them (the fixture's bursts).
+HEARD = (("hello", 0.5, 0.8), ("there", 0.8, 1.1), ("ned", 1.1, 1.5),
+         ("fine", 2.5, 2.9), ("thanks", 2.9, 3.3))  # fmt: skip
+
+
+def _import_lines(tmp_path, *, lines=(HELLO, FINE), align=None, **kw):
+    """The fixture take imported with a plain transcript of ``lines`` by a
+    line aligner (recorded in ``align``), into a fresh project."""
+    align = align if align is not None else _LineAligner()
+    text = tmp_path / "lines.txt"
+    text.write_text("".join(f"carl: {t}\n" for t in lines), encoding="utf-8")
+    root = _project(tmp_path / "p", lines=lines)
+    import_recordings(
+        root, _take(tmp_path), transcript=text, license=LICENSE, align=align, **kw
+    )
+    return root, align
+
+
+def test_rough_intervals_never_overlap_when_lines_are_closer_than_two_pads(tmp_path):
+    """an#716 review: two lines heard closer than twice the pad meet at the
+    midpoint of their gap (`cut_spans`), never overlapping."""
+    from an.audio.recorded import DFLT_ALIGN_LINE_PAD_S
+
+    close = HEARD[:2] + (("ned", 1.1, 2.1), ("fine", 2.3, 2.9), ("thanks", 2.9, 3.3))
+    assert 2.3 - 2.1 < 2 * DFLT_ALIGN_LINE_PAD_S
+    _, align = _import_lines(tmp_path, transcribe=_heard(*close))
+    ((first, second),) = align.lines
+    assert first[2] == pytest.approx(2.2) == second[1]
+
+
+def test_a_line_the_transcriber_did_not_hear_falls_back_to_one_utterance(tmp_path):
+    """an#716 review: a line the transcriber did not hear between two it did is
+    squeezed to nothing; no interval is trusted, and the lines are aligned as
+    one utterance, with a warning."""
+    lines = (HELLO, "Okay.", FINE)
+    squeezed = HEARD[:3] + (("fine", 1.5, 2.9), ("thanks", 2.9, 3.3))
+    with pytest.warns(RecordedVoicesWarning, match="'Okay.' was not heard"):
+        _, align = _import_lines(tmp_path, lines=lines, transcribe=_heard(*squeezed))
+    assert align.lines == [] and len(align.heard) == 1
+
+
+def test_rough_words_that_do_not_fit_the_lines_fall_back_to_one_utterance(tmp_path):
+    """an#716 review: words that are not the transcript's (a wrong take, a
+    hallucinating transcriber) give no intervals, however confident."""
+    wrong = tuple((w, a, b) for (_, a, b), w in zip(HEARD, "a b c d e".split()))
+    with pytest.warns(
+        RecordedVoicesWarning, match="heard 0 of the transcript's 5 words"
+    ):
+        _, align = _import_lines(tmp_path, transcribe=_heard(*wrong))
+    assert align.lines == [] and len(align.heard) == 1
+
+
+def test_a_line_aligner_with_no_transcriber_falls_back_to_one_utterance(tmp_path):
+    """an#716 review: the import needed no transcriber before rough timing;
+    with none to run it still aligns, as one utterance, with a warning."""
+
+    def none_here(path):
+        raise TranscriberUnavailableError("no local transcriber is installed")
+
+    with pytest.warns(RecordedVoicesWarning, match="no local transcriber"):
+        root, align = _import_lines(tmp_path, transcribe=none_here)
+    assert align.lines == [] and len(align.heard) == 1
+    assert {r["text"] for r in _records(root).values()} == {HELLO, FINE}
+
+
+def test_rough_timing_off_never_transcribes(tmp_path):
+    """an#716 review: `rough_timing=False` aligns as before an#716, one
+    utterance, and never runs the transcriber."""
+    _, align = _import_lines(
+        tmp_path, rough_timing=False,
+        transcribe=lambda path: pytest.fail("not transcribed"),
+    )  # fmt: skip
+    assert align.lines == [] and len(align.heard) == 1
+
+
+class _HalfLineAligner(_LineAligner):
+    """A line aligner that aligns only the first line (MFA failing the second)."""
+
+    def align_lines(self, path, lines):
+        from an.audio.transcripts import parse_textgrid
+
+        self.lines.append([(s.text, s.start, s.end) for s in lines])
+        grid = _textgrid(
+            {k: [i for i in v if i[1] <= 1.5] for k, v in _TG_TIERS.items()}
+        )
+        return parse_textgrid(grid)
+
+
+def test_a_line_the_aligner_left_without_words_is_warned_of_and_kept(tmp_path):
+    """an#716 review: a line MFA placed no word in does not vanish into its
+    neighbour: it keeps its rough times, has no phones, and is warned of."""
+    with pytest.warns(
+        RecordedVoicesWarning, match="no word of the line 'Fine, thanks.'"
+    ):
+        root, _ = _import_lines(
+            tmp_path, align=_HalfLineAligner(), transcribe=_heard(*HEARD)
+        )
+    records = {r["text"]: r for r in _records(root).values()}
+    assert records[HELLO].get("phones") and records[FINE].get("phones") is None
+    assert records[FINE]["source"]["extra"]["span"] == pytest.approx([2.45, 3.35])
+
+
+def test_the_mfa_aligner_aligns_lines_from_a_textgrid_of_intervals(tmp_path):
+    """an#716: `align_lines` hands MFA a TextGrid with one interval per line
+    (spanning the whole take) instead of a `.lab`, and reads its TextGrid."""
+    from an.audio.recorded import mfa_aligner
+    from an.audio.transcripts import TranscriptSegment, _textgrid_tiers
+
+    given = []
+
+    def run(argv, **kw):
+        corpus, out = Path(argv[2]), Path(argv[5])
+        assert sorted(f.name for f in corpus.iterdir()) == ["take.TextGrid", "take.wav"]
+        given.append(
+            _textgrid_tiers((corpus / "take.TextGrid").read_text(encoding="utf-8"))
+        )
+        out.mkdir()
+        (out / "take.TextGrid").write_text(MFA_GRID, encoding="utf-8")
+        return type("Done", (), {"returncode": 0, "stderr": b""})()
+
+    lines = [TranscriptSegment(HELLO, 0.25, 1.75), TranscriptSegment(FINE, 2.25, 4.2)]
+    said = mfa_aligner(run=run).align_lines(_take(tmp_path), lines)
+    assert said and said[0].phones
+    assert given == [{"take": [(0.0, 0.25, ""), (0.25, 1.75, HELLO), (1.75, 2.25, ""),
+                               (2.25, 4.0, FINE)]}]  # fmt: skip
+    # clamped to the file's 4 s
+
+
+def test_a_textgrid_is_written_as_given_or_refused():
+    """an#716 review: `textgrid_text` clamps nothing: an interval out of the
+    grid's span or overlapping another is refused; a quote in a tier name is
+    escaped, and read back."""
+    from an.audio.transcripts import _textgrid_tiers, textgrid_text
+
+    with pytest.raises(ValueError, match="outside"):
+        textgrid_text({"take": [(0.5, 2.5, "a")]}, xmax=2.0)
+    with pytest.raises(ValueError, match="overlaps"):
+        textgrid_text({"take": [(0.5, 1.2, "a"), (1.0, 1.5, "b")]}, xmax=2.0)
+    grid = textgrid_text({'the "take"': [(0.5, 1.0, "a")]}, xmax=2.0)
+    assert list(_textgrid_tiers(grid)) == ['the "take"']
+
+
 def test_the_mfa_aligner_runs_mfa_on_a_one_file_corpus_and_reads_its_textgrid(tmp_path):
     """an#637: `mfa_aligner` writes the take and its text as a corpus, runs
     `mfa align` with the alphabet's English model, and reads the TextGrid back;
@@ -1224,7 +1446,11 @@ def test_the_mfa_aligner_runs_mfa_on_a_one_file_corpus_and_reads_its_textgrid(tm
         mfa_aligner(executable="no-such-mfa-here")(_take(tmp_path), "x")
     with pytest.raises(RecordedVoicesError, match="no MFA model"):
         mfa_aligner(alphabet="klingon")
-    failed = mfa_aligner(run=lambda argv, **kw: type("F", (), {"returncode": 1, "stdout": b"beam too narrow", "stderr": b""})())
+    failed = mfa_aligner(
+        run=lambda argv, **kw: type(
+            "F", (), {"returncode": 1, "stdout": b"beam too narrow", "stderr": b""}
+        )()
+    )
     with pytest.raises(AlignmentError, match="beam too narrow"):
         failed(_take(tmp_path), "x")
 
@@ -1254,20 +1480,143 @@ def test_mfa_and_gentle_json_give_the_phones_their_textgrid_gives(tmp_path):
                        for s, e, ph in inside],
         })  # fmt: skip
     gentle = tmp_path / "gentle.json"
-    gentle.write_text(json.dumps({"transcript": HELLO, "words": gentle_words}), encoding="utf-8")
+    gentle.write_text(
+        json.dumps({"transcript": HELLO, "words": gentle_words}), encoding="utf-8"
+    )
 
     def phones_of(transcript, name):
         root = _project(tmp_path / name, lines=(HELLO,))
         take = _take(tmp_path / name, bursts=((0.5, 1.5),), seconds=2.0)
         import_recordings(root, take, transcript=transcript, license=LICENSE)
         (record,) = _records(root).values()
-        return record["phones"]
+        return record["phones"], record.get("phone_alphabet")
 
-    by_grid = phones_of(grid, "g")
+    by_grid, grid_alphabet = phones_of(grid, "g")
     assert by_grid and by_grid[0][0] == "HH"
-    assert phones_of(mfa, "m") == by_grid
+    # each reader states the alphabet its format shows (an#721)
+    assert grid_alphabet == "arpabet"
+    assert phones_of(mfa, "m") == (by_grid, "arpabet")
     unstressed = [[p.rstrip("012"), a, b] for p, a, b in by_grid]
-    assert phones_of(gentle, "j") == unstressed
+    assert phones_of(gentle, "j") == (unstressed, "arpabet")
+
+
+def test_readers_give_every_mfa_speaker_the_alphabet_and_drop_gentle_s_disfluencies():
+    """an#721: MFA's `"<speaker> - words"` tiers are read for EVERY speaker,
+    the speaker set and the segments in time order; the reader reports the
+    phone alphabet its labels show (IPA symbols, ARPAbet stress digits, else
+    unknown); Gentle's words not in the transcript (an "um") are dropped."""
+    from an.audio.transcripts import parse_json
+
+    two = parse_json({"tiers": {
+        "ned - words": {"entries": [[1.0, 1.4, "yo"]]},
+        "ned - phones": {"entries": [[1.0, 1.2, "j"], [1.2, 1.4, "əʊ"]]},
+        "carl - words": {"entries": [[0.0, 0.3, "hi"], [0.3, 0.6, ""]]},
+        "carl - phones": {"entries": [[0.0, 0.1, "HH"], [0.1, 0.3, "AY1"]]},
+    }})  # fmt: skip
+    assert [(s.speaker, s.text, s.phone_alphabet) for s in two] == [
+        ("carl", "hi", "arpabet"),
+        ("ned", "yo", "ipa"),
+    ]
+    assert two[0].phones == (("HH", 0.0, 0.1), ("AY1", 0.1, 0.3))
+    unknown = parse_json({"tiers": {
+        "words": {"entries": [[0.0, 0.3, "ai"]]},
+        "phones": {"entries": [[0.0, 0.1, "ai1"], [0.1, 0.3, "ou3"]]},
+    }})  # fmt: skip
+    assert unknown[0].phones and unknown[0].phone_alphabet is None
+    gentle = parse_json({"transcript": "hi there", "words": [
+        {"word": "hi", "case": "success", "start": 0.0, "end": 0.3,
+         "phones": [{"phone": "hh_B", "duration": 0.1}, {"phone": "ay_E", "duration": 0.2}]},
+        {"word": "um", "case": "not-found-in-transcript", "start": 0.3, "end": 0.6,
+         "phones": [{"phone": "ah_B", "duration": 0.1}, {"phone": "m_E", "duration": 0.2}]},
+        {"word": "there", "case": "not-found-in-audio"},
+    ]})  # fmt: skip
+    (seg,) = gentle
+    assert seg.text == "hi" and seg.words == (("hi", 0.0, 0.3),)
+    assert [p[0] for p in seg.phones] == [
+        "HH",
+        "AY",
+    ] and seg.phone_alphabet == "arpabet"
+
+
+def test_an_interleaved_mfa_conversation_imports_one_take_per_turn(tmp_path):
+    """an#721 review: carl, then ned, then carl again in one MFA alignment is
+    three turns, not one carl segment nesting ned's (which the import refused
+    as overlapping cues); each turn's phones are its speaker's."""
+    root = init(tmp_path / "p")
+    proj = load(root)
+    scene = _scene((), character=False)
+    scene.timeline[0].dialogue = [
+        Dialogue(speaker="carl", text="Hi there."),
+        Dialogue(speaker="ned", text="Yo Carl."),
+        Dialogue(speaker="carl", text="Bye now."),
+    ]
+    proj.mall["scenes"]["main"] = scene
+    mfa = tmp_path / "talk.json"
+    mfa.write_text(json.dumps({"tiers": {
+        "carl - words": {"entries": [[0.1, 0.3, "hi"], [0.3, 0.6, "there"], [0.6, 0.9, ""],
+                                     [2.0, 2.2, "bye"], [2.2, 2.5, "now"]]},
+        "carl - phones": {"entries": [[0.1, 0.2, "HH"], [0.2, 0.3, "AY1"],
+                                      [2.0, 2.1, "B"], [2.1, 2.2, "AY1"]]},
+        "ned - words": {"entries": [[0.9, 1.2, "yo"], [1.2, 1.5, "carl"]]},
+        "ned - phones": {"entries": [[0.9, 1.0, "j"], [1.0, 1.2, "əʊ"]]},
+    }}), encoding="utf-8")  # fmt: skip
+    take = _take(tmp_path, seconds=3.0, bursts=((0.1, 0.6), (0.9, 1.5), (2.0, 2.5)))
+    report = import_recordings(root, take, transcript=mfa, license=LICENSE)
+    assert [(t.speaker, t.text) for t in report.takes] == [
+        ("carl", "Hi there."),
+        ("ned", "Yo Carl."),
+        ("carl", "Bye now."),
+    ]
+    by_text = {r["text"]: r for r in _records(root).values()}
+    assert [p[0] for p in by_text["Bye now."]["phones"]] == ["B", "AY1"]
+    assert by_text["Bye now."]["phone_alphabet"] == "arpabet"
+    assert by_text["Yo Carl."]["phone_alphabet"] == "ipa"
+
+
+def test_a_tier_is_a_speaker_s_only_when_its_name_ends_in_a_known_tier():
+    """an#721 review: ``"notes - draft"`` is a tier called that, not the
+    tiers of a speaker called notes."""
+    from an.audio.transcripts import segments_from_tiers
+
+    segs = segments_from_tiers({
+        "carl - words": [(0.0, 0.4, "hi")], "notes - draft": [(0.0, 1.0, "redo")],
+    })  # fmt: skip
+    assert [(s.speaker, s.text) for s in segs] == [("carl", "hi")]
+
+
+def test_a_speaker_with_phones_and_no_words_has_no_segment():
+    """an#721 review: with several speakers, one whose only tier is its phones
+    says nothing; its phones are never read as words (an#491)."""
+    from an.audio.transcripts import segments_from_tiers
+
+    segs = segments_from_tiers({
+        "carl - words": [(0.0, 0.4, "hi")],
+        "ned - phones": [(0.5, 0.7, "Y"), (0.7, 0.9, "OW1")],
+    })  # fmt: skip
+    assert [(s.speaker, s.text) for s in segs] == [("carl", "hi")]
+
+
+def test_the_arpabet_alphabet_is_read_from_the_arpabet_inventory():
+    """an#721 review: ARPAbet is ASCII labels in one case, each in the 39-phone
+    inventory once its stress digit is dropped (cutan's rule); pinyin's tone
+    digits are not stress digits."""
+    from an.audio.transcripts import ARPABET, IPA, phone_alphabet_of
+
+    assert phone_alphabet_of(["ai1", "ou3"]) is None
+    assert phone_alphabet_of(["AH", "T"]) == ARPABET
+    assert phone_alphabet_of(["h", "ə"]) == IPA
+
+
+def test_only_gentle_json_drops_a_word_by_its_case():
+    """an#721 review: Gentle's ``case`` is read only in Gentle's JSON
+    (``transcript`` and ``words``); another JSON's word with a ``case`` stays."""
+    from an.audio.transcripts import parse_json
+
+    (seg,) = parse_json({"words": [
+        {"word": "hi", "start": 0.0, "end": 0.3, "case": "x"},
+        {"word": "there", "start": 0.3, "end": 0.6},
+    ]})  # fmt: skip
+    assert seg.text == "hi there"
 
 
 def test_json_that_is_not_mfa_s_keeps_its_segments_and_oov_is_not_a_phone():
@@ -1284,3 +1633,207 @@ def test_json_that_is_not_mfa_s_keeps_its_segments_and_oov_is_not_a_phone():
     unknown = {"alignedWord": "<unk>", "start": 0.5, "end": 0.8,
                "phones": [{"phone": "oov_S", "duration": 0.3}]}  # fmt: skip
     assert _gentle_phones(unknown) == []
+
+
+def test_a_heard_one_word_line_keeps_the_per_line_alignment():
+    """an#716 re-review: a short line the transcriber heard ("No.", 0.08 s)
+    is judged by its padded interval, so it does not switch the whole take to
+    the one-utterance form; an unheard line squeezed between two heard ones
+    still does."""
+    from an.audio.recorded import (
+        DFLT_ROUGH_MIN_LINE_S,
+        _rough_line_intervals,
+        _RoughTimingUnfit,
+    )
+    from an.audio.transcripts import parse_transcript_text
+
+    lines = parse_transcript_text(
+        "a: Hello there.\nb: No.\na: Fine thanks.", fmt="plain"
+    )
+    heard = [("hello", 0.5, 0.9), ("there", 0.9, 1.3), ("no", 2.5, 2.58),
+             ("fine", 4.0, 4.3), ("thanks", 4.3, 4.7)]  # fmt: skip
+    spans = _rough_line_intervals(lines, heard, total=6.0, pad_s=0.25)
+    assert spans[1].end - spans[1].start >= DFLT_ROUGH_MIN_LINE_S
+    unheard = [
+        ("hello", 0.5, 0.9),
+        ("there", 0.9, 1.3),
+        ("fine", 1.3, 1.6),
+        ("thanks", 1.6, 1.9),
+    ]
+    with pytest.raises(_RoughTimingUnfit, match="not heard"):
+        _rough_line_intervals(lines, unheard, total=6.0, pad_s=0.25, min_coverage=0.0)
+
+
+def test_a_recorded_clip_carries_its_takes_phone_alphabet_or_none(tmp_path):
+    """an#726: the recorded provider's clip carries the alphabet its take's
+    record states beside the phones; a record from before an#637 (phones, no
+    alphabet) gives ``None``, and the read-back hook agrees with synthesize."""
+    from an.audio.recorded import RecordedTTS
+
+    root = _project(tmp_path)
+    grid = tmp_path / "take.TextGrid"
+    grid.write_text(ALIGNED, encoding="utf-8")
+    import_recordings(root, _take(tmp_path), transcript=grid, license=LICENSE)
+    store = load(root).mall["recordings"]
+    (key,) = [k for k in store if store[k]["text"] == HELLO]
+    tts = RecordedTTS(recordings=store)
+    clip = tts.synthesize(HELLO, store[key]["voice"])
+    assert clip.phones and clip.phone_alphabet == "arpabet"
+    assert tts.timings_for_clip(clip)["phone_alphabet"] == "arpabet"
+    legacy = dict(store[key])
+    legacy.pop("phone_alphabet")
+    store[key] = legacy
+    tts = RecordedTTS(recordings=store)
+    clip = tts.synthesize(HELLO, legacy["voice"])
+    assert clip.phones and clip.phone_alphabet is None
+    assert "phone_alphabet" not in tts.timings_for_clip(clip)
+
+
+def test_a_corrected_phone_alphabet_re_aligns_the_mouth(tmp_path):
+    """an#759: a take's words, phones AND their alphabet key its audio, so a
+    take whose alphabet is corrected (same bytes, same phones) is aligned
+    again, even when the scene is stamped and saved as a render leaves it;
+    an unchanged one is reused."""
+    root = _project(tmp_path)
+    grid = tmp_path / "take.TextGrid"
+    grid.write_text(ALIGNED, encoding="utf-8")
+    import_recordings(root, _take(tmp_path), transcript=grid, license=LICENSE)
+
+    def aligned_alphabets():
+        proj = load(root)
+        lipsync = _Listening()
+        produce_audio_for_scene(proj.scene, proj.mall, lipsync=lipsync, announce=None)
+        proj.mall["scenes"]["main"] = proj.scene  # stamped and saved, as a render does
+        return [a for p, a in zip(lipsync.heard, lipsync.alphabets) if p]
+
+    assert aligned_alphabets() == ["arpabet", "arpabet"]
+    assert aligned_alphabets() == [], "unchanged: the stamped lines are reused"
+    store = load(root).mall["recordings"]
+    for key in list(store):
+        store[key] = {**store[key], "phone_alphabet": "ipa"}
+    assert aligned_alphabets() == ["ipa", "ipa"], "a corrected alphabet re-aligns"
+
+
+def test_overlapping_speakers_are_refused_and_per_speaker_lines_are_read():
+    """an#739: two speakers at once cannot be cut into one take each, so an
+    overlap is refused naming both lines (never a word cut in two); and a grid
+    whose speakers each have a lines tier is read by those lines."""
+    from an.audio.recorded import _refuse_overlaps
+    from an.audio.transcripts import segments_from_tiers
+
+    talking_over = segments_from_tiers({
+        "carl - words": [(0.0, 1.0, "hello")], "ned - words": [(0.5, 0.8, "yo")],
+    })  # fmt: skip
+    with pytest.raises(RecordedVoicesError, match="'hello'.*'yo'.*overlap"):
+        _refuse_overlaps(talking_over, name="take.wav")
+    lines = segments_from_tiers({
+        "carl - utterances": [(0.0, 0.5, "Hi there."), (2.0, 2.5, "Bye.")],
+        "carl - words": [(0.0, 0.2, "hi"), (0.2, 0.5, "there"), (2.0, 2.5, "bye")],
+        "ned - utterances": [(0.8, 1.5, "Yo.")],
+    })  # fmt: skip
+    assert [(s.speaker, s.text) for s in lines] == [
+        ("carl", "Hi there."),
+        ("ned", "Yo."),
+        ("carl", "Bye."),
+    ]
+    assert lines[0].words == (("hi", 0.0, 0.2), ("there", 0.2, 0.5))
+
+
+def _conversation(tmp_path, *lines):
+    """A project whose one shot has the ``(speaker, text)`` lines."""
+    root = init(tmp_path / "p")
+    proj = load(root)
+    scene = _scene((), character=False)
+    scene.timeline[0].dialogue = [Dialogue(speaker=w, text=t) for w, t in lines]
+    proj.mall["scenes"]["main"] = scene
+    return root
+
+
+def _import_grid(tmp_path, root, tiers, *, seconds=6.0, bursts=((0.1, 5.5),), **kw):
+    """Import one take timed by a TextGrid of ``tiers``."""
+    grid = tmp_path / "take.TextGrid"
+    grid.write_text(_textgrid(tiers, xmax=seconds), encoding="utf-8")
+    take = _take(tmp_path, seconds=seconds, bursts=bursts)
+    return import_recordings(root, take, transcript=grid, license=LICENSE, **kw)
+
+
+def test_a_lined_speaker_s_lines_cut_an_unlined_speaker_s_words_into_turns(tmp_path):
+    """an#739 review: carl's lines (0-1, 3-4) and ned's words (1.5, 5.0) are
+    four takes; ned's words are not merged into one turn spanning carl's
+    second line (which the import refused as overlapping it)."""
+    lines = [
+        ("carl", "Hi there."),
+        ("ned", "Yo."),
+        ("carl", "Bye now."),
+        ("ned", "Later."),
+    ]
+    root = _conversation(tmp_path, *lines)
+    report = _import_grid(tmp_path, root, {
+        "carl - utterances": [(0.0, 1.0, "Hi there."), (1.0, 3.0, ""),
+                              (3.0, 4.0, "Bye now."), (4.0, 6.0, "")],
+        "ned - words": [(0.0, 1.5, ""), (1.5, 1.9, "yo"), (1.9, 5.0, ""),
+                        (5.0, 5.4, "later"), (5.4, 6.0, "")],
+    })  # fmt: skip
+    assert [(t.speaker, t.text) for t in report.takes] == lines
+
+
+def test_an_empty_lines_tier_keeps_its_speaker_s_words(tmp_path):
+    """an#739 review: a lines tier holding only empty intervals is no lines
+    tier; its speaker is read by its words, not dropped."""
+    lines = [("carl", "Hi there."), ("ned", "Yo Carl."), ("carl", "Bye now.")]
+    root = _conversation(tmp_path, *lines)
+    report = _import_grid(tmp_path, root, {
+        "carl - utterances": [(0.0, 3.0, "")],
+        "carl - words": [(0.1, 0.3, "hi"), (0.3, 0.6, "there"), (2.0, 2.2, "bye"), (2.2, 2.5, "now")],
+        "ned - words": [(0.9, 1.2, "yo"), (1.2, 1.5, "carl")],
+    }, seconds=3.0, bursts=((0.1, 0.6), (0.9, 1.5), (2.0, 2.5)))  # fmt: skip
+    assert [(t.speaker, t.text) for t in report.takes] == lines
+
+
+def test_a_colon_in_a_speaker_s_own_lines_tier_is_text(tmp_path):
+    """an#739 review: in ``"carl - utterances"`` the tier names the speaker;
+    ``"Wait: what?"`` is carl's line, not one said by somebody called Wait."""
+    lines = [("carl", "Wait: what?"), ("ned", "Yo.")]
+    root = _conversation(tmp_path, *lines)
+    report = _import_grid(tmp_path, root, {
+        "carl - utterances": [(0.5, 1.5, "Wait: what?")],
+        "ned - utterances": [(2.0, 2.8, "Yo.")],
+    }, seconds=3.0, bursts=((0.5, 1.5), (2.0, 2.8)))  # fmt: skip
+    assert [(t.speaker, t.text) for t in report.takes] == lines
+
+
+def test_the_overlap_tolerance_is_a_keyword_of_the_import(tmp_path):
+    """an#739 review: 0.08 s of overlap is refused by default (0.05 s) and
+    let through by ``overlap_tolerance_s=0.1``."""
+    lines = [("carl", "Hi there."), ("ned", "Yo Carl.")]
+    tiers = {
+        "carl - utterances": [(0.5, 1.5, "Hi there.")],
+        "ned - utterances": [(1.42, 2.2, "Yo Carl.")],
+    }
+    root = _conversation(tmp_path, *lines)
+    with pytest.raises(RecordedVoicesError, match="fix the transcript's times"):
+        _import_grid(tmp_path, root, tiers, seconds=3.0)
+    report = _import_grid(tmp_path, root, tiers, seconds=3.0, overlap_tolerance_s=0.1)
+    assert [(t.speaker, t.text) for t in report.takes] == lines
+
+
+def test_overlapping_lines_a_transcriber_timed_say_what_can_be_done(tmp_path):
+    """an#739 review: a transcriber's times are no transcript to fix; the
+    refusal says to give a timed transcript or raise the tolerance."""
+    root = _project(tmp_path)
+    heard = [
+        TranscriptSegment(text="Hello there Ned", start=0.5, end=1.5, speaker="spk_0"),
+        TranscriptSegment(text="Fine thanks", start=1.2, end=3.3, speaker="spk_0"),
+    ]
+    with pytest.raises(RecordedVoicesError) as err:
+        import_recordings(
+            root,
+            _take(tmp_path),
+            license=LICENSE,
+            transcribe=lambda p: heard,
+            speakers="spk_0=carl",
+        )
+    message = str(err.value)
+    assert "the transcriber timed them" in message
+    assert "--overlap-tolerance" in message
+    assert "fix the transcript" not in message

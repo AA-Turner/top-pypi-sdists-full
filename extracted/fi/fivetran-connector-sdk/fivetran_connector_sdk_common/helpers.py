@@ -13,6 +13,13 @@ def config_root_dir() -> str:
     return os.path.join(os.path.expanduser("~"), ROOT_LOCATION)
 
 
+def format_naming_for_display(naming: Optional[str]) -> Optional[str]:
+    """Returns the user-facing naming value (FIVETRAN/SOURCE) for the API form (FIVETRAN_NAMING/SOURCE_NAMING)."""
+    if naming and naming.endswith(constants.UNDERSCORE_NAMING):
+        return naming[: -len(constants.UNDERSCORE_NAMING)]
+    return naming
+
+
 def _validate_table_name(table: str) -> None:
     if not isinstance(table, str):
         raise TypeError(f"Table name must be a string, got {type(table).__name__}")

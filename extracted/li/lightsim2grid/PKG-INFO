@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: lightsim2grid
-Version: 1.2.0
+Version: 1.3.0
 Summary: LightSim2grid implements a c++ backend targeting the Grid2Op platform.
 Author-Email: Benjamin Donnot <benjamin.donnot@rte-france.com>
 Classifier: Development Status :: 4 - Beta
@@ -120,7 +120,9 @@ Suppose you somehow get:
 - `pv` list of PV buses
 - `pq` list of PQ buses
 - `ppci` a ppc internal pandapower test case (or dictionary, is used to retrieve the coefficients associated to each slack bus)
-- `options` list of pandapower "options" (or dictionary with keys `max_iteration` and `tolerance_mva`)
+- `options` list of pandapower "options" (or dictionary with keys `max_iteration` and `tolerance_mva`).
+  As pandapower's own `newtonpf` does, `tolerance_mva` is compared with the per-unit mismatch as
+  is, not divided by `baseMVA`.
 
 You can define replace the `newtonpf` function of `pandapower.pandapower.newtonpf` function with the following
 piece of code:

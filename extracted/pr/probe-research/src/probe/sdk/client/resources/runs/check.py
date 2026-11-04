@@ -138,6 +138,8 @@ class RunCheckMixin:
                 # Pre-0.26.3: no manifest to resolve against; say so rather than invent a pass or a failure.
                 verified = False
 
+        # I15d: data the server accepted and has not stored yet, or refused once it stored it.
+        ingest = _read_run_ingest(self, run_id)
         if missing:
             state = "incomplete"
         elif verify and verified and not is_unread:
@@ -151,6 +153,9 @@ class RunCheckMixin:
             "local_only_artifacts": failed_uploads,
             "verified_code_reference": verified,
             "advisories": advisories,
+            # None: the server has no ingest queue for this team (nothing is ever pending there).
+            "pending_points": None if ingest is None else int(ingest.get("pending_points") or 0),
+            "refusals": [] if ingest is None else list(ingest.get("refusals") or []),
         }
 
     def _list_kind(self, run_id: str, kind: str | None) -> list[dict] | None:
@@ -172,6 +177,23 @@ class RunCheckMixin:
         except Exception:  # noqa: BLE001 -- unread is not absent
             return None
         return [item for item in rows if kind is None or item.get("kind") == kind]
+
+
+def _read_run_ingest(client, run_id: str) -> dict | None:
+    """The run read's `ingest` (I15d), asked only of a server that declares the queue (asked once per
+    client); None when it serves none, a read failed, or ``client`` cannot ask."""
+    from ....delivery.ops.ingest_queue import ASYNC_ACK_FEATURE
+
+    ask, read = getattr(client, "supports_feature", None), getattr(client, "get_run", None)
+    if ask is None or read is None:
+        return None
+    try:
+        if not ask(ASYNC_ACK_FEATURE):
+            return None
+        ingest = (read(run_id) or {}).get("ingest")
+    except Exception:  # noqa: BLE001 -- a failed read says nothing
+        return None
+    return ingest if isinstance(ingest, dict) else None
 
 
 def _failed_uploads(artifacts: list[dict]) -> list:

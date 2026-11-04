@@ -17,8 +17,8 @@ permissions:
   contents: read
 
 env:
-  EXPECTED_DISTS: 119
-  EXPECTED_WHEELS_SHA: 62584b2685c7bf59eb943cf657fbbbae7e24469a
+  EXPECTED_DISTS: 125
+  EXPECTED_WHEELS_SHA: 68b83bf94e32e7fa7aa7a696f25ef4d7b89b6478
   FORCE_COLOR: 1
 
 jobs:
@@ -38,36 +38,38 @@ jobs:
           # Linux is built in two batches so we ship both wheel variants (#741).
           # Batch 1: manylinux_2_28 (newer gcc, ~+8% faster; modern systems
           # prefer it via the higher platform tag). This batch also carries
-          # musllinux and the i686 build (i686 has no manylinux_2_28 image, so
-          # it stays manylinux2014 - see CIBW_MANYLINUX_I686_IMAGE below).
-          - os: ubuntu-latest
+          # musllinux and the i686 build (i686 stays manylinux2014 - see
+          # CIBW_MANYLINUX_I686_IMAGE below).
+          # TODO Pinned pending https://github.com/actions/runner-images/issues/14790
+          - os: ubuntu-24.04
             cibw_arch: "x86_64 i686"
             manylinux_image: manylinux_2_28
           - os: ubuntu-24.04-arm
             cibw_arch: aarch64
             manylinux_image: manylinux_2_28
           # Batch 2: manylinux2014 (glibc 2.17 compatibility) for x86_64 and
-          # aarch64 only; musllinux is skipped as it's already built in batch 1.
+          # aarch64 only; musllinux is skipped as it's already built in batch 1,
+          # and so are PyPy and GraalPy 3.13 (not in the manylinux2014 images).
           - os: ubuntu-latest
             cibw_arch: x86_64
             manylinux_image: manylinux2014
-            cibw_skip_extra: "*-musllinux_*"
+            cibw_skip_extra: "*-musllinux_* pp* gp313*"
           - os: ubuntu-24.04-arm
             cibw_arch: aarch64
             manylinux_image: manylinux2014
-            cibw_skip_extra: "*-musllinux_*"
+            cibw_skip_extra: "*-musllinux_* pp* gp313*"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: git fetch --prune --unshallow
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.x"
 
       # https://github.com/pypa/cibuildwheel
       - name: Build wheels
-        uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074 # v4.2.0
+        uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e # v4.3.5
         with:
           output-dir: dist
         # Options are supplied via environment variables:
@@ -79,17 +81,14 @@ jobs:
           # Empty (and ignored) on Windows/macOS.
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.manylinux_image }}
-          CIBW_MANYLINUX_PYPY_X86_64_IMAGE: ${{ matrix.manylinux_image }}
-          CIBW_MANYLINUX_PYPY_AARCH64_IMAGE: ${{ matrix.manylinux_image }}
-          # i686 has no manylinux_2_28 image, so it's always manylinux2014.
+          # i686 stays manylinux2014 (PyPy i686 is skipped: PyPy 8 needs manylinux_2_28).
           CIBW_MANYLINUX_I686_IMAGE: manylinux2014
-          CIBW_MANYLINUX_PYPY_I686_IMAGE: manylinux2014
           # Include latest Python beta.
           CIBW_ENABLE: cpython-prerelease pypy graalpy
           # Skip EOL Python versions and macOS x86_64 GraalPy, which times out
           # during first-time interpreter discovery on GitHub Actions runners.
-          # The manylinux2014 batch also skips musllinux (built in the 2_28 batch).
-          CIBW_SKIP: "gp311* gp*-macosx_x86_64 ${{ matrix.cibw_skip_extra }}"
+          # The manylinux2014 batch also skips musllinux, PyPy and GraalPy 3.13 (2_28 batch).
+          CIBW_SKIP: "gp311* gp*-macosx_x86_64 pp*-manylinux_i686 ${{ matrix.cibw_skip_extra }}"
           # Run the test suite after each build.
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: pytest {package}/tests
@@ -97,7 +96,7 @@ jobs:
           PIP_PROGRESS_BAR: "off"
 
       - name: Upload as build artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: dist/*.whl
@@ -115,7 +114,7 @@ jobs:
             git fetch --prune --unshallow
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.x"
 
@@ -125,7 +124,7 @@ jobs:
           python -m pip install -U build twine
 
       - name: Download wheels from build artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: wheels-*
           merge-multiple: true
@@ -152,19 +151,19 @@ jobs:
 
       - name: Publish wheels to PyPI
         if: github.event.action == 'published'
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           packages-dir: dist-wheels/
 
       - name: Publish sdist to PyPI
         if: github.event.action == 'published'
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
 
       - name: Publish wheels to TestPyPI
         if: |
           github.repository == 'ultrajson/ultrajson' &&
           github.ref == 'refs/heads/main'
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: dist-wheels/
@@ -173,6 +172,6 @@ jobs:
         if: |
           github.repository == 'ultrajson/ultrajson' &&
           github.ref == 'refs/heads/main'
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           repository-url: https://test.pypi.org/legacy/

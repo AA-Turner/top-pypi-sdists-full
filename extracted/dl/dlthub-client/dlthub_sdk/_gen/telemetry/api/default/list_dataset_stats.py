@@ -210,7 +210,11 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ListPageDatasetStatsResponse]:
     """ListDatasetOverview
 
-    One row per dataset in the time range, with its aggregate metrics.
+    One row per dataset, aggregated over the pipeline runs whose `started_at` falls in the
+    time range `[start, end)`. Most recently run first by default.
+
+    Datasets are grouped by name across destinations. Runs without a dataset, for example
+    ones that failed before loading, are not counted.
 
     Search with `q` over the dataset name, filter on what a row displays, and sort
     with paired `sort` and `order` lists.
@@ -220,12 +224,13 @@ def sync_detailed(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`. Defaults to 7 days before `end`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`. Defaults to now.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`. Defaults to 7 days before
+            `end`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`. Defaults to now.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
         q (None | str | Unset): Case-insensitive substring match on `dataset_name`.
         dataset_name (list[str] | None | Unset): Exact match on `dataset_name`. Repeat the
             parameter to match any of several values.
@@ -290,7 +295,11 @@ def sync(
 ) -> ErrorResponse | ListPageDatasetStatsResponse | None:
     """ListDatasetOverview
 
-    One row per dataset in the time range, with its aggregate metrics.
+    One row per dataset, aggregated over the pipeline runs whose `started_at` falls in the
+    time range `[start, end)`. Most recently run first by default.
+
+    Datasets are grouped by name across destinations. Runs without a dataset, for example
+    ones that failed before loading, are not counted.
 
     Search with `q` over the dataset name, filter on what a row displays, and sort
     with paired `sort` and `order` lists.
@@ -300,12 +309,13 @@ def sync(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`. Defaults to 7 days before `end`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`. Defaults to now.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`. Defaults to 7 days before
+            `end`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`. Defaults to now.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
         q (None | str | Unset): Case-insensitive substring match on `dataset_name`.
         dataset_name (list[str] | None | Unset): Exact match on `dataset_name`. Repeat the
             parameter to match any of several values.
@@ -365,7 +375,11 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | ListPageDatasetStatsResponse]:
     """ListDatasetOverview
 
-    One row per dataset in the time range, with its aggregate metrics.
+    One row per dataset, aggregated over the pipeline runs whose `started_at` falls in the
+    time range `[start, end)`. Most recently run first by default.
+
+    Datasets are grouped by name across destinations. Runs without a dataset, for example
+    ones that failed before loading, are not counted.
 
     Search with `q` over the dataset name, filter on what a row displays, and sort
     with paired `sort` and `order` lists.
@@ -375,12 +389,13 @@ async def asyncio_detailed(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`. Defaults to 7 days before `end`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`. Defaults to now.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`. Defaults to 7 days before
+            `end`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`. Defaults to now.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
         q (None | str | Unset): Case-insensitive substring match on `dataset_name`.
         dataset_name (list[str] | None | Unset): Exact match on `dataset_name`. Repeat the
             parameter to match any of several values.
@@ -443,7 +458,11 @@ async def asyncio(
 ) -> ErrorResponse | ListPageDatasetStatsResponse | None:
     """ListDatasetOverview
 
-    One row per dataset in the time range, with its aggregate metrics.
+    One row per dataset, aggregated over the pipeline runs whose `started_at` falls in the
+    time range `[start, end)`. Most recently run first by default.
+
+    Datasets are grouped by name across destinations. Runs without a dataset, for example
+    ones that failed before loading, are not counted.
 
     Search with `q` over the dataset name, filter on what a row displays, and sort
     with paired `sort` and `order` lists.
@@ -453,12 +472,13 @@ async def asyncio(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`. Defaults to 7 days before `end`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`. Defaults to now.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`. Defaults to 7 days before
+            `end`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`. Defaults to now.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
         q (None | str | Unset): Case-insensitive substring match on `dataset_name`.
         dataset_name (list[str] | None | Unset): Exact match on `dataset_name`. Repeat the
             parameter to match any of several values.

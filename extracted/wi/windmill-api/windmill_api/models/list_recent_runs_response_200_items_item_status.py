@@ -4,6 +4,7 @@ from enum import Enum
 class ListRecentRunsResponse200ItemsItemStatus(str, Enum):
     CANCELED = "canceled"
     FAILURE = "failure"
+    RESOLVED = "resolved"
     RUNNING = "running"
     SUCCESS = "success"
 

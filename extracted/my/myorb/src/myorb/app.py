@@ -24,7 +24,7 @@ from myorb.auth.middleware import auth_middleware
 from myorb.auth.store import load_auth_state
 from myorb.brief import routes as brief_routes
 from myorb.brief.service import BriefService
-from myorb.cache import Cache
+from myorb.cache import Cache, cancel
 from myorb.config import Settings, move_legacy_database
 from myorb.connections import form_routes
 from myorb.connections import routes as connection_routes
@@ -191,10 +191,9 @@ def create_app(
                 app.state.auth.setup_token,
             )
         yield
-        scheduler.cancel()
-        notes.cancel()
-        for job in background:
-            job.cancel()
+        await cancel([scheduler, notes, *background])
+        await app.state.brief.close()
+        await app.state.cache.close()
         if app.state.tour is not None:
             await app.state.tour.close()
         await app.state.http.aclose()

@@ -155,7 +155,7 @@ class Transport:
         key = None if person else (api_key or os.environ.get("SEQUENCES_API_KEY"))
         signed_in = login_for(self._base) if (person or (login and not key)) else None
         if person and signed_in is None:
-            raise AuthError(PERSON_REFUSAL)
+            raise AuthError(PERSON_REFUSAL, details={"reason": "person_only"})
 
 
 

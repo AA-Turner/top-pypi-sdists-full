@@ -76,21 +76,13 @@ impl StatsigLocalFileEventLoggingAdapter {
             (request, result)
         });
 
-        let results = futures::future::join_all(tasks).await;
-        let mut failed_requests = Vec::new();
-
-        for (request, result) in results {
-            match result {
-                Ok(_) => (),
-                Err(_) => failed_requests.push(request),
+        for (request, result) in futures::future::join_all(tasks).await {
+            if result.is_err() {
+                self.log_events(request).await?;
             }
         }
 
-        if !failed_requests.is_empty() {
-            self.log_events(failed_requests.remove(0)).await?;
-        }
-
-        log_d!(TAG, "All events sent");
+        log_d!(TAG, "Pending event flush complete");
         Ok(())
     }
 }

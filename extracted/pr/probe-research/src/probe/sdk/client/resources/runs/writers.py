@@ -3,6 +3,8 @@ report a writer gone (twin: app/runs)."""
 
 from __future__ import annotations
 
+from ....delivery.transport.deadlines import disable_retries
+
 
 class RunWritersMixin:
     """Part of Client: its methods run with `self` the Client; compose() folds them into Client."""
@@ -64,24 +66,27 @@ class RunWritersMixin:
         if write_epoch is not None:
             params["write_epoch"] = write_epoch
         body = {"delivery": delivery} if delivery else None
-        if params:
-            return self.transport.request(
-                "POST",
-                f"/v1/runs/{run_id}/heartbeat",
-                params=params,
-                json_body=body,
-                idempotent=True,
-            ).json()
-        return self.transport.post(f"/v1/runs/{run_id}/heartbeat", body, idempotent=True)
+        # Sent once (I14): the next beat is its retry; retried inline, an outage cost 4 per beat.
+        with disable_retries():
+            if params:
+                return self.transport.request(
+                    "POST",
+                    f"/v1/runs/{run_id}/heartbeat",
+                    params=params,
+                    json_body=body,
+                    idempotent=True,
+                ).json()
+            return self.transport.post(f"/v1/runs/{run_id}/heartbeat", body, idempotent=True)
 
     def beat_writer(self, run_id: str, session_id: str, body: dict) -> dict:
         """``POST /v1/runs/{id}/writers/{session}/beat`` (SDK reliability 2.8):
         one lease beat. The first registers the lease. Returns
         ``{run_status, write_epoch, liveness_protocol}``; a 409 means a newer
-        attempt took the run over."""
-        return self.transport.post(
-            f"/v1/runs/{run_id}/writers/{session_id}/beat", body, idempotent=True
-        ) or {}
+        attempt took the run over. Sent once (I14): the next beat is its retry."""
+        with disable_retries():
+            return self.transport.post(
+                f"/v1/runs/{run_id}/writers/{session_id}/beat", body, idempotent=True
+            ) or {}
 
     def release_writer(self, run_id: str, session_id: str, body: dict) -> dict:
         """``POST /v1/runs/{id}/writers/{session}/release`` (2.8): this writer

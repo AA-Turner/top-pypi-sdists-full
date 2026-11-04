@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mastercard-oauth1-signer
-Version: 1.9.2
+Version: 1.10.0
 Summary: Mastercard OAuth1 Signer.
 Home-page: https://github.com/Mastercard/oauth1-signer-python
 Author: Mastercard
@@ -8,14 +8,14 @@ License: MIT
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8,<3.13
+Requires-Python: >=3.8,<3.14
 License-File: LICENSE
 Requires-Dist: cryptography>=42.0.0
 Requires-Dist: urllib3

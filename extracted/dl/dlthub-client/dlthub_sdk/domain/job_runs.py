@@ -39,29 +39,28 @@ if TYPE_CHECKING:
 
 
 class JobRunStatus(StrEnum):
-    """Where a run has got to.
-
-    Attributes:
-        PENDING: Accepted, not yet started.
-        STARTING: Being placed on a compute backend.
-        RUNNING: Executing.
-        CANCELLING: Cancellation asked for, not yet effective.
-        COMPLETED: Finished successfully.
-        FAILED: Finished unsuccessfully.
-        CANCELLED: Stopped on request.
-        SKIPPED: Never ran, because a gate declined it.
-        UNKNOWN: A status this SDK version does not know.
-    """
+    """Where a run has got to."""
 
     PENDING = "pending"
+    """Accepted, not yet started."""
     STARTING = "starting"
+    """Being placed on a compute backend."""
     RUNNING = "running"
+    """Executing."""
     CANCELLING = "cancelling"
+    """Cancellation asked for, not yet effective."""
     COMPLETED = "completed"
+    """Finished successfully."""
     FAILED = "failed"
+    """Finished unsuccessfully."""
     CANCELLED = "cancelled"
+    """Stopped on request, or because it exceeded its maximum run time."""
     SKIPPED = "skipped"
+    """Recorded without running. A start the platform declines is normally reported
+    through :class:`TriggerStatus` and creates no run.
+    """
     UNKNOWN = "unknown"
+    """A status this SDK version does not know."""
 
 
 #: The statuses a run never leaves. Anything else may still change.
@@ -75,7 +74,7 @@ TERMINAL_STATUSES = frozenset(
 )
 
 #: The terminal statuses that did not succeed. SKIPPED is terminal but not a
-#: failure: a gate declined the run, so nothing was attempted.
+#: failure: nothing was attempted.
 FAILED_STATUSES = frozenset({JobRunStatus.FAILED, JobRunStatus.CANCELLED})
 
 
@@ -84,34 +83,36 @@ class PipelineRunSummary:
     """One dlt pipeline a run executed, as telemetry reported it.
 
     A run executes whatever pipelines its job calls, so a job that loads two
-    sources reports two. Telemetry fills this in after the pipeline reports, so
-    a run that has just started carries none, and a run whose job never
-    reached a pipeline carries none for good.
-
-    Attributes:
-        pipeline_name: The dlt pipeline's name.
-        pipeline_run_id: Addresses this pipeline run's detail and trace.
-        transaction_id: Identifies this pipeline run in telemetry.
-        destination_name: Where it wrote, when telemetry reported one.
-        dataset_name: The dataset it wrote to, when telemetry reported one.
-        status: What the pipeline run ended as. Free-form: it is dlt's own
-            wording, not :class:`JobRunStatus`.
-        total_rows: Rows loaded, across every table.
-        duration_ms: How long the pipeline ran, in milliseconds.
-        started_at: When the pipeline began.
-        finished_at: When the pipeline finished.
+    sources reports two. A run carries one entry per dlt pipeline name it
+    reported; a pipeline that ran more than once shows its latest report.
+    Telemetry fills this in after the pipeline reports, so a run that has just
+    started carries none, and a run whose job never reached a pipeline carries
+    none for good.
     """
 
     pipeline_name: str
+    """Name of the dlt pipeline."""
     pipeline_run_id: str | None
+    """Telemetry ID of the pipeline run."""
     transaction_id: str | None
+    """Transaction ID of the pipeline run."""
     destination_name: str | None
+    """Name of the destination the pipeline wrote to."""
     dataset_name: str | None
+    """Name of the dataset the pipeline wrote to."""
+    # doc: sdk
     status: str | None
+    """What the pipeline run ended as. Free-form: it is dlt's own wording, not
+    :class:`JobRunStatus`.
+    """
     total_rows: int | None
+    """Total number of rows loaded by the pipeline."""
     duration_ms: int | None
+    """Duration of the pipeline run in milliseconds."""
     started_at: datetime | None
+    """When the pipeline run started."""
     finished_at: datetime | None
+    """When the pipeline run finished."""
 
     @staticmethod
     def _from_payload(payload: PipelineRunSummaryResponse) -> PipelineRunSummary:
@@ -135,32 +136,26 @@ class PipelineRunSummary:
 
 @dataclass(frozen=True)
 class CancelledRun:
-    """One run a bulk cancel stopped.
-
-    Attributes:
-        job_ref: The job it belonged to.
-        job_run_id: The run's uuid.
-        job_run_number: Its number within the workspace.
-        previous_status: What it was doing when the cancel landed.
-    """
+    """One run a bulk cancel stopped."""
 
     job_ref: str
+    """Job reference of the cancelled run."""
     job_run_id: str
+    """ID of the cancelled run."""
     job_run_number: int
+    """Number of the run within its job; numbers repeat across jobs."""
     previous_status: JobRunStatus
+    """Status of the run when the cancel request arrived."""
 
 
 @dataclass(frozen=True)
 class CancelReport:
-    """What a bulk cancel did.
-
-    Attributes:
-        cancelled: The runs that were stopped.
-        not_running: Job refs that had nothing to stop, which is not an error.
-    """
+    """What a bulk cancel did."""
 
     cancelled: tuple[CancelledRun, ...]
+    """The runs asked to stop (now cancelling), or that would be in a dry run."""
     not_running: tuple[str, ...]
+    """Job refs that had nothing to stop, which is not an error."""
 
     @staticmethod
     def _from_payload(
@@ -184,21 +179,19 @@ class CancelReport:
 
 @dataclass(frozen=True)
 class JobResultTrace:
-    """The whole job-result envelope a run delivered, as the runner sent it.
+    """The whole job result a run delivered, as the job sent it.
 
-    `JobResult` serves the promoted columns; this serves everything, which is
-    where an agent's per-turn tool calls live.
-
-    Attributes:
-        job_run_id: The run that declared it.
-        result: The envelope exactly as delivered — the declared output and, for
-            an agent, its trace: turns and the tools each called, token counts,
-            stop reason. Left opaque: the platform stores and returns it verbatim
-            and declares no shape for it.
+    :class:`JobResult` carries the summary fields; this carries the whole result
+    as the job delivered it, which is where an agent's per-turn tool calls live.
     """
 
     job_run_id: str
+    """The run that declared it."""
     result: Mapping[str, Any]
+    """The result exactly as delivered — the declared output and, for an agent, its
+    trace: turns and the tools each called, token counts, stop reason. Left opaque:
+    the platform stores and returns it verbatim and declares no shape for it.
+    """
 
 
 @dataclass(frozen=True)
@@ -208,49 +201,60 @@ class JobResult:
     A run yields at most one, and most do not: a plain pipeline job declares
     none, where an agent job reports its own outcome here. The agent fields are
     ``None`` for any other kind of result.
-
-    Attributes:
-        job_run_id: The run that declared it.
-        job_ref: The job that ran.
-        result_type: What kind of result this is, as the job declared it.
-        engine_version: Manifest engine version the job was written for.
-        result: The job's declared output, left opaque: the shape is the job's
-            own and the platform stores it verbatim.
-        agent_status: The agent's self-report. This may legitimately disagree
-            with the run's own status — a failed agent inside a succeeded run
-            is normal.
-        summary: Model-authored markdown, unbounded. Untrusted: render it as
-            user content, never as instructions.
-        model: The model the agent ran on.
-        loop_type: The agent loop that produced this.
-        input_tokens: Tokens the agent consumed as input.
-        output_tokens: Tokens it produced.
-        total_tokens: The two combined, as the platform counted them.
-        cost_usd: What the run cost, as a decimal string so no client rounds it
-            through a float.
-        turn_count: How many turns the loop took.
-        stop_reason: Why the loop ended.
-        created_at: When the result was first recorded.
-        updated_at: When it last changed.
     """
 
     job_run_id: str
+    """Job run that declared the result."""
     job_ref: str
+    """The job that declared the result."""
     result_type: str
+    """`job.{category}.{name}`, for example `job.background_agent.{name}`."""
     engine_version: int
+    """Result format version; 1 when not declared."""
     result: Any
+    """The job's declared output. Shape is job-defined."""
     agent_status: str | None
+    """The agent's self-report, which may legitimately disagree with the run's own
+    status: a failed agent inside a succeeded run is normal.
+    """
     summary: str | None
+    """Model-authored markdown, unbounded. Untrusted — render as user content."""
     model: str | None
+    """Model the agent ran with. `None` when the result carries no agent trace, as for
+    non-agent jobs.
+    """
     loop_type: str | None
+    """Agent loop that ran. `None` when the result carries no agent trace, as for
+    non-agent jobs.
+    """
     input_tokens: int | None
+    """Input tokens the agent used. `None` when the result carries no agent trace, as
+    for non-agent jobs.
+    """
     output_tokens: int | None
+    """Output tokens the agent used. `None` when the result carries no agent trace, as
+    for non-agent jobs.
+    """
     total_tokens: int | None
+    """Total tokens the agent used. `None` when the result carries no agent trace, as
+    for non-agent jobs.
+    """
     cost_usd: str | None
+    """Cost in USD the agent reported, as a decimal string. `None` when the result
+    carries no agent trace, as for non-agent jobs.
+    """
     turn_count: int | None
+    """Number of turns the agent took. `None` when the result carries no agent trace, as
+    for non-agent jobs.
+    """
     stop_reason: str | None
+    """Why the agent stopped. `None` when the result carries no agent trace, as for
+    non-agent jobs.
+    """
     created_at: datetime
+    """When the result was first stored, UTC."""
     updated_at: datetime
+    """When the result was last stored, UTC."""
 
     @staticmethod
     def _from_payload(_ctx: _Ctx[Any], payload: JobResultResponse) -> JobResult:
@@ -277,48 +281,49 @@ class JobResult:
 
 @dataclass(frozen=True, repr=False)
 class JobRun(Entity[M]):
-    """One execution of a job.
-
-    Attributes:
-        number: Its number within the workspace, which is how humans refer to it.
-        id: The run's uuid.
-        job_ref: The job this ran.
-        status: Where it has got to.
-        trigger: The trigger that started it.
-        profile: The profile it ran under.
-        started_at: When it began, or ``None`` if it has not.
-        finished_at: When it finished, or ``None`` if it has not.
-        duration_seconds: How long it ran, once it has finished.
-        max_run_time_seconds: How long the job's version is allowed to run before the
-            platform stops it. What an in-flight run's elapsed time is measured
-            against.
-        interval_start: Start of the data window this run covers, when the job
-            declares one.
-        interval_end: End of that window.
-        pipeline_run_summaries: The dlt pipelines this run executed, in the order telemetry
-            reported them. Empty until telemetry has heard from them, so it
-            says nothing about a run still in flight.
-        previous_job_run_id: The run that triggered this one, when a job event did.
-            ``None`` for a schedule, a manual trigger, or the first run of a
-            chain — so it is how a chain is walked backwards.
-        created_at: When the run was created.
-    """
+    """One execution of a job."""
 
     number: int
+    """Number of the run within its job, counting up from 1; numbers repeat across jobs.
+    """
     id: str
+    """Unique ID (a UUID)."""
     job_ref: str
+    """Canonical job reference, unique per workspace."""
     status: JobRunStatus
+    """The status of the run."""
     trigger: str
+    """The trigger the run fired with, e.g. `schedule:0 8 * * *`, `manual:jobs.my_job`,
+    `job.success:jobs.upstream`.
+    """
     profile: str
+    """The name of the profile that was used for the run."""
     started_at: datetime | None
+    """When the run started; `None` until it has."""
     finished_at: datetime | None
+    """When the run finished; `None` until it has."""
     duration_seconds: float | None
+    """Duration of the run in seconds, possibly fractional; `None` until it has
+    finished.
+    """
     max_run_time_seconds: int | None
+    """Maximum allowed run duration in seconds for this job version."""
     interval_start: datetime | None
+    """Start of the interval the run processes; `None` for a job without intervals."""
     interval_end: datetime | None
+    """End of the interval the run processes; `None` for a job without intervals."""
     pipeline_run_summaries: tuple[PipelineRunSummary, ...]
+    """One entry per dlt pipeline name the run reported; a pipeline that ran more than
+    once shows its latest report. In no particular order, and empty until telemetry
+    has received the reports.
+    """
     previous_job_run_id: str | None
+    """The upstream run whose completion started this one, through a `job.success:` /
+    `job.fail:` trigger or a freshness dependency; `None` for a run started manually,
+    by its own schedule, or by a trigger request.
+    """
     created_at: datetime
+    """When it was created."""
 
     _identity = ("number", "id")
     _kind = EntityKind.JOB_RUN
@@ -336,8 +341,7 @@ class JobRun(Entity[M]):
     def failed(self) -> bool:
         """Whether the run finished without succeeding.
 
-        A SKIPPED run is finished but not failed — a gate declined it, so
-        nothing was attempted.
+        A SKIPPED run is finished but not failed: nothing was attempted.
 
         Returns:
             True once the run has reached a terminal status other than
@@ -354,12 +358,18 @@ class JobRun(Entity[M]):
     def cancel(self) -> JobRun[Any] | Awaitable[JobRun[Any]]:
         """Ask the platform to stop this run.
 
+        The run moves to ``CANCELLING`` first, and to ``CANCELLED`` once it has
+        stopped.
+
         Returns:
             A fresh snapshot, usually ``CANCELLING`` rather than ``CANCELLED``;
             awaitable in async mode.
 
         Raises:
-            Conflict: The run has already finished.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
             NotFound: The run no longer exists.
         """
         workspace_id = self._ctx.require_workspace()
@@ -381,6 +391,7 @@ class JobRun(Entity[M]):
         Lines arrive as the body does, so a long log is never held whole. The
         platform consolidates a run's log after it ends, so this raises until
         that has happened — :meth:`stream_logs` is what follows a live run.
+        Platform errors are raised when iteration begins, not by this call.
 
         Returns:
             An iterable of log lines; async-iterable in async mode.
@@ -419,8 +430,9 @@ class JobRun(Entity[M]):
 
         Read from the compute backend rather than from storage, so it works
         while a run is going and stops on its own when the run ends. The
-        platform waits a short while for a backend that has not started
-        reporting yet.
+        platform waits up to about a minute for a backend that has not started
+        reporting yet. Platform errors are raised when iteration begins, not by
+        this call.
 
         Args:
             follow: Keep reading until the run ends. False replays what the
@@ -431,11 +443,11 @@ class JobRun(Entity[M]):
             An iterable of log lines; async-iterable in async mode.
 
         Raises:
-            ApiError: The platform could not follow this run — its backend does
-                not support live logs, or the stream failed part-way. It reports
-                both on an otherwise successful response, so this can be raised
-                after some lines have already been yielded.
-            NotFound: No such run in this workspace.
+            ApiError: The platform could not follow this run — it is unknown or
+                its backend never reported, the backend does not support live
+                logs, or the stream failed part-way. It reports these on an
+                otherwise successful response, so this can be raised after some
+                lines have already been yielded.
             ScopeMissing: Reached without a workspace in scope.
         """
         workspace_id = self._ctx.require_workspace()
@@ -520,12 +532,15 @@ class JobRun(Entity[M]):
     def trace(self: JobRun[Async]) -> Awaitable[JobResultTrace]: ...
 
     def trace(self) -> JobResultTrace | Awaitable[JobResultTrace]:
-        """Read the whole result envelope this run delivered, trace included.
+        """Read the whole result this run delivered, trace included.
 
         Returns:
-            The envelope; awaitable in async mode.
+            The whole result; awaitable in async mode.
 
         Raises:
+            ApiError: The result is too large to serve (``code``
+                ``job_result_trace_too_large``); :meth:`result` still reads the
+                summary fields.
             NotFound: The run declared no result, which is the normal case for a
                 job that reports none — not a sign the run is missing.
             ScopeMissing: Reached without a workspace in scope.
@@ -615,7 +630,8 @@ class JobRuns(Collection[M]):
             The run; awaitable in async mode.
 
         Raises:
-            BadRequest: ``id`` is not a uuid.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
             NotFound: No such run in this workspace.
             ScopeMissing: Reached without a workspace in scope.
         """
@@ -641,7 +657,8 @@ class JobRuns(Collection[M]):
             The result; awaitable in async mode.
 
         Raises:
-            BadRequest: ``id`` is not a uuid.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
             NotFound: No such run, or it declared no result — the platform
                 answers the same either way.
             ScopeMissing: Reached without a workspace in scope.
@@ -664,16 +681,20 @@ class JobRuns(Collection[M]):
     def trace(self: JobRuns[Async], *, id: str) -> Awaitable[JobResultTrace]: ...
 
     def trace(self, *, id: str) -> JobResultTrace | Awaitable[JobResultTrace]:
-        """Read one run's whole result envelope, without reading the run itself.
+        """Read one run's whole result, without reading the run itself.
 
         Args:
             id: The run's uuid.
 
         Returns:
-            The envelope; awaitable in async mode.
+            The whole result; awaitable in async mode.
 
         Raises:
-            BadRequest: ``id`` is not a uuid.
+            ApiError: The result is too large to serve (``code``
+                ``job_result_trace_too_large``); :meth:`result` still reads the
+                summary fields.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
             NotFound: No such run, or it declared no result — the platform
                 answers the same either way.
             ScopeMissing: Reached without a workspace in scope.
@@ -708,13 +729,15 @@ class JobRuns(Collection[M]):
 
         Args:
             job_id: Narrow to one job's runs. Omit to use the job in scope, or
-                the whole workspace when there is none.
+                the whole workspace when there is none, which leaves out system
+                jobs such as the dashboard.
 
         Returns:
             The newest run; awaitable in async mode.
 
         Raises:
-            BadRequest: ``job_id`` is not a uuid.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
             NotFound: Nothing has run yet.
             ScopeMissing: Reached without a workspace in scope.
         """
@@ -736,13 +759,15 @@ class JobRuns(Collection[M]):
 
         Args:
             job_id: Narrow to one job's runs. Omit to use the job in scope, or
-                the whole workspace when there is none.
+                the whole workspace when there is none, which leaves out system
+                jobs such as the dashboard.
 
         Returns:
             The count; awaitable in async mode. Saturates at 10,001.
 
         Raises:
-            BadRequest: ``job_id`` is not a uuid.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
             ScopeMissing: Reached without a workspace in scope.
         """
         return self._ctx.count(self._listing(job_id))
@@ -777,9 +802,12 @@ class JobRuns(Collection[M]):
     ) -> Iterable[JobRun[Any]] | AsyncIterable[JobRun[Any]]:
         """Yield runs newest first, paging lazily.
 
+        Platform errors are raised when iteration begins, not by this call.
+
         Args:
             job_id: Narrow to one job's runs. Omit to use the job in scope, or
-                the whole workspace when there is none.
+                the whole workspace when there is none, which leaves out system
+                jobs such as the dashboard.
             number: Keep only the run with this per-job number. Numbers repeat
                 across jobs, so pair it with a job.
             limit: Return at most this many. ``None`` walks to the end, or
@@ -790,7 +818,8 @@ class JobRuns(Collection[M]):
             An iterable of runs; async-iterable in async mode.
 
         Raises:
-            BadRequest: ``job_id`` is not a uuid.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
             ScopeMissing: Reached without a workspace in scope.
             ValueError: A negative ``limit`` or ``offset``.
         """
@@ -816,8 +845,9 @@ class JobRuns(Collection[M]):
     ) -> CancelReport | Awaitable[CancelReport]:
         """Stop whatever is running for the named jobs.
 
-        Addressed by job, not by run: the platform cancels each job's active
-        run, and reports the jobs that had nothing to stop.
+        Addressed by job, not by run: cancels every pending, starting or
+        running run of the named jobs. A ref that names no job, or has nothing
+        running, is reported in ``not_running``.
 
         Args:
             job_refs: The jobs whose runs to stop.

@@ -100,26 +100,25 @@ async fn parse_hydrated_update(
         stats.mmap += specs.0.values().filter(|spec| spec.is_mmap()).count();
         stats
     });
-    let (update, _, sidecar) = deserialize_protobuf_for_store_with_hydration(
+    let hydrated = deserialize_protobuf_for_store_with_hydration(
         ops_stats.as_ref(),
         current,
         decode_stats,
         &mut next,
         &mut protobuf_response_data(bytes),
-        ProtobufHydrationContext {
-            hydrator: &hydrator,
-            source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
-            sync_trigger: None,
-            mmap_project_id: MmapProjectId::for_sdk_key("inline-full-reuse-update"),
-            capture_hydrated_data_store_bytes: capture_sidecar,
-            preserve_session_update_mode,
-        },
+        &hydrator,
+        StoreHydrationOptions::new(
+            &format!("{}/v2/download_config_specs/key.json", server.uri()),
+            MmapProjectId::for_sdk_key("inline-full-reuse-update"),
+        )
+        .with_session_update_mode(preserve_session_update_mode)
+        .with_data_store_capture(capture_sidecar),
     )
     .await?;
-    let ProtobufUpdate::Materialized { is_delta, .. } = update else {
+    let ProtobufUpdate::Materialized { is_delta, .. } = hydrated.update else {
         panic!("a config update must materialize the response");
     };
-    Ok((next, sidecar, is_delta))
+    Ok((next, hydrated.hydrated_data_store_bytes, is_delta))
 }
 
 fn config_pointer(specs: &SpecsResponseFull, name: &str) -> Arc<Spec> {

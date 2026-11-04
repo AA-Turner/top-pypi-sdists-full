@@ -1,17 +1,13 @@
 from __future__ import annotations
 
 import platform
-import sys
 import time
-from contextlib import suppress
-from typing import Callable, Dict, List, Optional, Tuple
-from urllib.parse import parse_qs, urlparse
+from collections.abc import Callable
+from typing import cast
 from uuid import uuid4
-from warnings import warn
 
 from httpx import AsyncClient, QueryParams, Response
 from jwt import get_algorithm_by_name
-from typing_extensions import cast
 
 from ..constants import (
     EXPIRY_MARGIN,
@@ -29,11 +25,10 @@ from ..errors import (
     UserDoesntExist,
 )
 from ..helpers import (
+    _parse_url_params,
     decode_jwt,
     generate_pkce_challenge,
     generate_pkce_verifier,
-    model_dump_json,
-    model_validate,
     parse_auth_otp_response,
     parse_auth_response,
     parse_jwks,
@@ -97,20 +92,28 @@ from .gotrue_mfa_api import AsyncGoTrueMFAAPI
 from .storage import AsyncMemoryStorage, AsyncSupportedStorage
 
 
+def _is_signed_out_error(error: Exception) -> bool:
+    # The session is already gone server side (expired or invalid JWT, or the
+    # user was deleted), so the sign out has the effect the caller asked for.
+    return isinstance(error, AuthSessionMissingError) or (
+        isinstance(error, AuthApiError) and error.status in (401, 403, 404)
+    )
+
+
 class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
     def __init__(
         self,
         *,
-        url: Optional[str] = None,
-        headers: Optional[Dict[str, str]] = None,
-        storage_key: Optional[str] = None,
+        url: str | None = None,
+        headers: dict[str, str] | None = None,
+        storage_key: str | None = None,
         auto_refresh_token: bool = True,
         persist_session: bool = True,
-        storage: Optional[AsyncSupportedStorage] = None,
-        http_client: Optional[AsyncClient] = None,
+        storage: AsyncSupportedStorage | None = None,
+        http_client: AsyncClient | None = None,
         flow_type: AuthFlowType = "implicit",
         verify: bool = True,
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
     ) -> None:
         extra_headers = {
             "X-Client-Info": (
@@ -124,13 +127,6 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         if headers:
             extra_headers.update(headers)
 
-        if sys.version_info < (3, 10):
-            warn(
-                "Python versions below 3.10 are deprecated and will not be supported in future versions. Please upgrade to Python 3.10 or newer.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
         AsyncGoTrueBaseAPI.__init__(
             self,
             url=url or GOTRUE_URL,
@@ -142,16 +138,16 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
 
         self._jwks: JWKSet = {"keys": []}
         self._jwks_ttl: float = 600  # 10 minutes
-        self._jwks_cached_at: Optional[float] = None
+        self._jwks_cached_at: float | None = None
 
         self._storage_key = storage_key or STORAGE_KEY
         self._auto_refresh_token = auto_refresh_token
         self._persist_session = persist_session
         self._storage = storage or AsyncMemoryStorage()
-        self._in_memory_session: Optional[Session] = None
-        self._refresh_token_timer: Optional[Timer] = None
+        self._in_memory_session: Session | None = None
+        self._refresh_token_timer: Timer | None = None
         self._network_retries = 0
-        self._state_change_emitters: Dict[str, Subscription] = {}
+        self._state_change_emitters: dict[str, Subscription] = {}
         self._flow_type = flow_type
 
         self.admin = AsyncGoTrueAdminAPI(
@@ -161,19 +157,19 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         )
         # TODO(@o-santi): why is it like this?
         self.mfa = AsyncGoTrueMFAAPI()
-        self.mfa.challenge = self._challenge  # type: ignore
-        self.mfa.challenge_and_verify = self._challenge_and_verify  # type: ignore
-        self.mfa.enroll = self._enroll  # type: ignore
-        self.mfa.get_authenticator_assurance_level = (  # type: ignore
+        self.mfa.challenge = self._challenge  # type: ignore[method-assign]
+        self.mfa.challenge_and_verify = self._challenge_and_verify  # type: ignore[method-assign]
+        self.mfa.enroll = self._enroll  # type: ignore[method-assign]
+        self.mfa.get_authenticator_assurance_level = (  # type: ignore[method-assign]
             self._get_authenticator_assurance_level
         )
-        self.mfa.list_factors = self._list_factors  # type: ignore
-        self.mfa.unenroll = self._unenroll  # type: ignore
-        self.mfa.verify = self._verify  # type: ignore
+        self.mfa.list_factors = self._list_factors  # type: ignore[method-assign]
+        self.mfa.unenroll = self._unenroll  # type: ignore[method-assign]
+        self.mfa.verify = self._verify  # type: ignore[method-assign]
 
     # Initializations
 
-    async def initialize(self, *, url: Optional[str] = None) -> None:
+    async def initialize(self, *, url: str | None = None) -> None:
         if url and self._is_implicit_grant_flow(url):
             await self.initialize_from_url(url)
         else:
@@ -197,12 +193,11 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
     # Public methods
 
     async def sign_in_anonymously(
-        self, credentials: Optional[SignInAnonymouslyCredentials] = None
+        self, credentials: SignInAnonymouslyCredentials | None = None
     ) -> AuthResponse:
         """
         Creates a new anonymous user.
         """
-        await self._remove_session()
         if credentials is None:
             credentials = {"options": {}}
         options = credentials.get("options", {})
@@ -231,7 +226,6 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         """
         Creates a new user.
         """
-        await self._remove_session()
         email = credentials.get("email")
         phone = credentials.get("phone")
         password = credentials.get("password")
@@ -249,14 +243,16 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
             response = await self._request(
                 "POST",
                 "signup",
-                body={
-                    "email": email,
-                    "password": password,
-                    "data": data,
-                    "gotrue_meta_security": {
-                        "captcha_token": captcha_token,
-                    },
-                },
+                body=await self._with_pkce_challenge(
+                    {
+                        "email": email,
+                        "password": password,
+                        "data": data,
+                        "gotrue_meta_security": {
+                            "captcha_token": captcha_token,
+                        },
+                    }
+                ),
                 redirect_to=redirect_to,
             )
         elif phone and password:
@@ -298,7 +294,6 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         """
         Log in an existing user with an email or phone and password.
         """
-        await self._remove_session()
         email = credentials.get("email")
         phone = credentials.get("phone")
         password = credentials.get("password")
@@ -350,7 +345,6 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         """
         Allows signing in with an OIDC ID token. The authentication provider used should be enabled and configured.
         """
-        await self._remove_session()
         provider = credentials["provider"]
         token = credentials["token"]
         access_token = credentials.get("access_token")
@@ -394,7 +388,6 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         If you have built an organization-specific login page, you can use the
         organization's SSO Identity Provider UUID directly instead.
         """
-        await self._remove_session()
         provider_id = credentials.get("provider_id")
         domain = credentials.get("domain")
         options = credentials.get("options", {})
@@ -409,28 +402,32 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
             response = await self._request(
                 "POST",
                 "sso",
-                body={
-                    "domain": domain,
-                    "skip_http_redirect": skip_http_redirect,
-                    "gotrue_meta_security": {
-                        "captcha_token": captcha_token,
-                    },
-                    "redirect_to": redirect_to,
-                },
+                body=await self._with_pkce_challenge(
+                    {
+                        "domain": domain,
+                        "skip_http_redirect": skip_http_redirect,
+                        "gotrue_meta_security": {
+                            "captcha_token": captcha_token,
+                        },
+                        "redirect_to": redirect_to,
+                    }
+                ),
             )
             return parse_sso_response(response)
         if provider_id:
             response = await self._request(
                 "POST",
                 "sso",
-                body={
-                    "provider_id": provider_id,
-                    "skip_http_redirect": skip_http_redirect,
-                    "gotrue_meta_security": {
-                        "captcha_token": captcha_token,
-                    },
-                    "redirect_to": redirect_to,
-                },
+                body=await self._with_pkce_challenge(
+                    {
+                        "provider_id": provider_id,
+                        "skip_http_redirect": skip_http_redirect,
+                        "gotrue_meta_security": {
+                            "captcha_token": captcha_token,
+                        },
+                        "redirect_to": redirect_to,
+                    }
+                ),
             )
             return parse_sso_response(response)
         raise AuthInvalidCredentialsError(
@@ -444,8 +441,6 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         """
         Log in an existing user via a third-party provider.
         """
-        await self._remove_session()
-
         provider = credentials["provider"]
         options = credentials.get("options", {})
         redirect_to = options.get("redirect_to")
@@ -467,7 +462,7 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         options = credentials.get("options", {})
         redirect_to = options.get("redirect_to")
         scopes = options.get("scopes")
-        params = options.get("query_params", {})
+        params = {**options.get("query_params", {})}
         if redirect_to:
             params["redirect_to"] = redirect_to
         if scopes:
@@ -522,7 +517,6 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         If you're using phone sign-ins, only an OTP will be sent.
         You won't be able to send a magiclink for phone sign-ins.
         """
-        await self._remove_session()
         email = credentials.get("email")
         phone = credentials.get("phone")
         # TODO(@o-santi): this is horrible, but it is the easiest way to satisfy mypy
@@ -540,14 +534,16 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
             response = await self._request(
                 "POST",
                 "otp",
-                body={
-                    "email": email,
-                    "data": data,
-                    "create_user": should_create_user,
-                    "gotrue_meta_security": {
-                        "captcha_token": captcha_token,
-                    },
-                },
+                body=await self._with_pkce_challenge(
+                    {
+                        "email": email,
+                        "data": data,
+                        "create_user": should_create_user,
+                        "gotrue_meta_security": {
+                            "captcha_token": captcha_token,
+                        },
+                    }
+                ),
                 redirect_to=email_redirect_to,
             )
             return parse_auth_otp_response(response)
@@ -589,9 +585,9 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         phone = credentials.get("phone")
         type = credentials.get("type")
         options = credentials.get("options", {})
-        email_redirect_to: Optional[str] = options.get("email_redirect_to")  # type: ignore
+        email_redirect_to: str | None = options.get("email_redirect_to")  # type: ignore[assignment]
         captcha_token = options.get("captcha_token")
-        body: Dict[str, object] = {  # improve later
+        body: dict[str, object] = {  # improve later
             "type": type,
             "gotrue_meta_security": {
                 "captcha_token": captcha_token,
@@ -617,7 +613,6 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         """
         Log in a user given a User supplied OTP received via mobile.
         """
-        await self._remove_session()
         response = await self._request(
             "POST",
             "verify",
@@ -629,10 +624,20 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
             },
             redirect_to=params.get("options", {}).get("redirect_to"),
         )
+        if params["type"] == "email_change":
+            try:
+                data = response.json()
+            except ValueError:
+                data = None
+            if isinstance(data, dict) and data.get("code") == "200":
+                return AuthResponse()
         auth_response = parse_auth_response(response)
         if auth_response.session:
             await self._save_session(auth_response.session)
-            self._notify_all_subscribers("SIGNED_IN", auth_response.session)
+            event: AuthChangeEvent = (
+                "PASSWORD_RECOVERY" if params.get("type") == "recovery" else "SIGNED_IN"
+            )
+            self._notify_all_subscribers(event, auth_response.session)
         return auth_response
 
     async def reauthenticate(self) -> AuthResponse:
@@ -647,22 +652,14 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         )
         return AuthResponse(user=None, session=None)
 
-    async def get_session(self) -> Optional[Session]:
+    async def get_session(self) -> Session | None:
         """
         Returns the session, refreshing it if necessary.
 
         The session returned can be null if the session is not detected which
         can happen in the event a user is not signed-in or has logged out.
         """
-        current_session: Optional[Session] = None
-        if self._persist_session:
-            maybe_session = await self._storage.get_item(self._storage_key)
-            current_session = self._get_valid_session(maybe_session)
-            if not current_session:
-                await self._remove_session()
-        else:
-            current_session = self._in_memory_session
-
+        current_session = await self._load_session()
         if not current_session:
             return None
         time_now = round(time.time())
@@ -677,12 +674,15 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
             else current_session
         )
 
-    async def get_user(self, jwt: Optional[str] = None) -> Optional[UserResponse]:
+    async def get_user(self, jwt: str | None = None) -> UserResponse | None:
         """
         Gets the current user details if there is an existing session.
 
         Takes in an optional access token `jwt`. If no `jwt` is provided,
         `get_user()` will attempt to get the `jwt` from the current session.
+
+        Returns `None` if no `jwt` is provided and there is no active
+        session to retrieve one from.
         """
         if not jwt:
             session = await self.get_session()
@@ -693,7 +693,7 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         return parse_user_response(await self._request("GET", "user", jwt=jwt))
 
     async def update_user(
-        self, attributes: UserAttributes, options: Optional[UpdateUserOptions] = None
+        self, attributes: UserAttributes, options: UpdateUserOptions | None = None
     ) -> UserResponse:
         """
         Updates user data, if there is a logged in user.
@@ -702,10 +702,13 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         if not session:
             raise AuthSessionMissingError()
         update_options = options or {}
+        body = dict(attributes)
+        if attributes.get("email") is not None:
+            await self._with_pkce_challenge(body)
         response = await self._request(
             "PUT",
             "user",
-            body=attributes,
+            body=body,
             redirect_to=update_options.get("email_redirect_to"),
             jwt=session.access_token,
         )
@@ -733,8 +736,8 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         time_now = round(time.time())
         expires_at = time_now
         has_expired = True
-        session: Optional[Session] = None
-        if access_token and access_token.split(".")[1]:
+        session: Session | None = None
+        if access_token:
             payload = decode_jwt(access_token)["payload"]
             exp = payload.get("exp")
             if exp:
@@ -760,12 +763,12 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
                 expires_at=expires_at,
             )
         await self._save_session(session)
-        self._notify_all_subscribers("TOKEN_REFRESHED", session)
+        # A still-valid token is a sign-in. TOKEN_REFRESHED is only for a refresh.
+        event: AuthChangeEvent = "TOKEN_REFRESHED" if has_expired else "SIGNED_IN"
+        self._notify_all_subscribers(event, session)
         return AuthResponse(session=session, user=session.user)
 
-    async def refresh_session(
-        self, refresh_token: Optional[str] = None
-    ) -> AuthResponse:
+    async def refresh_session(self, refresh_token: str | None = None) -> AuthResponse:
         """
         Returns a new session, regardless of expiry status.
 
@@ -782,7 +785,7 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         session = await self._call_refresh_token(refresh_token)
         return AuthResponse(session=session, user=session.user)
 
-    async def sign_out(self, options: Optional[SignOutOptions] = None) -> None:
+    async def sign_out(self, options: SignOutOptions | None = None) -> None:
         """
         `sign_out` will remove the logged in user from the
         current session and log them out - removing all items from storage and then trigger a `"SIGNED_OUT"` event.
@@ -791,21 +794,71 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
 
         There is no way to revoke a user's access token jwt until it expires.
         It is recommended to set a shorter expiry on the jwt for this reason.
-        """
-        signout_options = options or {"scope": "global"}
-        with suppress(AuthApiError):
-            session = await self.get_session()
-            access_token = session.access_token if session else None
-            if access_token:
-                await self.admin.sign_out(access_token, signout_options["scope"])
 
-        if signout_options["scope"] != "others":
+        `sign_out` behavior depends on the scope:
+
+        - `global` (the default): the session is removed and `"SIGNED_OUT"` is
+          emitted only after the server revokes all of the user's sessions. If
+          the request fails, the error is raised and the session is kept, so the
+          call can be retried or replaced with a `local` sign out.
+        - `local`: the session is removed and `"SIGNED_OUT"` is emitted first,
+          then the request to revoke it on the server is sent. If the request
+          fails, the error is raised.
+        - `others`: the session is never removed. If the request fails, the
+          error is raised.
+
+        A 401, 403 or 404 response counts as already signed out.
+        """
+        scope = (options or {}).get("scope", "global")
+        try:
+            session = await self.get_session()
+        except AuthSessionMissingError:
+            session = None
+        except AuthApiError:
+            # The refresh was rejected, so there is no session left to revoke.
+            # The other sessions could not be revoked either.
+            if scope == "others":
+                raise
+            session = None
+        except Exception:
+            # The access token expired and could not be refreshed, so there is
+            # nothing to revoke with. `local` still signs out this device.
+            if scope == "local":
+                await self._remove_session()
+                self._notify_all_subscribers("SIGNED_OUT", None)
+            raise
+        access_token = session.access_token if session else None
+
+        teardown_error: Exception | None = None
+        if scope == "local":
+            # A failing `"SIGNED_OUT"` subscriber must not skip the request, so
+            # its error is raised once the request has been sent.
+            try:
+                await self._remove_session()
+                self._notify_all_subscribers("SIGNED_OUT", None)
+            except Exception as e:
+                teardown_error = e
+
+        error: Exception | None = None
+        if access_token:
+            try:
+                await self.admin.sign_out(access_token, scope)
+            except Exception as e:
+                if not _is_signed_out_error(e):
+                    error = e
+
+        if teardown_error is not None:
+            raise teardown_error
+        if error is not None:
+            raise error
+
+        if scope == "global":
             await self._remove_session()
             self._notify_all_subscribers("SIGNED_OUT", None)
 
     def on_auth_state_change(
         self,
-        callback: Callable[[AuthChangeEvent, Optional[Session]], None],
+        callback: Callable[[AuthChangeEvent, Session | None], None],
     ) -> Subscription:
         """
         Receive a notification every time an auth event happens.
@@ -824,7 +877,7 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         return subscription
 
     async def reset_password_for_email(
-        self, email: str, options: Optional[Options] = None
+        self, email: str, options: Options | None = None
     ) -> None:
         """
         Sends a password reset request to an email address.
@@ -833,19 +886,22 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         await self._request(
             "POST",
             "recover",
-            body={
-                "email": email,
-                "gotrue_meta_security": {
-                    "captcha_token": reset_options.get("captcha_token"),
+            body=await self._with_pkce_challenge(
+                {
+                    "email": email,
+                    "gotrue_meta_security": {
+                        "captcha_token": reset_options.get("captcha_token"),
+                    },
                 },
-            },
+                password_recovery=True,
+            ),
             redirect_to=reset_options.get("redirect_to"),
         )
 
     async def reset_password_email(
         self,
         email: str,
-        options: Optional[Options] = None,
+        options: Options | None = None,
     ) -> None:
         """
         Sends a password reset request to an email address.
@@ -876,7 +932,7 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
             body=body,
             jwt=session.access_token,
         )
-        auth_response = model_validate(AuthMFAEnrollResponse, response.content)
+        auth_response = AuthMFAEnrollResponse.model_validate_json(response.content)
         if params["factor_type"] == "totp" and auth_response.totp:
             auth_response.totp.qr_code = (
                 f"data:image/svg+xml;utf-8,{auth_response.totp.qr_code}"
@@ -893,7 +949,7 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
             body={"channel": params.get("channel")},
             jwt=session.access_token,
         )
-        return model_validate(AuthMFAChallengeResponse, response.content)
+        return AuthMFAChallengeResponse.model_validate_json(response.content)
 
     async def _challenge_and_verify(
         self,
@@ -922,8 +978,8 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
             body=params,
             jwt=session.access_token,
         )
-        auth_response = model_validate(AuthMFAVerifyResponse, response.content)
-        session = model_validate(Session, response.content)
+        auth_response = AuthMFAVerifyResponse.model_validate_json(response.content)
+        session = Session.model_validate_json(response.content)
         await self._save_session(session)
         self._notify_all_subscribers("MFA_CHALLENGE_VERIFIED", session)
         return auth_response
@@ -937,7 +993,7 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
             f"factors/{params.get('factor_id')}",
             jwt=session.access_token,
         )
-        return model_validate(AuthMFAUnenrollResponse, response.content)
+        return AuthMFAUnenrollResponse.model_validate_json(response.content)
 
     async def _list_factors(self) -> AuthMFAListFactorsResponse:
         response = await self.get_user()
@@ -978,6 +1034,15 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
 
     # Private methods
 
+    async def _load_session(self) -> Session | None:
+        if not self._persist_session:
+            return self._in_memory_session
+        maybe_session = await self._storage.get_item(self._storage_key)
+        current_session = self._get_valid_session(maybe_session)
+        if not current_session:
+            await self._remove_session()
+        return current_session
+
     async def _remove_session(self) -> None:
         if self._persist_session:
             await self._storage.remove_item(self._storage_key)
@@ -990,11 +1055,10 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
     async def _get_session_from_url(
         self,
         url: str,
-    ) -> Tuple[Session, Optional[str]]:
+    ) -> tuple[Session, str | None]:
         if not self._is_implicit_grant_flow(url):
             raise AuthImplicitGrantRedirectError("Not a valid implicit grant flow url.")
-        result = urlparse(url)
-        params = parse_qs(result.query)
+        params = _parse_url_params(url)
         error_description = self._get_param(params, "error_description")
         if error_description:
             error_code = self._get_param(params, "error_code")
@@ -1050,25 +1114,29 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         expires_at = current_session.expires_at
         if expires_at and expires_at < time_now + EXPIRY_MARGIN:
             refresh_token = current_session.refresh_token
-            if self._auto_refresh_token and refresh_token:
-                self._network_retries += 1
-                try:
-                    await self._call_refresh_token(refresh_token)
-                    self._network_retries = 0
+            if not refresh_token:
+                await self._remove_session()
+                return
+            if not self._auto_refresh_token:
+                return
+            self._network_retries += 1
+            try:
+                await self._call_refresh_token(refresh_token)
+                self._network_retries = 0
+                return
+            except Exception as e:
+                if (
+                    isinstance(e, AuthRetryableError)
+                    and self._network_retries < MAX_RETRIES
+                ):
+                    if self._refresh_token_timer:
+                        self._refresh_token_timer.cancel()
+                    self._refresh_token_timer = Timer(
+                        (200 * (2 ** (self._network_retries - 1))),
+                        self._recover_and_refresh,
+                    )
+                    self._refresh_token_timer.start()
                     return
-                except Exception as e:
-                    if (
-                        isinstance(e, AuthRetryableError)
-                        and self._network_retries < MAX_RETRIES
-                    ):
-                        if self._refresh_token_timer:
-                            self._refresh_token_timer.cancel()
-                        self._refresh_token_timer = Timer(
-                            (200 * (2 ** (self._network_retries - 1))),
-                            self._recover_and_refresh,
-                        )
-                        self._refresh_token_timer.start()
-                        return
             await self._remove_session()
             return
         if self._persist_session:
@@ -1107,7 +1175,7 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
             value = (expire_in - refresh_duration_before_expires) * 1000
             await self._start_auto_refresh_token(value)
         if self._persist_session and session.expires_at:
-            await self._storage.set_item(self._storage_key, model_dump_json(session))
+            await self._storage.set_item(self._storage_key, session.model_dump_json())
 
     async def _start_auto_refresh_token(self, value: float) -> None:
         if self._refresh_token_timer:
@@ -1119,7 +1187,8 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         async def refresh_token_function() -> None:
             self._network_retries += 1
             try:
-                session = await self.get_session()
+                # get_session() would refresh too: the timer fires inside EXPIRY_MARGIN.
+                session = await self._load_session()
                 if session:
                     await self._call_refresh_token(session.refresh_token)
                     self._network_retries = 0
@@ -1138,19 +1207,19 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
     def _notify_all_subscribers(
         self,
         event: AuthChangeEvent,
-        session: Optional[Session],
+        session: Session | None,
     ) -> None:
         for subscription in list(self._state_change_emitters.values()):
             subscription.callback(event, session)
 
     def _get_valid_session(
         self,
-        raw_session: Optional[str],
-    ) -> Optional[Session]:
+        raw_session: str | None,
+    ) -> Session | None:
         if not raw_session:
             return None
         try:
-            session = model_validate(Session, raw_session)
+            session = Session.model_validate_json(raw_session)
             if session.expires_at is None:
                 return None
             return session
@@ -1159,44 +1228,70 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
 
     def _get_param(
         self,
-        query_params: Dict[str, List[str]],
+        query_params: dict[str, list[str]],
         name: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         return query_params[name][0] if name in query_params else None
 
     def _is_implicit_grant_flow(self, url: str) -> bool:
-        result = urlparse(url)
-        params = parse_qs(result.query)
+        params = _parse_url_params(url)
         return "access_token" in params or "error_description" in params
 
     async def _get_url_for_provider(
         self,
         url: str,
         provider: Provider,
-        params: Dict[str, str],
-    ) -> Tuple[str, QueryParams]:
+        params: dict[str, str],
+    ) -> tuple[str, QueryParams]:
         query = QueryParams(params)
-        if self._flow_type == "pkce":
-            code_verifier = generate_pkce_verifier()
-            code_challenge = generate_pkce_challenge(code_verifier)
-            await self._storage.set_item(
-                f"{self._storage_key}-code-verifier", code_verifier
-            )
-            code_challenge_method = (
-                "plain" if code_verifier == code_challenge else "s256"
-            )
+        prepared = await self._prepare_pkce_challenge()
+        if prepared:
+            code_challenge, code_challenge_method = prepared
             query = query.set("code_challenge", code_challenge).set(
                 "code_challenge_method", code_challenge_method
             )
         query = query.set("provider", provider)
         return f"{url}?{query}", query
 
+    async def _prepare_pkce_challenge(
+        self, *, password_recovery: bool = False
+    ) -> tuple[str, str] | None:
+        if self._flow_type != "pkce":
+            return None
+        code_verifier = generate_pkce_verifier()
+        stored_verifier = (
+            f"{code_verifier}/PASSWORD_RECOVERY" if password_recovery else code_verifier
+        )
+        await self._storage.set_item(
+            f"{self._storage_key}-code-verifier", stored_verifier
+        )
+        code_challenge = generate_pkce_challenge(code_verifier)
+        code_challenge_method = "plain" if code_verifier == code_challenge else "s256"
+        return code_challenge, code_challenge_method
+
+    async def _with_pkce_challenge(
+        self, body: dict, *, password_recovery: bool = False
+    ) -> dict:
+        prepared = await self._prepare_pkce_challenge(
+            password_recovery=password_recovery
+        )
+        if prepared:
+            code_challenge, code_challenge_method = prepared
+            body["code_challenge"] = code_challenge
+            body["code_challenge_method"] = code_challenge_method
+        return body
+
     async def exchange_code_for_session(
         self, params: CodeExchangeParams
     ) -> AuthResponse:
-        code_verifier = params.get("code_verifier") or await self._storage.get_item(
-            f"{self._storage_key}-code-verifier"
-        )
+        code_verifier = params.get("code_verifier") or None
+        event: AuthChangeEvent = "SIGNED_IN"
+        if not code_verifier:
+            stored = await self._storage.get_item(f"{self._storage_key}-code-verifier")
+            if stored:
+                code_verifier, _, redirect_type = stored.partition("/")
+                if redirect_type == "PASSWORD_RECOVERY":
+                    event = "PASSWORD_RECOVERY"
         response = await self._request(
             "POST",
             "token",
@@ -1211,14 +1306,14 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         await self._storage.remove_item(f"{self._storage_key}-code-verifier")
         if auth_response.session:
             await self._save_session(auth_response.session)
-            self._notify_all_subscribers("SIGNED_IN", auth_response.session)
+            self._notify_all_subscribers(event, auth_response.session)
         return auth_response
 
     async def _fetch_jwks(self, kid: str, jwks: JWKSet) -> JWK:
-        jwk: Optional[JWK] = None
+        jwk: JWK | None = None
 
         # try fetching from the suplied keys.
-        jwk = next((jwk for jwk in jwks["keys"] if jwk["kid"] == kid), None)
+        jwk = next((jwk for jwk in jwks["keys"] if jwk.get("kid") == kid), None)
 
         if jwk:
             return jwk
@@ -1228,7 +1323,7 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         ):
             # try fetching from the cache.
             jwk = next(
-                (jwk for jwk in self._jwks["keys"] if jwk["kid"] == kid),
+                (jwk for jwk in self._jwks["keys"] if jwk.get("kid") == kid),
                 None,
             )
             if jwk:
@@ -1242,7 +1337,7 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
             self._jwks_cached_at = time.time()
 
             # find the signing key
-            jwk = next((jwk for jwk in jwks["keys"] if jwk["kid"] == kid), None)
+            jwk = next((jwk for jwk in jwks["keys"] if jwk.get("kid") == kid), None)
             if not jwk:
                 raise AuthInvalidJwtError("No matching signing key found in JWKS")
 
@@ -1251,8 +1346,8 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
         raise AuthInvalidJwtError("JWT has no valid kid")
 
     async def get_claims(
-        self, jwt: Optional[str] = None, jwks: Optional[JWKSet] = None
-    ) -> Optional[ClaimsResponse]:
+        self, jwt: str | None = None, jwks: JWKSet | None = None
+    ) -> ClaimsResponse | None:
         token = jwt
         if not token:
             session = await self.get_session()
@@ -1282,7 +1377,7 @@ class AsyncGoTrueClient(AsyncGoTrueBaseAPI):
 
         algorithm = get_algorithm_by_name(header["alg"])
         jwk_set = await self._fetch_jwks(header["kid"], jwks or {"keys": []})
-        signing_key = algorithm.from_jwk(cast(Dict[str, str], jwk_set))
+        signing_key = algorithm.from_jwk(cast(dict[str, str], jwk_set))
 
         # verify the signature
         is_valid = algorithm.verify(

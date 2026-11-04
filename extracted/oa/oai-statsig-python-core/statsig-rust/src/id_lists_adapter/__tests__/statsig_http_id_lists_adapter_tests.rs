@@ -157,6 +157,107 @@ async fn setup(
 }
 
 #[tokio::test]
+async fn private_http_publication_runs_on_the_requested_thread() {
+    use std::thread;
+
+    struct Listener {
+        blocking: bool,
+        runtime_thread: thread::ThreadId,
+    }
+    impl IdListsUpdateListener for Listener {
+        fn requires_blocking_id_list_publication(&self) -> bool {
+            self.blocking
+        }
+        fn get_current_id_list_metadata(&self) -> IdListsResponse {
+            HashMap::new()
+        }
+        fn did_receive_id_list_updates(&self, _: HashMap<String, IdListUpdate>) {
+            assert_eq!(thread::current().id() != self.runtime_thread, self.blocking);
+        }
+    }
+
+    for blocking in [false, true] {
+        let (_server, adapter, _, _) = setup(None).await;
+        let listener = Arc::new(Listener {
+            blocking,
+            runtime_thread: thread::current().id(),
+        });
+        adapter.set_listener(listener.clone());
+        adapter.sync_id_lists().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn private_shutdown_drains_cancelled_publication_and_rejects_late_refreshes() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::mpsc;
+
+    struct Listener {
+        entered: Notify,
+        release: parking_lot::Mutex<mpsc::Receiver<()>>,
+        calls: AtomicUsize,
+    }
+    impl IdListsUpdateListener for Listener {
+        fn requires_blocking_id_list_publication(&self) -> bool {
+            true
+        }
+        fn get_current_id_list_metadata(&self) -> IdListsResponse {
+            HashMap::new()
+        }
+        fn did_receive_id_list_updates(&self, _: HashMap<String, IdListUpdate>) {
+            if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                self.entered.notify_one();
+                self.release
+                    .lock()
+                    .recv_timeout(Duration::from_secs(5))
+                    .unwrap();
+            }
+        }
+    }
+
+    let (_server, adapter, _, _) = setup(None).await;
+    let (release, receiver) = mpsc::channel();
+    let listener = Arc::new(Listener {
+        entered: Notify::new(),
+        release: parking_lot::Mutex::new(receiver),
+        calls: AtomicUsize::new(0),
+    });
+    adapter.set_listener(listener.clone());
+    // Drop the refresh future while its blocking worker still owns the cursor guard.
+    tokio::select! {
+        result = adapter.sync_id_lists() =>
+            panic!("refresh finished before cancellation: {result:?}"),
+        () = listener.entered.notified() => {},
+    }
+    let queued = adapter.sync_id_lists();
+    tokio::pin!(queued);
+    assert!(futures::poll!(&mut queued).is_pending());
+    assert!(matches!(
+        adapter.shutdown(Duration::ZERO).await,
+        Err(StatsigErr::ShutdownFailure(_))
+    ));
+    let drain = adapter.shutdown(Duration::from_secs(5));
+    tokio::pin!(drain);
+    assert!(futures::poll!(&mut drain).is_pending());
+    release.send(()).unwrap();
+    let (drained, queued) = tokio::join!(drain, queued);
+    drained.unwrap();
+    assert!(matches!(queued, Err(StatsigErr::ShutdownFailure(_))));
+    assert!(matches!(
+        adapter.sync_id_lists().await,
+        Err(StatsigErr::ShutdownFailure(_))
+    ));
+    let unstarted = StatsigHttpIdListsAdapter::new("late-listener", &StatsigOptions::default());
+    unstarted.shutdown(Duration::ZERO).await.unwrap();
+    unstarted.set_listener(listener.clone());
+    assert!(matches!(
+        unstarted.sync_id_lists().await,
+        Err(StatsigErr::ShutdownFailure(_))
+    ));
+    assert_eq!(listener.calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
 async fn test_id_list_download_uses_override_api() {
     let mut manifest_server = Server::new_async().await;
     let mut download_server = Server::new_async().await;

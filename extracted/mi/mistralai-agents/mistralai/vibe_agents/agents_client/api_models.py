@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -212,10 +213,13 @@ class CreateManagedAgentRequest(AgentConfigurationRequest):
     dockerfile_path: str | None = None
     is_hardened: bool = True
     secret_bindings: list[SecretBindingInput] = []
-    required_session_inputs: SessionInputSchemas | None = None
+    session_input_schemas: SessionInputSchemas | None = None
     # The policy of a Session that starts without its own; None leaves such Sessions without
     # subagents. Left out when None, so an agent without subagents deploys to an older control plane.
     default_subagent_policy: SubagentPolicy | None = Field(default=None, exclude_if=lambda value: value is None)
+    # The Agents SDK release the image installs, from the project's uv.lock: the one the deployed agent runs,
+    # whatever release runs `agents deploy`. Left out when unknown.
+    sdk_version: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class ManagedAgentResponse(_APIModel):
@@ -305,10 +309,14 @@ class AgentDetailResponse(_APIModel):
     message: str | None = None
     build_phase: str | None = None
     build_message: str | None = None
+    build_commit_sha: str | None = None
+    build_started_at: datetime | None = None
     chat_url: str | None = None
     console_url: str | None = None
     # None means the worker never reported its declarations.
-    required_session_inputs: SessionInputSchemas | None = None
+    session_input_schemas: SessionInputSchemas | None = None
+    # The declared inputs a session cannot start without; the others may be omitted.
+    required_session_input_ids: list[str] = []
     # The managed deployment's Mistral Cloud service, whose logs the Runtime API serves. Only
     # `GET /agents/{agent_id}` returns it; the by-name lookup leaves it None.
     service_id: str | None = None
@@ -319,7 +327,7 @@ class RegisterAgentRequest(AgentConfigurationRequest):
     workflow_name: str
     # None lets the control plane choose the task queue, and the response carries its choice.
     deployment_name: str | None = None
-    required_session_inputs: SessionInputSchemas | None = None
+    session_input_schemas: SessionInputSchemas | None = None
     # The policy of a Session that starts without its own; None leaves such Sessions without
     # subagents. Left out when None, so an agent without subagents registers with an older control plane.
     default_subagent_policy: SubagentPolicy | None = Field(default=None, exclude_if=lambda value: value is None)
@@ -327,6 +335,10 @@ class RegisterAgentRequest(AgentConfigurationRequest):
     # configuration it stores. Left out when false, so a registration without configuration still
     # reaches an older control plane, which refuses the field as unknown.
     makes_own_sandbox: bool = Field(default=False, exclude_if=lambda value: not value)
+    # The code that declares the configuration: a restart with the same configuration and code version
+    # keeps its agent. Left out when unknown, so a registration reaches a control plane that predates it.
+    code_version: str | None = Field(default=None, exclude_if=_is_none)
+    code_version_source: Literal["explicit", "computed"] | None = Field(default=None, exclude_if=_is_none)
 
 
 class AgentResponse(_APIModel):

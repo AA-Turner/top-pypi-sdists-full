@@ -18,8 +18,16 @@ class ProgressLine:
         self.clock = clock
         self._samples: deque = deque()
 
-    def render(self, view) -> str:
-        """``view``: a `RunView` from the progress records."""
+    def render(self, view, *, is_server_storing: bool = False) -> str:
+        """``view``: a `RunView` from the progress records. ``is_server_storing``: the server holds
+        the run's close until its queued data is stored (I15d), which is what the line says then."""
+        if is_server_storing:
+            points = view.server_pending_points
+            amount = f"{points:,} point(s) of it" if points else "its last data"
+            return (
+                f"probe: run {self.run_ref}: everything was sent; the server is still storing {amount}, "
+                "and closes the run once they are stored; Ctrl-C to stop waiting (the close stays queued)"
+            )
         now = self.clock()
         self._samples.append((now, view.delivered_total))
         while len(self._samples) > 2 and now - self._samples[0][0] > _RATE_WINDOW_SECONDS:

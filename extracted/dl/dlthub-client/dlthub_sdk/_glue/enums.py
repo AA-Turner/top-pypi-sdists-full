@@ -7,19 +7,11 @@ A leaf module: it imports nothing else from the package, so any module may name
 from __future__ import annotations
 
 # Python internals
-from enum import Enum
+import enum
 
 
-class StrEnum(str, Enum):
-    """Base for the SDK's public enums.
-
-    Not ``enum.StrEnum``, which needs 3.11 while the SDK supports 3.10. The two
-    dunders make ``str()`` and f-strings render the value rather than
-    ``Cls.MEMBER`` on every supported version.
-    """
-
-    __str__ = str.__str__
-    __format__ = str.__format__  # type: ignore[assignment]
+class StrEnum(enum.StrEnum):
+    """Base for the SDK's public enums: an unknown value maps to ``UNKNOWN``."""
 
     @classmethod
     def _missing_(cls, value: object) -> StrEnum | None:

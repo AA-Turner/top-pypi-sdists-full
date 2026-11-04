@@ -37,6 +37,7 @@ class TestMetrics:
             name="Bytes downloaded",
             sql="SELECT sum(bytes_downloaded) FROM events WHERE download_speed = 'fast'",
             metadata={"foo": "string"},
+            status="active",
         )
         assert_matches_type(BillableMetric, metric, path=["response"])
 
@@ -82,8 +83,10 @@ class TestMetrics:
         metric = client.metrics.update(
             metric_id="metric_id",
             description="Sum of bytes downloaded in fast mode",
+            item_id="item_id",
             metadata={"foo": "string"},
             name="Bytes downloaded",
+            sql="SELECT sum(bytes_downloaded) FROM events WHERE download_speed = 'fast'",
         )
         assert_matches_type(BillableMetric, metric, path=["response"])
 
@@ -233,6 +236,44 @@ class TestMetrics:
             )
 
     @parametrize
+    def test_method_publish(self, client: Orb) -> None:
+        metric = client.metrics.publish(
+            "metric_id",
+        )
+        assert_matches_type(BillableMetric, metric, path=["response"])
+
+    @parametrize
+    def test_raw_response_publish(self, client: Orb) -> None:
+        response = client.metrics.with_raw_response.publish(
+            "metric_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        metric = response.parse()
+        assert_matches_type(BillableMetric, metric, path=["response"])
+
+    @parametrize
+    def test_streaming_response_publish(self, client: Orb) -> None:
+        with client.metrics.with_streaming_response.publish(
+            "metric_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            metric = response.parse()
+            assert_matches_type(BillableMetric, metric, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_publish(self, client: Orb) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `metric_id` but received ''"):
+            client.metrics.with_raw_response.publish(
+                "",
+            )
+
+    @parametrize
     def test_method_unarchive(self, client: Orb) -> None:
         metric = client.metrics.unarchive(
             "metric_id",
@@ -294,6 +335,7 @@ class TestAsyncMetrics:
             name="Bytes downloaded",
             sql="SELECT sum(bytes_downloaded) FROM events WHERE download_speed = 'fast'",
             metadata={"foo": "string"},
+            status="active",
         )
         assert_matches_type(BillableMetric, metric, path=["response"])
 
@@ -339,8 +381,10 @@ class TestAsyncMetrics:
         metric = await async_client.metrics.update(
             metric_id="metric_id",
             description="Sum of bytes downloaded in fast mode",
+            item_id="item_id",
             metadata={"foo": "string"},
             name="Bytes downloaded",
+            sql="SELECT sum(bytes_downloaded) FROM events WHERE download_speed = 'fast'",
         )
         assert_matches_type(BillableMetric, metric, path=["response"])
 
@@ -486,6 +530,44 @@ class TestAsyncMetrics:
     async def test_path_params_fetch(self, async_client: AsyncOrb) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `metric_id` but received ''"):
             await async_client.metrics.with_raw_response.fetch(
+                "",
+            )
+
+    @parametrize
+    async def test_method_publish(self, async_client: AsyncOrb) -> None:
+        metric = await async_client.metrics.publish(
+            "metric_id",
+        )
+        assert_matches_type(BillableMetric, metric, path=["response"])
+
+    @parametrize
+    async def test_raw_response_publish(self, async_client: AsyncOrb) -> None:
+        response = await async_client.metrics.with_raw_response.publish(
+            "metric_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        metric = response.parse()
+        assert_matches_type(BillableMetric, metric, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_publish(self, async_client: AsyncOrb) -> None:
+        async with async_client.metrics.with_streaming_response.publish(
+            "metric_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            metric = await response.parse()
+            assert_matches_type(BillableMetric, metric, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_publish(self, async_client: AsyncOrb) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `metric_id` but received ''"):
+            await async_client.metrics.with_raw_response.publish(
                 "",
             )
 

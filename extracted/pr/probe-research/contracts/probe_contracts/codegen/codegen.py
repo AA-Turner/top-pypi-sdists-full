@@ -1,5 +1,5 @@
 """Codegen: render every client view of the records, the event catalog, the client-message and
-transcript-switch vocabularies, then write it or check it is current.
+transcript-switch and settings vocabularies, then write it or check it is current.
 
     python -m probe_contracts.codegen           # write every target
     python -m probe_contracts.codegen --check   # exit 1 naming each stale target
@@ -16,6 +16,12 @@ from ..probe_contracts import CONTRACTS, Contracts
 from .client_messages import render_client_messages_stdlib, render_client_messages_typescript
 from .events import render_agent_events, render_dashboard_events, render_server_events
 from .python import render_python
+from .settings import (
+    GOLDEN_NAMES,
+    make_copy_render,
+    render_settings_stdlib,
+    render_settings_typescript,
+)
 from .transcript_switch import render_transcript_switch_stdlib
 from .typescript import render_typescript
 
@@ -44,6 +50,11 @@ TARGETS = (
            render_client_messages_stdlib),
     Target("packages/core/src/generated/client-messages.ts", render_client_messages_typescript),
     Target("agent/src/probe/generated/transcript_switch.py", render_transcript_switch_stdlib),
+    Target("agent/src/probe/generated/settings_vocabulary.py", render_settings_stdlib),
+    Target("packages/core/src/generated/settings.ts", render_settings_typescript),
+    # The Mac app's Rust writer reads these through the vendored @probe/core (plan app-never-waits S11).
+    Target("packages/core/src/settings/settings.schema.json", make_copy_render("settings.schema.json")),
+    *(Target(f"packages/core/src/settings/golden/{name}", make_copy_render(f"golden/{name}")) for name in GOLDEN_NAMES),
 )
 
 

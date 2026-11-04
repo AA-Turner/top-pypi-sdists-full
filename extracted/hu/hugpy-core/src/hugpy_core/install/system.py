@@ -26,12 +26,12 @@ from hugpy_core.imports.constant.install import (
     DEFAULT_PORTS, ENV_CORE_TS_URL, ENV_CORE_TS_TOKEN, ENV_CORE_DB,
     ENV_CALLLOG_DSN, ENV_CORE_HOST, ENV_CORE_PORT, ENV_CORE_URL,
     TS_TOKEN_ENV, WRAPPER_TOKEN_ENV, TS_HOST, SERVICE,
-    WRAPPER_ENDPOINT, WRAPPER_CONFIG, ACCOUNT, STATE,
-    CONFIG, FLASK_CONFIG, TOOLSERVER_CONFIG, ENDPOINT,
-    UNIT_DIR, CORE_UNIT, DOWNLOAD_UNIT, CATALOG_UNIT,
-    INTAKE_UNIT, PG_UNIT, TS_UNIT, TS_HOME,
+    CORE_UNIT, DOWNLOAD_UNIT, CATALOG_UNIT,
+    INTAKE_UNIT, PG_UNIT, TS_UNIT,
     DEFAULT_PORT, PG_PORT,
 )
+
+from . import system_layout
 
 
 def read_env(path: Path) -> dict[str, str]:
@@ -70,35 +70,44 @@ def db_command(executable: str, *args: str) -> dict:
     return json.loads(result.stdout.strip().splitlines()[-1])
 
 
-def _unit(executable: str, host: str, port: int, *, intake: bool, paths: list[str]) -> str:
+def _quote(value):
+    return json.dumps(str(value).replace('%', '%%'))
+
+
+def _directory(value):
+    # WorkingDirectory is one path, not a systemd word list: quotes are literal.
+    return str(value).replace("%", "%%")
+
+
+def _unit(lay, executable: str, host: str, port: int, *, intake: bool, paths: list[str]) -> str:
     description = "Hugpy Core telemetry intake" if intake else "Hugpy Core Flask API and console"
-    launch = (f"{executable} -m hugpy_core.intake.service" if intake else
-              f"{executable} -m hugpy_core.web.server --host {host} --port {port}")
-    path_rule = "ReadWritePaths=" + " ".join(paths)
+    launch = (f"{_quote(executable)} -m hugpy_core.intake.service" if intake else
+              f"{_quote(executable)} -m hugpy_core.web.server --host {host} --port {port}")
+    path_rule = "ReadWritePaths=" + " ".join(_quote(path) for path in paths)
     return "\n".join([
         "[Unit]", f"Description={description}", f"After=network-online.target {PG_UNIT}",
         "Wants=network-online.target",
         # A failed Requires job bypasses Restart and strands intake after DB recovery.
         *((f"Wants={PG_UNIT}", "StartLimitIntervalSec=0") if intake else (f"Requires={PG_UNIT}",)),
         "", "[Service]", "Type=simple",
-        f"User={ACCOUNT}", f"Group={ACCOUNT}", f"WorkingDirectory={STATE}",
-        f"EnvironmentFile={CONFIG}", "Environment=PYTHONDONTWRITEBYTECODE=1",
-        f"ExecStartPre={executable} -c 'from hugpy_core import schema; schema.ensure()'",
+        f"User={lay.account}", f"Group={lay.group}", f"WorkingDirectory={_directory(lay.state)}",
+        f"EnvironmentFile={_directory(lay.config)}", "Environment=PYTHONDONTWRITEBYTECODE=1",
+        f"ExecStartPre={_quote(executable)} -c 'from hugpy_core import schema; schema.ensure()'",
         f"ExecStart={launch}", "Restart=on-failure", "RestartSec=3", "TimeoutStopSec=15",
         "UMask=0077", "NoNewPrivileges=true", "PrivateTmp=true", "ProtectSystem=strict",
-        "ProtectHome=true", path_rule, "", "[Install]", "WantedBy=multi-user.target", "",
+        "ProtectHome=read-only", path_rule, "", "[Install]", "WantedBy=multi-user.target", "",
     ])
 
 
-def _local_wrapper(executable: str, dsn: str) -> None:
-    endpoint_file = WRAPPER_ENDPOINT
+def _local_wrapper(lay, executable: str, dsn: str) -> None:
+    endpoint_file = lay.wrapper_endpoint
     if not endpoint_file.exists():
         return
     endpoint = json.loads(endpoint_file.read_text(encoding="utf-8"))
     url = str(endpoint.get("url") or "").rstrip("/")
     if not url:
         return
-    token_path = Path(endpoint.get("token_file") or str(WRAPPER_CONFIG))
+    token_path = Path(endpoint.get("token_file") or str(lay.wrapper_config))
     key = read_env(token_path).get(endpoint.get("token_env") or WRAPPER_TOKEN_ENV, "")
     try:
         with urllib.request.urlopen(url + "/health", timeout=3) as response:
@@ -113,16 +122,16 @@ def _local_wrapper(executable: str, dsn: str) -> None:
     registration = {"name": name, "url": url}
     if key:
         registration["key"] = key
-    subprocess.run(["runuser", "-u", ACCOUNT, "--", executable, "-c", script],
+    subprocess.run(["runuser", "-u", lay.account, "--", executable, "-c", script],
                    input=json.dumps(registration), text=True,
-                   env={**os.environ, ENV_CORE_DB: dsn}, check=True,
+                   env={**os.environ, **lay.environment(), ENV_CORE_DB: dsn}, check=True,
                    stdout=subprocess.DEVNULL)
 
 
-def _toolserver(executable: str, current: dict, account) -> None:
+def _toolserver(lay, executable: str, current: dict, account) -> None:
     """Provision the Orbit's backend independently of per-user toolserver nodes."""
     existing_url = current.get(ENV_CORE_TS_URL)
-    ts = read_env(TOOLSERVER_CONFIG)
+    ts = read_env(lay.toolserver_config)
     port = int(ts.get("TOOLSERVER_PORT") or DEFAULT_PORTS["toolserver"])
     if not 1 <= port <= 65535:
         raise RuntimeError("Toolserver port is out of range")
@@ -134,33 +143,34 @@ def _toolserver(executable: str, current: dict, account) -> None:
         return
     token = (current.get(ENV_CORE_TS_TOKEN)
              or ts.get(TS_TOKEN_ENV) or secrets.token_urlsafe(32))
-    TS_HOME.mkdir(mode=0o700, parents=True, exist_ok=True)
-    os.chown(TS_HOME, account.pw_uid, account.pw_gid)
+    lay.ts_home.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chown(lay.ts_home, account.pw_uid, account.pw_gid)
+    ts.update(lay.environment())
     ts.update({"TOOLSERVER_HOST": TS_HOST, "TOOLSERVER_PORT": str(port),
                "TOOLSERVER_URL": url, "TOOLSERVER_STORE": "local",
                TS_TOKEN_ENV: token, "TOOLSERVER_TOKEN": token,
-               "ABSTRACT_TOOLSERVER_HOME": str(TS_HOME),
-               "ABSTRACT_TOOLSERVER_ENDPOINT_FILE": str(TS_HOME / "endpoint.json")})
-    write_file(TOOLSERVER_CONFIG, "".join(f"{key}={json.dumps(value)}\n"
+               "ABSTRACT_TOOLSERVER_HOME": str(lay.ts_home),
+               "ABSTRACT_TOOLSERVER_ENDPOINT_FILE": str(lay.ts_home / "endpoint.json")})
+    write_file(lay.toolserver_config, "".join(f"{key}={json.dumps(value)}\n"
                                         for key, value in sorted(ts.items())),
                mode=0o640, gid=account.pw_gid)
     launch = str(Path(executable).with_name("abstract-toolserver"))
-    write_file(UNIT_DIR / TS_UNIT, "\n".join([
+    write_file(lay.unit_dir / TS_UNIT, "\n".join([
         "[Unit]", "Description=Hugpy Orbit toolserver backend",
         f"After=network-online.target {PG_UNIT}", f"Requires={PG_UNIT}",
         "Wants=network-online.target", "", "[Service]", "Type=simple",
-        f"User={ACCOUNT}", f"Group={ACCOUNT}", f"WorkingDirectory={TS_HOME}",
-        f"EnvironmentFile={TOOLSERVER_CONFIG}",
-        f"Environment=ABSTRACT_TOOLSERVER_HOME={TS_HOME}",
-        f"Environment=TOOLSERVER_ENV_FILE={TOOLSERVER_CONFIG}",
-        f"Environment=TOOLSERVER_TOKEN_FILE={TOOLSERVER_CONFIG}",
+        f"User={lay.account}", f"Group={lay.group}", f"WorkingDirectory={_directory(lay.ts_home)}",
+        f"EnvironmentFile={_directory(lay.toolserver_config)}",
+        f"Environment={_quote('ABSTRACT_TOOLSERVER_HOME=' + str(lay.ts_home))}",
+        f"Environment={_quote('TOOLSERVER_ENV_FILE=' + str(lay.toolserver_config))}",
+        f"Environment={_quote('TOOLSERVER_TOKEN_FILE=' + str(lay.toolserver_config))}",
         "Environment=PYTHONDONTWRITEBYTECODE=1", "Environment=PYTHONUNBUFFERED=1",
-        "UnsetEnvironment=XDG_RUNTIME_DIR", f"ExecStart={launch} serve --host {TS_HOST} --port {port}",
+        "UnsetEnvironment=XDG_RUNTIME_DIR", f"ExecStart={_quote(launch)} serve --host {TS_HOST} --port {port}",
         "Restart=on-failure", "RestartSec=3", "UMask=0077", "NoNewPrivileges=true",
         "", "[Install]", "WantedBy=multi-user.target", "",
     ]), mode=0o644)
     run("systemctl", "daemon-reload")
-    run("systemctl", "enable", TS_UNIT)
+    run("systemctl", "enable", str(lay.unit_dir / TS_UNIT))
     run("systemctl", "restart", TS_UNIT)
     request = urllib.request.Request(url + "/ts/categories", data=b"{}",
                                      headers={"Content-Type": "application/json", "X-Operator-Token": token})
@@ -181,18 +191,32 @@ def _toolserver(executable: str, current: dict, account) -> None:
 def install(args) -> int:
     if os.geteuid() != 0:
         raise RuntimeError("--system requires root")
+    name, units, existing = system_layout.select_identity()
     try:
-        account = pwd.getpwnam(ACCOUNT)
+        account = pwd.getpwnam(name)
     except KeyError:
-        run("useradd", "--system", "--user-group", "--home-dir", str(STATE),
-            "--shell", "/usr/sbin/nologin", ACCOUNT)
-        account = pwd.getpwnam(ACCOUNT)
-    STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
-    os.chown(STATE, account.pw_uid, account.pw_gid)
-    os.chmod(STATE, 0o700)
-    current = read_env(CONFIG)
-    old_flask = read_env(FLASK_CONFIG)
-    previous = json.loads(ENDPOINT.read_text()) if ENDPOINT.exists() else {}
+        # Let the operating system choose its normal account home.
+        run("useradd", "--system", "--user-group", "--create-home", name)
+        account = pwd.getpwnam(name)
+    lay = system_layout.resolve(account, units, existing)
+    current = read_env(lay.config)
+    lay = system_layout.resolve(account, units, existing, current)
+    for root in (lay.config_dir, Path(lay.roots['data']), Path(lay.roots['cache'])):
+        if not root.exists():
+            root.mkdir(mode=0o750, parents=True, exist_ok=True)
+            os.chown(root, account.pw_uid, account.pw_gid)
+    lay.unit_dir.mkdir(parents=True, exist_ok=True)
+    lay.state.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chown(lay.state, account.pw_uid, account.pw_gid)
+    os.chmod(lay.state, 0o700)
+    current = read_env(lay.config)
+    current.update(lay.environment())
+    for key in ('HUGPY_DISCOVERY_DATABASE', 'HUGPY_CATALOG_DISCOVERY_DB',
+                'HUGPY_CATALOG_DISCOVERY_DIR', 'HUGPY_CATALOG_WRAPPER_DB'):
+        if key in os.environ:
+            current[key] = os.environ[key]
+    old_flask = read_env(lay.flask_config)
+    previous = json.loads(lay.endpoint.read_text()) if lay.endpoint.exists() else {}
     host = args.host or str(previous.get("host") or current.get(ENV_CORE_HOST) or TS_HOST).split(",")[0]
     port = int(args.port or previous.get("port") or current.get(ENV_CORE_PORT) or DEFAULT_PORT)
     if not 1 <= port <= 65535:
@@ -203,9 +227,9 @@ def install(args) -> int:
 
     # The toolserver's records have their own database. The existing cluster
     # and Basic database remain untouched during an upgrade.
-    cluster = db_command(toolserver, "install", "--system", "--account", ACCOUNT,
-                         "--name", ACCOUNT, "--port", pg_port,
-                         "--data-dir", str(STATE / "pg"), "--env-file", str(TOOLSERVER_CONFIG),
+    cluster = db_command(toolserver, "install", "--system", "--account", lay.account,
+                         "--name", SERVICE, "--port", pg_port,
+                         "--data-dir", str(lay.state / "pg"), "--env-file", str(lay.toolserver_config),
                          "--database", "hugpy_toolserver", "--yes")
     if not cluster.get("ready"):
         raise RuntimeError("PostgreSQL cluster did not become ready")
@@ -216,14 +240,14 @@ def install(args) -> int:
         target = args.database or ("hugpy_core_flask" if current.get("SOLCATCHER_POSTGRESQL_NAME")
                                    else "hugpy_core")
         core_dsn = db_command(toolserver, "ensure-database", target,
-                              "--env-file", str(TOOLSERVER_CONFIG))["dsn"]
+                              "--env-file", str(lay.toolserver_config))["dsn"]
 
     current.update({
         ENV_CORE_DB: core_dsn, ENV_CALLLOG_DSN: core_dsn,
         ENV_CORE_HOST: host, ENV_CORE_PORT: str(port),
         ENV_CORE_URL: f"http://{host}:{port}",
         "HUGPY_SELF_BASE": f"http://{host}:{port}",
-        "HUGPY_CORE_HOME": str(STATE), "HUGPY_CORE_SHARED_PRESENCE": "1",
+        "HUGPY_CORE_HOME": str(lay.state), "HUGPY_CORE_SHARED_PRESENCE": "1",
         "HUGPY_ROUTER_KEY": current.get("HUGPY_ROUTER_KEY") or "hpk_box_" + secrets.token_urlsafe(32),
     })
     if args.central_models_home:
@@ -233,20 +257,21 @@ def install(args) -> int:
     for key, value in old_flask.items():
         if key.startswith("HUGPY_") and key not in (ENV_CORE_DB, ENV_CALLLOG_DSN):
             current.setdefault(key, value)
-    _toolserver(executable, current, account)
+    _toolserver(lay, executable, current, account)
     current.pop("HUGPY_BASIC_COMPAT_DB", None)
-    current.setdefault("HUGPY_COMMS_DB", str(STATE / "downloads.sqlite3"))
-    write_file(CONFIG, "".join(f"{key}={json.dumps(value)}\n" for key, value in sorted(current.items())),
+    current.setdefault("HUGPY_LOG_DIR", str(lay.state / "logs"))
+    current.setdefault("HUGPY_COMMS_DB", str(lay.state / "downloads.sqlite3"))
+    write_file(lay.config, "".join(f"{key}={json.dumps(value)}\n" for key, value in sorted(current.items())),
                mode=0o640, gid=account.pw_gid)
     # runuser needs the new env; systemctl loads it for all Core service units.
-    migrate = subprocess.run(["runuser", "-u", ACCOUNT, "--", executable, "-c",
+    migrate = subprocess.run(["runuser", "-u", lay.account, "--", executable, "-c",
                               "from hugpy_core import schema; schema.ensure()"],
                              env={**os.environ, **current}, text=True, capture_output=True)
     if migrate.returncode:
         raise RuntimeError("Core schema migration failed: " + migrate.stderr.strip()[-600:])
-    _local_wrapper(executable, core_dsn)
+    _local_wrapper(lay, executable, core_dsn)
 
-    paths = [str(STATE)]
+    paths = [str(lay.state)]
     for value in [current.get("HUGPY_CENTRAL_MODELS_HOME", ""),
                   *[part.split(":", 1)[0] for part in current.get("HUGPY_CENTRAL_DRIVES", "").split(",")]]:
         if value and value.startswith("/"):
@@ -254,25 +279,26 @@ def install(args) -> int:
     # The console's Station tab runs the harness TUI in-process on the sessions
     # service's workspace (hugpy-agent on this box), so the TUI, the brain and the
     # registry share one journal. Optional path: absent when the agent isn't here.
-    paths.append("-/var/lib/hugpy-agent/sessions")
+    paths.append("-" + str(Path(lay.roots["data"]) / "agent" / "sessions"))
     paths = list(dict.fromkeys(paths))
-    write_file(UNIT_DIR / CORE_UNIT, _unit(executable, host, port, intake=False, paths=paths), mode=0o644)
-    write_file(UNIT_DIR / INTAKE_UNIT, _unit(executable, host, port, intake=True, paths=[str(STATE)]), mode=0o644)
-    download_unit = _unit(executable, host, port, intake=False, paths=paths)
+    write_file(lay.unit_dir / CORE_UNIT, _unit(lay, executable, host, port, intake=False, paths=paths), mode=0o644)
+    write_file(lay.unit_dir / INTAKE_UNIT, _unit(lay, executable, host, port, intake=True, paths=[str(lay.state)]), mode=0o644)
+    download_unit = _unit(lay, executable, host, port, intake=False, paths=paths)
     download_unit = download_unit.replace("Description=Hugpy Core Flask API and console", "Description=Hugpy model download daemon")
     download_unit = download_unit.replace(
         f"-m hugpy_core.web.server --host {host} --port {port}", "-m hugpy_storage.downloader.daemon")
     download_unit = download_unit.replace("TimeoutStopSec=15", "TimeoutStopSec=20\nKillMode=control-group\nLimitNOFILE=65536")
-    write_file(UNIT_DIR / DOWNLOAD_UNIT, download_unit, mode=0o644)
+    write_file(lay.unit_dir / DOWNLOAD_UNIT, download_unit, mode=0o644)
     catalog_unit = download_unit.replace("Description=Hugpy model download daemon", "Description=Hugpy background model catalog")
     catalog_unit = catalog_unit.replace("-m hugpy_storage.downloader.daemon", "-m hugpy_storage.hub.discovery")
-    write_file(UNIT_DIR / CATALOG_UNIT, catalog_unit, mode=0o644)
+    write_file(lay.unit_dir / CATALOG_UNIT, catalog_unit, mode=0o644)
     endpoint = {"service": SERVICE, "profile": "flask", "version": __version__,
                 "host": host, "port": port, "url": f"http://{host}:{port}",
-                "token_file": str(CONFIG), "token_env": "HUGPY_ROUTER_KEY", "store": str(STATE)}
-    write_file(ENDPOINT, json.dumps(endpoint, indent=2) + "\n", mode=0o644)
+                "token_file": str(lay.config), "token_env": "HUGPY_ROUTER_KEY", "store": str(lay.state)}
+    write_file(lay.endpoint, json.dumps(endpoint, indent=2) + "\n", mode=0o644)
     run("systemctl", "daemon-reload")
-    run("systemctl", "enable", CORE_UNIT, INTAKE_UNIT, DOWNLOAD_UNIT, CATALOG_UNIT)
+    run("systemctl", "enable", *(str(lay.unit_dir / name) for name in
+                                  (CORE_UNIT, INTAKE_UNIT, DOWNLOAD_UNIT, CATALOG_UNIT)))
     run("systemctl", "restart", CORE_UNIT, INTAKE_UNIT, DOWNLOAD_UNIT, CATALOG_UNIT)
     for _ in range(60):
         try:
@@ -295,13 +321,30 @@ def main(argv=None) -> int:
     installer.add_argument("--port", type=int)
     installer.add_argument("--database")
     installer.add_argument("--central-models-home")
+    commands = [installer]
     for verb in ("status", "uninstall"):
         p = sub.add_parser(verb)
         p.add_argument("--system", action="store_true", required=True)
+        commands.append(p)
+    for command in commands:
+        command.add_argument('--account', help='service account override')
+        command.add_argument('--config-dir', help='shared Hugpy configuration directory')
+        command.add_argument('--data-dir', help='shared Hugpy data directory')
+        command.add_argument('--home', help='shared HUGPY_HOME runtime root')
+        command.add_argument('--unit-dir', help='systemd unit directory override')
     args = parser.parse_args(argv)
+    for field, key in (('account', 'HUGPY_SERVICE_USER'), ('config_dir', 'HUGPY_CONFIG_DIR'),
+                       ('data_dir', 'HUGPY_DATA_DIR'), ('home', 'HUGPY_HOME'),
+                       ('unit_dir', 'HUGPY_SYSTEMD_UNIT_DIR')):
+        if getattr(args, field, None):
+            os.environ[key] = getattr(args, field)
     try:
         if args.verb == "install":
             return install(args)
+        name, units, existing = system_layout.select_identity()
+        account = pwd.getpwnam(name)
+        lay = system_layout.resolve(account, units, existing)
+        lay = system_layout.resolve(account, units, existing, read_env(lay.config))
         if args.verb == "status":
             print(json.dumps({"core": subprocess.run(["systemctl", "is-active", CORE_UNIT],
                                                      capture_output=True, text=True).stdout.strip(),
@@ -309,12 +352,12 @@ def main(argv=None) -> int:
                                                        capture_output=True, text=True).stdout.strip(),
                               "toolserver": subprocess.run(["systemctl", "is-active", TS_UNIT],
                                                            capture_output=True, text=True).stdout.strip(),
-                              "endpoint": json.loads(ENDPOINT.read_text()) if ENDPOINT.exists() else None}))
+                              "endpoint": json.loads(lay.endpoint.read_text()) if lay.endpoint.exists() else None}))
             return 0
         if os.geteuid() != 0:
             raise RuntimeError("--system requires root")
         run("systemctl", "disable", "--now", CORE_UNIT, INTAKE_UNIT, DOWNLOAD_UNIT, CATALOG_UNIT)
-        if (UNIT_DIR / TS_UNIT).exists():
+        if (lay.unit_dir / TS_UNIT).exists():
             run("systemctl", "disable", "--now", TS_UNIT)
         return 0
     except (RuntimeError, ValueError, OSError, KeyError) as exc:

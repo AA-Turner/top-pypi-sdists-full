@@ -6,8 +6,9 @@ from typing import Callable, Optional
 from fivetran_connector_sdk_common import __version__, constants
 from fivetran_connector_sdk_cli.initialisation_helper import init
 from fivetran_connector_sdk_common.logger import Logging
-from fivetran_connector_sdk_common.constants import DEPRECATED_FORCE_FLAG_WARNING, DEFAULT_PYTHON_VERSION, PYPROJECT_TOML
-from fivetran_connector_sdk_common.helpers import print_library_log
+from fivetran_connector_sdk_common.constants import (
+    DEPRECATED_FORCE_FLAG_WARNING, DEFAULT_PYTHON_VERSION,     PYPROJECT_TOML)
+from fivetran_connector_sdk_common.helpers import format_naming_for_display, print_library_log
 from fivetran_connector_sdk_cli.cli_helpers import (
     state_file_to_update,
     telemetry,
@@ -55,7 +56,7 @@ from fivetran_connector_sdk_cli.connector_helper import (
     attempted_command_for_telemetry
 )
 from fivetran_connector_sdk_common.configuration import check_dict
-from fivetran_connector_sdk_cli.options_file import find_options_file, default_options_file_path, is_options_file_supported
+from fivetran_connector_sdk_cli.options_file import find_options_file, default_options_file_path, is_toml_file_supported
 from fivetran_connector_sdk_cli.migration import run_migration, write_resolved_profile
 from fivetran_connector_sdk_cli.resolution import resolve_deploy_options
 
@@ -103,7 +104,7 @@ def _deploy_connector(project_path: Optional[str], deploy_key: str, group: str, 
     if proxy_host_config_key:
         deploy_cmd += f"--proxy-host-config-key {proxy_host_config_key} "
     if naming:
-        deploy_cmd += f"--naming {naming} "
+        deploy_cmd += f"--naming {format_naming_for_display(naming)} "
     if target_package_id:
         deploy_cmd += f"--package-id {target_package_id} "
     if prompt_mode.value:
@@ -223,7 +224,7 @@ def _run_deploy_command(args, prompt_mode: PromptMode) -> None:
         print_library_log(str(e), level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
         sys.exit(1)
 
-    if not is_options_file_supported():
+    if not is_toml_file_supported():
         print_library_log(constants.OPTIONS_FILE_SKIP_MIN_PYTHON_MESSAGE)
 
     migrated_options_path = None
@@ -355,10 +356,17 @@ def _run_command(args, parser, prompt_mode: PromptMode) -> None:
 
     if args.command.lower() in ("debug", "run"):
         configuration, _ = get_configuration(args)
-        state = get_state(args)
-        state_path = state_file_to_update(args)
-        naming = get_naming(args)
         writes_to_iceberg = args.command.lower() == "run"  # to the Iceberg catalog destination.json describes, not to a local DuckDB file
+        # A recording starts from files/state.json and a replay from the scenario's record_start/state.json,
+        # so --state is not read, which would fail on a bad file or block on a pipe.
+        scenario_run = not writes_to_iceberg and (args.record is not None or args.replay is not None)
+        if scenario_run and (args.state or os.getenv("FIVETRAN_STATE")):
+            source = "the state in the project's files/state.json" if args.record is not None else "the state recorded in the scenario's record_start/state.json"
+            action = "recording" if args.record is not None else "replaying"
+            print_library_log(f"--state is ignored while {action}. It starts from {source}.", level=Logging.Level.WARNING)
+        state = None if scenario_run else get_state(args)
+        state_path = None if scenario_run else state_file_to_update(args)
+        naming = get_naming(args)
         destination_settings = get_destination_settings(args.project_path, args.destination_file) if writes_to_iceberg else None
         debug_environment = {
             "FIVETRAN_CONNECTION_ID": "test_connection_id",
@@ -371,7 +379,13 @@ def _run_command(args, parser, prompt_mode: PromptMode) -> None:
             if writes_to_iceberg:
                 connector_object.run(destination_settings, args.project_path, configuration, state, naming, state_path=state_path)
             else:
-                connector_object.debug(args.project_path, configuration, state, naming, state_path=state_path)
+                connector_object.debug(
+                    args.project_path, configuration, state, naming,
+                    state_path=state_path,
+                    record=args.record,
+                    max_records=args.max_records,
+                    prompt_mode=prompt_mode,
+                    replay=args.replay)
         except Exception as e:
             what = "run" if writes_to_iceberg else "debug run"
             print_library_log(f"{what} failed error: {str(e)}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)

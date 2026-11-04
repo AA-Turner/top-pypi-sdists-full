@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aa-srp
-Version: 5.3.0
+Version: 5.4.0
 Summary: Improved SRP Module for Alliance Auth
 Project-URL: Changelog, https://github.com/ppfeufer/aa-srp/blob/master/CHANGELOG.md
 Project-URL: Codecov, https://codecov.io/gh/ppfeufer/aa-srp
@@ -695,14 +695,13 @@ Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.15,>=3.11
 Requires-Dist: allianceauth<6,>=5.5
 Requires-Dist: django-eveonline-sde>=0.2
 Provides-Extra: tests-allianceauth-latest
@@ -770,6 +769,7 @@ ______________________________________________________________________
   - [Bare Metal Installation](#bare-metal-installation-2)
   - [Docker Installation](#docker-installation-3)
 - [Permissions](#permissions)
+  - [In-Game UI Actions](#in-game-ui-actions)
 - [Changelog](#changelog)
 - [Translation Status](#translation-status)
 - [Contributing](#contributing)
@@ -794,6 +794,9 @@ ______________________________________________________________________
   either [AA-Discordbot], [Discord Notify] or [Discord Proxy] is installed
 - Notify your SRP team (optional) in their Discord channel about new SRP requests, if
   [AA-Discordbot] or [Discord Proxy] is installed
+- Open a pilot's information window in your EVE client straight from the SRP requests
+  view, and copy the payout amount to the clipboard at the same time
+  (needs the ESI scope `esi-ui.open_window.v1`, see [In-Game UI Actions](#in-game-ui-actions))
 
 ### Screenshots<a name="screenshots"></a>
 
@@ -838,7 +841,7 @@ Make sure you're in the virtual environment (venv) of your Alliance Auth
 installation Then install the latest release directly from PyPi.
 
 ```shell
-pip install aa-srp==5.3.0
+pip install aa-srp==5.4.0
 ```
 
 #### Step 2: Configure Alliance Auth<a name="step-2-configure-alliance-auth"></a>
@@ -901,7 +904,7 @@ Restart your supervisor services for Auth
 Add the app to your `conf/requirements.txt`
 
 ```requirements
-aa-srp==5.3.0
+aa-srp==5.4.0
 ```
 
 #### Step 2: Update Your AA Settings<a name="step-2-update-your-aa-settings"></a>
@@ -1027,7 +1030,7 @@ To update your existing installation of AA SRP, first enable your virtual enviro
 Then run the following command to update AA SRP to the latest version.
 
 ```shell
-pip install aa-srp==5.3.0
+pip install aa-srp==5.4.0
 
 python manage.py collectstatic
 python manage.py migrate
@@ -1043,7 +1046,7 @@ To update your existing installation of AA SRP, first update the version in your
 `conf/requirements.txt` to the latest version.
 
 ```requirements
-aa-srp==5.3.0
+aa-srp==5.4.0
 ```
 
 Then build your Auth container and restart your containers.
@@ -1070,6 +1073,24 @@ auth migrate
 | `create_srp`          | Can create new SRP links     | Your FCs should have this permission.                                                                       |
 | `manage_srp`          | Can manage SRP               | Users with this permission can manage the AA SRP Module. Like changing and removing SRP links and requests. |
 | `manage_srp_requests` | Can manage SRP requests      | Users with this permission can manage the SRP requests. Like changing and removing SRP requests.            |
+
+### In-Game UI Actions<a name="in-game-ui-actions"></a>
+
+SRP managers (`manage_srp` or `manage_srp_requests`) can open a pilot's information
+window in their EVE client from the SRP requests view. The same click copies the
+payout amount to the clipboard, ready to paste into the "Give ISK" window.
+
+To use it:
+
+- Make sure the ESI scope `esi-ui.open_window.v1` is enabled for your EVE SSO
+  application on the [EVE Developers](https://developers.eveonline.com/applications)
+  site.
+- Go to "My settings" in the SRP module, click "Add character for in-game UI actions"
+  and log in with the character you play on.
+- Select that character as your "In-game UI character" and save.
+
+The button is only shown once a character is selected. The character has to be logged
+in to EVE for the window to open.
 
 ## Changelog<a name="changelog"></a>
 

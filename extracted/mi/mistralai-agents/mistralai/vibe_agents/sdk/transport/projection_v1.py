@@ -6,8 +6,7 @@ It keeps every Turn, not only the latest, because the transport serves a paginat
 list. And the session it reports starts non-terminal even when the product row is already
 finished: ``read_events`` stops as soon as the session reads terminated, so a terminal
 fallback would end the stream before replaying anything. The true product snapshot is kept
-aside for :meth:`reconcile_product_snapshot`, which applies it once the replay is done. The
-legacy projection beside this one does the same thing for the same reason.
+aside for :meth:`reconcile_product_snapshot`, which applies it once the replay is done.
 
 Only part of the canonical event set reaches a reader. vibe_agents serves history-entry,
 turn, session-updated and callback events for a v1 session, and skips notices, errors and
@@ -34,7 +33,10 @@ from mistralai.vibe_agents.sessions_client import AgentSessionResponse, Observed
 from mistralai.vibe_agents.sessions_client.rendered_session_v1 import RenderedSessionV1, parse_session_v1_event
 
 from .event_ids import _EMPTY_CURSOR, _encode_event_id
-from .projection import build_session_from_product
+from .product_session import build_session_from_product
+
+# What the projection relays: a canonical event, or one this SDK has no model for, as it came.
+type RelayedPayload = harness_session.SessionEvent | harness_session.UnknownEventPayload
 
 _TURN_EVENTS = (
     harness_session.TurnStartedEvent,
@@ -87,11 +89,7 @@ class VibeAgentsSessionV1Projection:
 
     @property
     def resolved_callback_ids(self) -> set[str]:
-        """Callback ids the stream reported resolved, named as on the legacy projection.
-
-        Both projections answer this, so a caller waiting for its answer to be taken does
-        not have to know which one it holds.
-        """
+        """Callback ids the stream reported resolved: a caller waits here for its answer to be taken."""
 
         return self.rendered.resolved_callback_ids
 
@@ -113,7 +111,7 @@ class VibeAgentsSessionV1Projection:
 
         return sequence in self._seen_sequences
 
-    def apply(self, observed: ObservedControllerEventResponse) -> harness_session.SessionEvent | None:
+    def apply(self, observed: ObservedControllerEventResponse) -> RelayedPayload | None:
         """Fold one product frame and return the canonical event it carries.
 
         A ``session_updated`` that terminates the Session also ends its live Turns. It then
@@ -132,20 +130,18 @@ class VibeAgentsSessionV1Projection:
 
         parsed = parse_session_v1_event(observed.event)
         if parsed is None:
-            # A frame this SDK cannot parse is dropped rather than raised on. The legacy
-            # projection raises because an unreadable task-protocol row means its fold is
-            # already wrong; here each event stands alone, so skipping one keeps the rest
-            # of the session readable.
+            # A frame this SDK cannot parse is dropped rather than raised on: each event stands
+            # alone, so skipping one keeps the rest of the session readable.
             self.rendered.invalid_frame_count += 1
             return None
         self.rendered.apply_parsed_event(parsed)
         self.last_emitted_at = parsed.emitted_at
         payload = parsed.payload
         if isinstance(payload, harness_session.UnknownEventPayload):
-            # Forward-compatibility: a newer server may emit an event kind this SDK has no
-            # model for. RenderedSessionV1 has already counted it; relaying it would hand
-            # the caller a payload its own types do not admit.
-            return None
+            # A newer server may send an event this SDK has no model for. It is relayed as it
+            # came: the raw protocol client yields it, and the typed event stream gives an
+            # UnknownEvent for a new type and leaves out a known type with newer content.
+            return payload
         if isinstance(payload, harness_session.HistoryEntryPatchedEvent) and not self.rendered.holds_entry(
             payload.entry_id
         ):
@@ -270,14 +266,42 @@ class VibeAgentsSessionV1Projection:
         snapshot read has no stream to relay them on and ignores them.
         """
 
-        # Compared against what the stream reported, not against `session`: that property
-        # falls back to the product row, so reading it here would always look like agreement.
-        if self._product_session_snapshot.status != "terminated":
-            return []
-        if self.rendered.session is not None and self.rendered.session.status == "terminated":
+        if not self._closed_by(self._product_session_snapshot):
             return []
         self.rendered.session = self._product_session_snapshot
         return self._terminate_live_turns(self._product_session_snapshot)
+
+    def state_with_product(
+        self, product: AgentSessionResponse
+    ) -> tuple[harness_session.SessionState, list[harness_session.TurnTerminatedEvent]]:
+        """The read state, closed by a terminal product row the stream has not reported.
+
+        Returns the Turn terminations the closure adds, as :meth:`reconcile_product_snapshot`
+        does. Unlike it, this leaves the projection as the stream built it, so the reader that
+        keeps folding frames into it is not handed a closure it never observed. The rest of
+        the Session comes from the stream: a rename or an archive is published in the same
+        transaction that writes the row, so the stream is never behind a row read before it.
+        """
+
+        snapshot = build_session_from_product(product)
+        if not self._closed_by(snapshot):
+            return self.state(), []
+        turns, terminated = _close_live_turns(self.turns, snapshot)
+        state = self.state().model_copy(
+            update={
+                "session": snapshot,
+                "active_turn_id": None,
+                "turns": harness_session.Page(items=list(turns.values())),
+            }
+        )
+        return state, terminated
+
+    def _closed_by(self, snapshot: harness_session.Session) -> bool:
+        # Compared against what the stream reported, not against `session`: that property
+        # falls back to the product row, so reading it here would always look like agreement.
+        if snapshot.status != "terminated":
+            return False
+        return self.rendered.session is None or self.rendered.session.status != "terminated"
 
     def _terminate_live_turns(self, session: harness_session.Session) -> list[harness_session.TurnTerminatedEvent]:
         """End every live Turn, started or not, with the termination of the ended Session.
@@ -286,19 +310,30 @@ class VibeAgentsSessionV1Projection:
         """
 
         self.drop_refused_turn()
-        termination = session.termination or harness_session.CancelledTermination(
-            reason="Remote Session terminated without reporting the Turn",
-        )
-        terminated: list[harness_session.TurnTerminatedEvent] = []
-        for turn_id, turn in self.turns.items():
-            if turn.status in _LIVE_TURN_STATUSES:
-                self.turns[turn_id] = turn.model_copy(
-                    update={"status": "terminated", "completed_at": session.updated_at, "termination": termination}
-                )
-                terminated.append(harness_session.TurnTerminatedEvent(turn=self.turns[turn_id]))
+        self.turns, terminated = _close_live_turns(self.turns, session)
         # It has ended: a later message must not drop it as a Turn that will never start.
         self._unstarted_turn_id = None
         return terminated
+
+
+def _close_live_turns(
+    turns: dict[str, harness_session.TurnState],
+    session: harness_session.Session,
+) -> tuple[dict[str, harness_session.TurnState], list[harness_session.TurnTerminatedEvent]]:
+    """The Turns with every live one ended by the ended Session, and the terminations that adds."""
+
+    termination = session.termination or harness_session.CancelledTermination(
+        reason="Remote Session terminated without reporting the Turn",
+    )
+    closed = dict(turns)
+    terminated: list[harness_session.TurnTerminatedEvent] = []
+    for turn_id, turn in turns.items():
+        if turn.status in _LIVE_TURN_STATUSES:
+            closed[turn_id] = turn.model_copy(
+                update={"status": "terminated", "completed_at": session.updated_at, "termination": termination}
+            )
+            terminated.append(harness_session.TurnTerminatedEvent(turn=closed[turn_id]))
+    return closed, terminated
 
 
 __all__ = ["VibeAgentsSessionV1Projection"]

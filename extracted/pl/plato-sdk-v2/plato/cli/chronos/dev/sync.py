@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import subprocess
 import time
 from collections.abc import Callable
@@ -15,6 +16,37 @@ from pydantic import BaseModel, Field
 from plato.cli.chronos.dev.ssh import build_ssh_command_string, ensure_master_connection
 
 logger = logging.getLogger(__name__)
+
+
+async def sync_fuse_binary_override(job_id: str, ssh_key_path: Path) -> str | None:
+    """Rsync a ``PLATO_FUSE_BINARY`` override over the VM's baked binary.
+
+    Dev/test runs validating a locally built plato-fuse point
+    ``PLATO_FUSE_BINARY`` at it; the world process (and the agent-VM fuse
+    transport, which pushes the world's binary md5-gated) then runs that
+    build instead of the image-baked one at ``/usr/local/bin/plato-fuse``.
+
+    Returns the synced local path, or ``None`` when no override is set.
+    Callers should ``chmod +x`` the remote path afterwards.
+    """
+    fuse_binary = os.environ.get("PLATO_FUSE_BINARY")
+    if not fuse_binary or not Path(fuse_binary).is_file():
+        return None
+    ssh_cmd = build_ssh_command_string(job_id, ssh_key_path)
+    proc = await asyncio.create_subprocess_exec(
+        "rsync",
+        "-az",
+        "-e",
+        ssh_cmd,
+        fuse_binary,
+        f"root@{job_id}.plato:/usr/local/bin/plato-fuse",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(f"Failed to sync plato-fuse binary: {stderr.decode().strip()}")
+    return fuse_binary
 
 
 def parse_gitignore(gitignore_path: Path) -> list[str]:

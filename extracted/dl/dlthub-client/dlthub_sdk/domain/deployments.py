@@ -39,30 +39,31 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, repr=False)
 class Deployment(Entity[M]):
-    """One uploaded version of a workspace's code.
-
-    Attributes:
-        version: Which version this is, counting up from 1 per workspace.
-        id: Its uuid.
-        content_hash: Hash of the uploaded content, so an unchanged upload is
-            recognisable.
-        file_count: How many files it holds.
-        size_bytes: Total size in bytes.
-        requirements_size_bytes: Size of the requirements manifest in bytes.
-        created_at: When it was uploaded.
-        created_by: Who uploaded it.
-        updated_at: When it last changed.
-    """
+    """One uploaded version of a workspace's code."""
 
     version: int
+    """Version number within the workspace, starting at 1 and incremented by each
+    upload.
+    """
     id: str
+    """Unique ID (a UUID)."""
     content_hash: str
+    """Hash of the package contents: base64 SHA3-256 over each file's path and digest,
+    as dlt computes when building the package; identical file sets give identical
+    hashes.
+    """
     file_count: int
+    """Number of files in the package."""
     size_bytes: int
+    """Size of the uploaded package in bytes."""
     requirements_size_bytes: int
+    """Size of the uploaded requirements file in bytes."""
     created_at: datetime
+    """When it was created."""
     created_by: str
+    """The `organization_membership_id` of the member who uploaded it."""
     updated_at: datetime
+    """When it was last changed."""
 
     _identity = ("version", "id")
     _kind = EntityKind.DEPLOYMENT
@@ -83,6 +84,10 @@ class Deployment(Entity[M]):
             One entry per file, in the platform's order; awaitable in async mode.
 
         Raises:
+            DataplaneTokenRejected: The data plane rejected the token the
+                platform issued for it.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             NotFound: The deployment no longer exists.
             ScopeMissing: Reached without a workspace in scope.
         """
@@ -117,7 +122,10 @@ class Deployment(Entity[M]):
 
 
 class Deployments(Collection[M]):
-    """The deployments of one workspace, newest version last."""
+    """The deployments of one workspace.
+
+    :meth:`list` yields the newest version first.
+    """
 
     _entity = Deployment
 
@@ -148,14 +156,14 @@ class Deployments(Collection[M]):
     ) -> Deployment[Any] | Awaitable[Deployment[Any]]:
         """Store a new version of the workspace's code.
 
-        The archive is opaque here: building it is the caller's job, and the
-        platform derives the hash, the size and the file list by reading it. To
-        skip an unchanged upload, compare your own hash against
-        :attr:`Deployment.content_hash` on ``latest()`` first.
+        The platform derives the hash, the size and the file list by reading
+        the package. To skip an unchanged upload, compare the hash dlt's package
+        builder returned with ``latest().content_hash``.
 
         Args:
-            code: A gzipped tar of the workspace, as bytes or a binary file
-                object to stream from.
+            code: A deployment package built by dlt's package builder (a
+                gzipped tar that carries dlt's ``manifest.yaml``), as bytes or a
+                binary file object.
             requirements: The requirements manifest that goes with it, as bytes
                 or a binary file object. Opaque to the SDK.
 
@@ -164,10 +172,16 @@ class Deployments(Collection[M]):
             async mode.
 
         Raises:
-            Conflict: The workspace cannot take a deployment right now.
-            InvalidResponse: The platform authorised an upload the SDK could
-                not address.
-            NotAuthorized: The caller may not deploy to this workspace.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
+            DataplaneTokenRejected: The data plane rejected the token the
+                platform issued for it.
+            InvalidResponse: The platform returned an upload address this SDK
+                version cannot use; upgrade dlthub-client.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             ScopeMissing: Reached without a workspace in scope.
             TransportError: The upload did not complete. A version is written
                 only once the content arrives, but a request that never
@@ -200,6 +214,8 @@ class Deployments(Collection[M]):
             The deployment; awaitable in async mode.
 
         Raises:
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             NotFound: The workspace has no such version.
             ScopeMissing: Reached without a workspace in scope.
         """
@@ -232,6 +248,8 @@ class Deployments(Collection[M]):
             The newest version; awaitable in async mode.
 
         Raises:
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             NotFound: The workspace has none yet.
             ScopeMissing: Reached without a workspace in scope.
         """
@@ -254,6 +272,8 @@ class Deployments(Collection[M]):
             The count; awaitable in async mode. Saturates at 10,001.
 
         Raises:
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             ScopeMissing: Reached without a workspace in scope.
         """
         return self._ctx.count(self._listing())
@@ -282,6 +302,8 @@ class Deployments(Collection[M]):
             An iterable of deployments; async-iterable in async mode.
 
         Raises:
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             ScopeMissing: Reached without a workspace in scope.
             ValueError: A negative ``limit`` or ``offset``.
         """

@@ -19,7 +19,7 @@ def default_options_file_path() -> str:
     return os.path.join(config_root_dir(), constants.OPTIONS_FILENAME)
 
 
-def is_options_file_supported() -> bool:
+def is_toml_file_supported() -> bool:
     """Whether the local options file is supported on this interpreter (requires the stdlib
     `tomllib` module, Python 3.11+). Does not log; the deploy command logs the skip message once.
     """
@@ -38,7 +38,7 @@ def find_options_file(args) -> Optional[str]:
     """Locates the options file: --options-file, FIVETRAN_OPTIONS_FILE env var, ./options.toml,
     ~/.fivetran/connector_sdk/options.toml, in that order. None if none apply.
     """
-    if not is_options_file_supported():
+    if not is_toml_file_supported():
         return None
 
     explicit_path = getattr(args, "options_file", None)
@@ -64,18 +64,61 @@ def find_options_file(args) -> Optional[str]:
     return None
 
 
-def load_options_file(path: str) -> dict:
-    """Reads and parses the local options file into profiles keyed by flat profile name."""
+def _read_toml(path: str, description: str) -> dict:
+    """Reads and parses a TOML file, exiting with a SEVERE log if it can't be read, isn't valid
+    UTF-8, or isn't valid TOML. `description` names the file in the message, e.g. "options file 'x'".
+    """
     import tomllib
     try:
         with open(path, "rb") as f:
-            return _flatten_profiles(tomllib.load(f))
+            return tomllib.load(f)
     except tomllib.TOMLDecodeError as e:
-        _exit_options_file_error(f"failed to parse options file '{path}': {e}")
+        _exit_options_file_error(f"failed to parse {description}: {e}")
     except UnicodeDecodeError as e:
-        _exit_options_file_error(f"options file '{path}' is not valid UTF-8: {e}")
+        _exit_options_file_error(f"{description} is not valid UTF-8: {e}")
     except OSError as e:
-        _exit_options_file_error(f"could not read options file '{path}': {e}")
+        _exit_options_file_error(f"could not read {description}: {e}")
+
+
+def load_package_default(project_path: Optional[str], field: str) -> Optional[str]:
+    """`field` as set under `[tool.package-metadata]` in the project's `pyproject.toml`. None
+    when there is no project path, no file, no such table or no such field, or on Python < 3.11
+    (no `tomllib`). Meant to be called only once every higher-precedence source has come up
+    empty for `field`: a file that is present but unreadable, or a table or value of the wrong
+    shape, then fails the deploy rather than silently deploying without the default the user set.
+    """
+    if not project_path or not is_toml_file_supported():
+        return None
+    pyproject_path = os.path.join(project_path, constants.PYPROJECT_TOML)
+    if not os.path.isfile(pyproject_path):
+        return None
+    data = _read_toml(pyproject_path, f"'{pyproject_path}'")
+    tool = data.get("tool")
+    if tool is not None and not isinstance(tool, dict):
+        _exit_options_file_error(
+            f"invalid '{pyproject_path}': 'tool' must be a table (a [tool] section), not "
+            f"{type(tool).__name__}. Package-level defaults go in a [tool.package-metadata] section")
+    metadata = tool.get("package-metadata") if tool else None
+    if metadata is None:
+        return None
+    if not isinstance(metadata, dict):
+        _exit_options_file_error(
+            f"invalid '{pyproject_path}': 'tool.package-metadata' must be a table (a "
+            f"[tool.package-metadata] section), not {type(metadata).__name__}. Set "
+            f"python_version and proxy_host_config_key as keys inside that section")
+    value = metadata.get(field)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        _exit_options_file_error(
+            f"invalid '{pyproject_path}': '{field}' under [tool.package-metadata] must be a "
+            f"non-empty string, e.g. {field} = \"value\"")
+    return value.strip()
+
+
+def load_options_file(path: str) -> dict:
+    """Reads and parses the local options file into profiles keyed by flat profile name."""
+    return _flatten_profiles(_read_toml(path, f"options file '{path}'"))
 
 
 def _flatten_profiles(data: dict) -> dict:

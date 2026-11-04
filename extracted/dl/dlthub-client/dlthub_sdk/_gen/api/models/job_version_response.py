@@ -25,35 +25,39 @@ T = TypeVar("T", bound="JobVersionResponse")
 class JobVersionResponse:
     """
     Attributes:
-        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        created_by (UUID): The ID of the identity who created the job
-        id (UUID): The unique ID of the entity
-        job_definition (TJobDefinition): Full job definition from dlt deployment manifest
-        job_definition_engine_version (int): Manifest engine version for future migration
-        job_definition_hash (str): Hash of the job definition for change detection
+        created_at (datetime.datetime): When it was created.
+        created_by (UUID): The `organization_membership_id` of the member who created the job.
+        id (UUID): Unique ID (a UUID).
+        job_definition (TJobDefinition): Job definition from the dlt deployment manifest.
+        job_definition_engine_version (int): Version of the job definition format.
+        job_definition_hash (str): Hash of the job definition; a deploy compares it to detect changes.
         job_id (UUID): The ID of the job the job version belongs to
         job_ref (str): Canonical job reference, unique per workspace
         job_type (JobType | str): The type of the job: batch, interactive, or stream
         max_run_time_seconds (int): Maximum allowed run duration in seconds for this job version
         profile (str): The profile the job runs under
         provider (RunProvider | str): Run provider for runs using this job version (e.g. 'tower', 'modal', 'local')
-        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        version (int): The current version of the job
-        default_trigger (None | str | Unset): Primary trigger string (computed from job_definition)
-        deployment_module (None | str | Unset): Deployment module name (e.g. __deployment__)
+        updated_at (datetime.datetime): When it was last changed.
+        version (int): Version number, starting at 1 and incremented by each update to the job: a job's current version,
+            or a job version's own number.
+        default_trigger (None | str | Unset): The trigger fired when a run is started without naming one, computed from
+            the job definition.
+        deployment_module (None | str | Unset): Deployment module the job was deployed from, e.g. `__deployment__`;
+            `null` for a job deployed outside a module.
         description (None | str | Unset): The description of the job
         freshness (list[str] | None | Unset): Freshness constraint strings (computed from job_definition)
-        instance_size (InstanceSize | None | Unset): Instance size this version runs on; None on a provider without
-            instance sizing.
-        interval_end (datetime.datetime | None | Unset): Upper bound of the bounded work window (from
-            job_definition.interval.end). None means no upper bound; the schedule halts once the next tick would exceed it.
-        interval_start (datetime.datetime | None | Unset): Lower bound of the bounded work window (from
-            job_definition.interval.start). None means the job has no bounded window.
-        memory_mib (int | None | Unset): Resolved memory in MiB; None when the version has no sized hardware.
+        instance_size (InstanceSize | None | str | Unset): Instance size this version runs on; `null` on a provider
+            without instance sizing.
+        interval_end (datetime.datetime | None | Unset): Upper bound of the job's work window, from `interval.end` in
+            its definition; `null` when there is no upper bound. The schedule stops once the next run would pass it.
+        interval_start (datetime.datetime | None | Unset): Lower bound of the job's work window, from `interval.start`
+            in its definition; `null` when the job has no bounded window.
+        memory_mib (int | None | Unset): Resolved memory in MiB; `null` when the version has no sized hardware.
         name (None | str | Unset): Display name for the job
         pipeline_name (None | str | Unset): Pipeline name this job operates on (computed from job_definition)
-        triggers (list[str] | None | Unset): Trigger strings for this job (computed from job_definition)
-        vcpu (float | None | Unset): Resolved virtual CPU cores; None when the version has no sized hardware.
+        triggers (list[str] | None | Unset): Every trigger the job answers to, computed from its definition; selectors
+            match against these.
+        vcpu (float | None | Unset): Resolved virtual CPU cores; `null` when the version has no sized hardware.
     """
 
     created_at: datetime.datetime
@@ -74,7 +78,7 @@ class JobVersionResponse:
     deployment_module: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
     freshness: list[str] | None | Unset = UNSET
-    instance_size: InstanceSize | None | Unset = UNSET
+    instance_size: InstanceSize | None | str | Unset = UNSET
     interval_end: datetime.datetime | None | Unset = UNSET
     interval_start: datetime.datetime | None | Unset = UNSET
     memory_mib: int | None | Unset = UNSET
@@ -351,7 +355,7 @@ class JobVersionResponse:
 
         freshness = _parse_freshness(d.pop("freshness", UNSET))
 
-        def _parse_instance_size(data: object) -> InstanceSize | None | Unset:
+        def _parse_instance_size(data: object) -> InstanceSize | None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -364,7 +368,7 @@ class JobVersionResponse:
                 return instance_size_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(InstanceSize | None | Unset, data)
+            return cast(InstanceSize | None | str | Unset, data)
 
         instance_size = _parse_instance_size(d.pop("instance_size", UNSET))
 

@@ -88,9 +88,12 @@ class TaskGroupedAggregateMetrics(object):
         self.count_running = count_running
         self.count_pending_schedule = count_pending_schedule
         self.count_pending_dep = count_pending_dep
-        self.max_duration_ts_ns = max_duration_ts_ns
-        self.min_duration_ts_ns = min_duration_ts_ns
-        self.avg_duration_ts_ns = avg_duration_ts_ns
+        if max_duration_ts_ns is not None:
+            self.max_duration_ts_ns = max_duration_ts_ns
+        if min_duration_ts_ns is not None:
+            self.min_duration_ts_ns = min_duration_ts_ns
+        if avg_duration_ts_ns is not None:
+            self.avg_duration_ts_ns = avg_duration_ts_ns
         if max_execution_ns is not None:
             self.max_execution_ns = max_execution_ns
         if min_execution_ns is not None:
@@ -254,8 +257,6 @@ class TaskGroupedAggregateMetrics(object):
         :param max_duration_ts_ns: The max_duration_ts_ns of this TaskGroupedAggregateMetrics.  # noqa: E501
         :type: int
         """
-        if self.local_vars_configuration.client_side_validation and max_duration_ts_ns is None:  # noqa: E501
-            raise ValueError("Invalid value for `max_duration_ts_ns`, must not be `None`")  # noqa: E501
 
         self._max_duration_ts_ns = max_duration_ts_ns
 
@@ -277,8 +278,6 @@ class TaskGroupedAggregateMetrics(object):
         :param min_duration_ts_ns: The min_duration_ts_ns of this TaskGroupedAggregateMetrics.  # noqa: E501
         :type: int
         """
-        if self.local_vars_configuration.client_side_validation and min_duration_ts_ns is None:  # noqa: E501
-            raise ValueError("Invalid value for `min_duration_ts_ns`, must not be `None`")  # noqa: E501
 
         self._min_duration_ts_ns = min_duration_ts_ns
 
@@ -300,8 +299,6 @@ class TaskGroupedAggregateMetrics(object):
         :param avg_duration_ts_ns: The avg_duration_ts_ns of this TaskGroupedAggregateMetrics.  # noqa: E501
         :type: int
         """
-        if self.local_vars_configuration.client_side_validation and avg_duration_ts_ns is None:  # noqa: E501
-            raise ValueError("Invalid value for `avg_duration_ts_ns`, must not be `None`")  # noqa: E501
 
         self._avg_duration_ts_ns = avg_duration_ts_ns
 

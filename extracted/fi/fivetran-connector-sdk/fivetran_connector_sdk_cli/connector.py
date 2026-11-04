@@ -9,6 +9,7 @@ import faulthandler
 import os
 import sys
 import traceback
+from typing import Optional
 
 from types import GeneratorType
 
@@ -17,10 +18,24 @@ from fivetran_connector_sdk_common.configuration import check_dict
 from fivetran_connector_sdk_common.constants import PYPROJECT_TOML
 from fivetran_connector_sdk_common.helpers import print_library_log
 from fivetran_connector_sdk_common.logger import Logging
-from fivetran_connector_sdk_core import ConnectorTask, SchemaResult as SchemaResponse  # the tables the connector declares, or `not_supported`
+from fivetran_connector_sdk_core import ConnectorTask, SchemaResult as SchemaResponse, SdkException  # the tables the connector declares, or `not_supported`
+from fivetran_connector_sdk_cli.regression_test import decorator_helper
+from fivetran_connector_sdk_cli.regression_test.differ import DiffError, diff_warehouses
+from fivetran_connector_sdk_cli.regression_test.fixture_helper import (
+    FIXTURE_JSONL, RECORD_DATA_DIR, RECORD_END_DIR, RECORD_START_DIR, WAREHOUSE_DB, RecordError, read_state,
+    scenario_root)
+from fivetran_connector_sdk_cli.regression_test.replayer import (
+    ReplayError, Replayer, assert_fixture_exists, assert_recording_complete, compare_state_files, prepare_replay)
+from fivetran_connector_sdk_cli.regression_test.max_record_helper import (
+    DEFAULT_MAX_RECORDS, MaxRecordHandler, MaxRecordsReached)
+from fivetran_connector_sdk_cli.regression_test.recorder import (
+    Recorder, prepare_scenario, discard_scenario, scenario_lock)
 from fivetran_connector_sdk_cli import configuration_command, core_adapter, schema_processing
 from fivetran_connector_sdk_cli.cli_commands import _deploy_connector
-from fivetran_connector_sdk_cli.cli_helpers import PromptMode, _resolve_existing_project_path, resolve_confirmation
+from fivetran_connector_sdk_cli.cli_helpers import (
+    PromptMode, _resolve_existing_project_path, confirm_overwrite, resolve_confirmation, validate_record_options,
+    validate_replay_options
+)
 from fivetran_connector_sdk_cli.connector_helper import (
     DeployOptions, check_newer_version, exit_check, update_base_url_if_required, validate_configuration,
     validate_pyproject_file, validate_requirements_file,
@@ -104,7 +119,11 @@ class Connector:
               state: dict = None,
               naming: str = None,
               log_level: Logging.Level = Logging.Level.DEBUG,
-              state_path: str = None):
+              state_path: str = None,
+              record: str = None,
+              max_records: int = None,
+              prompt_mode: PromptMode = PromptMode.INTERACTIVE,
+              replay: str = None):
         """Tests the connector code by running it in this process, writing what it emits to files/warehouse.db.\n
         state.json docs: https://fivetran.com/docs/connector-sdk/connector-sdk-concepts/state-management#statemanagement\n
         configuration.json docs: https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/configuration-json#workingwithconfigurationjson
@@ -116,8 +135,22 @@ class Connector:
             log_level (Logging.Level): The logging level.
             naming (str): The formatted naming strategy (e.g., "FIVETRAN_NAMING" or "SOURCE_NAMING").
             state_path (str): The file the state was read from, which the checkpoints update; files/state.json if None.
+            record (str): Record the @action calls of this run into the fixture scenario with this name, e.g. "basic".
+            max_records (int): Stop recording after this many write operations. Only valid together with `record`.
+            prompt_mode (PromptMode): How to answer the prompt that asks before re-recording an existing scenario.
+            replay (str): Replay the recorded scenario with this name instead of calling the live source,
+                and check the resulting state against the recording. Cannot be combined with `record` or `max_records`.
         """
-        self._run_locally("debugging", project_path, configuration, state, naming, log_level, None, state_path)
+        try:
+            if replay is not None:
+                validate_replay_options(replay, record, max_records)
+            elif record is not None or max_records is not None:
+                validate_record_options(record, max_records)
+        except ValueError as e:
+            print_library_log(str(e), level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+            sys.exit(1)
+        self._run_locally("debugging", project_path, configuration, state, naming, log_level, None, state_path,
+                          record, max_records, prompt_mode, replay)
 
     def run(self,
             destination: dict,
@@ -142,7 +175,8 @@ class Connector:
             raise ValueError("destination must be the content of destination.json, a JSON object")
         self._run_locally("running", project_path, configuration, state, naming, log_level, destination, state_path)
 
-    def _run_locally(self, verb, project_path, configuration, state, naming, log_level, destination, state_path):
+    def _run_locally(self, verb, project_path, configuration, state, naming, log_level, destination, state_path,
+                     record=None, max_records=None, prompt_mode=PromptMode.INTERACTIVE, replay=None):
         constants.DEBUGGING = True
         validate_configuration(configuration)
 
@@ -172,10 +206,131 @@ class Connector:
 
         print_library_log("running the connector", log_icon=Logging.LogIcon.STEP)
         try:
-            core_adapter.run(self, project_path, self.configuration, self.state, apply_renaming=naming != "SOURCE_NAMING",
-                             destination=destination, state_path=state_path)
+            if record is not None:
+                decorator_helper.check_unique_action_names()
+                self._record(project_path, record, max_records, prompt_mode, naming)
+            elif replay is not None:
+                decorator_helper.check_unique_action_names()
+                self._replay(project_path, replay, naming)
+            else:
+                core_adapter.run(self, project_path, self.configuration, self.state, apply_renaming=naming != "SOURCE_NAMING",
+                                 destination=destination, state_path=state_path)
+        except (RecordError, ReplayError, decorator_helper.DuplicateActionError) as e:
+            print_library_log(str(e), level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+            sys.exit(1)
         except (Exception, ConnectorTask):
             sys.exit(1)
+        finally:
+            decorator_helper.set_recording(False)
+            decorator_helper.set_replaying(False)
+
+    def _replay(self, project_path: str, scenario: str, naming: str = None):
+        """Runs the connector with @action calls answered from fixtures/<scenario>/, then checks the final state.
+
+        The run happens in .fixtures_replay/<scenario>/, recreated from record_start/, so the project's files/
+        and the recording are never touched. It starts from record_start/state.json and must end with the same
+        state.json as the recording's record_end/. The recorded --max-records cap is applied again.
+        """
+        scenario_path = scenario_root(project_path, scenario)
+        fixture_path = assert_fixture_exists(scenario_path, scenario)
+        assert_recording_complete(scenario_path, scenario)
+        # Held for the whole run so a parallel replay, or a record run, of the same scenario cannot wipe the replay folder.
+        with scenario_lock(scenario_path):
+            replay_dir = prepare_replay(project_path, scenario, scenario_path)
+            start_state = read_state(scenario_path / RECORD_START_DIR)
+            if self.state and self.state != start_state:
+                print_library_log("the given state is ignored while replaying. "
+                                  "Replay starts from the state recorded in the scenario's record_start/state.json.",
+                                  Logging.Level.WARNING)
+            # run_update() prefers a non-empty self.state, so it must hold the recording's start state, not the given one.
+            self.state = start_state
+            try:
+                Replayer.start(str(fixture_path))
+                if not Replayer.has_interactions():
+                    print_library_log(f"scenario '{scenario}' does not have any recorded interactions.",
+                                      Logging.Level.WARNING)
+                decorator_helper.set_replaying(True)
+                print_library_log(f"replaying scenario '{scenario}' from {scenario_path}", log_icon=Logging.LogIcon.STEP)
+                core_adapter.run(self, project_path, self.configuration, start_state,
+                                 apply_renaming=naming != "SOURCE_NAMING", fixture_dir=str(replay_dir))
+            finally:
+                decorator_helper.set_replaying(False)
+                Replayer.stop()
+
+            # Run both comparisons so one failing check never hides the other, then report everything at once.
+            failures = []
+            state_mismatches = compare_state_files(scenario_path / RECORD_END_DIR, replay_dir)
+            if state_mismatches:
+                failures.append("Replay state does not match the recording:\n" + "\n".join(state_mismatches))
+            try:
+                report = diff_warehouses(scenario_path / RECORD_END_DIR / WAREHOUSE_DB, replay_dir / WAREHOUSE_DB)
+                if not report.is_empty:
+                    failures.append("Replay warehouse.db does not match the recording:\n"
+                                    + "\n".join(report.messages()))
+            except DiffError as e:
+                failures.append(str(e))
+            if failures:
+                failures.append("If these changes are expected, re-record the scenario to update the recording. "
+                                "Otherwise, fix the connector so the replay matches it.")
+                raise ReplayError("\n\n".join(failures))
+            print_library_log("replay finished and its state and warehouse.db match the recording",
+                              log_icon=Logging.LogIcon.SUCCESS)
+
+    def _record(self, project_path: str, scenario: str, max_records: Optional[int], prompt_mode: PromptMode,
+                naming: str = None):
+        """Runs the connector while recording @action calls into fixtures/<scenario>/.
+
+        Steps:
+            1. Ask before overwriting an existing recording of this scenario.
+            2. Reset the scenario folder, snapshot files/ into record_start/ and seed record_end/ from it.
+            3. Start the Recorder, enable recording for @action, and run the connector against record_end/, starting from
+               record_start/state.json. Each @action call is appended to record_data/fixture.jsonl.
+            4. If the run failed, discard the scenario folders so no half-recorded fixture is left behind.
+               A run that captured no @action calls (for example a connector with no @action functions) is
+               not an error: its output is kept and a warning is logged.
+
+        The Recorder is always stopped afterwards, even when the run fails.
+        """
+        scenario_path = scenario_root(project_path, scenario)
+
+        if not confirm_overwrite(scenario_path, prompt_mode):
+            raise RecordError(f"Scenario '{scenario}' already has a recording, so nothing was recorded. "
+                              "Use --yes to overwrite it, or choose a different scenario name.")
+
+        fixture_path = scenario_path / RECORD_DATA_DIR / FIXTURE_JSONL
+
+        # Held for the whole run so a parallel record of the same scenario cannot wipe or corrupt this one.
+        with scenario_lock(scenario_path):
+            prepare_scenario(project_path, scenario_path)
+            start_state = read_state(scenario_path / RECORD_START_DIR)
+            if self.state and self.state != start_state:
+                print_library_log("the given state is ignored while recording. "
+                                  "Recording starts from the state in the project's files/state.json.",
+                                  Logging.Level.WARNING)
+            # run_update() prefers a non-empty self.state, so it must hold the recording's state, not the given one.
+            self.state = start_state
+            # Only a failed run discards the scenario, so it never leaves a half-recorded fixture behind.
+            succeeded = False
+            try:
+                Recorder.start(str(fixture_path), max_records or DEFAULT_MAX_RECORDS)
+                decorator_helper.set_recording(True)
+                print_library_log(f"recording scenario '{scenario}' into {scenario_path}",
+                                  log_icon=Logging.LogIcon.STEP)
+                core_adapter.run(self, project_path, self.configuration, start_state,
+                           apply_renaming=naming != "SOURCE_NAMING", fixture_dir=str(scenario_path / RECORD_END_DIR))
+                interactions = Recorder.interaction_count()
+                succeeded = True
+            finally:
+                decorator_helper.set_recording(False)
+                Recorder.stop()
+                if not succeeded:
+                    discard_scenario(scenario_path)
+
+        if interactions == 0:
+            print_library_log("no @action calls were captured during record; the fixture is empty",
+                              Logging.Level.WARNING)
+            return
+        print_library_log(f"recorded {interactions} interaction(s) to {fixture_path}", log_icon=Logging.LogIcon.SUCCESS)
 
     def generate_configuration(self, project_path: str, run_tests: bool = False, disable_encryption: bool = False,
                                prompt_mode: PromptMode = PromptMode.INTERACTIVE):
@@ -365,6 +520,16 @@ class Connector:
                 if isinstance(result, GeneratorType):
                     for _ in result:
                         pass
+            # Record/replay regression tests use MaxRecordsReached as a stop signal after the configured cap.
+            except MaxRecordsReached as exc:
+                print_library_log(str(exc), Logging.Level.WARNING)
+            except Exception as exc:
+                if not (constants.DEBUGGING and MaxRecordHandler.is_stopped_by_cap()):
+                    raise
+                # The --max-records cap already ended the sync; this error came from the connector reacting to
+                # the stop signal (for example by wrapping it).
+                print_library_log(f"ignoring {type(exc).__name__} raised after the --max-records cap: {exc}",
+                                  Logging.Level.WARNING)
             finally:
                 memory_tracker.stop()
 
@@ -372,5 +537,11 @@ class Connector:
 
         except Exception as e:
             self._set_debug_crash_report(e, "update()", state=state, memory_tracker=memory_tracker)
-            error_message = f"failed while executing update() error: {str(e)}"
+            # An error the core raised (the destination refused or could not be reached) is not the connector's: it is said as it is,
+            # as the core says it before `update()` runs, and not as if the connector's own code had failed.
+            error_message = str(e) if isinstance(e, SdkException) else f"failed while executing update() error: {str(e)}"
+            if isinstance(e, (ReplayError, RecordError)):
+                # The record or replay itself says what is wrong (for example, a call that was not recorded, or a result
+                # that is not JSON). Its traceback would only show the SDK's internals, so only the message is reported.
+                raise _ConnectorFailure(error_message) from e
             raise _failure(error_message, e) from e

@@ -1046,19 +1046,22 @@ impl ActivityIndex {
                             .map_or(0, |undo| undo.prefix_bytes),
                     )
         };
-        let shared_prompt = previous
+        let shared_turn = previous
             .and_then(|prior| {
                 let at = prior.turns.len().checked_sub(1)?;
                 let old = &prior.turns[at];
                 let new = &self.turns[at];
-                (!Arc::ptr_eq(old, new) && Arc::ptr_eq(&old.prompt, &new.prompt))
-                    .then(|| old.prompt_bytes())
+                (!Arc::ptr_eq(old, new)).then(|| {
+                    usize::from(Arc::ptr_eq(&old.prompt, &new.prompt)) * old.prompt_bytes()
+                        + new.calls.bytes_since(None)
+                        - new.calls.bytes_since(Some(&old.calls))
+                })
             })
             .unwrap_or(0);
         let payload = self.turns.last().map_or(0, |turn| {
             turn.prefix_turn_bytes - shared_turns + turn.prefix_call_bytes
                 - shared_calls
-                - shared_prompt
+                - shared_turn
         });
         turns + uuids + results + payload + undo
     }
@@ -1577,7 +1580,8 @@ impl ActivityIndex {
                 if len == 0 {
                     5 * size_of::<usize>()
                 } else {
-                    (len * 8 + root) * (width + 4 * size_of::<usize>())
+                    (len * crate::snapshot_persistent::SLOTS_PER_ENTRY + root)
+                        * (width + 4 * size_of::<usize>())
                 }
             };
             allocations.extend([
@@ -2839,20 +2843,14 @@ mod tests {
     }
 
     #[test]
-    fn consuming_tail_append_reuses_unique_metadata_and_global_positions() {
+    fn consuming_tail_append_bounds_its_copies_and_keeps_global_positions() {
         let entries = [user("u", "first"), tools(), user("v", "second"), results()];
         let refs: Vec<_> = entries.iter().collect();
         let mut index = ActivityIndex::default();
-        let turns = Arc::as_ptr(&index.turns);
-        let uuids = Arc::as_ptr(&index.uuids);
-        let results = Arc::as_ptr(&index.results);
         for position in 0..refs.len() {
             index = std::mem::take(&mut index).append_tail(&refs[position..position + 1], None);
             assert_eq!(index.work().indexed_entries, 1);
-            assert_eq!(index.work().copied_index_entries, 0);
-            assert_eq!(Arc::as_ptr(&index.turns), turns);
-            assert_eq!(Arc::as_ptr(&index.uuids), uuids);
-            assert_eq!(Arc::as_ptr(&index.results), results);
+            assert!(index.work().copied_index_entries <= 2 * refs.len());
             parity(&index, &refs[..position + 1], None);
         }
         assert_eq!(index.event_of_uuid("v"), Some(2));

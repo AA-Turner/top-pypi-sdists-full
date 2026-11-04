@@ -236,17 +236,19 @@ def connect(
     api_key     defaults to $SEQUENCES_API_KEY
     base_url    defaults to $SEQUENCES_BASE_URL, then the production gateway
     timeout_s   how long one request waits for its answer, in seconds. Unset, an act waits as long as the deployment
-                allows one - its seq.Timeouts(request=...), 300 s unless the policy says otherwise - and 10 s more, so
+                allows one - the platform's, 300 s unless its check measured slower acts - and 10 s more, so
                 the worker's own 504 at that deadline is what you get; 30 s where the deployment says none. Every other
                 request waits 30 s. Set, it bounds every request, acts included. An act that gets no answer in time
                 while its worker still runs it is never sent again: it raises Unavailable (504, details.reason
                 "act_still_running"), as running it twice would. A worker busy with other robots' acts (429) is waited
                 out within the same time from its first refusal, in steps no longer than its Retry-After.
-    startup_timeout_s  how long an act() waits for a worker that is starting. Unset, as long as
+    startup_timeout_s  how long an act() or wait_until_ready() waits for a worker that is starting (a
+                wait_until_ready(timeout_s=) of its own wins). Unset, as long as
                 the platform gives that start - a card's wait, then what the deployment's start takes - by the deadline
                 it says with each answer, and 1800 s where it says none; in line for a slot, until the platform's
                 queue timeout (2 minutes, the same for every deployment) ends the line. Set, that many seconds from
-                the first ask, in line or not. 0 raises at once instead of waiting.
+                the first ask, in line or not. 0 has an act raise at once instead of waiting; wait_until_ready() then
+                waits as it does unset.
     on_warming  called as (waited_s, retry_s) each time an act() waits for the model to start, within
                 `startup_timeout_s`: how long it has waited, and how long until it asks again; the
                 default writes one line to stderr, never to stdout.

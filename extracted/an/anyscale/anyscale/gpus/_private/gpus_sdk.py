@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from anyscale._private.sdk.base_sdk import BaseSDK
+from anyscale._private.workload.cluster_id import resolve_cluster_id
 from anyscale.client.openapi_client.models import (
     GpuDetail,
     GpuMetadata,
@@ -22,20 +23,52 @@ from anyscale.gpus.models import (
 
 
 class PrivateGpusSDK(BaseSDK):
-    def node_gpus(
+    def node_gpus(  # noqa: PLR0913
         self,
-        cluster_id: str,
         node_id: str,
         *,
+        cluster_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+        service_id: Optional[str] = None,
         time: Optional[datetime] = None,
     ) -> NodeGpus:
-        """Every GPU on `node_id` of `cluster_id` at `time` (now when None)."""
-        raw = self.client.get_node_gpus(cluster_id=cluster_id, node_id=node_id, time=_epoch(time))
+        """Every GPU on `node_id` at `time` (now when None).
+
+        The node's cluster is named by exactly one of the four IDs; see resolve_cluster_id.
+        """
+        resolved = resolve_cluster_id(
+            self.client,
+            cluster_id=cluster_id,
+            workspace_id=workspace_id,
+            job_id=job_id,
+            service_id=service_id,
+        )
+        raw = self.client.get_node_gpus(cluster_id=resolved, node_id=node_id, time=_epoch(time))
         return _to_node_gpus(raw)
 
-    def get(self, cluster_id: str, gpu_uuid: str, *, time: Optional[datetime] = None) -> Gpu:
-        """One GPU of `cluster_id` by UUID at `time` (now when None)."""
-        raw = self.client.get_gpu(cluster_id=cluster_id, gpu_uuid=gpu_uuid, time=_epoch(time))
+    def get(  # noqa: PLR0913
+        self,
+        gpu_uuid: str,
+        *,
+        cluster_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+        service_id: Optional[str] = None,
+        time: Optional[datetime] = None,
+    ) -> Gpu:
+        """One GPU by UUID at `time` (now when None).
+
+        The GPU's cluster is named by exactly one of the four IDs; see resolve_cluster_id.
+        """
+        resolved = resolve_cluster_id(
+            self.client,
+            cluster_id=cluster_id,
+            workspace_id=workspace_id,
+            job_id=job_id,
+            service_id=service_id,
+        )
+        raw = self.client.get_gpu(cluster_id=resolved, gpu_uuid=gpu_uuid, time=_epoch(time))
         return _to_gpu(raw)
 
 

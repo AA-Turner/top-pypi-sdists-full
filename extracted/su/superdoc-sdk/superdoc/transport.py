@@ -1,4 +1,4 @@
-"""Host transport layer for persistent CLI or document-host processes.
+"""Host transport layer for persistent CLI processes.
 
 Contains synchronous and asynchronous transports that communicate over
 newline-delimited JSON-RPC.
@@ -12,21 +12,11 @@ from __future__ import annotations
 import asyncio
 import enum
 import logging
-import math
 import os
 import subprocess
 import threading
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional
 
-from .document_rpc import (
-    DOCUMENT_RPC_DEFAULT_CHANGE_MODE_FEATURE,
-    DOCUMENT_RPC_REQUEST_TIMEOUT_FEATURE,
-    build_document_invoke_request,
-    build_document_open_params,
-    document_rpc_request_supports_response_timeout,
-    map_document_lifecycle_result,
-    map_document_open_result,
-)
 
 from .errors import (
     HOST_DISCONNECTED,
@@ -58,63 +48,6 @@ from .sdk_policy import SDK_POLICY
 
 logger = logging.getLogger('superdoc.transport')
 
-DOCUMENT_HOST_REQUIRED_FEATURES = tuple(SDK_POLICY['documentRequiredFeatures'])
-DOCUMENT_HOST_AUTHOR_FEATURE = SDK_POLICY['features']['documentAuthor']
-_MAX_DOCUMENT_HOST_REQUEST_TIMEOUT_MS = 2_147_483_647
-
-
-def _required_host_features(
-    process_mode: Literal['cli', 'document'],
-    user: Optional[Dict[str, str]],
-    default_change_mode: Optional[ChangeMode],
-    request_timeout_ms: Optional[int],
-) -> tuple[str, ...]:
-    if process_mode == 'cli':
-        return tuple(SDK_POLICY['cliRequiredFeatures'])
-    return (
-        *DOCUMENT_HOST_REQUIRED_FEATURES,
-        *(() if user is None else (DOCUMENT_HOST_AUTHOR_FEATURE,)),
-        *(() if default_change_mode is None else (DOCUMENT_RPC_DEFAULT_CHANGE_MODE_FEATURE,)),
-        *(() if request_timeout_ms is None else (DOCUMENT_RPC_REQUEST_TIMEOUT_FEATURE,)),
-    )
-
-
-def _resolve_document_request_timeout(
-    timeout_ms: Optional[int],
-    request_timeout_ms: Optional[int],
-) -> Optional[int]:
-    effective_timeout_ms = timeout_ms if timeout_ms is not None else request_timeout_ms
-    if effective_timeout_ms is None:
-        return None
-    if (
-        isinstance(effective_timeout_ms, bool)
-        or not isinstance(effective_timeout_ms, (int, float))
-        or effective_timeout_ms <= 0
-        or effective_timeout_ms > _MAX_DOCUMENT_HOST_REQUEST_TIMEOUT_MS
-        or not math.isfinite(effective_timeout_ms)
-    ):
-        raise SuperDocError(
-            'request timeout must be a positive finite number no greater than '
-            f'{_MAX_DOCUMENT_HOST_REQUEST_TIMEOUT_MS}.',
-            code='INVALID_ARGUMENT',
-            details={'requestTimeoutMs': effective_timeout_ms},
-        )
-    return effective_timeout_ms
-
-
-def _require_document_request_timeout_feature(
-    host_features: set[str], request_timeout_ms: Optional[int],
-) -> None:
-    if (
-        request_timeout_ms is None
-        or DOCUMENT_RPC_REQUEST_TIMEOUT_FEATURE in host_features
-    ):
-        return
-    raise SuperDocError(
-        f'Structured document RPC host does not support {DOCUMENT_RPC_REQUEST_TIMEOUT_FEATURE}.',
-        code='DOCUMENT_RPC_INPUT_UNSUPPORTED',
-        details={'feature': DOCUMENT_RPC_REQUEST_TIMEOUT_FEATURE},
-    )
 
 # Default stdout StreamReader buffer for the async transport. Host responses
 # are single newline-delimited JSON lines, so this caps the largest individual
@@ -159,7 +92,6 @@ class SyncHostTransport:
         self,
         cli_bin: str,
         *,
-        process_mode: Literal['cli', 'document'] = 'cli',
         env: Optional[Dict[str, str]] = None,
         startup_timeout_ms: int = 5_000,
         shutdown_timeout_ms: int = 5_000,
@@ -169,7 +101,6 @@ class SyncHostTransport:
         user: Optional[Dict[str, str]] = None,
     ) -> None:
         self._cli_bin = cli_bin
-        self._process_mode = process_mode
         self._env = env or {}
         self._startup_timeout_ms = startup_timeout_ms
         self._shutdown_timeout_ms = shutdown_timeout_ms
@@ -188,8 +119,6 @@ class SyncHostTransport:
 
     def connect(self) -> None:
         """Ensure the host process is running and handshake is complete."""
-        if self._process_mode == 'document':
-            _resolve_document_request_timeout(None, self._request_timeout_ms)
         with self._lock:
             self._ensure_connected()
 
@@ -258,19 +187,6 @@ class SyncHostTransport:
                     'collaboration_auth is supported only for doc.open requests.',
                     code='INVALID_ARGUMENT',
                 )
-            if normalized_collaboration_auth is not None and self._process_mode != 'cli':
-                raise SuperDocError(
-                    'Per-open collaboration authentication is not supported by the standalone document host.',
-                    code='CAPABILITY_UNSUPPORTED',
-                    details={'feature': COLLABORATION_AUTH_PER_OPEN_FEATURE},
-                )
-            request_timeout_ms = (
-                _resolve_document_request_timeout(
-                    timeout_ms, self._request_timeout_ms,
-                )
-                if self._process_mode == 'document'
-                else None
-            )
             self._ensure_connected()
 
             if (
@@ -283,62 +199,6 @@ class SyncHostTransport:
                     details={'feature': COLLABORATION_AUTH_PER_OPEN_FEATURE},
                 )
 
-            if self._process_mode == 'document':
-                if operation_id == 'doc.open':
-                    _require_document_request_timeout_feature(
-                        self._host_features, request_timeout_ms,
-                    )
-                    watchdog = resolve_watchdog_timeout(
-                        self._watchdog_timeout_ms,
-                        request_timeout_ms=request_timeout_ms,
-                    )
-                    session_id, payload = build_document_open_params(
-                        params,
-                        self._user,
-                        stdin_bytes=stdin_bytes,
-                        default_change_mode=self._default_change_mode,
-                    )
-                    result = self._send_request(
-                        'document.open', payload, watchdog,
-                        request_timeout_ms=request_timeout_ms,
-                    )
-                    return map_document_open_result(result, session_id, payload['path'])
-
-                session_id = params.get('sessionId')
-                if not isinstance(session_id, str) or not session_id:
-                    raise SuperDocError(
-                        f'Standalone document host does not support {operation_id} through structured RPC v0.',
-                        code='DOCUMENT_RPC_INPUT_UNSUPPORTED',
-                        details={'operationId': operation_id},
-                    )
-                method, payload = build_document_invoke_request(
-                    session_id,
-                    operation,
-                    params,
-                    stdin_bytes=stdin_bytes,
-                    host_features=self._host_features,
-                )
-                supports_response_timeout = document_rpc_request_supports_response_timeout(
-                    operation, method, payload,
-                )
-                response_timeout_ms = request_timeout_ms if supports_response_timeout else None
-                _require_document_request_timeout_feature(
-                    self._host_features, response_timeout_ms,
-                )
-                watchdog = resolve_watchdog_timeout(
-                    self._watchdog_timeout_ms,
-                    request_timeout_ms=request_timeout_ms,
-                )
-                result = self._send_request(
-                    method, payload, watchdog,
-                    request_timeout_ms=response_timeout_ms,
-                )
-                return map_document_lifecycle_result(
-                    operation_id,
-                    result,
-                    session_id,
-                    expected_in_place=(payload.get('path') is None if operation_id == 'doc.save' else None),
-                )
 
             watchdog = resolve_watchdog_timeout(
                 self._watchdog_timeout_ms, timeout_ms, self._request_timeout_ms,
@@ -387,9 +247,7 @@ class SyncHostTransport:
 
         command, prefix_args = resolve_invocation(self._cli_bin)
         args = (
-            [command, *prefix_args]
-            if self._process_mode == 'document'
-            else [command, *prefix_args, 'host', '--stdio']
+            [command, *prefix_args, 'host', '--stdio']
         )
 
         try:
@@ -416,10 +274,7 @@ class SyncHostTransport:
             )
             validate_capabilities(
                 capabilities,
-                _required_host_features(
-                    self._process_mode, self._user, self._default_change_mode,
-                    self._request_timeout_ms,
-                ),
+                tuple(SDK_POLICY['cliRequiredFeatures']),
             )
             self._host_features = set(capabilities['features'])
             logger.debug(
@@ -608,7 +463,6 @@ class AsyncHostTransport:
         self,
         cli_bin: str,
         *,
-        process_mode: Literal['cli', 'document'] = 'cli',
         env: Optional[Dict[str, str]] = None,
         startup_timeout_ms: int = 5_000,
         shutdown_timeout_ms: int = 5_000,
@@ -620,7 +474,6 @@ class AsyncHostTransport:
         user: Optional[Dict[str, str]] = None,
     ) -> None:
         self._cli_bin = cli_bin
-        self._process_mode = process_mode
         self._env = env or {}
         self._startup_timeout_ms = startup_timeout_ms
         self._shutdown_timeout_ms = shutdown_timeout_ms
@@ -645,8 +498,6 @@ class AsyncHostTransport:
 
     async def connect(self) -> None:
         """Ensure the host process is running and handshake is complete."""
-        if self._process_mode == 'document':
-            _resolve_document_request_timeout(None, self._request_timeout_ms)
         await self._ensure_connected()
 
     async def _await_in_flight_cleanup(self) -> None:
@@ -738,19 +589,6 @@ class AsyncHostTransport:
                 'collaboration_auth is supported only for doc.open requests.',
                 code='INVALID_ARGUMENT',
             )
-        if normalized_collaboration_auth is not None and self._process_mode != 'cli':
-            raise SuperDocError(
-                'Per-open collaboration authentication is not supported by the standalone document host.',
-                code='CAPABILITY_UNSUPPORTED',
-                details={'feature': COLLABORATION_AUTH_PER_OPEN_FEATURE},
-            )
-        request_timeout_ms = (
-            _resolve_document_request_timeout(
-                timeout_ms, self._request_timeout_ms,
-            )
-            if self._process_mode == 'document'
-            else None
-        )
         await self._ensure_connected()
 
         if (
@@ -763,62 +601,6 @@ class AsyncHostTransport:
                 details={'feature': COLLABORATION_AUTH_PER_OPEN_FEATURE},
             )
 
-        if self._process_mode == 'document':
-            if operation_id == 'doc.open':
-                _require_document_request_timeout_feature(
-                    self._host_features, request_timeout_ms,
-                )
-                watchdog = resolve_watchdog_timeout(
-                    self._watchdog_timeout_ms,
-                    request_timeout_ms=request_timeout_ms,
-                )
-                session_id, payload = build_document_open_params(
-                    params,
-                    self._user,
-                    stdin_bytes=stdin_bytes,
-                    default_change_mode=self._default_change_mode,
-                )
-                result = await self._send_request(
-                    'document.open', payload, watchdog,
-                    request_timeout_ms=request_timeout_ms,
-                )
-                return map_document_open_result(result, session_id, payload['path'])
-
-            session_id = params.get('sessionId')
-            if not isinstance(session_id, str) or not session_id:
-                raise SuperDocError(
-                    f'Standalone document host does not support {operation_id} through structured RPC v0.',
-                    code='DOCUMENT_RPC_INPUT_UNSUPPORTED',
-                    details={'operationId': operation_id},
-                )
-            method, payload = build_document_invoke_request(
-                session_id,
-                operation,
-                params,
-                stdin_bytes=stdin_bytes,
-                host_features=self._host_features,
-            )
-            supports_response_timeout = document_rpc_request_supports_response_timeout(
-                operation, method, payload,
-            )
-            response_timeout_ms = request_timeout_ms if supports_response_timeout else None
-            _require_document_request_timeout_feature(
-                self._host_features, response_timeout_ms,
-            )
-            watchdog = resolve_watchdog_timeout(
-                self._watchdog_timeout_ms,
-                request_timeout_ms=request_timeout_ms,
-            )
-            result = await self._send_request(
-                method, payload, watchdog,
-                request_timeout_ms=response_timeout_ms,
-            )
-            return map_document_lifecycle_result(
-                operation_id,
-                result,
-                session_id,
-                expected_in_place=(payload.get('path') is None if operation_id == 'doc.save' else None),
-            )
 
         watchdog = resolve_watchdog_timeout(
             self._watchdog_timeout_ms, timeout_ms, self._request_timeout_ms,
@@ -891,9 +673,7 @@ class AsyncHostTransport:
 
         command, prefix_args = resolve_invocation(self._cli_bin)
         args = (
-            [*prefix_args]
-            if self._process_mode == 'document'
-            else [*prefix_args, 'host', '--stdio']
+            [*prefix_args, 'host', '--stdio']
         )
 
         try:
@@ -926,10 +706,7 @@ class AsyncHostTransport:
             )
             validate_capabilities(
                 capabilities,
-                _required_host_features(
-                    self._process_mode, self._user, self._default_change_mode,
-                    self._request_timeout_ms,
-                ),
+                tuple(SDK_POLICY['cliRequiredFeatures']),
             )
             self._host_features = set(capabilities['features'])
             logger.debug(

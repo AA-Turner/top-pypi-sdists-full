@@ -48,10 +48,11 @@ target_link_libraries(windows-emulator-test PRIVATE
   gpu-bridge-protocol
   vulkan-bridge-marshal
   debugger
+  sogen-version
 )
 
 if(EMSCRIPTEN)
-  target_link_options(windows-emulator-test PRIVATE -sASYNCIFY_EXPORTS=main)
+  target_link_options(windows-emulator-test PRIVATE -sASYNCIFY_EXPORTS=main -sASYNCIFY_STACK_SIZE=65536)
 endif()
 
 if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)

@@ -43,13 +43,17 @@ def fake_asana(apis: FakeApis, tasks: dict[str, list[dict]]) -> None:
     apis.routes[(HOST, "/api/1.0/tasks")] = task_list
 
 
-def task(name: str, due: str | None = None, project: str = "Website") -> dict:
+def task(
+    name: str, due: str | None = None, project: str = "Website", section: str = "", my: str = ""
+) -> dict:
     return {
         "name": name,
         "due_on": due,
         "due_at": None,
         "permalink_url": f"https://app.asana.com/0/1/{abs(hash(name))}",
         "projects": [{"name": project}] if project else [],
+        "assignee_section": {"name": my or "Recently assigned"},
+        "memberships": [{"section": {"name": section or "To do"}}] if project else [],
     }
 
 
@@ -110,6 +114,27 @@ def test_due_badges():
     assert due_badge(make("2026-10-24"), now) == "Sat"
     assert due_badge(make("2026-11-30"), now) == "30 Nov"
     assert due_badge(make(None), now) == ""
+
+
+def test_the_backlog_is_listed_but_not_counted(client: TestClient, apis: FakeApis):
+    past = (datetime.now().date() - timedelta(days=30)).isoformat()
+    fake_asana(
+        apis,
+        {
+            "work": [
+                task("Ship it"),
+                # My Tasks' own "Do later", even when its date has passed; a project's Backlog.
+                task("Switch to Jira", past, "", my="Do later"),
+                task("Old idea", None, section="Backlog"),
+            ]
+        },
+    )
+    client.post("/integrations/asana/connect", data={"token": TOKEN})
+    text = client.get("/welcome/widgets").text
+    assert '<span class="node-value">1</span>' in text
+    assert "assigned to you · 2 more in the backlog" in text and "▲ Due" not in text
+    assert 'data-filter="backlog"' in text and "node warn" not in text
+    assert text.index("Ship it") < text.index("Switch to Jira")
 
 
 def test_workspaces_can_be_left_out(client: TestClient, apis: FakeApis):

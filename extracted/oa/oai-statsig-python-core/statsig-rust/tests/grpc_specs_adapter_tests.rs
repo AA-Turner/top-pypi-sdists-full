@@ -78,7 +78,12 @@ pub mod specs_adapter_tests {
 
         adapter.clone().start(&statsig_rt).await.unwrap();
 
-        let _ = mock_listener.wait_for_next_update().await;
+        let mut first_update = mock_listener.wait_for_next_update().await.unwrap();
+        assert_eq!(first_update.data.read_to_string().unwrap(), "first_sync");
+        assert_eq!(
+            first_update.source,
+            SpecsSource::Adapter("GRPC".to_string())
+        );
 
         mock_proxy.clone().restart().await;
 
@@ -90,9 +95,7 @@ pub mod specs_adapter_tests {
             }))
             .await;
 
-        mock_listener.wait_for_next_update().await.unwrap();
-
-        let mut received_update = mock_listener.force_get_most_recent_update();
+        let mut received_update = mock_listener.wait_for_next_update().await.unwrap();
         assert_eq!(
             received_update.data.read_to_string().unwrap(),
             "reconnected_sync".to_string()

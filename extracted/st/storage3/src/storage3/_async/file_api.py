@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import builtins
 import json
 import urllib.parse
 from dataclasses import dataclass, field
 from io import BufferedReader, FileIO
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union, cast
+from typing import Any, Literal, cast
 
 from httpx import AsyncClient, Headers, HTTPStatusError, Response
 from yarl import URL
 
-from ..constants import DEFAULT_FILE_OPTIONS, DEFAULT_SEARCH_OPTIONS
+from ..constants import DEFAULT_FILE_OPTIONS, DEFAULT_SEARCH_OPTIONS, DEFAULT_SORT_BY
 from ..exceptions import StorageApiError
 from ..types import (
     BaseBucket,
@@ -58,20 +59,21 @@ class AsyncBucketActionsMixin:
         self,
         method: RequestMethod,
         path: list[str],
-        headers: Optional[dict[str, Any]] = None,
-        json: Optional[dict[Any, Any]] = None,
-        files: Optional[Any] = None,
-        query_params: Optional[dict[str, str]] = None,
+        headers: dict[str, Any] | None = None,
+        json: dict[Any, Any] | None = None,
+        files: Any | None = None,
+        query_params: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> Response:
         try:
             url_path = self._base_url.joinpath(*path).with_query(query_params)
-            headers = headers or dict()
-            headers.update(self._headers)
+            request_headers = Headers(self._headers)
+            for name, value in (headers or {}).items():
+                request_headers[name] = value
             response = await self._client.request(
                 method,
                 str(url_path),
-                headers=headers,
+                headers=request_headers,
                 json=json,
                 files=files,
                 **kwargs,
@@ -89,16 +91,12 @@ class AsyncBucketActionsMixin:
                     message, "InternalError", exc.response.status_code
                 ) from err
 
-        # close the resource before returning the response
-        if files and "file" in files and isinstance(files["file"][1], BufferedReader):
-            files["file"][1].close()
-
         return response
 
     async def create_signed_upload_url(
         self,
         path: str,
-        options: Optional[CreateSignedUploadUrlOptions] = None,
+        options: CreateSignedUploadUrlOptions | None = None,
     ) -> SignedUploadURL:
         """
         Creates a signed upload URL.
@@ -136,8 +134,8 @@ class AsyncBucketActionsMixin:
         self,
         path: str,
         token: str,
-        file: Union[BufferedReader, bytes, FileIO, str, Path],
-        file_options: Optional[UploadSignedUrlFileOptions] = None,
+        file: BufferedReader | bytes | FileIO | str | Path,
+        file_options: UploadSignedUrlFileOptions | None = None,
     ) -> UploadResponse:
         """
         Upload a file with a token generated from :meth:`.create_signed_url`
@@ -171,10 +169,7 @@ class AsyncBucketActionsMixin:
         if metadata is not None:
             _data["metadata"] = json.dumps(metadata)
 
-        headers = {
-            **self._client.headers,
-            **options,
-        }
+        headers = dict(options)
         if file_opts_headers:
             headers.update(file_opts_headers)
 
@@ -185,31 +180,33 @@ class AsyncBucketActionsMixin:
             or isinstance(file, bytes)
             or isinstance(file, FileIO)
         ):
-            # bytes or byte-stream-like object received
+            # bytes or byte-stream-like object received -- the caller owns it
+            opened = None
             _file = {"file": (filename, file, content_type)}
         else:
-            # str or pathlib.path received
-            _file = {
-                "file": (
-                    filename,
-                    open(file, "rb"),
-                    content_type,
-                )
-            }
-        response = await self._request(
-            "PUT",
-            final_url,
-            files=_file,
-            headers=headers,
-            data=_data,
-            query_params=query_params,
-        )
+            # str or pathlib.path received -- we own the handle, so we close it
+            opened = open(file, "rb")
+            _file = {"file": (filename, opened, content_type)}
+
+        try:
+            response = await self._request(
+                "PUT",
+                final_url,
+                files=_file,
+                headers=headers,
+                data=_data,
+                query_params=query_params,
+            )
+        finally:
+            if opened is not None:
+                opened.close()
+
         data: UploadData = response.json()
 
         return UploadResponse(path=path, Key=data["Key"])
 
     def _make_signed_url(
-        self, signed_url: Optional[str], download_query: dict[str, str]
+        self, signed_url: str | None, download_query: dict[str, str]
     ) -> SignedUrlResponse:
         if signed_url is None:
             return {"signedURL": None, "signedUrl": None}
@@ -218,7 +215,7 @@ class AsyncBucketActionsMixin:
         return {"signedURL": str(signedURL), "signedUrl": str(signedURL)}
 
     async def create_signed_url(
-        self, path: str, expires_in: int, options: Optional[URLOptions] = None
+        self, path: str, expires_in: int, options: URLOptions | None = None
     ) -> SignedUrlResponse:
         """
         Parameters
@@ -251,10 +248,10 @@ class AsyncBucketActionsMixin:
 
     async def create_signed_urls(
         self,
-        paths: List[str],
+        paths: builtins.list[str],
         expires_in: int,
-        options: Optional[CreateSignedURLsOptions] = None,
-    ) -> List[CreateSignedUrlResponse]:
+        options: CreateSignedURLsOptions | None = None,
+    ) -> builtins.list[CreateSignedUrlResponse]:
         """
         Parameters
         ----------
@@ -294,9 +291,7 @@ class AsyncBucketActionsMixin:
             signed_urls.append(signed_item)
         return signed_urls
 
-    async def get_public_url(
-        self, path: str, options: Optional[URLOptions] = None
-    ) -> str:
+    async def get_public_url(self, path: str, options: URLOptions | None = None) -> str:
         """
         Parameters
         ----------
@@ -409,29 +404,31 @@ class AsyncBucketActionsMixin:
         """
         Returns True if the file exists, False otherwise.
 
+        This reads the object's info, so the result is False only when Storage
+        reports that the object does not exist. Any other failure, such as an
+        invalid JWT or a missing bucket, raises.
+
         Parameters
         ----------
         path
             The path to the file.
         """
         try:
-            path_parts = relative_path_to_parts(path)  # split paths by /
-            response = await self._request(
-                "HEAD",
-                ["object", self.id, *path_parts],
-            )
-            return response.status_code == 200
+            await self.info(path)
+            return True
         except StorageApiError as exc:
-            # HEAD responses have no body, so a missing object surfaces as an
-            # unparsable 400/404 rather than a structured storage error.
-            if str(exc.status) in ("400", "404"):
+            # A HEAD response has no body, so it can't tell an invalid JWT or a
+            # missing bucket apart from a missing object. The info response
+            # can: a missing object is a 404 "not_found", or a 404 without a
+            # parsable body.
+            if str(exc.status) == "404" and exc.code in ("not_found", "InternalError"):
                 return False
             raise
 
     async def list(
         self,
-        path: Optional[str] = None,
-        options: Optional[ListBucketFilesOptions] = None,
+        path: str | None = None,
+        options: ListBucketFilesOptions | None = None,
     ) -> list[dict[str, Any]]:
         """
         Lists all the files within a bucket.
@@ -448,6 +445,10 @@ class AsyncBucketActionsMixin:
         body = {
             **DEFAULT_SEARCH_OPTIONS,
             **extra_options,
+            "sortBy": {
+                **DEFAULT_SORT_BY,
+                **extra_options.get("sortBy", {}),
+            },
             "prefix": path or "",
         }
         response = await self._request(
@@ -460,7 +461,7 @@ class AsyncBucketActionsMixin:
 
     async def list_v2(
         self,
-        options: Optional[SearchV2Options] = None,
+        options: SearchV2Options | None = None,
     ) -> SearchV2Result:
         body = {**options} if options else {}
         response = await self._request(
@@ -473,8 +474,8 @@ class AsyncBucketActionsMixin:
     async def download(
         self,
         path: str,
-        options: Optional[DownloadOptions] = None,
-        query_params: Optional[Dict[str, str]] = None,
+        options: DownloadOptions | None = None,
+        query_params: dict[str, str] | None = None,
     ) -> bytes:
         """
         Downloads a file.
@@ -508,8 +509,8 @@ class AsyncBucketActionsMixin:
         self,
         method: Literal["POST", "PUT"],
         path: tuple[str, ...],
-        file: Union[BufferedReader, bytes, FileIO, str, Path],
-        file_options: Optional[FileOptions] = None,
+        file: BufferedReader | bytes | FileIO | str | Path,
+        file_options: FileOptions | None = None,
     ) -> UploadResponse:
         """
         Uploads a file to an existing bucket.
@@ -539,10 +540,7 @@ class AsyncBucketActionsMixin:
         metadata = options.pop("metadata", None)
         file_opts_headers = options.pop("headers", None)
 
-        headers = {
-            **self._client.headers,
-            **options,
-        }
+        headers = dict(options)
 
         if metadata is not None:
             metadata_str = json.dumps(metadata)
@@ -562,21 +560,25 @@ class AsyncBucketActionsMixin:
             or isinstance(file, bytes)
             or isinstance(file, FileIO)
         ):
-            # bytes or byte-stream-like object received
+            # bytes or byte-stream-like object received -- the caller owns it
+            opened = None
             files = {"file": (filename, file, content_type)}
         else:
-            # str or pathlib.path received
-            files = {
-                "file": (
-                    filename,
-                    open(file, "rb"),
-                    content_type,
-                )
-            }
+            # str or pathlib.path received -- we own the handle, so we close it
+            opened = open(file, "rb")
+            files = {"file": (filename, opened, content_type)}
 
-        response = await self._request(
-            method, ["object", self.id, *path], files=files, headers=headers, data=_data
-        )
+        try:
+            response = await self._request(
+                method,
+                ["object", self.id, *path],
+                files=files,
+                headers=headers,
+                data=_data,
+            )
+        finally:
+            if opened is not None:
+                opened.close()
 
         data: UploadData = response.json()
 
@@ -585,8 +587,8 @@ class AsyncBucketActionsMixin:
     async def upload(
         self,
         path: str,
-        file: Union[BufferedReader, bytes, FileIO, str, Path],
-        file_options: Optional[FileOptions] = None,
+        file: BufferedReader | bytes | FileIO | str | Path,
+        file_options: FileOptions | None = None,
     ) -> UploadResponse:
         """
         Uploads a file to an existing bucket.
@@ -607,8 +609,8 @@ class AsyncBucketActionsMixin:
     async def update(
         self,
         path: str,
-        file: Union[BufferedReader, bytes, FileIO, str, Path],
-        file_options: Optional[FileOptions] = None,
+        file: BufferedReader | bytes | FileIO | str | Path,
+        file_options: FileOptions | None = None,
     ) -> UploadResponse:
         path_parts = relative_path_to_parts(path)
         return await self._upload_or_update("PUT", path_parts, file, file_options)

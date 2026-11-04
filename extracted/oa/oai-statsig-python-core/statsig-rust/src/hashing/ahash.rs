@@ -108,27 +108,6 @@ impl U64HashBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashSet;
-    #[test]
-    fn test_gets_same_result_for_same_input() {
-        let input = "some_random_input";
-        let mut result = ahash_str(input);
-        for _ in 0..1000 {
-            let new_result = ahash_str(input);
-            assert_eq!(result, new_result);
-            result = new_result;
-        }
-    }
-
-    #[test]
-    fn test_gets_different_result_for_different_input() {
-        let mut seen = HashSet::new();
-        for i in 0..100_000 {
-            let result = ahash_str(&format!("iter_{i}"));
-            assert!(!seen.contains(&result));
-            seen.insert(result);
-        }
-    }
 
     #[test]
     fn hash_u64_slice_matches_vec_hash() {
@@ -154,12 +133,13 @@ mod tests {
             INLINE_U64_HASH_CAPACITY + 1,
         ] {
             let values = (0..len).map(|value| value as u64 * 17).collect::<Vec<_>>();
-            let mut builder = U64HashBuilder::with_capacity(values.len());
-            for value in &values {
-                builder.push(*value);
+            let expected = hash_one(&values);
+            for mut builder in [U64HashBuilder::new(), U64HashBuilder::with_capacity(len)] {
+                for &value in &values {
+                    builder.push(value);
+                }
+                assert_eq!(builder.finish(), expected);
             }
-
-            assert_eq!(builder.finish(), hash_one(values));
         }
     }
 

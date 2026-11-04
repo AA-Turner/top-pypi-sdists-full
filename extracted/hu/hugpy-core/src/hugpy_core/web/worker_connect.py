@@ -49,7 +49,7 @@ def connect_wrapper():
             return json.load(response)
     try:
         health = read('/health')
-        if (not isinstance(health, dict) or health.get('service') != 'hugpy-wrapper'
+        if (not isinstance(health, dict) or health.get('service') not in ('hugpy-wrapper', 'hugpy-wrapper-sql')
                 or health.get('status') != 'ok' or not isinstance(health.get('worker'), str)
                 or not health['worker'].strip()):
             return jsonify(error='This endpoint is not a healthy Hugpy Wrapper.'), 400

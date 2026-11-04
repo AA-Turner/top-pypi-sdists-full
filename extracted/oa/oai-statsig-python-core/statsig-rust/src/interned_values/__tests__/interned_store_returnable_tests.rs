@@ -9,7 +9,6 @@ use wiremock::{
 use crate::{
     DynamicReturnable, StatsigOptions,
     evaluation::dynamic_returnable::DynamicReturnableValue,
-    interned_string::{InternedString, InternedStringValue},
     interned_values::{InternedStore, MmapPreloadOptions},
 };
 
@@ -119,7 +118,8 @@ rusty_fork_test! {
         let pointer_hash = pointer.get_stable_hash();
 
         fetch_mmap_from_mock_specs(MMAP_ARCHIVED_EQ_SDK_KEY);
-        assert!(InternedStore::preload_mmap(MMAP_ARCHIVED_EQ_SDK_KEY).is_ok());
+        InternedStore::preload_mmap(&[MMAP_ARCHIVED_EQ_SDK_KEY], &[], &MmapPreloadOptions::default())
+            .unwrap();
 
         let archived = DynamicReturnable::from_map(value);
         assert!(matches!(
@@ -151,8 +151,9 @@ rusty_fork_test! {
         let pointer_hash = pointer.get_stable_hash();
 
         fetch_mmap_from_mock_specs(MMAP_EAGER_HASH_SDK_KEY);
-        InternedStore::preload_mmap_with_options(
-            MMAP_EAGER_HASH_SDK_KEY,
+        InternedStore::preload_mmap(
+            &[MMAP_EAGER_HASH_SDK_KEY],
+            &[],
             &MmapPreloadOptions {
                 precompute_returnable_stable_hashes: true,
             },
@@ -193,13 +194,12 @@ rusty_fork_test! {
     fn test_interned_returnable_preloaded_multi_payload_json_and_proto() {
         assert!(InternedStore::preload_multi(&[EVAL_PROJ_JSON, DEMO_PROJ_PROTO]).is_ok());
 
-        let eval_key = InternedString::from_str_ref("test_experiment_no_targeting");
-        assert!(matches!(eval_key.value, InternedStringValue::Static(_)));
-        assert_eq!(eval_key.as_str(), "test_experiment_no_targeting");
-
-        let proto_key = InternedString::from_str_ref("three_groups");
-        assert!(matches!(proto_key.value, InternedStringValue::Static(_)));
-        assert_eq!(proto_key.as_str(), "three_groups");
+        for (key, value) in [("value", "control"), ("test", "test control")] {
+            let expected = HashMap::from([(key.to_string(), serde_json::Value::from(value))]);
+            let returnable = DynamicReturnable::from_map(expected.clone());
+            assert!(matches!(returnable.value, DynamicReturnableValue::JsonStatic(_)));
+            assert_eq!(returnable.get_json().unwrap(), expected);
+        }
     }
 
     #[test]
@@ -223,14 +223,15 @@ rusty_fork_test! {
         assert_eq!(InternedStore::get_memoized_len().1, 0);
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_preloading_mmap_across_forks() {
         fetch_mmap_from_mock_specs(MMAP_FORK_SDK_KEY);
 
         let pid = unsafe { libc::fork() };
         if pid == 0 {
-            let result = InternedStore::preload_mmap(MMAP_FORK_SDK_KEY);
-            assert!(result.is_ok());
+            InternedStore::preload_mmap(&[MMAP_FORK_SDK_KEY], &[], &MmapPreloadOptions::default())
+                .unwrap();
 
             let json_res = DynamicReturnable::from_map(HashMap::from([(
                 "value".to_string(),
@@ -244,11 +245,7 @@ rusty_fork_test! {
             std::process::exit(0);
         }
 
-        unsafe {
-            let mut status: i32 = 0;
-            libc::waitpid(pid, &mut status, 0);
-            assert_eq!(libc::WEXITSTATUS(status), 0);
-        };
+        super::assert_child_exited_successfully(pid);
     }
 
 }

@@ -77,10 +77,10 @@ from .koyeb_proxy import (
     build_github_proxy_token_renewal,
     build_github_proxy_token_renewal_command,
 )
+from .proxy_environment import bootstrap_command, with_proxy_environment
 from .proxy_integrations import (
     GitHubProxyConfig,
     SandboxProxyIntegration,
-    SecretInjectionProxyConfig,
     proxy_integrations,
 )
 from .proxy_lifecycle import (
@@ -88,15 +88,17 @@ from .proxy_lifecycle import (
     SandboxProxyIdentity,
     SandboxProxyLifecycle,
 )
+from .refusal import (
+    KOYEB_SANDBOX_DEPLOYMENT_FAILED_ERROR_TYPE,
+    MISTRAL_SANDBOX_ACCESS_DENIED_ERROR_TYPE,
+    MISTRAL_SANDBOX_QUOTA_EXCEEDED_ERROR_TYPE,
+)
 
 if TYPE_CHECKING:
     from mistralai.vibe_agents.sdk.assembly.sandbox import AgentsSdkSandbox
 
 _PROXY_SETUP_TIMEOUT_SECONDS = 60
 _SANDBOX_PROXY_BOOTSTRAP_ACTIVITY_PATCH = "agents-sdk-koyeb-sandbox-proxy-bootstrap-v2"
-# This path is the producer contract defined by
-# sandbox_proxy_protocol.bootstrap.secret_injection.SECRET_INJECTION_ENV_FILE.
-_WORKSPACE_PROXY_ENV_FILE = "/tmp/sandbox-proxy/secret-injection.env"  # noqa: S108
 # The file tools reach only the workspace and /tmp, so written files live under /tmp.
 _FILES_ROOT = "/tmp/vibe-harness-files"  # noqa: S108
 _KOYEB_API_NAME_MAX_LENGTH = 64
@@ -464,10 +466,11 @@ class KoyebSandboxDriver(SandboxDriver):
         if definition is None:
             return
         if not _use_sandbox_proxy_bootstrap_activity():
-            if any(isinstance(integration, SecretInjectionProxyConfig) for integration in definition.integrations):
-                raise SandboxBootstrapError(
-                    "Sandbox Proxy secret injection requires authenticated bootstrap API access"
-                )
+            for integration in definition.integrations:
+                if not isinstance(integration, GitHubProxyConfig):
+                    raise SandboxBootstrapError(
+                        f"Sandbox Proxy {integration.type} requires authenticated bootstrap API access"
+                    )
             if not sandbox_proxy_is_configured():
                 warnings.warn(
                     "MistralSandbox(header_bindings=...) is set but no sandbox-proxy config is "
@@ -626,9 +629,7 @@ class KoyebProxyResource:
             for integration in definition.integrations
         )
         self._lifecycle = SandboxProxyLifecycle(effects=effects, delete=driver.delete, now=_epoch_seconds)
-        self._uses_secret_injection = any(
-            isinstance(integration, SecretInjectionProxyConfig) for integration in definition.integrations
-        )
+        self._integrations = definition.integrations
 
     async def configure(self) -> None:
         await self._lifecycle.initialize_new_sandbox()
@@ -640,9 +641,7 @@ class KoyebProxyResource:
         await self._lifecycle.before_execute()
 
     def prepare_command(self, command: str) -> str:
-        if not self._uses_secret_injection:
-            return command
-        return f". {shlex.quote(_WORKSPACE_PROXY_ENV_FILE)} || exit $?\n{command}"
+        return with_proxy_environment(self._integrations, command)
 
 
 class _KoyebProxyIntegrationEffects(SandboxProxyEffects):
@@ -839,7 +838,7 @@ async def _raise_if_koyeb_deployment_failed(
         )
     raise ApplicationError(
         message,
-        type="KoyebSandboxDeploymentFailedError",
+        type=KOYEB_SANDBOX_DEPLOYMENT_FAILED_ERROR_TYPE,
         non_retryable=True,
     )
 
@@ -949,7 +948,7 @@ def _raise_if_koyeb_access_denied(
             "(AGENTS_SDK_KOYEB_SANDBOX_API_TOKEN, KOYEB_API_TOKEN or KOYEB_API_KEY) is invalid or may not create "
             "services in its organization. Check the token, then start the session again."
         )
-    raise ApplicationError(message, type="MistralSandboxAccessDeniedError", non_retryable=True)
+    raise ApplicationError(message, type=MISTRAL_SANDBOX_ACCESS_DENIED_ERROR_TYPE, non_retryable=True)
 
 
 async def _raise_if_koyeb_quota_exhausted(
@@ -995,7 +994,7 @@ async def _raise_if_koyeb_quota_exhausted(
         f"{backend} refused to create the sandbox: the organization has reached its quota of "
         f"{', '.join(exhausted)}. Delete the sandboxes and apps you no longer need, or ask for a "
         "higher quota, then start the session again.",
-        type="MistralSandboxQuotaExceededError",
+        type=MISTRAL_SANDBOX_QUOTA_EXCEEDED_ERROR_TYPE,
         non_retryable=True,
     )
 
@@ -1472,16 +1471,16 @@ async def _koyeb_configure_proxy_v2(request: KoyebBootstrapProxyRequest) -> Koye
     try:
         async with SandboxProxyBootstrapClient.from_current_environment() as client:
             bootstrap = await client.bootstrap(request.integration)
-        command = bootstrap.setup_command if request.operation == "setup" else bootstrap.renewal_command
+        command, env = bootstrap_command(request.integration, bootstrap, request.operation)
         sandbox = await _restore_koyeb_sandbox(request.state)
-        # Provider setup and renewal commands persist their runtime configuration in the sandbox.
-        # Do not return runtime_env through the activity because it can contain short-lived credentials
-        # that would then enter Workflow history.
+        # The bootstrap command persists the runtime configuration in the sandbox. Do not return
+        # runtime_env through the activity because it can contain short-lived credentials that would
+        # then enter Workflow history.
         result = await _execute_koyeb_sandbox_command(
             sandbox,
             command,
             cwd=DEFAULT_WORKSPACE,
-            env=bootstrap.setup_env,
+            env=env,
             timeout=_PROXY_SETUP_TIMEOUT_SECONDS,
         )
         if result.exit_code != 0:

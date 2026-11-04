@@ -15,7 +15,9 @@ from pickletools import OpcodeInfo, genops, opcodes
 from typing import (
     Any,
     BinaryIO,
+    ClassVar,
     Generic,
+    Self,
     TypeVar,
     overload,
 )
@@ -67,6 +69,9 @@ UNSAFE_IMPORTS: frozenset[str] = frozenset(
         "builtins",
         # System/process execution
         "os",
+        "argparse",  # _os.system is reachable through dotted pickle globals
+        "optparse",  # Values.read_file executes Python source from a file
+        "tkinter",  # Tcl/Tk profile loading can execute Python and Tcl scripts
         "posix",
         "nt",
         "subprocess",
@@ -85,11 +90,16 @@ UNSAFE_IMPORTS: frozenset[str] = frozenset(
         "exec",
         "eval",
         "doctest",
+        "dataclasses",  # Internal helpers compile and execute generated code
+        # Subinterpreters (execute arbitrary code in a fresh interpreter)
+        "_interpreters",  # 3.13+
+        "_xxsubinterpreters",  # <=3.12
         # Import manipulation
         "importlib",
         "_frozen_importlib",
         "_frozen_importlib_external",
         "_imp",
+        "imp",  # imp.load_source executes arbitrary files; removed in 3.12
         "pkgutil",
         "zipimport",
         "gc",
@@ -116,6 +126,8 @@ UNSAFE_IMPORTS: frozenset[str] = frozenset(
         "http",
         "urllib",
         "urllib2",
+        "sax",  # XML SAX loaders can open attacker-controlled URLs
+        "xmlbuilder",  # DOM entity resolution can open attacker-controlled URLs
         "requests",
         "aiohttp",
         "asyncio",  # Can run arbitrary coroutines
@@ -132,6 +144,7 @@ UNSAFE_IMPORTS: frozenset[str] = frozenset(
         # Pickle recursion (nested pickle attacks)
         "pickle",
         "_pickle",
+        "tracemalloc",  # Snapshot.load unpickles arbitrary files
         "dill",
         "cloudpickle",
         "joblib",
@@ -139,10 +152,28 @@ UNSAFE_IMPORTS: frozenset[str] = frozenset(
         "shutil",
         "tempfile",
         "filecmp",
+        "gzip",
+        "bz2",
+        "netrc",  # Parses credentials from attacker-chosen files
+        "zipapp",  # Copies source files to attacker-chosen destinations
+        "aifc",  # Reader/writer constructors open attacker-chosen files
+        "sunau",  # Reader/writer constructors open attacker-chosen files
+        "wave",  # Reader/writer constructors open attacker-chosen files
+        "pstats",  # Stats.dump_stats writes attacker-chosen files
+        "uu",  # Legacy encode/decode functions read and write files
+        "ElementInclude",  # XML inclusion loader reads attacker-chosen files
+        "minidom",  # XML parser reads attacker-chosen files
+        "expatbuilder",  # XML parser reads attacker-chosen files
+        "mimetypes",  # MIME table readers open attacker-chosen files
+        "shlex",  # sourcehook opens attacker-chosen files
         "distutils",
+        "mailbox",  # Mailbox APIs can read/write arbitrary files
         # Shell/terminal
         "pydoc",  # Can run code via pydoc.pager
         "pexpect",
+        "pipes",  # pipes.Template runs shell commands; removed in 3.13
+        "readline",  # History functions can read/write arbitrary files
+        "mailcap",  # findmatch executes shell commands; removed in 3.13
         # Virtual environments (can install packages)
         "venv",
         "ensurepip",
@@ -155,6 +186,7 @@ UNSAFE_IMPORTS: frozenset[str] = frozenset(
         "lib2to3",
         # Network services (constructors bind/listen)
         "socketserver",
+        "smtpd",  # SMTPServer binds a socket; PureProxy relays messages (<=3.11)
         "xmlrpc",
         # Process/thread control
         "signal",
@@ -170,6 +202,7 @@ UNSAFE_IMPORTS: frozenset[str] = frozenset(
         "glob",
         "platform",
         "linecache",
+        "traceback",  # StackSummary reads file lines through linecache
         "difflib",
         # Code compilation (writes .pyc files)
         "compileall",
@@ -185,6 +218,8 @@ UNSAFE_IMPORTS: frozenset[str] = frozenset(
         # Archive manipulation (can create/extract files)
         "tarfile",
         "zipfile",
+        "lzma",
+        "compression",  # Compression file APIs, including compression.zstd (3.14+)
         # Shelve (opens database files)
         "shelve",
         # Stdlib modules with hidden subprocess/os.system calls
@@ -192,6 +227,54 @@ UNSAFE_IMPORTS: frozenset[str] = frozenset(
         "_osx_support",
         "_aix_support",
     ]
+)
+
+# Exact targets for modules that also contain commonly serialized, benign objects.
+# Dotted names are resolved as attribute paths by protocol 4+ unpicklers.
+UNSAFE_GLOBALS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("typing", "get_type_hints"),
+        ("typing", "evaluate_forward_ref"),  # Python 3.15+
+        ("typing", "ForwardRef.evaluate"),  # Python 3.15+
+        ("annotationlib", "ForwardRef.evaluate"),  # Python 3.15+
+        ("xml.etree.ElementTree", "parse"),
+        ("xml.etree.ElementTree", "iterparse"),
+        ("xml.etree.ElementTree", "ElementTree.parse"),
+        ("xml.etree.ElementTree", "ElementTree.write"),
+        ("xml.etree.ElementTree", "ElementTree.write_c14n"),
+    }
+    | {
+        ("configparser", f"{parser}.read")
+        for parser in ("RawConfigParser", "ConfigParser", "SafeConfigParser")
+    }
+    | {
+        ("pathlib", f"{path_class}.{method}")
+        for path_class in ("Path", "PosixPath", "WindowsPath")
+        for method in (
+            "open",
+            "read_bytes",
+            "read_text",
+            "write_bytes",
+            "write_text",
+            "touch",
+            "mkdir",
+            "unlink",
+            "rmdir",
+            "rename",
+            "replace",
+            "chmod",
+            "lchmod",
+            "symlink_to",
+            "hardlink_to",
+            "copy",  # Python 3.15+
+            "copy_into",  # Python 3.15+
+            "move",  # Python 3.15+
+            "move_into",  # Python 3.15+
+        )
+    }
+)
+UNSAFE_GLOBAL_PATHS: frozenset[str] = frozenset(
+    f"{module}.{name}" for module, name in UNSAFE_GLOBALS
 )
 
 BUILTIN_MODULE_NAMES: frozenset[str] = frozenset(["builtins", "__builtins__", "__builtin__"])
@@ -261,8 +344,82 @@ SAFE_BUILTINS: frozenset[str] = frozenset(
 )
 
 
+# Exact (module, name) private-stdlib imports that legitimate serializers emit.
+# The ML allowlist supplies additional exact-name exceptions at analysis time.
+PRIVATE_STDLIB_IMPORT_ALLOWLIST: frozenset[tuple[str, str]] = frozenset({("_codecs", "encode")})
+
+# Whole underscore-prefixed stdlib modules that any name may be imported from.
+# `__future__` is a dunder module (so is_private_or_dunder_stdlib_module flags it) whose
+# attributes are all inert feature-flag objects, so it can legitimately appear in
+# a pickle (e.g. what `pickle.dumps(__future__.annotations)` emits).
+PRIVATE_STDLIB_MODULE_ALLOWLIST: frozenset[str] = frozenset({"__future__"})
+
+
 def is_std_module(module_name: str) -> bool:
-    return module_name in BUILTIN_STDLIB_MODULE_NAMES
+    return module_name.partition(".")[0] in BUILTIN_STDLIB_MODULE_NAMES
+
+
+def is_private_or_dunder_stdlib_module(name: str) -> bool:
+    """A stdlib module with a leading underscore (`_socket`, `_pickle`,
+    `__future__`, …): internal or non-public, so it should never appear in a
+    pickle. Benign exceptions are handled in _is_allowed_private_import.
+    """
+    return name.startswith("_") and name in BUILTIN_STDLIB_MODULE_NAMES
+
+
+def import_name_components(node: ast.Import | ast.ImportFrom) -> Iterator[str]:
+    """Yield every dotted component of an import's module and imported names.
+
+    Pickle resolves dotted names, so every component of the module and of each
+    imported name is independently reachable (see GHSA-5j3x-jp52-966f).
+    """
+    if isinstance(node, ast.ImportFrom) and node.module:
+        yield from node.module.split(".")
+    for alias in node.names:
+        yield from alias.name.split(".")
+
+
+def _is_unsafe_global(module: str, name: str) -> bool:
+    # A package and its submodule can be split differently across the two
+    # find_class() arguments (e.g. xml.etree + ElementTree.parse). Compare the
+    # combined path so all such spellings get the same classification.
+    return f"{module}.{name}" in UNSAFE_GLOBAL_PATHS
+
+
+def _is_allowed_private_import(node: ast.Import | ast.ImportFrom) -> bool:
+    # Exact-shape match only: dotted modules (`foo._codecs`) and dotted names
+    # (`_codecs.encode.<x>`, `__future__._ssl.<x>`) never match.
+    if not isinstance(node, ast.ImportFrom) or node.module is None or len(node.names) != 1:
+        return False
+    if not is_std_module(node.module):
+        return False
+    name = node.names[0].name
+    # A whole-module allowlist entry permits any simple (non-dotted) name.
+    if node.module in PRIVATE_STDLIB_MODULE_ALLOWLIST and "." not in name:
+        return True
+    if (node.module, name) in PRIVATE_STDLIB_IMPORT_ALLOWLIST:
+        return True
+    if "." in name:
+        return False
+    from fickling.ml import ML_ALLOWLIST
+
+    return name in ML_ALLOWLIST.get(node.module, {})
+
+
+def _has_private_stdlib_import(node: ast.Import | ast.ImportFrom) -> bool:
+    if _is_allowed_private_import(node):
+        return False
+    components = tuple(import_name_components(node))
+    if any(is_private_or_dunder_stdlib_module(c) for c in components):
+        return True
+    if isinstance(node, ast.ImportFrom):
+        return bool(node.module and is_std_module(node.module)) and any(
+            c.startswith("_") for c in components
+        )
+    return any(
+        is_std_module(alias.name) and any(c.startswith("_") for c in alias.name.split("."))
+        for alias in node.names
+    )
 
 
 def extract_identifier_from_ast_node(
@@ -410,14 +567,8 @@ class Opcode:
         return super().__init_subclass__(**kwargs)
 
     def __repr__(self):
-        if self.pos is None:
-            p = ""
-        else:
-            p = f", position={self.pos!r}"
-        if self.has_data():
-            d = f", data={self.data!r}"
-        else:
-            d = ""
+        p = "" if self.pos is None else f", position={self.pos!r}"
+        d = f", data={self.data!r}" if self.has_data() else ""
         return f"{self.__class__.__name__}(info={self.info!r}, argument={self.arg!r}{d}{p})"
 
 
@@ -430,7 +581,7 @@ class DynamicLength(Opcode, ABC):
     length_signed: bool = False
     length_bytes: int = 4
     length_endianness: Endianness = Endianness.Little
-    struct_types = {1: "b", 2: "h", 4: "i", 8: "q"}
+    struct_types: ClassVar[dict[int, str]] = {1: "b", 2: "h", 4: "i", 8: "q"}
     min_value: int
     max_value: int
 
@@ -501,7 +652,7 @@ def raw_unicode_escape(byte_string: bytes) -> str:
 
 
 class ConstantOpcode(Opcode):
-    ConstantOpcodePriorities: dict[type[ConstantOpcode], int] = {}
+    ConstantOpcodePriorities: ClassVar[dict[type[ConstantOpcode], int]] = {}
     priority: int
 
     def run(self, interpreter: Interpreter):
@@ -509,7 +660,7 @@ class ConstantOpcode(Opcode):
 
     def __init_subclass__(cls, **kwargs):
         ret = super().__init_subclass__(**kwargs)
-        if not cls.__name__ == "ConstantInt":
+        if cls.__name__ != "ConstantInt":
             if cls.validate.__code__ == ConstantOpcode.validate.__code__:
                 raise TypeError(f"{cls.__name__} must implement the validate method")
             if (
@@ -535,7 +686,7 @@ class ConstantOpcode(Opcode):
         raise NotImplementedError()
 
     @classmethod
-    def new(cls: type[T], obj) -> T:
+    def new(cls, obj) -> Self:
         for subclass, _ in sorted(
             ConstantOpcode.ConstantOpcodePriorities.items(), key=lambda kv: kv[1]
         ):
@@ -555,7 +706,7 @@ class ConstantInt(ConstantOpcode, ABC):
     signed: bool = False
     num_bytes: int = 4
     endianness: Endianness = Endianness.Little
-    struct_types = {1: "b", 2: "h", 4: "i", 8: "q"}
+    struct_types: ClassVar[dict[int, str]] = {1: "b", 2: "h", 4: "i", 8: "q"}
     min_value: int
     max_value: int
 
@@ -646,11 +797,14 @@ class ASTProperties(ast.NodeVisitor):
             isinstance(node, ast.ImportFrom)
             and node.module is not None
             and is_std_module(node.module)
+            and not _has_private_stdlib_import(node)
+            and not any(c in UNSAFE_IMPORTS for c in node.module.split("."))
         ):
             self.likely_safe_imports |= {
                 n.name
                 for n in node.names
-                if not any(c in UNSAFE_IMPORTS for c in n.name.split("."))
+                if not _is_unsafe_global(node.module, n.name)
+                and not any(c in UNSAFE_IMPORTS for c in n.name.split("."))
             }
 
     def visit_Import(self, node: ast.Import):
@@ -676,7 +830,39 @@ class EmptyPickleError(PickleDecodeError):
 class InterpretationError(PickleDecodeError):
     """Raised when pickle interpretation fails due to malformed opcode sequences."""
 
-    pass
+
+@dataclass(frozen=True)
+class OpcodeCrossesFrame:
+    """An opcode whose bytes run past the end of the frame containing it."""
+
+    opcode_name: str
+    offset: int
+    span: int
+    frame_end: int
+
+    def __str__(self) -> str:
+        return (
+            f"opcode {self.opcode_name} at offset {self.offset} spans {self.span} bytes "
+            f"and runs past the end of its frame at offset {self.frame_end}"
+        )
+
+
+@dataclass(frozen=True)
+class FrameReopened:
+    """A FRAME opcode that begins before the preceding frame ended."""
+
+    offset: int
+    frame_end: int
+
+    def __str__(self) -> str:
+        return (
+            f"a new frame begins at offset {self.offset} before the one ending at {self.frame_end}"
+        )
+
+
+# The two shapes CPython 3.14.7 and 3.13.15 reject. They carry the offsets rather than a
+# rendered sentence so callers can report them however they like; `str()` gives the sentence.
+FrameViolation = OpcodeCrossesFrame | FrameReopened
 
 
 class Pickled(OpcodeSequence):
@@ -741,6 +927,7 @@ class Pickled(OpcodeSequence):
     def insert_python_obj(self, index: int, obj: Any) -> int:
         """Insert an opcode sequence that constructs a python object on the stack.
         Returns the number of opcodes inserted"""
+        self.validate_frames()
         opcodes = self._encode_python_obj(obj)
         for i, opcode in enumerate(opcodes):
             self.insert(index + i, opcode)
@@ -756,6 +943,7 @@ class Pickled(OpcodeSequence):
     ) -> int:
         if not isinstance(self[-1], Stop):
             raise ValueError("Expected the last opcode to be STOP")
+        self.validate_frames()
         # we need to add the call to GLOBAL before the preexisting code, because the following code
         # can sometimes mess up module lookup (somehow? I, Evan, don't fully understand why yet).
         # So we set up the "import" of `__builtin__.eval` first, then set up the stack for a call
@@ -829,6 +1017,7 @@ class Pickled(OpcodeSequence):
         a POP instruction if True"""
         if not isinstance(self[-1], Stop):
             raise ValueError("Expected the last opcode to be STOP")
+        self.validate_frames()
         # NOTE(boyan): this seems to work even without insert GLOBAL at the beginning
         # of the pickle, but see comment in 'insert_python'
         self.insert(-1, Global.create(module, attr))
@@ -848,6 +1037,7 @@ class Pickled(OpcodeSequence):
 
         :param magic: magic integer value to add
         :param index: index in opcodes list where to insert the magic"""
+        self.validate_frames()
         self.insert(index, Int(magic))
         self.insert(-1 if index == -1 else index + 1, Pop())
 
@@ -872,6 +1062,7 @@ class Pickled(OpcodeSequence):
 
         if not isinstance(self[-1], Stop):
             raise ValueError("Expected the last opcode to be STOP")
+        self.validate_frames()
 
         # Get function name
         fn_match = list(re.match(r"def\s+(.*?)\s*\(", function_definition).groups())
@@ -975,15 +1166,67 @@ class Pickled(OpcodeSequence):
         self._ast = None
         self._properties = None
 
-    def dumps(self) -> bytes:
+    def _reframed_opcodes(self) -> Iterator[bytes]:
+        """Yield the serialization of each opcode, recomputing FRAME lengths as needed.
+
+        FRAME declares how many bytes follow it. Editing the opcode sequence invalidates that
+        count, and the result no longer loads. CPython 3.14.7 and 3.13.15 enforce this in the C
+        unpickler, and the pure-Python unpickler always has.
+
+        For an unedited pickle every recomputed length matches the one already there, so this is
+        also the identity transform on anything that came out of `Pickled.load()`.
+
+        Frame membership uses each frame's original extent, not everything up to the next FRAME.
+        Frames are not necessarily contiguous: CPython writes large objects outside any frame, so a
+        pickle can be framed, then unframed, then framed again.
+
+        Two kinds of opcode land in a frame:
+        - a parsed opcode, if its position precedes the frame's original end
+        - an inserted opcode, which has no position, if the frame encloses it
+        """
+        opcodes = self._opcodes
+        i = 0
+        while i < len(opcodes):
+            opcode = opcodes[i]
+            if not isinstance(opcode, Frame) or opcode.pos is None or opcode.arg is None:
+                yield opcode.data
+                i += 1
+                continue
+            frame_end = opcode.pos + len(opcode.data) + opcode.arg
+            body: list[bytes] = []
+            j = i + 1
+            while j < len(opcodes):
+                member = opcodes[j]
+                if member.pos is not None and member.pos >= frame_end:
+                    break
+                body.append(member.data)
+                j += 1
+            yield Frame.create(sum(len(b) for b in body)).data
+            yield from body
+            i = j
+
+    def _output_chunks(self, reframe: bool) -> Iterator[bytes]:
+        if not reframe:
+            return (opcode.data for opcode in self)
+        return self._reframed_opcodes()
+
+    def dumps(self, reframe: bool = True) -> bytes:
+        """Serialize the opcode sequence back to bytes.
+
+        :arg reframe: recompute the byte lengths declared by FRAME opcodes. Any edit to the
+            opcode sequence invalidates those lengths, and a pickle carrying a stale one no
+            longer loads. Recomputing is the identity transform on an unedited pickle, so it is
+            on by default. Pass False to emit each opcode's bytes verbatim, which preserves the
+            input exactly even when its frames are inconsistent.
+        """
         b = bytearray()
-        for opcode in self:
-            b.extend(opcode.data)
+        for chunk in self._output_chunks(reframe):
+            b.extend(chunk)
         return bytes(b)
 
-    def dump(self, file: BinaryIO):
-        for opcode in self:
-            file.write(opcode.data)
+    def dump(self, file: BinaryIO, reframe: bool = True):
+        """Serialize the opcode sequence to `file`. See `dumps()` for `reframe`."""
+        file.writelines(self._output_chunks(reframe))
 
     def dumps_partial(self, from_idx: int, to_idx: int) -> bytes:
         """Dump bytecode only between two opcodes
@@ -1016,6 +1259,63 @@ class Pickled(OpcodeSequence):
     def has_resource_exhaustion(self) -> bool:
         _ = self.ast  # Ensure interpretation ran
         return self._has_resource_exhaustion
+
+    def _find_frame_violation(self) -> FrameViolation | None:
+        """Return the first FRAME boundary violation in the parsed byte stream, or None.
+
+        Two shapes count as violations, the same two CPython 3.14.7 and 3.13.15 now reject:
+        - an opcode whose bytes run past the end of its frame (`OpcodeCrossesFrame`)
+        - a FRAME opening before the previous one closed (`FrameReopened`)
+
+        Before those versions the C unpickler read straight past a frame end and executed whatever
+        followed. A linear reader such as this parser or `pickletools` instead counts those bytes
+        as part of the oversized argument, so an undersized frame hides the opcodes a pickle really
+        runs. See python/cpython#154848.
+
+        One case here is deliberately stricter than CPython, which checks per read rather than per
+        opcode and so allows a frame to end exactly between an opcode's header and its payload.
+        That case is benign, since the payload read falls through to the file and returns the same
+        bytes a linear reader takes. It is still reported, for two reasons:
+        - matching it means modelling per-opcode read granularity, which differs between CPython's
+          two unpickler implementations
+        - no pickler emits it, because `_Framer.write_large_bytes()` commits the frame before
+          writing an opcode header, so emitted frames always end on an opcode boundary
+
+        Inserted opcodes have no position and are skipped. They are not part of the byte stream
+        under validation, and `_reframed_opcodes()` recomputes their lengths on output.
+        """
+        frame_end: int | None = None
+        for opcode in self._opcodes:
+            if opcode.pos is None:
+                continue
+            start = opcode.pos
+            end = start + (len(opcode.data) if opcode.has_data() else len(opcode.info.code))
+            if frame_end is not None:
+                if start >= frame_end:
+                    frame_end = None  # The frame ended cleanly before this opcode.
+                elif end > frame_end:
+                    return OpcodeCrossesFrame(
+                        opcode_name=opcode.info.name,
+                        offset=start,
+                        span=end - start,
+                        frame_end=frame_end,
+                    )
+            if isinstance(opcode, Frame) and opcode.arg is not None:
+                if frame_end is not None:
+                    return FrameReopened(offset=start, frame_end=frame_end)
+                frame_end = end + opcode.arg
+        return None
+
+    def validate_frames(self) -> None:
+        """Raise InterpretationError if any opcode crosses a FRAME boundary.
+
+        Interpretation and the injection APIs both call this. Rewriting a pickle whose frames are
+        inconsistent would recompute the offending FRAME length and hand back a well-formed file,
+        laundering away the very divergence that makes it worth flagging.
+        """
+        violation = self._find_frame_violation()
+        if violation is not None:
+            raise InterpretationError(str(violation))
 
     @staticmethod
     def make_stream(data: Buffer | BinaryIO) -> BinaryIO:
@@ -1055,10 +1355,7 @@ class Pickled(OpcodeSequence):
                     if pos is not None:
                         pickled.seek(pos)
                     if info.arg is None or info.arg.n == 0:
-                        if pos is not None:
-                            data = None
-                        else:
-                            data = info.code.encode("utf-8")
+                        data = info.code.encode("utf-8") if pos is None else None
                     elif info.arg.n > 0 and pos is not None:
                         data = pickled.read(len(info.code) + info.arg.n)
                         if len(data) != len(info.code) + info.arg.n:
@@ -1076,10 +1373,10 @@ class Pickled(OpcodeSequence):
         except ValueError as e:
             if opcodes:
                 if fail_on_decode_error:
-                    raise PickleDecodeError(e)
+                    raise PickleDecodeError(e) from e
                 has_invalid_opcode = True
             else:
-                raise EmptyPickleError()
+                raise EmptyPickleError() from e
         if opcodes:
             if opcodes[-1].pos is not None:
                 if opcodes[-1].has_data():
@@ -1126,23 +1423,16 @@ on the Pickled object instead"""
         )
 
     def unsafe_imports(self) -> Iterator[ast.Import | ast.ImportFrom]:
-        def is_unsafe(dotted: str) -> bool:
-            return any(c in UNSAFE_IMPORTS for c in dotted.split("."))
-
         for node in self.properties.imports:
-            if isinstance(node, ast.ImportFrom):
-                if node.module and is_unsafe(node.module):
-                    yield node
-                elif any(is_unsafe(n.name) for n in node.names):
-                    yield node
-                elif "eval" in (n.name for n in node.names):
-                    yield node
-            else:
-                # ast.Import: check if any imported module is unsafe
-                if any(is_unsafe(alias.name) for alias in node.names):
-                    yield node
-                elif "eval" in (alias.name for alias in node.names):
-                    yield node
+            unsafe_module = any(c in UNSAFE_IMPORTS for c in import_name_components(node))
+            unsafe_global = (
+                isinstance(node, ast.ImportFrom)
+                and node.module is not None
+                and any(_is_unsafe_global(node.module, n.name) for n in node.names)
+            )
+            imports_eval = "eval" in (n.name for n in node.names)
+            if unsafe_module or unsafe_global or imports_eval:
+                yield node
 
     def non_standard_imports(self) -> Iterator[ast.Import | ast.ImportFrom]:
         for node in self.properties.imports:
@@ -1155,6 +1445,11 @@ on the Pickled object instead"""
                 # import x, y, z - check if any name is non-standard
                 if any(not is_std_module(alias.name) for alias in node.names):
                     yield node
+
+    def private_stdlib_imports(self) -> Iterator[ast.Import | ast.ImportFrom]:
+        for node in self.properties.imports:
+            if _has_private_stdlib_import(node):
+                yield node
 
     @property
     def ast(self) -> ast.Module:
@@ -1294,33 +1589,36 @@ class Interpreter:
         if self._module is None:
             self.run()
         used: set[str] = set()
-        defined: set[str] = set()
         assignments: dict[str, ast.Assign] = {}
+
+        def record_uses(node: ast.AST) -> None:
+            for child in ast.walk(node):
+                if isinstance(child, ast.Name):
+                    used.add(child.id)
+
         for statement in self.module_body:
-            # skip the last statement because it is always used
             if isinstance(statement, ast.Assign):
-                if (
-                    len(statement.targets) == 1
-                    and isinstance(statement.targets[0], ast.Name)
-                    and statement.targets[0].id == "result"
-                ):
-                    # this is the return value of the program
-                    break
                 for target in statement.targets:
-                    if isinstance(target, ast.Name):
-                        defined.add(target.id)
-                        if target.id in assignments:
-                            # this should never happen, since Fickling constructs the AST
-                            sys.stderr.write(
-                                f"Warning: Duplicate declaration of variable {target.id}\n"
-                            )
-                        assignments[target.id] = statement
+                    if not isinstance(target, ast.Name):
+                        # A compound target is a *use* of every name it mentions, not a
+                        # definition: in the `d[k] = v` that `SETITEM` emits, the target reads
+                        # both `d` and `k`. (`v` is the value, scanned below.)
+                        record_uses(target)
+                        continue
+                    if target.id == self.result_variable:
+                        # This is the return value of the program, which the program itself
+                        # never uses, so do not record it as defined.
+                        continue
+                    if target.id in assignments:
+                        # This should never happen, since Fickling constructs the AST.
+                        sys.stderr.write(
+                            f"Warning: Duplicate declaration of variable {target.id}\n"
+                        )
+                    assignments[target.id] = statement
                 statement = statement.value
             if statement is not None:
-                for node in ast.walk(statement):
-                    if isinstance(node, ast.Name):
-                        used.add(node.id)
-        return {varname: assignments[varname] for varname in defined - used}
+                record_uses(statement)
+        return {name: asmt for name, asmt in assignments.items() if name not in used}
 
     def unused_variables(self) -> frozenset[str]:
         return self.unused_assignments().keys()  # type: ignore
@@ -1329,11 +1627,12 @@ class Interpreter:
         self._opcodes = iter(())
 
     def run(self):
-        while True:
-            try:
+        self.pickled.validate_frames()
+        try:
+            while True:
                 self.step()
-            except StopIteration:
-                break
+        except StopIteration:
+            pass
 
     def step(self) -> Opcode:
         try:
@@ -1570,7 +1869,7 @@ class Inst(StackSliceOpcode):
         module, classname = self.module, self.cls
         alias = ast.alias(classname)
         interpreter.module_body.append(ast.ImportFrom(module=module, names=[alias], level=0))
-        args = ast.Tuple(tuple(stack_slice))
+        args = ast.Tuple(list(stack_slice))
         call = ast.Call(ast.Name(classname, ast.Load()), list(args.elts), [])
         var_name = interpreter.new_variable(call)
         interpreter.stack.append(ast.Name(var_name, ast.Load()))
@@ -1611,7 +1910,7 @@ class EmptyTuple(Opcode):
     name = "EMPTY_TUPLE"
 
     def run(self, interpreter: Interpreter):
-        interpreter.stack.append(ast.Tuple((), ast.Load()))
+        interpreter.stack.append(ast.Tuple([], ast.Load()))
 
 
 class TupleOne(Opcode):
@@ -1619,7 +1918,7 @@ class TupleOne(Opcode):
 
     def run(self, interpreter: Interpreter):
         stack_top = interpreter.stack.pop()
-        interpreter.stack.push(ast.Tuple((stack_top,), ast.Load()))
+        interpreter.stack.push(ast.Tuple([stack_top], ast.Load()))
 
 
 class TupleTwo(Opcode):
@@ -1628,7 +1927,7 @@ class TupleTwo(Opcode):
     def run(self, interpreter: Interpreter):
         arg2 = interpreter.stack.pop()
         arg1 = interpreter.stack.pop()
-        interpreter.stack.append(ast.Tuple((arg1, arg2), ast.Load()))
+        interpreter.stack.append(ast.Tuple([arg1, arg2], ast.Load()))
 
 
 class TupleThree(Opcode):
@@ -1638,7 +1937,7 @@ class TupleThree(Opcode):
         top = interpreter.stack.pop()
         mid = interpreter.stack.pop()
         bot = interpreter.stack.pop()
-        interpreter.stack.append(ast.Tuple((bot, mid, top), ast.Load()))
+        interpreter.stack.append(ast.Tuple([bot, mid, top], ast.Load()))
 
 
 class AddItems(Opcode):
@@ -1654,10 +1953,10 @@ class AddItems(Opcode):
         else:
             raise InterpretationError("Exhausted the stack while searching for a MarkObject!")
         if not interpreter.stack:
-            raise ValueError("Stack was empty; expected a pyset")
+            raise InterpretationError("Stack was empty; expected a pyset")
         pyset = interpreter.stack[-1]
         if not isinstance(pyset, ast.Set):
-            raise ValueError(
+            raise InterpretationError(
                 f"{pyset!r} was expected to be a set-like object with an `add` function"
             )
         # Check for cyclic references - sets cannot contain themselves (unhashable)
@@ -1878,7 +2177,7 @@ class Tuple(StackSliceOpcode):
     name = "TUPLE"
 
     def run(self, interpreter: Interpreter, stack_slice: List[ast.expr]):
-        interpreter.stack.append(ast.Tuple(tuple(stack_slice), ast.Load()))
+        interpreter.stack.append(ast.Tuple(list(stack_slice), ast.Load()))
 
 
 class Build(Opcode):
@@ -2031,6 +2330,15 @@ class Stop(Opcode):
 class Frame(NoOp):
     name = "FRAME"
 
+    @staticmethod
+    def create(length: int) -> Frame:
+        return Frame(length)
+
+    def encode_body(self) -> bytes:
+        if self.arg is None:
+            raise ValueError("Cannot encode a FRAME opcode without a length")
+        return int(self.arg).to_bytes(8, "little", signed=False)
+
 
 class BinInt1(ConstantInt):
     name = "BININT1"
@@ -2092,7 +2400,9 @@ class Append(Opcode):
                 interpreter._has_cycle = True
             list_obj.elts.append(value)
         else:
-            raise ValueError(f"Expected a list on the stack, but instead found {list_obj!r}")
+            raise InterpretationError(
+                f"Expected a list on the stack, but instead found {list_obj!r}"
+            )
 
 
 class Appends(StackSliceOpcode):
@@ -2107,7 +2417,9 @@ class Appends(StackSliceOpcode):
                     interpreter._has_cycle = True
             list_obj.elts.extend(stack_slice)
         else:
-            raise ValueError(f"Expected a list on the stack, but instead found {list_obj!r}")
+            raise InterpretationError(
+                f"Expected a list on the stack, but instead found {list_obj!r}"
+            )
 
 
 class BinFloat(ConstantOpcode):
@@ -2238,7 +2550,7 @@ class Dict(Opcode):
                 f"Number of keys ({len(keys)}) and values ({len(values)}) for DICT do not match"
             )
 
-        interpreter.stack.append(ast.Dict(keys=reversed(keys), values=reversed(values)))
+        interpreter.stack.append(ast.Dict(keys=list(reversed(keys)), values=list(reversed(values))))
 
 
 PickledSequence = Sequence[Pickled]

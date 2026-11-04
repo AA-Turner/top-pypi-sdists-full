@@ -91,9 +91,10 @@ def sync_detailed(
     """ArchiveJob
 
     Archives a job. An archived job cannot be run (neither manually nor by schedule);
-    listings include it unless `is_archived` filters it out. This operation is idempotent.
+    listings include it unless `is_archived` filters it out. Archiving clears the job's schedule
+    and pause, and its public URL stops working until it is unarchived. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -127,9 +128,10 @@ def sync(
     """ArchiveJob
 
     Archives a job. An archived job cannot be run (neither manually nor by schedule);
-    listings include it unless `is_archived` filters it out. This operation is idempotent.
+    listings include it unless `is_archived` filters it out. Archiving clears the job's schedule
+    and pause, and its public URL stops working until it is unarchived. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -158,9 +160,10 @@ async def asyncio_detailed(
     """ArchiveJob
 
     Archives a job. An archived job cannot be run (neither manually nor by schedule);
-    listings include it unless `is_archived` filters it out. This operation is idempotent.
+    listings include it unless `is_archived` filters it out. Archiving clears the job's schedule
+    and pause, and its public URL stops working until it is unarchived. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -192,9 +195,10 @@ async def asyncio(
     """ArchiveJob
 
     Archives a job. An archived job cannot be run (neither manually nor by schedule);
-    listings include it unless `is_archived` filters it out. This operation is idempotent.
+    listings include it unless `is_archived` filters it out. Archiving clears the job's schedule
+    and pause, and its public URL stops working until it is unarchived. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

@@ -1,0 +1,1 @@
+import{p as e}from"./utils-BzOGEtgZ.js";import{r as t}from"./RunDropdown-Vk4nXV1P.js";import{t as n}from"./RunsBody-CY0FR4KT.js";var r=e();function i(){return(0,r.jsx)(t,{children:(0,r.jsx)(n,{})})}export{i as default};

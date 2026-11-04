@@ -58,6 +58,11 @@ def _parse_response(
 
         return response_403
 
+    if response.status_code == 409:
+        response_409 = ErrorResponse.from_dict(response.json())
+
+        return response_409
+
     if response.status_code == 500:
         response_500 = ErrorResponse.from_dict(response.json())
 
@@ -88,9 +93,13 @@ def sync_detailed(
 ) -> Response[ErrorResponse | UpdatedVariablesResponse]:
     """ChangeWorkspaceVariables
 
-     Create, update and delete variables in one scope, applied atomically. `profile` null targets the
-    workspace-wide scope. Deleting a name that was not set is reported as `not_found` rather than
-    failing the request.
+     Create, update and delete variables in one scope, applied atomically. `profile` `null` targets the
+    workspace-wide scope. Upserts create or replace by name. Deleting a name that was not set is
+    reported as `not_found` rather than failing the request. Results list upserts first, then deletes.
+    At most 200 variables per scope (400 `variables_cap_exceeded`). Reserved names are rejected case-
+    insensitively (400 `reserved_variable_names`). A concurrent change answers 409
+    `variables_scope_locked`; retry. In a run, profile values override workspace-wide values with the
+    same name. Only workspace owners can call this.
 
     Args:
         workspace_id (UUID):
@@ -123,9 +132,13 @@ def sync(
 ) -> ErrorResponse | UpdatedVariablesResponse | None:
     """ChangeWorkspaceVariables
 
-     Create, update and delete variables in one scope, applied atomically. `profile` null targets the
-    workspace-wide scope. Deleting a name that was not set is reported as `not_found` rather than
-    failing the request.
+     Create, update and delete variables in one scope, applied atomically. `profile` `null` targets the
+    workspace-wide scope. Upserts create or replace by name. Deleting a name that was not set is
+    reported as `not_found` rather than failing the request. Results list upserts first, then deletes.
+    At most 200 variables per scope (400 `variables_cap_exceeded`). Reserved names are rejected case-
+    insensitively (400 `reserved_variable_names`). A concurrent change answers 409
+    `variables_scope_locked`; retry. In a run, profile values override workspace-wide values with the
+    same name. Only workspace owners can call this.
 
     Args:
         workspace_id (UUID):
@@ -153,9 +166,13 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | UpdatedVariablesResponse]:
     """ChangeWorkspaceVariables
 
-     Create, update and delete variables in one scope, applied atomically. `profile` null targets the
-    workspace-wide scope. Deleting a name that was not set is reported as `not_found` rather than
-    failing the request.
+     Create, update and delete variables in one scope, applied atomically. `profile` `null` targets the
+    workspace-wide scope. Upserts create or replace by name. Deleting a name that was not set is
+    reported as `not_found` rather than failing the request. Results list upserts first, then deletes.
+    At most 200 variables per scope (400 `variables_cap_exceeded`). Reserved names are rejected case-
+    insensitively (400 `reserved_variable_names`). A concurrent change answers 409
+    `variables_scope_locked`; retry. In a run, profile values override workspace-wide values with the
+    same name. Only workspace owners can call this.
 
     Args:
         workspace_id (UUID):
@@ -186,9 +203,13 @@ async def asyncio(
 ) -> ErrorResponse | UpdatedVariablesResponse | None:
     """ChangeWorkspaceVariables
 
-     Create, update and delete variables in one scope, applied atomically. `profile` null targets the
-    workspace-wide scope. Deleting a name that was not set is reported as `not_found` rather than
-    failing the request.
+     Create, update and delete variables in one scope, applied atomically. `profile` `null` targets the
+    workspace-wide scope. Upserts create or replace by name. Deleting a name that was not set is
+    reported as `not_found` rather than failing the request. Results list upserts first, then deletes.
+    At most 200 variables per scope (400 `variables_cap_exceeded`). Reserved names are rejected case-
+    insensitively (400 `reserved_variable_names`). A concurrent change answers 409
+    `variables_scope_locked`; retry. In a run, profile values override workspace-wide values with the
+    same name. Only workspace owners can call this.
 
     Args:
         workspace_id (UUID):

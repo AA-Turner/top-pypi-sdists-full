@@ -36,7 +36,9 @@ class ApprovalTool(BaseModel):
 
     ``id`` is the tool's stable id, the one permission rules use, such as ``"file_system.bash"``,
     ``"client.open_case"``, ``"billing.charge"`` or ``"github.create_issue"``. ``name`` is the name
-    the model called. ``kind`` says where the tool comes from: ``"builtin"`` for the runtime's own
+    the model called, which changes with how it called the tool (``deploy_service`` directly,
+    ``tools.client.deploy_service`` from ``run_typescript``), so decide on ``id``, never on ``name``.
+    ``kind`` says where the tool comes from: ``"builtin"`` for the runtime's own
     tools, ``"client"`` for the agent's ``@agents.tool`` and client tools, ``"mcp"`` for an MCP
     server's, ``"connector"`` for a Mistral connector's, ``"plugin"`` for any other.
 
@@ -44,11 +46,11 @@ class ApprovalTool(BaseModel):
     them; they are ``None`` for builtins, and ``output_schema`` for a tool that declares none.
     ``definition`` is the tool object the agent was given, such as the one ``@agents.tool``
     returned, for a tool of the agent or of one of its subagents. It is ``None`` for the other
-    tools and on a handle that ``local_session`` or ``remote_session`` made without the agent.
+    tools and on a session handle that does not hold the agent's tools.
 
     ``annotations`` are the hints the tool declares, such as ``read_only_hint``: those of
-    ``annotations=`` on ``@agents.tool``, ``agents.PythonTool``, ``agents.client_tool`` and
-    ``agents.ClientToolDefinition``. The host sends them with the approval, so every approver
+    ``annotations=`` on ``@agents.tool``, ``agents.PythonTool`` and ``agents.client_tool``. The host
+    sends them with the approval, so every approver
     reads the same ones, with or without the agent. A hint the tool does not declare takes MCP's
     default, which assumes the worst: a policy that allows only read-only tools allows a tool only
     if it declares ``read_only_hint=True``. MCP and connector tools carry no hints here yet.

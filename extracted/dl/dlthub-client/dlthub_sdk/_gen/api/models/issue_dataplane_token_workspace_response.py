@@ -14,7 +14,7 @@ class IssueDataplaneTokenWorkspaceResponse:
     """
     Attributes:
         expires_at (int): Unix timestamp (seconds) when the token expires. Clients should refresh before this moment.
-        token (str): Signed DataplaneUserJwt; present in Authorization: Bearer …
+        token (str): Data plane token; send it as `Authorization: Bearer <token>`.
     """
 
     expires_at: int

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: harness-featureflags
-Version: 1.7.5
+Version: 1.7.6
 Summary: Feature flag server SDK for python
 Home-page: https://github.com/harness/ff-python-server-sdk
 Author: Harness
@@ -145,6 +145,12 @@ test features quicker.
 =======
 History
 =======
+
+1.7.6 (2026-11-03)
+------------------
+
+	fix: [FFM-13211]: Python SDK polls after its stream reconnects so missed updates are fetched in #123
+	fix: Segments without serving rules no longer raise an error when cached in #122
 
 1.7.3 (2021-07-07)
 ------------------

@@ -1,4 +1,5 @@
 """Test in range selectors."""
+import sys
 from .. import util
 
 
@@ -274,5 +275,108 @@ class TestInRange(util.TestCase):
             markup,
             ":in-range",
             ['0', '1', '2', '3', '4', '5', '6', '7', '17', '18', '19'],
+            flags=util.HTML
+        )
+
+    def test_in_range_untyped_input(self):
+        """Inputs without a `type` attribute are text inputs, which are never in range."""
+
+        markup = """
+        <input id="0" min="0" max="10" value="50">
+        <input id="1" type="number" min="0" max="10" value="5">
+        <input id="2" type="number" min="0" max="10" value="50">
+        <input id="3" name="q">
+        """
+
+        self.assert_selector(
+            markup,
+            ":in-range",
+            ['1'],
+            flags=util.HTML
+        )
+
+    def test_in_range_long_year(self):
+        """A year with more digits than `int()` will convert is invalid, so it is neither in nor out of range."""
+
+        year = '1' * (sys.get_int_max_str_digits() + 1)
+        markup = f"""
+        <input id="0" type="date" min="2000-01-01" max="2100-01-01" value="{year}-01-01">
+        <input id="1" type="date" min="{year}-01-01" value="2000-01-01">
+        <input id="2" type="month" min="2000-01" max="2100-01" value="{year}-01">
+        <input id="3" type="week" min="2000-W01" max="2100-W01" value="{year}-W01">
+        <input id="4" type="datetime-local" min="2000-01-01T00:00" max="2100-01-01T00:00" value="{year}-01-01T00:00">
+        <input id="5" type="date" min="2000-01-01" max="2100-01-01" value="2050-01-01">
+        <input id="6" type="date" min="2000-01-01" max="2100-01-01" value="2200-01-01">
+        """
+
+        self.assert_selector(
+            markup,
+            ":in-range",
+            ['0', '2', '3', '4', '5'],
+            flags=util.HTML
+        )
+
+    def test_range_trailing_newline(self):
+        """A value or boundary with a trailing newline is not valid; an invalid value is treated like a missing one."""
+
+        markup = """
+        <input id="0" type="number" min="0" max="10" value="50&#10;">
+        <input id="1" type="number" min="100&#10;" max="200" value="50">
+        <input id="2" type="date" min="2000-01-01" max="2100-01-01" value="2200-01-01&#10;">
+        <input id="3" type="month" min="2000-01" max="2100-01" value="2200-01&#10;">
+        <input id="4" type="week" min="2000-W01" max="2100-W01" value="2200-W01&#10;">
+        <input id="5" type="time" min="00:00" max="12:00" value="23:30&#10;">
+        <input id="6" type="number" min="0" max="10" value="50">
+        """
+
+        # An invalid value is treated like a missing value, which browsers
+        # evaluate as in range, and an invalid bound is treated as absent.
+        self.assert_selector(
+            markup,
+            ":in-range",
+            ['0', '1', '2', '3', '4', '5'],
+            flags=util.HTML
+        )
+
+        # None of the trailing-newline values may be evaluated out of range.
+        self.assert_selector(
+            markup,
+            ":out-of-range",
+            ['6'],
+            flags=util.HTML
+        )
+
+    def test_range_datetime_local_separator(self):
+        """A local date and time may separate the date and time with a single `T` or a single space."""
+
+        markup = """
+        <input id="0" type="datetime-local" min="2026-01-01T12:00" max="2026-12-31T12:00" value="2026-06-01 12:00">
+        <input id="1" type="datetime-local" min="2026-01-01T12:00" value="2025-12-31 12:00">
+        <input id="2" type="datetime-local" max="2026-01-01T12:00" value="2026-12-31 12:00">
+        <input id="3" type="datetime-local" min="2026-01-01 12:00" value="2025-12-31T12:00">
+        <input id="4" type="datetime-local" max="2026-01-01 12:00" value="2026-12-31T12:00">
+        <input id="5" type="datetime-local" min="2026-06-01 12:00:30" value="2026-06-01 12:00:30.5">
+        <input id="6" type="datetime-local" min="2026-01-01 12:00" value="2026-01-01T12:00">
+        <input id="7" type="datetime-local" min="2026-01-01T12:00" value="2025-12-31  12:00">
+        <input id="8" type="datetime-local" min="2026-01-01T12:00" value="2025-12-31&#9;12:00">
+        <input id="9" type="datetime-local" min="2026-01-01T12:00" value="2025-12-31&#10;12:00">
+        <input id="10" type="datetime-local" min="2026-01-01T12:00" value="2025-12-31t12:00">
+        <input id="11" type="datetime-local" min="2026-01-01T12:00" value="2025-12-31&#160;12:00">
+        <input id="12" type="datetime-local" min="2026-01-01  12:00" value="2025-12-31T12:00">
+        """
+
+        # Any other separator is invalid: an invalid value is treated like a
+        # missing value, and with only an invalid bound there is no range.
+        self.assert_selector(
+            markup,
+            ":in-range",
+            ['0', '5', '6', '7', '8', '9', '10', '11'],
+            flags=util.HTML
+        )
+
+        self.assert_selector(
+            markup,
+            ":out-of-range",
+            ['1', '2', '3', '4'],
             flags=util.HTML
         )

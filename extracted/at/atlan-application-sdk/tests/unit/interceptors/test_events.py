@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import time
 from typing import Any
 from unittest import mock
 
@@ -22,6 +25,7 @@ from application_sdk.execution._temporal.interceptors.events import (
     EventInterceptor,
     EventWorkflowInboundInterceptor,
     _enrich_event_metadata,
+    _get_event_auth_headers,
     _get_event_token_service,
     _publish_event_via_binding,
     _send_lifecycle_event_to_segment,
@@ -188,12 +192,28 @@ class TestPublishEventActivity:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(autouse=False)
+@pytest.fixture(autouse=True)
 def _reset_event_token_service():
-    """Null the module-global cache between tests."""
+    """Null the module-global cache (and its negative entry) between tests."""
     events_module._event_token_service = None
+    events_module._event_token_service_retry_at = 0.0
     yield
     events_module._event_token_service = None
+    events_module._event_token_service_retry_at = 0.0
+
+
+def _expire_retry_window() -> None:
+    """End the cached negative result's window (0.0 = nothing cached)."""
+    events_module._event_token_service_retry_at = 0.0
+
+
+@contextlib.contextmanager
+def _frozen_events_clock(now: float):
+    """Freeze ``time.monotonic()`` as the events module sees it, and only there."""
+    clock = mock.MagicMock(wraps=time)
+    clock.monotonic.return_value = now
+    with mock.patch.object(events_module, "time", clock):
+        yield
 
 
 class TestGetEventTokenService:
@@ -220,8 +240,9 @@ class TestGetEventTokenService:
         with (
             mock.patch("application_sdk.constants.AUTH_ENABLED", True, create=True),
             mock.patch("application_sdk.constants.AUTH_URL", "", create=True),
+            mock.patch("application_sdk.constants.DEPLOYMENT_NAME", "production"),
             mock.patch(
-                "application_sdk.infrastructure.secrets.get_deployment_secret",
+                "application_sdk.infrastructure.secrets._fetch_deployment_secret",
                 new=mock.AsyncMock(return_value=""),
             ),
         ):
@@ -241,8 +262,9 @@ class TestGetEventTokenService:
                 "https://example.com/token",
                 create=True,
             ),
+            mock.patch("application_sdk.constants.DEPLOYMENT_NAME", "production"),
             mock.patch(
-                "application_sdk.infrastructure.secrets.get_deployment_secret",
+                "application_sdk.infrastructure.secrets._fetch_deployment_secret",
                 new=mock.AsyncMock(side_effect=["client-id", "secret"]),
             ),
             mock.patch(
@@ -255,6 +277,226 @@ class TestGetEventTokenService:
         assert second is fake_service
         # Constructed exactly once — singleton cache works.
         assert fake_service_cls.call_count == 1
+
+
+def _oauth_error(error_cls: type[Exception], status: int | None) -> Exception:
+    """An OAuthTokenError shaped like OAuthTokenService._exchange raises it.
+
+    ``status`` is the token endpoint's HTTP status; ``None`` stands for a
+    transport failure (connection refused, timeout).
+    """
+    import httpx
+
+    request = httpx.Request("POST", "https://example.com/token")
+    if status is None:
+        cause: Exception = httpx.ConnectTimeout("timed out", request=request)
+    else:
+        cause = httpx.HTTPStatusError(
+            "token endpoint error",
+            request=request,
+            response=httpx.Response(status, request=request),
+        )
+    try:
+        raise error_cls("Token exchange failed") from cause
+    except error_cls as exc:
+        return exc
+
+
+class TestEventTokenServiceCaching:
+    """FND-4279: one credential lookup per retry window, shared by callers."""
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _auth_patches(secret_mock: mock.AsyncMock, service_cls: mock.MagicMock):
+        """Auth on, a deployed (non-local) process, *secret_mock* as the store."""
+        with (
+            mock.patch("application_sdk.constants.AUTH_ENABLED", True, create=True),
+            mock.patch(
+                "application_sdk.constants.AUTH_URL",
+                "https://example.com/token",
+                create=True,
+            ),
+            mock.patch("application_sdk.constants.DEPLOYMENT_NAME", "production"),
+            mock.patch(
+                "application_sdk.infrastructure.secrets._fetch_deployment_secret",
+                new=secret_mock,
+            ),
+            mock.patch(
+                "application_sdk.credentials.oauth.OAuthTokenService", service_cls
+            ),
+        ):
+            yield
+
+    @pytest.mark.asyncio
+    async def test_missing_credentials_are_fetched_once_per_window(self) -> None:
+        from application_sdk.infrastructure.secrets import SecretNotFoundError
+
+        secrets = mock.AsyncMock(side_effect=SecretNotFoundError("missing"))
+        service_cls = mock.MagicMock()
+        with self._auth_patches(secrets, service_cls):
+            with _frozen_events_clock(1000.0):
+                for _ in range(5):
+                    assert await _get_event_token_service() is None
+            # One lookup = the client-id and client-secret reads.
+            assert secrets.await_count == 2
+            assert events_module._event_token_service_retry_at == (
+                1000.0 + events_module._EVENT_TOKEN_SERVICE_RETRY_SECONDS
+            )
+
+            _expire_retry_window()
+            assert await _get_event_token_service() is None
+            assert secrets.await_count == 4
+        service_cls.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_concurrent_callers_share_one_lookup(self) -> None:
+        release = asyncio.Event()
+
+        async def slow_secret(key: str, **_: Any) -> str:
+            await release.wait()
+            return f"value-for-{key}"
+
+        secrets = mock.AsyncMock(side_effect=slow_secret)
+        fake_service = mock.MagicMock(name="OAuthTokenService")
+        service_cls = mock.MagicMock(return_value=fake_service)
+        with self._auth_patches(secrets, service_cls):
+            callers = [
+                asyncio.create_task(_get_event_token_service()) for _ in range(10)
+            ]
+            await asyncio.sleep(0)
+            release.set()
+            results = await asyncio.gather(*callers)
+
+        assert all(r is fake_service for r in results)
+        assert secrets.await_count == 2
+        assert service_cls.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_store_failure_is_cached_for_the_short_window(self) -> None:
+        """A store that did not answer (not ready at boot, throttled) is
+        retried after the short outage window, not the 60 s miss window."""
+        from application_sdk.infrastructure.secrets import SecretStoreUnavailableError
+
+        secrets = mock.AsyncMock(side_effect=SecretStoreUnavailableError("k"))
+        with self._auth_patches(secrets, mock.MagicMock()):
+            with _frozen_events_clock(1000.0):
+                with pytest.raises(SecretStoreUnavailableError):
+                    await _get_event_token_service()
+                assert await _get_event_token_service() is None
+                assert await _get_event_auth_headers() == {}
+            assert events_module._event_token_service_retry_at == (
+                1000.0 + events_module._EVENT_TOKEN_SERVICE_OUTAGE_RETRY_SECONDS
+            )
+            assert (
+                events_module._EVENT_TOKEN_SERVICE_OUTAGE_RETRY_SECONDS
+                < events_module._EVENT_TOKEN_SERVICE_RETRY_SECONDS
+            )
+        assert secrets.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_rejected_exchange_rereads_credentials_after_the_window(
+        self,
+    ) -> None:
+        from application_sdk.credentials.oauth import OAuthTokenError
+
+        stale = mock.MagicMock(name="stale-service")
+        stale.get_headers = mock.AsyncMock(
+            side_effect=_oauth_error(OAuthTokenError, 401)
+        )
+        rotated = mock.MagicMock(name="rotated-service")
+        rotated.get_headers = mock.AsyncMock(
+            return_value={"authorization": "Bearer rotated"}
+        )
+        secrets = mock.AsyncMock(
+            side_effect=["old-id", "old-secret", "new-id", "new-secret"]
+        )
+        service_cls = mock.MagicMock(side_effect=[stale, rotated])
+        with self._auth_patches(secrets, service_cls):
+            assert await _get_event_auth_headers() == {}
+            # Inside the window: no exchange, no secret read.
+            assert await _get_event_auth_headers() == {}
+            assert stale.get_headers.await_count == 1
+            assert secrets.await_count == 2
+
+            _expire_retry_window()
+            assert await _get_event_auth_headers() == {
+                "authorization": "Bearer rotated"
+            }
+        assert secrets.await_count == 4
+        assert service_cls.call_count == 2
+
+    def test_lookups_on_separate_event_loops_each_get_a_lock(self) -> None:
+        """A lock that has made a caller wait is bound to its loop; a second
+        loop that also has to wait must not get that lock."""
+        from application_sdk.infrastructure.secrets import SecretNotFoundError
+
+        async def contended_lookup() -> None:
+            events_module._event_token_service_retry_at = 0.0
+
+            async def slow_missing(key: str) -> None:
+                await asyncio.sleep(0.01)
+                raise SecretNotFoundError(key)
+
+            secrets = mock.AsyncMock(side_effect=slow_missing)
+            with self._auth_patches(secrets, mock.MagicMock()):
+                results = await asyncio.gather(
+                    _get_event_token_service(), _get_event_token_service()
+                )
+            assert results == [None, None]
+            assert secrets.await_count == 2  # one shared lookup
+
+        asyncio.run(contended_lookup())
+        asyncio.run(contended_lookup())
+
+    @pytest.mark.parametrize(
+        "status",
+        [
+            pytest.param(None, id="timeout"),
+            pytest.param(503, id="503"),
+            pytest.param(429, id="429"),
+        ],
+    )
+    async def test_transient_exchange_failure_keeps_the_service(
+        self, status: int | None
+    ) -> None:
+        """F-c287a7: an endpoint outage is not a credential rejection, so the
+        cached service stays and the next publish retries the exchange."""
+        from application_sdk.credentials.oauth import OAuthTokenError
+
+        service = mock.MagicMock(name="service")
+        service.get_headers = mock.AsyncMock(
+            side_effect=[
+                _oauth_error(OAuthTokenError, status),
+                {"authorization": "Bearer recovered"},
+            ]
+        )
+        secrets = mock.AsyncMock(side_effect=["id", "secret"])
+        service_cls = mock.MagicMock(return_value=service)
+        with self._auth_patches(secrets, service_cls):
+            assert await _get_event_auth_headers() == {}
+            assert await _get_event_auth_headers() == {
+                "authorization": "Bearer recovered"
+            }
+        assert secrets.await_count == 2
+        assert service_cls.call_count == 1
+
+    @pytest.mark.parametrize(
+        ("status", "rejected"),
+        [(400, True), (401, True), (403, True), (408, False), (500, False)],
+    )
+    def test_credential_rejection_is_a_non_transient_4xx(
+        self, status: int, rejected: bool
+    ) -> None:
+        from application_sdk.credentials.oauth import OAuthTokenError
+
+        exc = _oauth_error(OAuthTokenError, status)
+        assert events_module._is_credential_rejection(exc) is rejected
+
+    def test_exchange_without_access_token_is_a_rejection(self) -> None:
+        from application_sdk.credentials.oauth import OAuthTokenError
+
+        exc = OAuthTokenError("OAuth exchange returned no access_token")
+        assert events_module._is_credential_rejection(exc) is True
 
 
 class TestEnrichEventMetadata:
@@ -1017,3 +1259,184 @@ class TestDirectHttpFallback:
     )
     def test_non_delivery_classifier(self, text, expected):
         assert events_module._proves_non_delivery(BindingError(text)) is expected
+
+
+class TestPublishEventIsAtLeastOnce:
+    """FND-4280: lifecycle events are at-least-once. A failure that may have
+    delivered the event is still retried by the ``publish_event`` activity's
+    retry policy, because a missing ``workflow_end`` costs consumers more than
+    a duplicate they can dedupe on ``metadata.event_id``."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "text", [_AMBIGUOUS, _NON_DELIVERY], ids=["ambiguous", "non-delivery"]
+    )
+    async def test_binding_failure_stays_retryable(self, text) -> None:
+        from application_sdk.execution._temporal._activity_errors import (
+            EventPublishError,
+        )
+
+        err = BindingError(text, binding_name="eventstore", operation="create")
+        with mock.patch.object(
+            events_module,
+            "_publish_event_via_binding",
+            mock.AsyncMock(side_effect=err),
+        ):
+            with pytest.raises(EventPublishError) as exc:
+                await publish_event(
+                    {
+                        "event_type": EventTypes.APPLICATION_EVENT.value,
+                        "event_name": ApplicationEventNames.WORKFLOW_END.value,
+                        "data": {},
+                    }
+                )
+        assert exc.value.effective_retryable is True
+        assert exc.value.__cause__ is err
+
+
+class TestEventId:
+    """``metadata.event_id`` lets consumers dedupe: one id per logical event."""
+
+    @staticmethod
+    def _enrich(event_name: str, *, attempt: int = 1, activity_id: str = "7"):
+        act_info = mock.MagicMock(
+            activity_type="publish_event",
+            activity_id=activity_id,
+            attempt=attempt,
+            workflow_type="wf-type",
+            workflow_id="wf-1",
+            workflow_run_id="run-1",
+        )
+        with (
+            mock.patch.object(
+                events_module.workflow, "info", side_effect=RuntimeError("no ctx")
+            ),
+            mock.patch.object(events_module.activity, "info", return_value=act_info),
+        ):
+            return _enrich_event_metadata(
+                Event(event_type="application_events", event_name=event_name, data={})
+            ).metadata.event_id
+
+    def test_workflow_event_id_is_stable_across_attempts(self) -> None:
+        start = ApplicationEventNames.WORKFLOW_START.value
+        assert self._enrich(start, attempt=1) == self._enrich(start, attempt=3)
+        assert self._enrich(start) != self._enrich(
+            ApplicationEventNames.WORKFLOW_END.value
+        )
+
+    def test_activity_event_id_differs_per_attempt(self) -> None:
+        start = ApplicationEventNames.ACTIVITY_START.value
+        assert self._enrich(start, attempt=1) != self._enrich(start, attempt=2)
+        assert self._enrich(start, activity_id="1") != self._enrich(
+            start, activity_id="2"
+        )
+        assert self._enrich(start) == self._enrich(start)
+
+    def test_outside_a_workflow_each_event_gets_a_fresh_id(self) -> None:
+        with (
+            mock.patch.object(
+                events_module.workflow, "info", side_effect=RuntimeError("no ctx")
+            ),
+            mock.patch.object(
+                events_module.activity, "info", side_effect=RuntimeError("no ctx")
+            ),
+        ):
+            ids = {
+                _enrich_event_metadata(
+                    Event(
+                        event_type="application_events",
+                        event_name="worker_start",
+                        data={},
+                    )
+                ).metadata.event_id
+                for _ in range(2)
+            }
+        assert len(ids) == 2
+        assert all(ids)
+
+    def test_preset_event_id_is_kept(self) -> None:
+        from application_sdk.contracts.events import EventMetadata
+
+        event = Event(
+            event_type="application_events",
+            event_name="worker_start",
+            data={},
+            metadata=EventMetadata(event_id="given"),
+        )
+        with (
+            mock.patch.object(
+                events_module.workflow, "info", side_effect=RuntimeError("no ctx")
+            ),
+            mock.patch.object(
+                events_module.activity, "info", side_effect=RuntimeError("no ctx")
+            ),
+        ):
+            assert _enrich_event_metadata(event).metadata.event_id == "given"
+
+    @pytest.mark.asyncio
+    async def test_pre_event_id_payload_gets_one_id_across_retries(self) -> None:
+        """A ``publish_event`` input recorded before ``event_id`` existed.
+
+        Workflow histories written by an older SDK carry ``metadata`` without
+        an ``event_id`` key. A retry of that activity on this SDK must still
+        reconstruct the event and send one stable id on every attempt.
+        """
+        import json
+
+        import orjson
+
+        from application_sdk.contracts.events import EventMetadata
+        from application_sdk.infrastructure.context import InfrastructureContext
+
+        old_metadata = json.loads(json.dumps(EventMetadata().model_dump(mode="json")))
+        old_metadata.pop("event_id")
+        old_payload = {
+            "event_type": EventTypes.APPLICATION_EVENT.value,
+            "event_name": ApplicationEventNames.WORKFLOW_START.value,
+            "data": {},
+            "metadata": old_metadata,
+        }
+
+        sent: list[dict] = []
+
+        async def _invoke(*, operation, data, metadata):
+            sent.append(orjson.loads(data))
+
+        binding = mock.MagicMock()
+        binding.invoke = mock.AsyncMock(side_effect=_invoke)
+        infra = InfrastructureContext(event_binding=binding)
+
+        for attempt in (1, 2):
+            act_info = mock.MagicMock(
+                activity_type="publish_event",
+                activity_id="7",
+                attempt=attempt,
+                workflow_type="wf-type",
+                workflow_id="wf-1",
+                workflow_run_id="run-1",
+            )
+            with (
+                mock.patch(
+                    "application_sdk.infrastructure.context.get_infrastructure",
+                    return_value=infra,
+                ),
+                mock.patch.object(
+                    events_module,
+                    "_get_event_auth_headers",
+                    new_callable=mock.AsyncMock,
+                    return_value={},
+                ),
+                mock.patch.object(events_module, "_send_lifecycle_event_to_segment"),
+                mock.patch.object(
+                    events_module.workflow, "info", side_effect=RuntimeError("no ctx")
+                ),
+                mock.patch.object(
+                    events_module.activity, "info", return_value=act_info
+                ),
+            ):
+                await publish_event(dict(old_payload))
+
+        assert len(sent) == 2
+        ids = {p["metadata"]["event_id"] for p in sent}
+        assert len(ids) == 1
+        assert ids != {None}

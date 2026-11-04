@@ -44,6 +44,7 @@ class SchedulerEventRecord(object):
         'flavor_name': 'str',
         'project_id': 'str',
         'cloud_resource_id': 'str',
+        'workload_name': 'str',
         'workload_type': 'str',
         'instance_type': 'str',
         'created_at': 'datetime',
@@ -66,6 +67,7 @@ class SchedulerEventRecord(object):
         'flavor_name': 'flavor_name',
         'project_id': 'project_id',
         'cloud_resource_id': 'cloud_resource_id',
+        'workload_name': 'workload_name',
         'workload_type': 'workload_type',
         'instance_type': 'instance_type',
         'created_at': 'created_at',
@@ -76,7 +78,7 @@ class SchedulerEventRecord(object):
         'metadata_json': 'metadata_json'
     }
 
-    def __init__(self, id=None, organization_id=None, cloud_id=None, cluster_id=None, scheduler_request_id=None, user_id=None, user_email=None, queue_name=None, flavor_name=None, project_id=None, cloud_resource_id=None, workload_type=None, instance_type=None, created_at=None, event_timestamp=None, level=None, event_type=None, message=None, metadata_json=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, organization_id=None, cloud_id=None, cluster_id=None, scheduler_request_id=None, user_id=None, user_email=None, queue_name=None, flavor_name=None, project_id=None, cloud_resource_id=None, workload_name=None, workload_type=None, instance_type=None, created_at=None, event_timestamp=None, level=None, event_type=None, message=None, metadata_json=None, local_vars_configuration=None):  # noqa: E501
         """SchedulerEventRecord - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -93,6 +95,7 @@ class SchedulerEventRecord(object):
         self._flavor_name = None
         self._project_id = None
         self._cloud_resource_id = None
+        self._workload_name = None
         self._workload_type = None
         self._instance_type = None
         self._created_at = None
@@ -123,6 +126,8 @@ class SchedulerEventRecord(object):
             self.project_id = project_id
         if cloud_resource_id is not None:
             self.cloud_resource_id = cloud_resource_id
+        if workload_name is not None:
+            self.workload_name = workload_name
         if workload_type is not None:
             self.workload_type = workload_type
         if instance_type is not None:
@@ -393,6 +398,29 @@ class SchedulerEventRecord(object):
         """
 
         self._cloud_resource_id = cloud_resource_id
+
+    @property
+    def workload_name(self):
+        """Gets the workload_name of this SchedulerEventRecord.  # noqa: E501
+
+        Name of the workload the event relates to, captured when the event was emitted. For a job submitted to a job queue this is the job queue's name, not the job's. Falls back to the cluster id when no name can be derived.  # noqa: E501
+
+        :return: The workload_name of this SchedulerEventRecord.  # noqa: E501
+        :rtype: str
+        """
+        return self._workload_name
+
+    @workload_name.setter
+    def workload_name(self, workload_name):
+        """Sets the workload_name of this SchedulerEventRecord.
+
+        Name of the workload the event relates to, captured when the event was emitted. For a job submitted to a job queue this is the job queue's name, not the job's. Falls back to the cluster id when no name can be derived.  # noqa: E501
+
+        :param workload_name: The workload_name of this SchedulerEventRecord.  # noqa: E501
+        :type: str
+        """
+
+        self._workload_name = workload_name
 
     @property
     def workload_type(self):

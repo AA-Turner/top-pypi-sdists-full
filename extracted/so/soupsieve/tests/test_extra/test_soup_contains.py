@@ -2,9 +2,6 @@
 from .. import util
 import warnings
 import soupsieve as sv
-from bs4 import BeautifulSoup
-
-IFRAME_TEXT = BeautifulSoup('<iframe><div></div></iframe>', 'html.parser').iframe.text == '<div></div>'
 
 
 class TestSoupContains(util.TestCase):
@@ -175,22 +172,19 @@ class TestSoupContains(util.TestCase):
             flags=util.PYHTML
         )
 
-    @util.skip_no_lxml
+    @util.requires_lxml
     def test_contains_cdata_lxml_html(self):
         """Test contains CDATA in `lxml` HTML parser."""
-
-        from lxml import etree
-        libxml_ver = etree.LIBXML_VERSION
 
         markup = """
         <body><div id="1">Testing that <span id="2"><![CDATA[that]]></span>contains works.</div></body>
         """
 
-        results = ['1', '2'] if libxml_ver >= (2, 9, 11) else ['1']
+        # CDATA is not text in HTML: `libxml2` drops it, or as of 2.14, turns it into a comment.
         self.assert_selector(
             markup,
             'body *:-soup-contains("that")',
-            results,
+            ['1'],
             flags=util.LXML_HTML
         )
 
@@ -223,7 +217,7 @@ class TestSoupContains(util.TestCase):
         )
 
     def test_contains_iframe(self):
-        """Test contains with `iframe`."""
+        """Test that the contents of an `iframe` are text or elements like any other."""
 
         markup = """
         <div id="1">
@@ -239,7 +233,7 @@ class TestSoupContains(util.TestCase):
         self.assert_selector(
             markup,
             'div:-soup-contains("iframe")',
-            [],
+            ['1'],
             flags=util.PYHTML
         )
 
@@ -253,7 +247,7 @@ class TestSoupContains(util.TestCase):
         self.assert_selector(
             markup,
             'span:-soup-contains("iframe")',
-            [] if IFRAME_TEXT else ['2'],
+            [] if util.PYHTML_ESCAPES_IFRAME else ['2'],
             flags=util.PYHTML
         )
 

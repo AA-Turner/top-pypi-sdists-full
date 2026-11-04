@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: nominal
-Version: 1.180.1
+Version: 1.181.0
 Summary: Automate Nominal workflows in Python
 Project-URL: Homepage, https://nominal.io
 Project-URL: Documentation, https://docs.nominal.io
@@ -21,8 +21,8 @@ Requires-Dist: certifi>=2026.10.18
 Requires-Dist: click<9,>=8
 Requires-Dist: conjure-python-client<4,>=3.1.0
 Requires-Dist: ffmpeg-python>=0.2.0
-Requires-Dist: nominal-api-protos==0.1495.1
-Requires-Dist: nominal-api==0.1495.1
+Requires-Dist: nominal-api-protos==0.1509.0
+Requires-Dist: nominal-api==0.1509.0
 Requires-Dist: nominal-streaming==0.10.3; platform_python_implementation == 'CPython' and ((sys_platform == 'win32' and platform_machine == 'AMD64') or (sys_platform == 'darwin' and platform_machine == 'arm64') or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'armv7l' or platform_machine == 'aarch64' or platform_machine == 'arm64')))
 Requires-Dist: pandas>=2.0.0
 Requires-Dist: polars>=1.0.0
@@ -36,7 +36,7 @@ Requires-Dist: typing-extensions<5,>=4.5
 Requires-Dist: urllib3>=2.8.0
 Requires-Dist: zstandard<1,>=0.23.0
 Provides-Extra: compute
-Requires-Dist: nominal-compute==0.1495.1; (platform_python_implementation == 'CPython' and ((sys_platform == 'win32' and platform_machine == 'AMD64') or (sys_platform == 'darwin' and platform_machine == 'arm64') or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')))) and extra == 'compute'
+Requires-Dist: nominal-compute==0.1509.0; (platform_python_implementation == 'CPython' and ((sys_platform == 'win32' and platform_machine == 'AMD64') or (sys_platform == 'darwin' and platform_machine == 'arm64') or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')))) and extra == 'compute'
 Provides-Extra: ibis
 Requires-Dist: nominal-ibis>=0.1.0; extra == 'ibis'
 Provides-Extra: mis
@@ -48,7 +48,7 @@ Requires-Dist: nominal-video==0.1.9; (platform_python_implementation == 'CPython
 Description-Content-Type: text/markdown
 
 # ⟢ Nominal
-Nominal Python SDK for test data, storage, and compute.
+Nominal Python Client for test data, storage, and compute.
 
 ### 📖 Docs
 View on [docs.nominal.io](https://docs.nominal.io/).

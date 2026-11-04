@@ -22,6 +22,7 @@ _BOOL_OPTIONS = frozenset(
     {
         "autogenerate_query_id",
         "autogenerate_session_id",
+        "dedicated_pool",
         "form_encode_query_params",
     }
 )
@@ -289,8 +290,9 @@ def create_client(
 
     :param kwargs: Recognized keyword arguments (used by the HTTP client), see below
 
-    :param compress: Enable compression for ClickHouse HTTP inserts and query results.  True will select the preferred
-      compression method (lz4).  A str of 'lz4', 'zstd', 'br', or 'gzip' can be used to use a specific compression type
+    :param compress: Enable compression for ClickHouse HTTP inserts and query results.  True advertises every available
+      method and compresses inserts with lz4, or zstd when lz4 is not installed.  A str of 'lz4', 'zstd', 'br', or 'gzip'
+      can be used to use a specific compression type
     :param query_limit: Default LIMIT on returned rows.  0 means no limit
     :param connect_timeout: Timeout in seconds for establishing a new HTTP connection, excluding pool wait time.
     :param send_receive_timeout: Read timeout in seconds for http connection
@@ -310,6 +312,8 @@ def create_client(
       is True, the client will generate a UUID1 session id
     :param pool_mgr: Optional urllib3 PoolManager for this client.  Useful for creating separate connection
       pools for multiple client endpoints for applications with many clients
+    :param dedicated_pool: Create a separate connection pool owned and closed by this client. Default: False.
+      Cannot be combined with pool_mgr.
     :param http_proxy: http proxy address.  Equivalent to setting the HTTP_PROXY environment variable
     :param https_proxy: https proxy address.  Equivalent to setting the HTTPS_PROXY environment variable
     :param server_host_name: This is the server host name that will be checked against a TLS certificate for
@@ -457,8 +461,9 @@ async def create_async_client(
       connector arguments take precedence over DSN and generic_args values; generic_args take precedence over the DSN.
     :param kwargs: Recognized keyword arguments (used by the async HTTP client), see below
 
-    :param compress: Enable compression for ClickHouse HTTP inserts and query results.  True will select the preferred
-      compression method (lz4).  A str of 'lz4', 'zstd', 'br', or 'gzip' can be used to use a specific compression type
+    :param compress: Enable compression for ClickHouse HTTP inserts and query results.  True advertises every available
+      method and compresses inserts with lz4, or zstd when lz4 is not installed.  A str of 'lz4', 'zstd', 'br', or 'gzip'
+      can be used to use a specific compression type
     :param query_limit: Default LIMIT on returned rows.  0 means no limit
     :param connect_timeout: Timeout in seconds for establishing a new HTTP connection, excluding pool wait time.
     :param send_receive_timeout: Read timeout in seconds for http connection
@@ -475,6 +480,8 @@ async def create_async_client(
       is not included the Client Certificate key file
     :param session_id: ClickHouse session id.  If not specified and the common setting 'autogenerate_session_id'
       is True, the client will generate a UUID1 session id
+    :param dedicated_pool: Accepted for compatibility. Async clients always own a separate connection pool,
+      regardless of this option.
     :param http_proxy: http proxy address.  Equivalent to setting the HTTP_PROXY environment variable
     :param https_proxy: https proxy address.  Equivalent to setting the HTTPS_PROXY environment variable
     :param server_host_name: This is the server host name that will be checked against a TLS certificate for

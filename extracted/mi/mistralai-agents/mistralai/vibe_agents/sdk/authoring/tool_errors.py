@@ -1,5 +1,6 @@
 """Tool errors: what the model sees when a tool, a client tool's answer or ``on_client_tool`` raises."""
 
+import asyncio
 import logging
 from collections.abc import Mapping
 from typing import Literal
@@ -52,6 +53,11 @@ class ToolError(Exception):
         return self._result
 
 
+type ToolCodeError = Exception | asyncio.CancelledError
+"""What the author's code can raise that follows ``tool_errors``: any exception, and a ``CancelledError``
+that nobody cancelling the call caused (see ``call_is_cancelling``)."""
+
+
 class ToolFunctionError(Exception):
     """Internal: the author's function raised ``error``, or returned a value that cannot be sent; the SDK's
     checks of the model's arguments did not.
@@ -60,12 +66,27 @@ class ToolFunctionError(Exception):
     wrong still reaches the model as written, so it can correct the call.
     """
 
-    def __init__(self, error: Exception) -> None:
+    def __init__(self, error: ToolCodeError) -> None:
         super().__init__(error)
         self.error = error
 
 
-def failed_tool_result(error: Exception, *, tool_errors: ToolErrors, tool_id: str) -> ToolResult:
+def call_is_cancelling() -> bool:
+    """Whether the task running a tool call is being cancelled: tell this from a ``CancelledError`` the
+    tool's own code raised.
+
+    Tool code can raise ``CancelledError`` while nobody cancels its call: it awaited a task or a
+    future that something else cancelled, or a library raised it. That is the code's error, and it
+    follows ``tool_errors``. Re-raised, it would end the call as cancelled, and the turn would wait
+    for the call's result with no end. A call that is being cancelled (``interrupt()``, ``cancel()``,
+    the end of a run) still ends cancelled.
+    """
+
+    task = asyncio.current_task()
+    return task is not None and task.cancelling() > 0
+
+
+def failed_tool_result(error: ToolCodeError, *, tool_errors: ToolErrors, tool_id: str) -> ToolResult:
     """The failed result the model gets for ``error``, by ``tool_errors``.
 
     ``ToolError`` keeps its message. Any other exception is logged with its traceback, and the model
@@ -85,7 +106,9 @@ __all__ = [
     "DEFAULT_TOOL_ERRORS",
     "UNEXPECTED_TOOL_ERROR_TEXT",
     "ToolError",
+    "ToolCodeError",
     "ToolErrors",
     "ToolFunctionError",
+    "call_is_cancelling",
     "failed_tool_result",
 ]

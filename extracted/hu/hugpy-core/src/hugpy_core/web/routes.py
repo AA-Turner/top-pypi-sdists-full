@@ -26,7 +26,7 @@ from abstract_flask import get_bp, register_categories, spec, merge_categories
 from hugpy_core.brain import planner
 from hugpy_core.registry import registry
 from hugpy_core.relay.openai import completion_kwargs, finish_reason, openai_error, usage_block
-from hugpy_core.relay.pick import NoWorker, pick, requested_worker_name, requested_worker_names
+from hugpy_core.relay.pick import NoWorker, pick, confirm_routed_allocation, requested_worker_name, requested_worker_names
 from hugpy_core.relay.relay import WorkerHTTPError, worker_cancel, worker_payload, worker_stream
 
 logger = logging.getLogger("hugpy_core")
@@ -548,6 +548,8 @@ def chat_stream(**body):
             yield sse({"type": "status", "stage": "dispatch", "served_by": "worker",
                        "worker_id": worker["id"], "worker_name": worker.get("name")})
             for ev in worker_stream(worker, wp):
+                if ev.get("type") == "done":
+                    confirm_routed_allocation(mk, worker, source="chat")
                 yield sse({**ev, "request_id": rid})
         except Exception as exc:  # noqa: BLE001
             if current():
@@ -805,6 +807,7 @@ def v1_chat(**payload):
                     elif t == "done":
                         usage = ev.get("usage")
                         served["execution_request_id"] = ev.get("execution_request_id")
+                        confirm_routed_allocation(model, worker, source="routing")
                         yield chunk({}, finish=finish_reason(ev["finish_reason"]), hugpy=served)
                     elif t == "error":
                         yield chunk({"content": f"\n[error: {ev['message']}]"}, finish="stop")
@@ -827,6 +830,7 @@ def v1_chat(**payload):
     error_message = None
     usage = None
     timings = None
+    completed = False
     try:
         for ev in worker_stream(worker, wp):
             t = ev["type"]
@@ -837,6 +841,7 @@ def v1_chat(**payload):
                 usage = ev.get("usage")
                 timings = ev.get("timings")
                 served["execution_request_id"] = ev.get("execution_request_id")
+                completed = True
             elif t == "error":
                 error_message = ev["message"]
     except WorkerHTTPError as exc:
@@ -844,6 +849,8 @@ def v1_chat(**payload):
     except Exception as exc:  # noqa: BLE001
         logger.exception("v1 completion failed")
         return _openai(f"{type(exc).__name__}: {exc}", 502, "api_error")
+    if completed:
+        confirm_routed_allocation(model, worker, source="routing")
     if error_message and not text_parts:
         status = 404 if "not found" in error_message.lower() else 500
         return _openai(error_message, status, "api_error")

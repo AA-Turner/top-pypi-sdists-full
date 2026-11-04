@@ -277,6 +277,7 @@ class _KeptSeat:
         self._kept_at = time.time()
         if "request_timeout_s" in body:
 
+
             self._take_request_timeout(body["request_timeout_s"])
         every, ttl = body.get("every_s"), body.get("seat_ttl_s")
         if isinstance(every, (int, float)) and not isinstance(every, bool) and every > 0:

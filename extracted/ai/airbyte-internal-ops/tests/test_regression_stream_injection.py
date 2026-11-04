@@ -48,11 +48,22 @@ def _catalog(*names: str) -> AirbyteCatalog:
 @pytest.fixture
 def stub_injection(monkeypatch, tmp_path):
     """Stub Docker and CI side effects; record each run and the catalog it was given."""
-    seen: dict[str, object] = {"runs": [], "outputs": {}, "gh_outputs": {}, "modes": []}
+    seen: dict[str, object] = {
+        "runs": [],
+        "outputs": {},
+        "gh_outputs": {},
+        "modes": [],
+        "discover_timeouts": [],
+        "summaries": [],
+    }
 
     monkeypatch.setattr(cloud, "ensure_image_available", lambda _image: True)
     monkeypatch.setattr(cloud, "track_regression_test", lambda **_kwargs: None)
-    monkeypatch.setattr(cloud, "write_github_summary", lambda _text: None)
+    monkeypatch.setattr(
+        cloud,
+        "write_github_summary",
+        lambda text: seen["summaries"].append(text),  # type: ignore[union-attr]
+    )
     monkeypatch.setattr(
         cloud,
         "write_github_outputs",
@@ -65,7 +76,10 @@ def stub_injection(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(cloud, "write_json_output", lambda _key, _data: None)
 
-    def _install(discovered: dict[str, AirbyteCatalog | None]) -> dict[str, object]:
+    def _install(
+        discovered: dict[str, AirbyteCatalog | None],
+        stopped_early: dict[str, dict[str, object]] | None = None,
+    ) -> dict[str, object]:
         def _fake_run(
             *,
             connector_image,
@@ -78,6 +92,8 @@ def stub_injection(monkeypatch, tmp_path):
         ):
             output_dir.mkdir(parents=True, exist_ok=True)
             seen["modes"].append((output_dir, command, output_mode, mask_key))  # type: ignore[union-attr]
+            if command is Command.DISCOVER:
+                seen["discover_timeouts"].append(_kw["timeout_seconds"])  # type: ignore[union-attr]
             streams = (
                 [
                     s["stream"]["name"]
@@ -101,6 +117,7 @@ def stub_injection(monkeypatch, tmp_path):
                 "stdout_file": str(stdout_file),
                 "message_counts": {},
                 "record_counts_per_stream": {},
+                "stopped_early": (stopped_early or {}).get(connector_image),
             }
             return result, outputs
 
@@ -199,7 +216,10 @@ def test_a_new_stream_with_no_records_makes_the_read_not_exercised(
 
 def test_a_stream_not_discovered_by_the_target_emits_setup_error(monkeypatch, tmp_path):
     outputs: dict[str, object] = {}
-    monkeypatch.setattr(cloud, "_discovered_catalog", lambda *_args: {"streams": []})
+    summaries: list[str] = []
+    monkeypatch.setattr(
+        cloud, "_discovered_catalog", lambda *_args: ({"streams": []}, None)
+    )
     monkeypatch.setattr(
         cloud,
         "build_injected_catalogs",
@@ -208,12 +228,8 @@ def test_a_stream_not_discovered_by_the_target_emits_setup_error(monkeypatch, tm
         ),
     )
     monkeypatch.setattr(cloud, "write_github_output", outputs.__setitem__)
-
-    def _exit_with_error(message: str) -> None:
-        raise RuntimeError(message)
-
-    monkeypatch.setattr(cloud, "exit_with_error", _exit_with_error)
-    with pytest.raises(RuntimeError, match="Setup error:"):
+    monkeypatch.setattr(cloud, "write_github_summary", summaries.append)
+    with pytest.raises(SystemExit) as raised:
         cloud._inject_discovered_streams(
             catalog_file=None,
             selected_stream_names={"feedback"},
@@ -227,10 +243,40 @@ def test_a_stream_not_discovered_by_the_target_emits_setup_error(monkeypatch, tm
             sync_mode=None,
             output_mode="raw",
             mask_key=None,
+            read_budget=cloud.ReadBudget.start(14_400),
         )
 
+    assert raised.value.code == 0
     assert outputs["success"] is False
     assert outputs["setup_error"] is True
+    assert "Setup error:" in outputs["error"]
+    assert "**Result:** SETUP ERROR" in summaries[0]
+
+
+def test_missing_target_catalog_for_selected_stream_is_a_setup_error(
+    tmp_path, stub_injection
+):
+    seen = stub_injection({TARGET: None})
+
+    with pytest.raises(SystemExit) as raised:
+        cloud.regression_test(
+            test_image=TARGET,
+            control_image=CONTROL,
+            command="read",
+            catalog_path=_catalog_file(tmp_path, "users"),
+            selected_streams="users,feedback",
+            discover_missing_streams=True,
+            output_dir=str(tmp_path / "out"),
+        )
+
+    assert raised.value.code == 0
+    assert _reads(seen) == {}
+    assert seen["outputs"]["success"] is False  # type: ignore[index]
+    assert seen["outputs"]["setup_error"] is True  # type: ignore[index]
+    assert (
+        "returned no catalog from DISCOVER" in seen["outputs"]["error"]  # type: ignore[index]
+    )
+    assert "**Result:** SETUP ERROR" in seen["summaries"][0]  # type: ignore[index]
 
 
 def test_a_stream_the_released_version_has_is_read_by_both_versions(
@@ -291,7 +337,7 @@ def test_a_stream_the_target_does_not_discover_stops_the_run_before_read(
 ):
     seen = stub_injection({TARGET: _catalog("users"), CONTROL: _catalog("users")})
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as raised:
         cloud.regression_test(
             test_image=TARGET,
             control_image=CONTROL,
@@ -302,9 +348,12 @@ def test_a_stream_the_target_does_not_discover_stops_the_run_before_read(
             output_dir=str(tmp_path / "out"),
         )
 
+    assert raised.value.code == 0
     assert _reads(seen) == {}
     assert seen["outputs"]["success"] is False  # type: ignore[index]
+    assert seen["outputs"]["setup_error"] is True  # type: ignore[index]
     assert "feedbak" in seen["outputs"]["error"]  # type: ignore[index]
+    assert "**Result:** SETUP ERROR" in seen["summaries"][0]  # type: ignore[index]
 
 
 def test_comparing_only_new_streams_asks_for_a_single_version_run(
@@ -312,7 +361,7 @@ def test_comparing_only_new_streams_asks_for_a_single_version_run(
 ):
     seen = stub_injection({TARGET: _catalog("feedback"), CONTROL: _catalog()})
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as raised:
         cloud.regression_test(
             test_image=TARGET,
             control_image=CONTROL,
@@ -323,8 +372,124 @@ def test_comparing_only_new_streams_asks_for_a_single_version_run(
             output_dir=str(tmp_path / "out"),
         )
 
+    assert raised.value.code == 0
     assert _reads(seen) == {}
     assert "--skip-compare" in seen["outputs"]["error"]  # type: ignore[index]
+    assert seen["outputs"]["setup_error"] is True  # type: ignore[index]
+    assert seen["outputs"]["success"] is False  # type: ignore[index]
+    assert "**Result:** SETUP ERROR" in seen["summaries"][0]  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    "timed_out_image",
+    [
+        pytest.param(TARGET, id="target-discover"),
+        pytest.param(CONTROL, id="reference-discover"),
+    ],
+)
+def test_an_injection_discover_timeout_is_a_setup_error(
+    tmp_path, stub_injection, timed_out_image
+):
+    seen = stub_injection(
+        {TARGET: _catalog("users", "feedback"), CONTROL: _catalog("users")},
+        stopped_early={timed_out_image: {"reason": "timeout"}},
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        cloud.regression_test(
+            test_image=TARGET,
+            control_image=CONTROL,
+            command="read",
+            catalog_path=_catalog_file(tmp_path, "users"),
+            selected_streams="users,feedback",
+            discover_missing_streams=True,
+            output_dir=str(tmp_path / "out"),
+        )
+
+    assert raised.value.code == 0
+    assert seen["outputs"]["setup_error"] is True  # type: ignore[index]
+    assert seen["outputs"]["success"] is False  # type: ignore[index]
+    error = str(seen["outputs"]["error"])  # type: ignore[index]
+    assert f"DISCOVER of {timed_out_image}" in error
+    assert " s left of the read budget" in error
+    assert "--read-timeout" in error
+    assert "**Result:** SETUP ERROR" in seen["summaries"][0]  # type: ignore[index]
+    assert _reads(seen) == {}
+
+
+def test_reference_discover_without_a_catalog_remains_a_warning(
+    monkeypatch, tmp_path, stub_injection
+):
+    seen = stub_injection({TARGET: _catalog("users", "feedback"), CONTROL: None})
+    warnings: list[str] = []
+    monkeypatch.setattr(cloud, "print_warning", warnings.append)
+
+    cloud.regression_test(
+        test_image=TARGET,
+        control_image=CONTROL,
+        command="read",
+        catalog_path=_catalog_file(tmp_path, "users"),
+        selected_streams="users,feedback",
+        discover_missing_streams=True,
+        output_dir=str(tmp_path / "out"),
+    )
+
+    assert any(
+        f"{CONTROL} returned no catalog from DISCOVER" in warning
+        for warning in warnings
+    )
+    assert seen["gh_outputs"]["setup_error"] is False  # type: ignore[index]
+    assert _reads(seen) == {CONTROL: ["users"], TARGET: ["users", "feedback"]}
+
+
+def test_injection_discover_with_no_read_time_fails_before_running_discover(
+    monkeypatch, tmp_path, stub_injection
+):
+    seen = stub_injection({TARGET: _catalog("users", "feedback")})
+    monkeypatch.setattr(cloud.ReadBudget, "setup_share_s", lambda _budget: 0)
+
+    with pytest.raises(SystemExit) as raised:
+        cloud.regression_test(
+            skip_compare=True,
+            test_image=TARGET,
+            command="read",
+            catalog_path=_catalog_file(tmp_path, "users"),
+            selected_streams="users,feedback",
+            discover_missing_streams=True,
+            output_dir=str(tmp_path / "out"),
+        )
+
+    assert raised.value.code == 0
+    assert seen["runs"] == []
+    assert seen["outputs"]["setup_error"] is True  # type: ignore[index]
+    assert seen["outputs"]["success"] is False  # type: ignore[index]
+    assert "no read time left" in seen["outputs"]["error"]  # type: ignore[index]
+    assert "--read-timeout" in seen["outputs"]["error"]  # type: ignore[index]
+    assert "**Result:** SETUP ERROR" in seen["summaries"][0]  # type: ignore[index]
+
+
+def test_injection_discovers_receive_the_read_time_left_when_they_start(
+    tmp_path, stub_injection
+):
+    seen = stub_injection(
+        {TARGET: _catalog("users", "feedback"), CONTROL: _catalog("users")}
+    )
+    read_timeout = 1_200
+
+    cloud.regression_test(
+        test_image=TARGET,
+        control_image=CONTROL,
+        command="read",
+        catalog_path=_catalog_file(tmp_path, "users"),
+        selected_streams="users,feedback",
+        discover_missing_streams=True,
+        read_timeout=read_timeout,
+        output_dir=str(tmp_path / "out"),
+    )
+
+    discover_timeouts = seen["discover_timeouts"]
+    assert len(discover_timeouts) == 2  # type: ignore[arg-type]
+    assert all(0 < timeout <= read_timeout for timeout in discover_timeouts)  # type: ignore[union-attr]
 
 
 def test_a_single_version_run_reads_a_new_stream_of_unknown_novelty(

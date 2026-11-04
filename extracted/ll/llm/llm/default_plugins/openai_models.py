@@ -84,8 +84,24 @@ def _append_extra_model(path, record):
     """
     text = _dump_extra_models([record])
     existing = path.read_text("utf-8") if path.exists() else ""
-    if not existing.strip():
+    # Removing the last model leaves "[]", which is replaced rather than
+    # extended so the file stays in block style
+    if existing.strip() in ("", "[]"):
         _write_extra_models(path, [record])
+        return
+    events = list(yaml.parse(existing, Loader=yaml.SafeLoader))
+    # Comment-only files have no document/root events.
+    sequence = events[2] if len(events) > 2 else None
+    if isinstance(sequence, yaml.SequenceStartEvent) and sequence.flow_style:
+        # Insert after the last item (or opening bracket), before any trailing comma.
+        last_item = events[-4]  # Before sequence, document and stream end events
+        position = last_item.end_mark.index
+        text = yaml.safe_dump(
+            record, sort_keys=False, allow_unicode=True, default_flow_style=True
+        ).rstrip()
+        if last_item is not sequence:
+            text = ", " + text
+        path.write_text(existing[:position] + text + existing[position:], "utf-8")
         return
     if not existing.endswith("\n"):
         existing += "\n"
@@ -1685,7 +1701,8 @@ class Chat(_Shared, KeyModel):
                 stream=False,
                 **kwargs,
             )
-            usage = completion.usage.model_dump()
+            if completion.usage:
+                usage = completion.usage.model_dump()
             response.response_json = remove_dict_none_values(completion.model_dump())
             for tool_call in completion.choices[0].message.tool_calls or []:
                 response.add_tool_call(
@@ -1802,7 +1819,8 @@ class AsyncChat(_Shared, AsyncKeyModel):
                 **kwargs,
             )
             response.response_json = remove_dict_none_values(completion.model_dump())
-            usage = completion.usage.model_dump()
+            if completion.usage:
+                usage = completion.usage.model_dump()
             for tool_call in completion.choices[0].message.tool_calls or []:
                 response.add_tool_call(
                     llm.ToolCall(

@@ -19,19 +19,16 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, repr=False)
 class Dataplane(Entity[M]):
-    """A data plane an organization can put its workspaces on.
-
-    Attributes:
-        id: What :meth:`Organization.set_dataplane` takes.
-        name: Display name.
-        region: Where it runs, so data residency is visible.
-        description: Free-text description, or ``None``.
-    """
+    """A data plane an organization can put its workspaces on."""
 
     id: str
+    """Data plane id, e.g. `eu1`; also the subdomain of its URL."""
     name: str
+    """Human-readable data plane name."""
     region: str
+    """Cloud region the data plane runs in, e.g. `europe-west4`."""
     description: str | None
+    """Optional note about the data plane; `None` when there is none."""
 
     _identity = ("id", "region")
     _kind = EntityKind.DATAPLANE

@@ -11,8 +11,8 @@ from mistralai.vibe.harness.app_server.session import (
     InfoResponse,
     SessionModel,
     SessionTransport,
-    UnsupportedSessionProcedureError,
 )
+from mistralai.vibe_agents.sdk.authoring.errors import UnsupportedSessionProcedureError
 
 SESSION_PROCEDURES = (
     "app_server/session/start",

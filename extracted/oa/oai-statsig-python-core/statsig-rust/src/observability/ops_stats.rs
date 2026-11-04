@@ -152,6 +152,10 @@ impl OpsStats {
             .try_write_for(std::time::Duration::from_secs(5))
         {
             Some(mut write_guard) => {
+                // Another caller may have registered this key after our read lookup.
+                if let Some(existing) = write_guard.get(sdk_key).and_then(Weak::upgrade) {
+                    return existing;
+                }
                 write_guard.insert(sdk_key.into(), Arc::downgrade(&instance));
             }
             None => {
@@ -290,6 +294,17 @@ impl OpsStatsForInstance {
                     e.to_string()
                 );
             }
+        }
+    }
+
+    /// Queue telemetry while holding a store lock without invoking an output
+    /// provider or a scoped observer when delivery is unavailable.
+    pub(crate) fn try_log(&self, event: OpsStatsEvent) {
+        if self.output_suppressed {
+            return;
+        }
+        if let Some(sender) = self.sender.as_ref() {
+            let _ = sender.send(event);
         }
     }
 
@@ -670,7 +685,8 @@ mod tests {
             panic!("test panic");
         }));
 
-        assert!(result.is_err());
+        let panic = result.expect_err("scope must unwind through the deliberate test panic");
+        assert_eq!(panic.downcast_ref::<&str>(), Some(&"test panic"));
         assert!(
             !registry
                 .get_for_instance("shared-instance")

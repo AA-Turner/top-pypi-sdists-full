@@ -23,12 +23,12 @@ T = TypeVar("T", bound="SecretPublicVariable")
 class SecretPublicVariable:
     """
     Attributes:
-        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        created_by (UUID): User who created the variable
+        created_at (datetime.datetime): When the variable was created
+        created_by (UUID): ID of the user who created the variable.
         name (str): Environment variable name
-        type_ (Literal['secret']): Write-only, never shown again
-        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        updated_by (UUID): User who last updated the variable
+        type_ (Literal['secret']): `secret`: write-only; listing returns `value: null`, but runs still receive it.
+        updated_at (datetime.datetime): When the variable was last updated
+        updated_by (UUID): ID of the user who last updated the variable.
         value (None | str | Unset): Always `null` for a secret
     """
 

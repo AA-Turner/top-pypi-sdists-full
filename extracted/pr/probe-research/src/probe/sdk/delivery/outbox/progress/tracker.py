@@ -104,6 +104,9 @@ class ProgressTracker:
             run = self._run(ref)
             run.last_error_kind = DeliveryErrorKind.REFUSED
             run.last_error = str(record.get("error") or "")[:_ERROR_CHARS]
+        for ref, points in getattr(report, "server_storing", {}).items():
+            run = self._run(ref)
+            run.server_pending_points, run.server_storing_at = int(points), now
 
     def _note_stall(self, ref: str | None, lane: Any, stall: Any, now: float, report: Any) -> None:
         run = self._run(ref)

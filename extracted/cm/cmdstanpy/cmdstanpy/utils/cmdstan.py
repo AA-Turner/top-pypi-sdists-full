@@ -14,6 +14,7 @@ from tqdm.auto import tqdm
 from cmdstanpy import _DOT_CMDSTAN
 
 from .. import progress as progbar
+from .deprecation import deprecate_positional_args
 from .logging import get_logger
 
 EXTENSION = '.exe' if platform.system() == 'Windows' else ''
@@ -433,15 +434,16 @@ def cxx_toolchain_path(
     return compiler_path, tool_path
 
 
+@deprecate_positional_args(last_deprecated="cores")
 def install_cmdstan(
     version: Optional[str] = None,
+    *,
     dir: Optional[str] = None,
     overwrite: bool = False,
     compiler: bool = False,
     progress: bool = False,
     verbose: bool = False,
     cores: int = 1,
-    *,
     interactive: bool = False,
 ) -> bool:
     """
@@ -523,8 +525,7 @@ def install_cmdstan(
                 cores=cores,
             )
         run_install(args)
-    # pylint: disable=broad-except
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.warning('CmdStan installation failed.\n%s', str(e))
         return False
 

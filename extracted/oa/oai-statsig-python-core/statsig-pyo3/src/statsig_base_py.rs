@@ -1,6 +1,7 @@
 use crate::pyo_utils::py_dict_to_json_value_map;
 use crate::raw_evaluation_compat_py::{
-    FeatureGatePartsPy, LayerParamExposureDataPy, raw_dynamic_config_to_py_dict,
+    FeatureGatePartsPy, FrozenJsonAllocator, LayerParamExposureDataPy,
+    raw_dynamic_config_projection_to_py_dict, raw_dynamic_config_to_py_dict,
     raw_experiment_to_py_dict, raw_gate_to_py_dict, raw_gate_to_py_parts, raw_layer_to_py_dict,
 };
 use crate::safe_gil::SafeGil;
@@ -23,8 +24,10 @@ use crate::{
 use parking_lot::Mutex;
 use pyo3::{
     call::PyCallArgs,
+    exceptions::PyTypeError,
     prelude::*,
-    types::{PyDict, PyModule},
+    pybacked::PyBackedStr,
+    types::{PyBytes, PyDict, PyModule, PyString},
 };
 use pyo3_stub_gen::derive::*;
 use serde_json::Value;
@@ -42,6 +45,23 @@ use std::sync::Arc;
 use std::time::Duration;
 
 const TAG: &str = stringify!(StatsigBasePy);
+
+fn projection_fields(field_names: &Bound<'_, PyAny>) -> PyResult<Vec<PyBackedStr>> {
+    if field_names.is_instance_of::<PyString>() || field_names.is_instance_of::<PyBytes>() {
+        return Err(PyTypeError::new_err(
+            "field_names must be a sequence of strings",
+        ));
+    }
+    let mut fields = field_names.extract::<Vec<PyBackedStr>>()?;
+    let py = field_names.py();
+    for name in &mut fields {
+        // Hash and compare plain strings even when the selector subclasses str.
+        if !name.as_py_str().bind(py).is_exact_instance_of::<PyString>() {
+            *name = PyString::new(py, name.as_str()).try_into()?;
+        }
+    }
+    Ok(fields)
+}
 
 #[gen_stub_pyclass]
 #[pyclass(module = "statsig_python_core", subclass)]
@@ -518,6 +538,11 @@ impl StatsigBasePy {
         #[gen_stub(override_type(type_repr = "typing.Optional[collections.abc.KeysView[builtins.int]]", imports = ("typing", "collections.abc", "builtins")))]
         evaluation_cache_keys: Option<Bound<PyAny>>,
     ) -> PyResult<Py<PyDict>> {
+        let frozen_json = FrozenJsonAllocator::for_call(
+            py,
+            options.as_ref().is_some_and(|options| options.freeze_value),
+            evaluation_cache_keys.as_ref(),
+        )?;
         let user = prepare_user(context, user_id, custom);
         let internal = StatsigUserInternal::from_prepared_user(&user, Some(&self.inner));
         self.inner
@@ -525,7 +550,15 @@ impl StatsigBasePy {
                 &internal,
                 name,
                 options.map_or(DynamicConfigEvaluationOptions::default(), Into::into),
-                |raw| raw_dynamic_config_to_py_dict(py, raw, evaluation_cache_keys.as_ref(), None),
+                |raw| {
+                    raw_dynamic_config_to_py_dict(
+                        py,
+                        raw,
+                        evaluation_cache_keys.as_ref(),
+                        None,
+                        frozen_json.as_ref(),
+                    )
+                },
             )
     }
 
@@ -634,14 +667,66 @@ impl StatsigBasePy {
         ))]
         evaluation_cache_keys: Option<Bound<PyAny>>,
     ) -> PyResult<Py<PyDict>> {
+        let frozen_json = FrozenJsonAllocator::for_call(
+            py,
+            options.as_ref().is_some_and(|options| options.freeze_value),
+            evaluation_cache_keys.as_ref(),
+        )?;
         let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(&self.inner));
         self.inner
             .use_raw_dynamic_config_with_options_for_internal_user(
                 &user_internal,
                 name,
                 options.map_or(DynamicConfigEvaluationOptions::default(), |o| o.into()),
-                |raw| raw_dynamic_config_to_py_dict(py, raw, evaluation_cache_keys.as_ref(), None),
+                |raw| {
+                    raw_dynamic_config_to_py_dict(
+                        py,
+                        raw,
+                        evaluation_cache_keys.as_ref(),
+                        None,
+                        frozen_json.as_ref(),
+                    )
+                },
             )
+    }
+
+    #[pyo3(name="_INTERNAL_get_dynamic_config_fields", signature = (user, name, field_names, options=None))]
+    pub fn _internal_get_dynamic_config_fields(
+        &self,
+        py: Python,
+        user: &StatsigUserPy,
+        name: &str,
+        #[gen_stub(override_type(
+            type_repr = "collections.abc.Sequence[builtins.str]",
+            imports = ("collections.abc", "builtins")
+        ))]
+        field_names: Bound<PyAny>,
+        options: Option<DynamicConfigEvaluationOptionsPy>,
+    ) -> PyResult<Option<Py<PyDict>>> {
+        if !self
+            .inner
+            .options
+            .experimental_flags
+            .as_ref()
+            .is_some_and(|flags| flags.contains("python_dynamic_config_field_projection"))
+        {
+            return Ok(None);
+        }
+        let fields = projection_fields(&field_names)?;
+        let frozen = FrozenJsonAllocator::for_call(
+            py,
+            options.as_ref().is_some_and(|options| options.freeze_value),
+            None,
+        )?;
+        let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(&self.inner));
+        self.inner
+            .use_raw_dynamic_config_with_options_for_internal_user(
+                &user_internal,
+                name,
+                options.map_or(DynamicConfigEvaluationOptions::default(), |o| o.into()),
+                |raw| raw_dynamic_config_projection_to_py_dict(py, raw, &fields, frozen.as_ref()),
+            )
+            .map(Some)
     }
 
     #[pyo3(name = "_INTERNAL_get_typed_config", signature = (user, name, options=None, allow_packaged_fallback=false))]
@@ -1146,6 +1231,13 @@ fn bulk_evaluate_for_python(
     options: Option<BulkEvaluationOptionsPy>,
     evaluation_cache_keys: Option<&Bound<PyAny>>,
 ) -> PyResult<Py<PyDict>> {
+    let frozen_json = FrozenJsonAllocator::for_call(
+        py,
+        options
+            .as_ref()
+            .is_some_and(|options| options.freeze_dynamic_configs),
+        evaluation_cache_keys,
+    )?;
     let options = options.map_or_else(
         || BulkEvaluationOptions {
             include_local_override: true,
@@ -1155,7 +1247,14 @@ fn bulk_evaluate_for_python(
     );
     let resolved = statsig.resolve_bulk_evaluation_options(options);
     let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(statsig));
-    bulk_evaluate_to_py_dict(py, statsig, &user_internal, resolved, evaluation_cache_keys)
+    bulk_evaluate_to_py_dict(
+        py,
+        statsig,
+        &user_internal,
+        resolved,
+        evaluation_cache_keys,
+        frozen_json.as_ref(),
+    )
 }
 
 fn bulk_evaluate_to_py_dict(
@@ -1164,6 +1263,7 @@ fn bulk_evaluate_to_py_dict(
     user_internal: &StatsigUserInternal<'_, '_>,
     resolved: statsig_rust::ResolvedBulkEvaluationOptions,
     evaluation_cache_keys: Option<&Bound<PyAny>>,
+    frozen_json: Option<&FrozenJsonAllocator<'_>>,
 ) -> PyResult<Py<PyDict>> {
     let result = PyDict::new(py);
     let include_local_override = resolved.include_local_override;
@@ -1197,6 +1297,7 @@ fn bulk_evaluate_to_py_dict(
                         raw,
                         evaluation_cache_keys,
                         pending_cache.as_ref(),
+                        frozen_json,
                     )
                 },
             );

@@ -2,7 +2,7 @@
 Dreamscale training export), on the bimanual YAM preset or a custom robot, absolute end-effector
 rows, RTC off or trained (dreamscale_transport.xr1_deploy is the contract).
 
-Unlisted (``listed_as=None``) until GA. Its checkpoints don't record their robot, so a create
+Listed since GA (0138). Its checkpoints don't record their robot, so a create
 declares it: ``--preset bimanual_yam`` (the default), or a custom robot's arms, cameras (by view,
 with the crop each trained with), waist, mobile base, end-effector frame and units, as the
 control plane's ``normalize_xr1_embodiment`` takes them. Its sessions' contract is
@@ -449,7 +449,7 @@ EXPORTED = ExportedBase(
     state="refuse",
 )
 BASE = DeployBase(
-    family="xr1", name=NAME, label=LABEL, cli=CLI, aliases=("xr1",),
+    family="xr1", name=NAME, label=LABEL, cli=CLI, aliases=("xr1",), listed_as=NAME,
     robot_line=xr1_robot_line, describe=_describe_xr1, shows_rtc=True, set_rtc=set_rtc,
     detects_as_base=True, found_lines=xr1_found_lines, create=_create_xr1, exported=EXPORTED,
     # A run folder's model states are torch archives: Detect reads their data.pkl from the

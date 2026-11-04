@@ -89,7 +89,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.rules import LocalRulesOrchestrator, ToolkitGlobalRuleSet
+from cognite_toolkit._cdf_tk.rules import ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import (
@@ -1079,8 +1079,6 @@ class BuildV2Command(ToolkitCommand):
         built_modules: list[BuiltModule] = []
         # If parallelizing the build, this should be a multiprocessing.Manager().Counter() or similar.
         resource_counter: Counter = Counter()
-        # and use one orchestrator per process
-        validator = LocalRulesOrchestrator()
 
         with Progress(console=console) as progress:
             total_files = sum(source.total_files for source in module_sources)
@@ -1092,8 +1090,6 @@ class BuildV2Command(ToolkitCommand):
                 # Inside this loop, do not raise exceptions.
                 module = self._import_module(source)
 
-                # Local validation of module
-                insights = validator.run(module)
                 built_resources = self._export_resources(
                     module.files, resource_counter, build_dir, source.variables, source.as_id()
                 )
@@ -1102,7 +1098,6 @@ class BuildV2Command(ToolkitCommand):
                     BuiltModule(
                         module_id=module.id,
                         resources=built_resources,
-                        insights=insights,
                         syntax_errors_by_source={
                             file.source_path: file.syntax_error
                             for file in module.files
@@ -1234,11 +1229,9 @@ class BuildV2Command(ToolkitCommand):
                 error="The YAML file is empty. Please add content to the file or remove it if it is not needed.",
                 unresolved_variables=unresolved_variables,
             )
-        resource_type = crud_class.as_crud_type()
         result = SuccessfulReadYAMLFile(
             source_path=resource_file,
             source_hash=file_hash,
-            resource_type=resource_type,
             source_type=crud_class.as_resource_type(),
             line_count=line_count,
             unresolved_variables=unresolved_variables,
@@ -1286,8 +1279,6 @@ class BuildV2Command(ToolkitCommand):
         toolkit_resource: ToolkitResource | None = None
         try:
             toolkit_resource = crud_class.validate_object(parsed_yaml, extra="forbid")
-            identifier = toolkit_resource.as_id()
-            result.syntax_warnings.extend(toolkit_resource.syntax_warnings(resource_file))
         except ValidationError as errors:
             syntax_error, syntax_warnings = self._create_syntax_insights(
                 errors, resource_file, content, crud_class.yaml_cls
@@ -1302,17 +1293,25 @@ class BuildV2Command(ToolkitCommand):
                     code="UNREADABLE-FILE",
                     error=f"Failed to get identifier for resource file '{resource_file.name!r}' after validation error: {errors!s}",
                 )
+        else:
+            identifier = toolkit_resource.as_id()
+            result.syntax_warnings.extend(toolkit_resource.extra_insights(resource_file, crud_class.as_resource_type()))
 
         extra_files = self._substitute_variables_extra_content(
             crud_class.get_extra_files(resource_file, identifier, parsed_yaml), variables
         )
-
         if issubclass(crud_class, ResourceFileIO):
-            parsed_yaml = crud_class.to_crud_type(parsed_yaml)
-
-        result.resources.append(
-            ReadResource(raw=parsed_yaml, identifier=identifier, validated=toolkit_resource, extra_files=extra_files)
-        )
+            self._append_resources(result, crud_class, parsed_yaml, toolkit_resource, extra_files, resource_file)
+        else:
+            result.resources.append(
+                ReadResource(
+                    raw=parsed_yaml,
+                    identifier=identifier,
+                    resource_type=crud_class.as_crud_type(),
+                    validated=toolkit_resource,
+                    extra_files=extra_files,
+                )
+            )
         return result
 
     def _validate_multi_resource(
@@ -1349,23 +1348,52 @@ class BuildV2Command(ToolkitCommand):
                     )
             else:
                 identifier = tk_resource.as_id()
-                result.syntax_warnings.extend(tk_resource.syntax_warnings(resource_file))
+                result.syntax_warnings.extend(tk_resource.extra_insights(resource_file, crud_class.as_resource_type()))
 
             extra_files = self._substitute_variables_extra_content(
                 crud_class.get_extra_files(resource_file, identifier, raw_dict), variables
             )
             if issubclass(crud_class, ResourceFileIO):
-                raw_dict = crud_class.to_crud_type(raw_dict)
-
-            result.resources.append(
-                ReadResource(
-                    raw=raw_dict,
-                    identifier=identifier,
-                    validated=tk_resource,
-                    extra_files=extra_files,
+                self._append_resources(result, crud_class, raw_dict, tk_resource, extra_files, resource_file)
+            else:
+                result.resources.append(
+                    ReadResource(
+                        raw=raw_dict,
+                        identifier=identifier,
+                        resource_type=crud_class.as_crud_type(),
+                        validated=tk_resource,
+                        extra_files=extra_files,
+                    )
                 )
-            )
         return result
+
+    @classmethod
+    def _append_resources(
+        cls,
+        result: SuccessfulReadYAMLFile,
+        crud_class: type[ResourceFileIO],
+        parsed_yaml: dict[str, Any],
+        toolkit_resource: ToolkitResource | None,
+        extra_files: list[ReadExtra],
+        resource_file: Path,
+    ) -> None:
+        for crud_result in crud_class.to_crud_types(parsed_yaml, resource_file, toolkit_resource):
+            if isinstance(crud_result, BuildError):
+                result.syntax_error = crud_result
+                break
+            elif isinstance(crud_result, BuildWarning):
+                result.syntax_warnings.append(crud_result)
+                continue
+            else:
+                result.resources.append(
+                    ReadResource(
+                        raw=crud_result.raw,
+                        identifier=crud_result.identifier,
+                        resource_type=crud_result.type_,
+                        validated=toolkit_resource,
+                        extra_files=extra_files,
+                    )
+                )
 
     @classmethod
     def _get_ignore_rule_codes(cls, content: str) -> set[str]:
@@ -1457,31 +1485,32 @@ class BuildV2Command(ToolkitCommand):
         for file in files:
             if not isinstance(file, SuccessfulReadYAMLFile):
                 continue
-            folder = build_dir / file.resource_type.resource_folder
-            folder.mkdir(parents=True, exist_ok=True)
             for resource in file.resources:
+                resource_type = resource.resource_type
+                folder = build_dir / resource_type.resource_folder
+                folder.mkdir(parents=True, exist_ok=True)
                 # Count the number of resources of this type to create a unique filename for each resource.
-                resource_counter.update([file.resource_type])
+                resource_counter.update([resource_type])
 
                 filestem = self._create_filestem(
-                    resource.identifier, file.source_path, index=resource_counter[file.resource_type]
+                    resource.identifier, file.source_path, index=resource_counter[resource_type]
                 )
-                destination_path = folder / f"{filestem}.{file.resource_type.kind}.yaml"
+                destination_path = folder / f"{filestem}.{resource_type.kind}.yaml"
                 self._write_to_build_dir(resource, destination_path, filestem, folder)
 
                 dependencies: set[tuple[type[ResourceIO], Identifier]] = set()
                 if resource.validated:
-                    dependencies = set(file.resource_type.crud_cls.get_dependencies(resource.validated))
+                    dependencies = set(resource_type.crud_cls.get_dependencies(resource.validated))
 
                 built_resources.append(
                     BuiltResource(
                         identifier=resource.identifier,
-                        type=file.resource_type,
+                        type=resource_type,
                         source_type=file.source_type,
                         source_hash=file.source_hash,
                         source_path=file.source_path,
                         build_path=destination_path,
-                        crud_cls=file.resource_type.crud_cls,
+                        crud_cls=resource_type.crud_cls,
                         dependencies=dependencies,
                         failed_extra=[extra for extra in resource.extra_files if isinstance(extra, FailedReadExtra)],
                         extra_files=[extra for extra in resource.extra_files if isinstance(extra, SuccessExtra)],

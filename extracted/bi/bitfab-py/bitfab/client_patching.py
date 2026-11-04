@@ -15,6 +15,9 @@ NODE_OMITS_CALL = "omit"
 _node_owns_next_call: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "bitfab_node_owns_next_call", default=None
 )
+_node_streams: contextvars.ContextVar[list[Any] | None] = contextvars.ContextVar(
+    "bitfab_node_streams", default=None
+)
 _lock = threading.Lock()
 
 
@@ -32,6 +35,28 @@ def take_node_ownership() -> str | None:
     if ownership is not None:
         _node_owns_next_call.set(None)
     return ownership
+
+
+@contextlib.contextmanager
+def node_stream_slot(owns_call: bool) -> Iterator[list[Any]]:
+    streams: list[Any] = []
+    if not owns_call:
+        yield streams
+        return
+    token = _node_streams.set(streams)
+    try:
+        yield streams
+    finally:
+        _node_streams.reset(token)
+
+
+def hand_stream_to_node(recording: Any) -> bool:
+    streams = _node_streams.get()
+    if streams is None:
+        return False
+    streams.append(recording)
+    _node_streams.set(None)
+    return True
 
 
 def renamed(function: Any, name: str, marker: str) -> Any:

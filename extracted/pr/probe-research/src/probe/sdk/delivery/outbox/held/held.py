@@ -1,6 +1,7 @@
-"""held/: writes set aside once their run stalled (R9, R12), let out hourly and by `probe outbox
-retry`. A metric, step or upload is moved aside whole, bytes included; anything else (a run PATCH,
-a span, an ingest) holds its whole run's lane in place, so nothing of that run passes it."""
+"""held/: writes set aside once their run stalled (R9, R12), let out when their server answers
+again (I14), hourly as the backstop, and by `probe outbox retry`. A metric, step or upload is moved
+aside whole, bytes included; anything else (a run PATCH, a span, an ingest) holds its whole run's
+lane in place, so nothing of that run passes it."""
 
 from __future__ import annotations
 
@@ -17,7 +18,8 @@ from probe.foundation.durable.durable import file_lock, fsync_directory, write_t
 HELD_DIR = "held"
 #: Lane holds: one marker per held run lane, under the queue's ``held/``.
 LANES_DIR = "lanes"
-#: How long a held write waits before it is tried again (T1: hourly).
+#: How long a held write waits before it is tried again (T1: hourly), unless its server answers
+#: again first (`release_held(servers=...)`, I14).
 HELD_RETRY_SECONDS = 3600.0
 #: A best-effort write set aside at its first failure is tried again after this, doubling with each
 #: hold, up to `HELD_RETRY_SECONDS`: a blip delays it a minute, not an hour.
@@ -51,6 +53,34 @@ def is_set_aside_alone(op: dict) -> bool:
         return False
     write = routes.classify(str(op.get("method") or ""), str(op.get("path") or "")).op
     return op.get("method") == "POST" and write in (routes.WriteOp.METRICS, routes.WriteOp.STEPS)
+
+
+def get_server_key(op: dict) -> str:
+    """The server ``op`` goes to: its pinned base URL ("" when unpinned). Held writes come back when
+    it answers again (I14). Not the credential: a 5xx or no answer is the server's, a refused
+    credential takes the auth path, and a write queued before a same-account sign-in keeps its old
+    stamp while the new login's writes land."""
+    context = op.get("context") if isinstance(op, dict) else None
+    context = context if isinstance(context, dict) else {}
+    return str(context.get("base_url") or "").rstrip("/")
+
+
+def get_held_servers(queue_dir: Path) -> set:
+    """The servers of this queue's held writes and lane holds that were never let out since being
+    held (`HELD_COUNT` 1): they went aside while their server failed, so a new worker counts those
+    servers as down until a write lands on one (I14). A write let out and held again (one bad
+    write) does not count, or every worker start would let it out once more."""
+    servers = set()
+    heads = [op for _path, op in held_ops(queue_dir)]
+    heads += [_load_lane_head(queue_dir, marker) for _path, marker in lane_holds(queue_dir)]
+    for head in heads:
+        try:
+            is_held_once = isinstance(head, dict) and int(head.get(HELD_COUNT) or 0) == 1
+        except (TypeError, ValueError):
+            is_held_once = False
+        if is_held_once:
+            servers.add(get_server_key(head))
+    return servers
 
 
 def held_folders(queue_dir: Path) -> list[Path]:
@@ -221,11 +251,13 @@ def has_due_held(queue_dir: Path, now: float | None = None) -> bool:
 
 
 def release_held(
-    queue_dir: Path, *, due_only: bool = True, now: float | None = None, run_ref: str | None = None
+    queue_dir: Path, *, due_only: bool = True, now: float | None = None, run_ref: str | None = None,
+    servers: "set | frozenset | None" = None,
 ) -> int:
     """Let held writes back into line under their own names (their old place), and drop lane
     holds: the due ones, or (``due_only=False``, `probe outbox retry`) all; ``run_ref``: that run's
-    only. Under the append lock
+    only; ``servers``: only those going to one of these (`get_server_key`; a lane by its head
+    write), the worker's release once a server answers again (I14). Under the append lock
     (see `hold_op`). Returns how many writes and lanes were let out."""
     now = time.time() if now is None else now
     if not has_held(queue_dir) or (due_only and not has_due_held(queue_dir, now)):
@@ -234,6 +266,8 @@ def release_held(
     with file_lock(_append_lock(queue_dir)):
         for path, op in held_ops(queue_dir):
             if (due_only and not _is_due(op, now)) or (run_ref is not None and op.get("run_ref") != run_ref):
+                continue
+            if servers is not None and get_server_key(op) not in servers:
                 continue
             op.pop(HELD_UNTIL, None)
             target_dir = path.parent.parent / "ops"
@@ -250,9 +284,26 @@ def release_held(
                 run_ref is not None and marker.get("run_ref") != run_ref
             ):
                 continue
+            if servers is not None and _get_lane_server_key(queue_dir, marker) not in servers:
+                continue
             path.unlink(missing_ok=True)
             released += 1
     return released
+
+
+def _get_lane_server_key(queue_dir: Path, marker: dict) -> str | None:
+    """A lane hold's server: its head write's; None when that is gone."""
+    head = _load_lane_head(queue_dir, marker)
+    return get_server_key(head) if head is not None else None
+
+
+def _load_lane_head(queue_dir: Path, marker: dict) -> dict | None:
+    """A lane hold's head write, read from ``ops/``; None when it is gone or unreadable."""
+    try:
+        head = json.loads((Path(queue_dir) / "ops" / str(marker.get("head") or "")).read_text())
+    except (OSError, ValueError):
+        return None
+    return head if isinstance(head, dict) else None
 
 
 def was_held(op: dict) -> bool:

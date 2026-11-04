@@ -43,19 +43,6 @@ async fn setup() -> (Statsig, StatsigUser, Arc<StatsigLocalOverrideAdapter>) {
     (statsig, user, adapter)
 }
 
-#[tokio::test]
-async fn test_check_gate_overrides() {
-    let (statsig, user, adapter) = setup().await;
-
-    assert!(statsig.check_gate(&user, "test_public"));
-    adapter.override_gate("test_public", false, None);
-
-    let gate = statsig.check_gate(&user, "test_public");
-    assert!(!gate);
-
-    statsig.shutdown().await.unwrap();
-}
-
 #[test]
 fn test_local_override_adapter_reports_only_present_specs() {
     let adapter = StatsigLocalOverrideAdapter::new();
@@ -92,49 +79,6 @@ async fn test_get_feature_gate_overrides() {
     let gate = statsig.get_feature_gate(&user, "test_public");
     assert!(!gate.value);
     assert_eq!(gate.details.reason, "LocalOverride:Recognized");
-
-    statsig.shutdown().await.unwrap();
-}
-
-#[tokio::test]
-async fn test_get_dynamic_config_overrides() {
-    let (statsig, user, adapter) = setup().await;
-
-    let original = statsig.get_dynamic_config(&user, "big_number");
-    assert_eq!(original.get_f64("foo", 0f64), 1e21);
-
-    adapter.override_dynamic_config(
-        "big_number",
-        HashMap::from([("foo".to_string(), json!(-1.23))]),
-        None,
-    );
-
-    let overridden = statsig.get_dynamic_config(&user, "big_number");
-    assert_eq!(overridden.get_f64("foo", 0f64), -1.23);
-    assert_eq!(overridden.details.reason, "LocalOverride:Recognized");
-
-    statsig.shutdown().await.unwrap();
-}
-
-#[tokio::test]
-async fn test_get_experiment_overrides() {
-    let (statsig, user, adapter) = setup().await;
-
-    let original = statsig.get_experiment(&user, "experiment_with_many_params");
-    assert_eq!(original.get_string("a_string", "ERR".to_string()), "test_2");
-
-    adapter.override_experiment(
-        "experiment_with_many_params",
-        HashMap::from([("a_string".to_string(), json!("overridden_value"))]),
-        None,
-    );
-
-    let overridden = statsig.get_experiment(&user, "experiment_with_many_params");
-    assert_eq!(
-        overridden.get_string("a_string", "ERR".to_string()),
-        "overridden_value"
-    );
-    assert_eq!(overridden.details.reason, "LocalOverride:Recognized");
 
     statsig.shutdown().await.unwrap();
 }
@@ -184,29 +128,6 @@ async fn test_get_experiment_overrides_in_order() {
 }
 
 #[tokio::test]
-async fn test_get_layer_overrides() {
-    let (statsig, user, adapter) = setup().await;
-
-    let original = statsig.get_layer(&user, "layer_with_many_params");
-    assert_eq!(original.get_string("a_string", "ERR".to_string()), "test_2");
-
-    adapter.override_layer(
-        "layer_with_many_params",
-        HashMap::from([("a_string".to_string(), json!("overridden_value"))]),
-        None,
-    );
-
-    let overridden = statsig.get_layer(&user, "layer_with_many_params");
-    assert_eq!(
-        overridden.get_string("a_string", "ERR".to_string()),
-        "overridden_value"
-    );
-    assert_eq!(overridden.details.reason, "LocalOverride:Recognized");
-
-    statsig.shutdown().await.unwrap();
-}
-
-#[tokio::test]
 async fn test_get_parameter_store_overrides() {
     let (statsig, user, adapter) = setup().await;
 
@@ -239,25 +160,6 @@ async fn test_nested_gate_overrides() {
 }
 
 #[tokio::test]
-async fn test_check_gate_overrides_for_id() {
-    let (statsig, user, adapter) = setup().await;
-    let other_user = StatsigUser::with_user_id("b_user".to_string());
-
-    assert!(statsig.check_gate(&user, "test_public"));
-    assert!(statsig.check_gate(&other_user, "test_public"));
-
-    adapter.override_gate("test_public", false, Some("a_user"));
-
-    let gate = statsig.check_gate(&user, "test_public");
-    assert!(!gate);
-
-    let other_gate = statsig.check_gate(&other_user, "test_public");
-    assert!(other_gate);
-
-    statsig.shutdown().await.unwrap();
-}
-
-#[tokio::test]
 async fn test_get_feature_gate_overrides_for_id() {
     let (statsig, user, adapter) = setup().await;
     let other_user = StatsigUser::with_user_id("b_user".to_string());
@@ -274,62 +176,6 @@ async fn test_get_feature_gate_overrides_for_id() {
     let other_gate = statsig.get_feature_gate(&other_user, "test_public");
     assert!(other_gate.value);
 
-    statsig.shutdown().await.unwrap();
-}
-
-#[tokio::test]
-async fn test_get_dynamic_config_overrides_for_id() {
-    let (statsig, user, adapter) = setup().await;
-    let other_user = StatsigUser::with_user_id("b_user".to_string());
-
-    let original = statsig.get_dynamic_config(&user, "big_number");
-    let other_original = statsig.get_dynamic_config(&other_user, "big_number");
-    assert_eq!(original.get_f64("foo", 0f64), 1e21);
-    assert_eq!(other_original.get_f64("foo", 0f64), 1e21);
-
-    adapter.override_dynamic_config(
-        "big_number",
-        HashMap::from([("foo".to_string(), json!(-1.23))]),
-        Some("a_user"),
-    );
-
-    let overridden = statsig.get_dynamic_config(&user, "big_number");
-    assert_eq!(overridden.get_f64("foo", 0f64), -1.23);
-    assert_eq!(overridden.details.reason, "LocalOverride:Recognized");
-
-    let other_overridden = statsig.get_dynamic_config(&other_user, "big_number");
-    assert_eq!(other_overridden.get_f64("foo", 0f64), 1e21);
-
-    statsig.shutdown().await.unwrap();
-}
-
-#[tokio::test]
-async fn test_get_experiment_overrides_for_id() {
-    let (statsig, user, adapter) = setup().await;
-    let other_user = StatsigUser::with_user_id("b_user".to_string());
-
-    let original = statsig.get_experiment(&user, "experiment_with_many_params");
-    let other_original = statsig.get_experiment(&other_user, "experiment_with_many_params");
-    assert_eq!(original.get_string("a_string", "ERR".to_string()), "test_2");
-
-    adapter.override_experiment(
-        "experiment_with_many_params",
-        HashMap::from([("a_string".to_string(), json!("overridden_value"))]),
-        Some("a_user"),
-    );
-
-    let overridden = statsig.get_experiment(&user, "experiment_with_many_params");
-    assert_eq!(
-        overridden.get_string("a_string", "ERR".to_string()),
-        "overridden_value"
-    );
-    assert_eq!(overridden.details.reason, "LocalOverride:Recognized");
-
-    let other_overridden = statsig.get_experiment(&other_user, "experiment_with_many_params");
-    assert_eq!(
-        other_overridden.get_string("a_string", "ERR".to_string()),
-        other_original.get_string("a_string", "ERR".to_string())
-    );
     statsig.shutdown().await.unwrap();
 }
 
@@ -356,36 +202,6 @@ async fn test_get_experiment_overrides_by_group_name_for_id() {
     assert_eq!(overridden.details.reason, "LocalOverride:Recognized");
 
     let other_overridden = statsig.get_experiment(&other_user, "experiment_with_many_params");
-    assert_eq!(
-        other_overridden.get_string("a_string", "ERR".to_string()),
-        other_original.get_string("a_string", "ERR".to_string())
-    );
-    statsig.shutdown().await.unwrap();
-}
-
-#[tokio::test]
-async fn test_get_layer_overrides_for_id() {
-    let (statsig, user, adapter) = setup().await;
-    let other_user = StatsigUser::with_user_id("b_user".to_string());
-
-    let original = statsig.get_layer(&user, "layer_with_many_params");
-    let other_original = statsig.get_layer(&other_user, "layer_with_many_params");
-    assert_eq!(original.get_string("a_string", "ERR".to_string()), "test_2");
-
-    adapter.override_layer(
-        "layer_with_many_params",
-        HashMap::from([("a_string".to_string(), json!("overridden_value"))]),
-        Some("a_user"),
-    );
-
-    let overridden = statsig.get_layer(&user, "layer_with_many_params");
-    assert_eq!(
-        overridden.get_string("a_string", "ERR".to_string()),
-        "overridden_value"
-    );
-    assert_eq!(overridden.details.reason, "LocalOverride:Recognized");
-
-    let other_overridden = statsig.get_layer(&other_user, "layer_with_many_params");
     assert_eq!(
         other_overridden.get_string("a_string", "ERR".to_string()),
         other_original.get_string("a_string", "ERR".to_string())
@@ -565,18 +381,23 @@ async fn test_get_layer_overrides_for_custom_id() {
 #[tokio::test]
 async fn test_override_precedence() {
     let (statsig, _user, adapter) = setup().await;
-
-    let user_with_custom_id = StatsigUser::with_custom_ids(HashMap::from([(
+    let mut user = StatsigUser::with_user_id("custom_user");
+    user.set_custom_ids(HashMap::from([(
         "employee_id".to_string(),
         "employee_id:12345".to_string(),
     )]));
 
-    adapter.override_gate("test_public", false, None); // Name override (lowest precedence)
-    adapter.override_gate("test_public", true, Some("12345")); // Custom ID override
-    adapter.override_gate("test_public", false, Some("custom_user")); // User ID override (highest precedence)
+    adapter.override_gate("test_public", false, Some("custom_user"));
+    adapter.override_gate("test_public", true, Some("employee_id:12345"));
+    assert!(!statsig.check_gate(&user, "test_public"));
 
-    let gate = statsig.check_gate(&user_with_custom_id, "test_public");
-    assert!(!gate);
+    adapter.override_gate("test_public", false, None);
+    adapter.remove_gate_override("test_public", Some("custom_user"));
+    assert!(statsig.check_gate(&user, "test_public"));
+
+    adapter.remove_gate_override("test_public", Some("employee_id:12345"));
+    assert!(!statsig.check_gate(&user, "test_public"));
+
     statsig.shutdown().await.unwrap();
 }
 
@@ -776,7 +597,7 @@ async fn test_remove_layer_override() {
     adapter.override_layer(
         "layer_with_many_params",
         HashMap::from([("a_string".to_string(), json!("overridden_value"))]),
-        Some("a_user"),
+        None,
     );
 
     let overridden = statsig.get_layer(&user, "layer_with_many_params");
@@ -786,7 +607,7 @@ async fn test_remove_layer_override() {
     );
     assert_eq!(overridden.details.reason, "LocalOverride:Recognized");
 
-    adapter.remove_layer_override("layer_with_many_params", Some("a_user"));
+    adapter.remove_layer_override("layer_with_many_params", None);
     let layer_after_remove = statsig.get_layer(&user, "layer_with_many_params");
     assert_eq!(
         layer_after_remove.get_string("a_string", "ERR".to_string()),

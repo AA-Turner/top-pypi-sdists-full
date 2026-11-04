@@ -39,6 +39,7 @@ from anyscale.commands import (
     job_queue_commands,
     login_commands,
     logs_commands,
+    logs_query_commands,
     machine_pool_commands,
     metrics_commands,
     node_commands,
@@ -46,6 +47,8 @@ from anyscale.commands import (
     policy_commands,
     project_commands,
     resource_quota_commands,
+    role_binding_commands,
+    role_commands,
     schedule_commands,
     scheduler_commands,
     scim_commands,
@@ -103,7 +106,9 @@ from anyscale.job_queue.models import (
     SessionState,
     SortOrder,
 )
+from anyscale.logs.models import LogLine, LogsResource
 from anyscale.metrics.models import MetricSample, MetricSeries, MetricsResource
+from anyscale.node.models import Node, NodeList, NodeStatus
 from anyscale.organization_invitation.models import OrganizationInvitation
 from anyscale.policy.models import (
     Policy,
@@ -120,6 +125,14 @@ from anyscale.project.models import (
     ProjectSortOrder,
 )
 from anyscale.resource_quota.models import CreateResourceQuota, Quota, ResourceQuota
+from anyscale.role.models import Role
+from anyscale.role_binding.models import (
+    PolicyApplyResult,
+    PolicyChange,
+    PolicyPrincipals,
+    PolicyRole,
+    RoleBindingPolicy,
+)
 from anyscale.schedule.models import (
     ScheduleConfig,
     ScheduleSortField,
@@ -590,6 +603,19 @@ ALL_MODULES = [
         models=[],
     ),
     Module(
+        title="Log Queries",
+        filename="log_queries.md",
+        cli_prefix="anyscale logs",
+        cli_commands=[logs_query_commands.query],
+        sdk_prefix="anyscale.logs",
+        sdk_commands=[anyscale.logs.query],
+        models=[LogsResource, LogLine],
+        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
+        # importable and callable; see the note in commands/logs_query_commands.py. When
+        # it ships, fold it into the Logs module above.
+        hidden=True,
+    ),
+    Module(
         title="Events",
         filename="events.md",
         # The four commands hang under four different groups; the group prefix map
@@ -647,6 +673,18 @@ ALL_MODULES = [
         models=[NodeGpus, Gpu, GpuPlacement, GpuTelemetry, GpuState, GpuXid, GpuWorkload],
         # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
         # importable and callable; see the notes in commands/{node,gpu}_commands.py.
+        hidden=True,
+    ),
+    Module(
+        title="Nodes",
+        filename="nodes.md",
+        cli_prefix="anyscale node",
+        cli_commands=[node_commands.list_nodes, node_commands.get],
+        sdk_prefix="anyscale.node",
+        sdk_commands=[anyscale.node.list, anyscale.node.get],
+        models=[NodeList, Node, NodeStatus],
+        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
+        # importable and callable; see the note in commands/node_commands.py.
         hidden=True,
     ),
     Module(
@@ -852,6 +890,40 @@ ALL_MODULES = [
             anyscale.policy.list,
         ],
         models=[Policy, PolicyBinding, PolicyConfig, PolicySyncStatus, ResourcePolicy],
+    ),
+    Module(
+        title="Role",
+        filename="role.md",
+        cli_prefix="anyscale role",
+        cli_commands=[role_commands.list_roles, role_commands.get_role],
+        sdk_prefix="anyscale.role",
+        sdk_commands=[anyscale.role.list, anyscale.role.get],
+        models=[Role],
+    ),
+    Module(
+        title="Role Binding",
+        filename="role_binding.md",
+        cli_prefix="anyscale role-binding",
+        cli_commands=[
+            role_binding_commands.generate_role_binding_policy,
+            role_binding_commands.apply_role_binding_policy,
+        ],
+        sdk_prefix="anyscale.role_binding",
+        sdk_commands=[
+            anyscale.role_binding.generate_policy,
+            anyscale.role_binding.apply_policy,
+        ],
+        cli_command_group_prefix={
+            role_binding_commands.generate_role_binding_policy: "policy",
+            role_binding_commands.apply_role_binding_policy: "policy",
+        },
+        models=[
+            PolicyApplyResult,
+            PolicyChange,
+            PolicyPrincipals,
+            PolicyRole,
+            RoleBindingPolicy,
+        ],
     ),
     Module(
         title="SCIM",

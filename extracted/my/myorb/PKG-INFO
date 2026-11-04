@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: myorb
-Version: 0.77.0
+Version: 0.80.1
 Summary: Personal AI-powered daily briefing dashboard that summarizes your email, calendar, tasks, finances and more.
 Project-URL: Homepage, https://github.com/eriktelepovsky/myorb
 Project-URL: Repository, https://github.com/eriktelepovsky/myorb
@@ -46,7 +46,7 @@ Your assistant is yours to name: call it J.A.R.V.I.S., Iris, HAL 9000 or anythin
 
 ## Features
 
-- **The orb:** one number per source around your assistant, larger when something needs you. Click a number for its details: the list behind it, filters and actions; read an email right there, open its attachments (cards with a preview, as in Gmail), mark it as read, draft a reply as a Gmail draft, or forward it with its attachments (sent once you confirm the addresses; replies are never sent).
+- **The orb:** one number per source around your assistant, larger when something needs you. Click a number for its details: the list behind it, filters and actions; read an email right there, open its attachments (cards with a preview, as in Gmail), mark it as read, answer an invitation in it (Yes, No or Maybe, with what it clashes with in your calendar), draft a reply as a Gmail draft, or forward it with its attachments (sent once you confirm the addresses; replies are never sent).
 - **Sources:** Gmail, Google Calendar, the built-in task list, pull requests from GitHub, GitLab and Bitbucket, Jira, Asana, Slack mentions and unread direct messages, uptime checks of your websites (every minute, with TLS certificate warnings and each monitor's last 30 days as green and red bars) and the monitors of your Uptime Kuma, weather from Open-Meteo, YouTube subscriptions, Apple Health and Strava, and your own apps through [custom sources](https://github.com/eriktelepovsky/myorb/blob/main/docs/CUSTOM_SOURCES.md), e.g. invoices and spending from your invoicing or wallet app.
 - **Daily brief:** Claude writes what awaits you today at a time you choose, in English or Slovak, with what needs you first. Read it aloud with your browser's voices or Microsoft Azure Speech, in several languages.
 - **Ask:** ask about your dashboard in the command line, by voice, or with one of the quick actions. Claude can also act for you once you confirm: add tasks, draft email replies in Gmail, add and change calendar events, mark videos as seen, add uptime monitors, change Jira issues, complete Asana tasks, approve or comment on pull requests. Most actions can be undone. Asked to, it loads new data from every source. Issues, tasks, pull requests and emails it names link to them, and notifications from Sentry and Bitbucket Pipelines straight to the issue or pipeline.

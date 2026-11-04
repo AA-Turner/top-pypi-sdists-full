@@ -18,25 +18,33 @@ T = TypeVar("T", bound="JobResultResponse")
 class JobResultResponse:
     """
     Attributes:
-        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        engine_version (int):
-        id (UUID):
-        job_ref (str):
-        job_run_id (UUID):
-        result_type (str):
-        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
+        created_at (datetime.datetime): When the result was first stored, UTC.
+        engine_version (int): Result format version; 1 when not declared.
+        id (UUID): Id of the job result.
+        job_ref (str): The job that declared the result.
+        job_run_id (UUID): Job run that declared the result.
+        result_type (str): `job.{category}.{name}`, for example `job.background_agent.{name}`.
+        updated_at (datetime.datetime): When the result was last stored, UTC.
         agent_status (None | str | Unset): The agent's self-report, which may legitimately disagree with the run's own
             status: a failed agent inside a succeeded run is normal.
-        cost_usd (None | str | Unset): Decimal string, never a float.
-        input_tokens (int | None | Unset):
-        loop_type (None | str | Unset):
-        model (None | str | Unset):
-        output_tokens (int | None | Unset):
+        cost_usd (None | str | Unset): Cost in USD the agent reported, as a decimal string. `null` when the result
+            carries no agent trace, as for non-agent jobs.
+        input_tokens (int | None | Unset): Input tokens the agent used. `null` when the result carries no agent trace,
+            as for non-agent jobs.
+        loop_type (None | str | Unset): Agent loop that ran. `null` when the result carries no agent trace, as for non-
+            agent jobs.
+        model (None | str | Unset): Model the agent ran with. `null` when the result carries no agent trace, as for non-
+            agent jobs.
+        output_tokens (int | None | Unset): Output tokens the agent used. `null` when the result carries no agent trace,
+            as for non-agent jobs.
         result (Any | Unset): The job's declared output. Shape is job-defined.
-        stop_reason (None | str | Unset):
+        stop_reason (None | str | Unset): Why the agent stopped. `null` when the result carries no agent trace, as for
+            non-agent jobs.
         summary (None | str | Unset): Model-authored markdown, unbounded. Untrusted — render as user content.
-        total_tokens (int | None | Unset):
-        turn_count (int | None | Unset):
+        total_tokens (int | None | Unset): Total tokens the agent used. `null` when the result carries no agent trace,
+            as for non-agent jobs.
+        turn_count (int | None | Unset): Number of turns the agent took. `null` when the result carries no agent trace,
+            as for non-agent jobs.
     """
 
     created_at: datetime.datetime

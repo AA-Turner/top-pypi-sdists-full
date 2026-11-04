@@ -61,6 +61,10 @@ def process_primary_keys(columns, entry):
         columns[column_name] = column
 
 
+def _of_table(entry):
+    return f" of table '{entry['table']}'" if entry.get("table") else ""
+
+
 def process_columns(columns, entry):
     for column_name, type in entry["columns"].items():
         column = columns[column_name] if column_name in columns else _new_column(column_name)
@@ -81,7 +85,7 @@ def process_columns(columns, entry):
             missing = [key for key in ("precision", "scale") if key not in type]
             if missing:
                 raise ValueError(
-                    f"DECIMAL column '{column_name}' is missing {' and '.join(repr(key) for key in missing)}. "
+                    f"DECIMAL column '{column_name}'{_of_table(entry)} is missing {' and '.join(repr(key) for key in missing)}. "
                     "Give both its precision and its scale, as in: {'type': 'DECIMAL', 'precision': 15, 'scale': 2}"
                 )
             column.type = DataType.DECIMAL

@@ -3,7 +3,6 @@
 Keep the two deployment profiles distinct: their service names and port defaults
 are intentional. Importing this module does not provision services or read config.
 """
-from pathlib import Path
 
 from hugpy_core.imports.constants import ENV_CALLLOG_DSN, ENV_CORE_DB, ENV_CORE_SCHEMA
 
@@ -37,21 +36,12 @@ TS_DB_KEYS = ("SOLCATCHER_POSTGRESQL_HOST", "SOLCATCHER_POSTGRESQL_PORT", "SOLCA
               "SOLCATCHER_POSTGRESQL_NAME", "SOLCATCHER_POSTGRESQL_PASS")
 
 # System installer paths and defaults (a distinct deployment profile).
-ACCOUNT = SERVICE
-STATE = Path("/var/lib") / SERVICE
-CONFIG_DIR = Path("/etc/hugpy")
-CONFIG = CONFIG_DIR / "core.env"
-FLASK_CONFIG = CONFIG_DIR / "core.service-flask-db.env"
-TOOLSERVER_CONFIG = CONFIG_DIR / "toolserver.env"
-ENDPOINT = CONFIG_DIR / "core.endpoint.json"
-UNIT_DIR = Path("/etc/systemd/system")
 CORE_UNIT = f"{SERVICE}.service"
 DOWNLOAD_UNIT = f"{SERVICE}-downloader.service"
 CATALOG_UNIT = f"{SERVICE}-catalog.service"
 INTAKE_UNIT = f"{SERVICE}-intake.service"
 PG_UNIT = f"{SERVICE}-postgres.service"
 TS_UNIT = f"{SERVICE}-toolserver.service"
-TS_HOME = STATE / "toolserver"
 DEFAULT_PORT = 7020
 PG_PORT = 7306
 
@@ -59,6 +49,4 @@ PG_PORT = 7306
 INSTALLER_VERBS = ("install", "uninstall", "status")
 
 # Defaults also used inside system installer operations.
-WRAPPER_ENDPOINT = CONFIG.with_name("wrapper.endpoint.json")
-WRAPPER_CONFIG = CONFIG.with_name("wrapper.env")
 WRAPPER_TOKEN_ENV = "FITEVICT_TOKEN"

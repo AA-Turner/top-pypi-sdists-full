@@ -100,19 +100,20 @@ def sync_detailed(
 
     Deploys a set of job definitions from a deployment manifest. Creates new jobs,
     updates existing ones, and archives orphaned jobs (those previously deployed from
-    the same deployment_module but no longer present in the manifest).
+    the same `deployment_module` but no longer present in the manifest).
 
-    Answers with one receipt per kind the manifest declares. Under `jobs`, `succeeded` lists each
-    job created, updated or archived with its `outcome` and `skipped` the unchanged ones; a deploy
-    is all or nothing, so `failed` is empty.
+    Answers with one receipt per kind the manifest declares. Under `job_receipt`, `succeeded`
+    lists each job created, updated or archived with its `outcome` and `skipped` the unchanged
+    ones; a deploy is all or nothing, so `failed` is always empty.
 
-    When deployment_module is None, this is an ad-hoc deploy: jobs are only added or
-    updated, never archived. When deployment_module is '__deployment__', the workspace
+    When `deployment_module` is `null`, this is an ad-hoc deploy: jobs are only added or
+    updated, never archived. When `deployment_module` is `__deployment__`, the workspace
     description is also updated from the manifest.
 
-    Supports dry_run mode to preview changes without persisting.
+    With `dry_run`, the changes are previewed without being saved; created and updated jobs then
+    carry the zero UUID as `id` and version 0.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -147,19 +148,20 @@ def sync(
 
     Deploys a set of job definitions from a deployment manifest. Creates new jobs,
     updates existing ones, and archives orphaned jobs (those previously deployed from
-    the same deployment_module but no longer present in the manifest).
+    the same `deployment_module` but no longer present in the manifest).
 
-    Answers with one receipt per kind the manifest declares. Under `jobs`, `succeeded` lists each
-    job created, updated or archived with its `outcome` and `skipped` the unchanged ones; a deploy
-    is all or nothing, so `failed` is empty.
+    Answers with one receipt per kind the manifest declares. Under `job_receipt`, `succeeded`
+    lists each job created, updated or archived with its `outcome` and `skipped` the unchanged
+    ones; a deploy is all or nothing, so `failed` is always empty.
 
-    When deployment_module is None, this is an ad-hoc deploy: jobs are only added or
-    updated, never archived. When deployment_module is '__deployment__', the workspace
+    When `deployment_module` is `null`, this is an ad-hoc deploy: jobs are only added or
+    updated, never archived. When `deployment_module` is `__deployment__`, the workspace
     description is also updated from the manifest.
 
-    Supports dry_run mode to preview changes without persisting.
+    With `dry_run`, the changes are previewed without being saved; created and updated jobs then
+    carry the zero UUID as `id` and version 0.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -189,19 +191,20 @@ async def asyncio_detailed(
 
     Deploys a set of job definitions from a deployment manifest. Creates new jobs,
     updates existing ones, and archives orphaned jobs (those previously deployed from
-    the same deployment_module but no longer present in the manifest).
+    the same `deployment_module` but no longer present in the manifest).
 
-    Answers with one receipt per kind the manifest declares. Under `jobs`, `succeeded` lists each
-    job created, updated or archived with its `outcome` and `skipped` the unchanged ones; a deploy
-    is all or nothing, so `failed` is empty.
+    Answers with one receipt per kind the manifest declares. Under `job_receipt`, `succeeded`
+    lists each job created, updated or archived with its `outcome` and `skipped` the unchanged
+    ones; a deploy is all or nothing, so `failed` is always empty.
 
-    When deployment_module is None, this is an ad-hoc deploy: jobs are only added or
-    updated, never archived. When deployment_module is '__deployment__', the workspace
+    When `deployment_module` is `null`, this is an ad-hoc deploy: jobs are only added or
+    updated, never archived. When `deployment_module` is `__deployment__`, the workspace
     description is also updated from the manifest.
 
-    Supports dry_run mode to preview changes without persisting.
+    With `dry_run`, the changes are previewed without being saved; created and updated jobs then
+    carry the zero UUID as `id` and version 0.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -234,19 +237,20 @@ async def asyncio(
 
     Deploys a set of job definitions from a deployment manifest. Creates new jobs,
     updates existing ones, and archives orphaned jobs (those previously deployed from
-    the same deployment_module but no longer present in the manifest).
+    the same `deployment_module` but no longer present in the manifest).
 
-    Answers with one receipt per kind the manifest declares. Under `jobs`, `succeeded` lists each
-    job created, updated or archived with its `outcome` and `skipped` the unchanged ones; a deploy
-    is all or nothing, so `failed` is empty.
+    Answers with one receipt per kind the manifest declares. Under `job_receipt`, `succeeded`
+    lists each job created, updated or archived with its `outcome` and `skipped` the unchanged
+    ones; a deploy is all or nothing, so `failed` is always empty.
 
-    When deployment_module is None, this is an ad-hoc deploy: jobs are only added or
-    updated, never archived. When deployment_module is '__deployment__', the workspace
+    When `deployment_module` is `null`, this is an ad-hoc deploy: jobs are only added or
+    updated, never archived. When `deployment_module` is `__deployment__`, the workspace
     description is also updated from the manifest.
 
-    Supports dry_run mode to preview changes without persisting.
+    With `dry_run`, the changes are previewed without being saved; created and updated jobs then
+    carry the zero UUID as `id` and version 0.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

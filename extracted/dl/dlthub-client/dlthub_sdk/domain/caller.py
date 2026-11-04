@@ -18,47 +18,42 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class OrganizationMembership(Generic[M]):
-    """An organization the caller belongs to, and their role in it.
+    """An organization the caller belongs to, and their role in it."""
 
-    Attributes:
-        organization: The organization, bound and ready to navigate from.
-        role: The caller's role in it.
-        is_active: Whether the membership is currently active.
-    """
-
+    # doc: sdk
     organization: Organization[M]
+    """The organization, bound and ready to navigate from."""
     role: str
+    """The role of the user in the organization."""
     is_active: bool
+    """Whether the membership is active."""
 
 
 @dataclass(frozen=True)
 class Caller(Generic[M]):
-    """The human the token belongs to.
+    """The person the token belongs to.
 
-    Only a user token reaches this: the platform gates ``/me`` to human
-    principals, so an API key gets :class:`~dlthub_sdk.NotAuthorized` instead —
-    see :meth:`~dlthub_sdk.Runtime.me`. Every other caller identity in the SDK
-    is scoped, and answers for any principal: :meth:`Organization.me` and
-    :meth:`Workspace.me`.
-
-    Attributes:
-        email: The caller's email.
-        user_id: The caller's user uuid.
-        organization_membership_id: Their member uuid in the organization the platform
-            considers current.
-        name: Display name, when the identity provider supplied one.
-        primary_organization: Where new workspaces are created by default.
-        latest_organization: The organization they most recently worked in.
-        organization_memberships: Every organization they belong to.
+    Returned for a user token or a user API key; a service-account API key gets
+    :class:`~dlthub_sdk.NotAuthorized` instead (see :meth:`~dlthub_sdk.Runtime.me`).
+    :meth:`Organization.me` and :meth:`Workspace.me` answer for any caller.
     """
 
     email: str
+    """The email of the current user."""
     user_id: str
+    """The ID of the current user."""
     organization_membership_id: str
+    """Your membership id in `latest_organization`."""
     name: str | None
+    """The user's display name (full name); `None` if the identity provider supplied
+    none.
+    """
     primary_organization: Organization[M]
+    """The organization where new workspaces are created by default."""
     latest_organization: Organization[M]
+    """The organization you used most recently."""
     organization_memberships: tuple[OrganizationMembership[M], ...]
+    """Every organization they belong to."""
 
     @staticmethod
     def _from_payload(ctx: _Ctx[Any], payload: MeResponse) -> Caller[Any]:

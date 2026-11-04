@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mirakuru
-Version: 3.0.4
+Version: 3.1.0
 Summary: Process executor (not only) for tests.
 Keywords: executor,orchestration,process,tests
 Author: Grzegorz Śliwiński
@@ -14,17 +14,17 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: psutil>=4.0.0 ; sys_platform != 'cygwin'
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: Source, https://github.com/dbfixtures/mirakuru
 Project-URL: Bug Tracker, https://github.com/dbfixtures/mirakuru/issues
-Project-URL: Changelog, https://github.com/dbfixtures/mirakuru/blob/v3.0.4/CHANGES.rst
+Project-URL: Changelog, https://github.com/dbfixtures/mirakuru/blob/v3.1.0/CHANGES.rst
 Description-Content-Type: text/x-rst
 
 .. image:: https://raw.githubusercontent.com/dbfixtures/mirakuru/master/logo.png

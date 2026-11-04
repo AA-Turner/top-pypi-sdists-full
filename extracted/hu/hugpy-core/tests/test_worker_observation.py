@@ -76,6 +76,27 @@ def test_legacy_worker_can_route_but_cannot_use_unscoped_completion_as_confirmat
     assert not _contract_ok(link.box(), call, {('worker', 'model'): (*call.contract_key, None)})
 
 
+def test_discovery_catalog_can_route_without_claiming_local_copies(monkeypatch):
+    from hugpy_core.intake.service import presence
+    from hugpy_core.brain import planner
+    snapshot = {'store_id': 'fresh-store', 'models': [{'key': 'remote-model'}],
+                'data_service': {'protocol': 'hugpy-wrapper-data', 'version': 1,
+                    'store_id': 'fresh-store',
+                    'capabilities': {'physical_inventory': False, 'verdicts': False}}}
+    report = presence({'name': 'fresh', 'url': 'http://worker'}, snapshot,
+                      [{'id': 'remote-model'}])
+    assert report['models'] == ['remote-model']
+    assert report['models_discovered'] is None and not report['models_local']
+    from hugpy_core.intake import mirror
+    monkeypatch.setattr(mirror, '_apply_table', lambda *args: pytest.fail('catalog mirrored as physical copies'))
+    assert mirror.apply_state(None, type('Columns', (), {'types': {'models': {}}})(), 'fresh', snapshot) == {}
+    link = BoxLink('fresh', 'http://worker')
+    link.accept_state(snapshot)
+    assert decide(CallSpec('remote-model'), [link.box()]).ok
+    monkeypatch.setattr(planner, '_plan_gate', lambda *args: pytest.fail('unsupported verdict API scheduled'))
+    assert planner.maybe_refresh(report) is None
+
+
 def test_http_long_poll_carries_epoch_and_notifies_on_restart():
     async def scenario():
         incoming = []

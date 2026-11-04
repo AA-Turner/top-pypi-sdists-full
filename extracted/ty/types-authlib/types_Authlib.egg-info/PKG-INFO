@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-Authlib
-Version: 1.8.0.20261102
+Version: 1.8.0.20261103
 Summary: Typing stubs for Authlib
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -15,10 +15,13 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cryptography
 Provides-Extra: all
+Requires-Dist: django-stubs; extra == "all"
 Requires-Dist: Flask>=2.0.0; extra == "all"
 Requires-Dist: httpx2; extra == "all"
 Requires-Dist: requests; extra == "all"
 Requires-Dist: types-oauthlib; extra == "all"
+Provides-Extra: django
+Requires-Dist: django-stubs; extra == "django"
 Provides-Extra: flask
 Requires-Dist: Flask>=2.0.0; extra == "flask"
 Provides-Extra: httpx2
@@ -48,10 +51,10 @@ This package was tested with the following type checkers:
 * [mypy](https://www.mypy-lang.org/) 2.4.0
 * [pyrefly](https://pyrefly.org/) 1.4.0
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.91
+* [ty](https://docs.astral.sh/ty/) 0.0.92
 
 It was generated from typeshed commit
-[`272d38680771baf39c7ea503ae5d042c3295e47c`](https://github.com/python/typeshed/commit/272d38680771baf39c7ea503ae5d042c3295e47c).
+[`92b4407b6ed288e6d7cc4a0f7017e18991854e41`](https://github.com/python/typeshed/commit/92b4407b6ed288e6d7cc4a0f7017e18991854e41).
 
 ## Optional dependencies
 
@@ -60,6 +63,7 @@ The following extras are available:
 
 ```console
 pip install 'types-Authlib[all]' # installs all optional dependencies
+pip install 'types-Authlib[django]' # installs django-stubs
 pip install 'types-Authlib[Flask]' # installs Flask>=2.0.0
 pip install 'types-Authlib[httpx2]' # installs httpx2
 pip install 'types-Authlib[requests]' # installs requests

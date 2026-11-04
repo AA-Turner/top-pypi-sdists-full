@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from dataclasses import asdict, dataclass
 from functools import partial
 
@@ -117,6 +118,7 @@ class Evaluator:
         final_group_size=8,
         variants=("default",),
         sink=None,
+        deployment=None,
     ):
         """Configure the holdout, cadence, and evaluation variants.
 
@@ -130,6 +132,9 @@ class Evaluator:
             final_group_size: Samples per row in the final evaluation.
             variants: Named evaluation configurations to run per checkpoint.
             sink: Optional callback receiving each ``Evaluation`` result.
+            deployment: Optional ``EvaluationDeployment`` that creates temporary
+                streaming capacity for each checkpoint. Ordinary full-weight evaluation
+                uses checkpoint sampling and needs no deployment.
         """
         if min(every, final_group_size) < 0 or group_size < 1 or not variants:
             raise ValueError(
@@ -139,6 +144,7 @@ class Evaluator:
         if not self.holdout:
             raise ValueError("evaluation holdout must be nonempty")
         self.engine_factory, self.sink = engine_factory, sink
+        self.deployment = deployment
         self.every, self.group_size, self.final_group_size = (
             every,
             group_size,
@@ -158,13 +164,16 @@ class Evaluator:
             "group_size": self.group_size,
             "final_group_size": self.final_group_size,
             "variants": self.variants,
+            **(
+                {"deployment": self.deployment.config_dict()} if self.deployment else {}
+            ),
         }
 
     def exclude_holdout(self, rows):
         excluded = {fingerprint(row) for row in self.holdout}
         return [row for row in rows if fingerprint(row) not in excluded]
 
-    async def launch(self, model, step, *, final=False):
+    async def launch(self, model, step, *, final=False, on_checkpoint=None):
         # Surface failures promptly, even if the next eval is not due yet.
         for task in self._tasks:
             if task.done():
@@ -172,27 +181,177 @@ class Evaluator:
         use_final = final and self.final_group_size > 0
         if not use_final and (not self.every or step % self.every):
             return
-        if str(step) in self._jobs:
+        if job := self._jobs.get(str(step)):
+            if use_final and job["group_size"] != self.final_group_size:
+                # Finite training can discover completion after a periodic job
+                # was launched. Reuse its pinned checkpoint, but finish earlier
+                # results before emitting replacements at the final sample size.
+                self._jobs[str(step)] = {
+                    **job,
+                    "group_size": self.final_group_size,
+                    "done": [],
+                }
+                if on_checkpoint is not None:
+                    await on_checkpoint()
+                self._start(step, model=model, after=tuple(self._tasks))
             return
         # Unfinished jobs persist in trainer state and may resume after a long pause.
+        full_weight = getattr(model, "full_weight", False) is True
+        if full_weight and self.deployment is None:
+            read = getattr(model, "get_server_capabilities", None)
+            capabilities = await call(read) if read is not None else None
+            if capabilities is not None:
+                capabilities.require_model(
+                    model.base_model, "full_weight_checkpoint_sampling_v1"
+                )
+        options = {}
+        if full_weight or self.deployment is not None:
+            options = {
+                "immutable": True,
+                "durable": False,
+                "timeout": self.deployment.export_timeout if self.deployment else 3600,
+            }
+            read_policy = getattr(model, "get_policy_version", None)
+            if read_policy is not None:
+                policy = await call(read_policy)
+                if policy is not None:
+                    options["expected_policy_id"] = policy.id
+        if full_weight and callable(getattr(model, "submit_save_weights", None)):
+            pending = await call(
+                model.submit_save_weights,
+                f"rl-eval-{step:08d}",
+                mode="inference",
+                **options,
+            )
+            self._jobs[str(step)] = {
+                "export": {"request_id": pending.request_id, "step": model.step},
+                "group_size": self.final_group_size if use_final else self.group_size,
+                "done": [],
+                **({"deployment": {"attempt": 0}} if self.deployment else {}),
+            }
+            if on_checkpoint is not None:
+                await on_checkpoint()
+            self._start(step, model=model)
+            return
         checkpoint = await call(
-            model.save_weights, f"rl-eval-{step:08d}", mode="inference"
+            model.save_weights, f"rl-eval-{step:08d}", mode="inference", **options
         )
         self._jobs[str(step)] = {
             "checkpoint": asdict(checkpoint),
             "group_size": self.final_group_size if use_final else self.group_size,
             "done": [],
+            **({"deployment": {"attempt": 0}} if self.deployment else {}),
         }
+        # Persist the checkpoint and deterministic creation key before allocating
+        # workers, so a resumed trainer can recover an accepted deployment.
+        if on_checkpoint is not None:
+            await on_checkpoint()
         self._start(step)
 
-    def _start(self, step):
+    def _start(self, step, *, model=None, after=()):
         job = self._jobs[str(step)]
+        if "export" in job:
+            if model is None:
+                raise ValueError(
+                    "resuming an unfinished checkpoint export requires its training model"
+                )
+            self._tasks.append(
+                asyncio.create_task(self._finish_export(step, model, job, after))
+            )
+            return
+        if "deployment" in job:
+            if self.deployment is None:
+                raise ValueError(
+                    "resuming deployed evaluation requires EvaluationDeployment"
+                )
+            self._tasks.append(
+                asyncio.create_task(self._evaluate_deployment(step, job, after))
+            )
+            return
         for variant in self.variants:
             if variant not in job["done"]:
-                self._tasks.append(asyncio.create_task(self._evaluate(step, variant)))
+                self._tasks.append(
+                    asyncio.create_task(self._evaluate(step, variant, job, after))
+                )
 
-    async def _evaluate(self, step, variant):
-        job = self._jobs[str(step)]
+    async def _finish_export(self, step, model, job, after):
+        if after:
+            await asyncio.gather(*after)
+        if "export" not in job:
+            await self._evaluate_exported_checkpoint(step, job)
+            return
+        pending = model.resume_save_weights(
+            **job["export"],
+            mode="inference",
+            timeout=self.deployment.export_timeout if self.deployment else 3600,
+        )
+        cancelled = threading.Event()
+
+        def before_poll():
+            if cancelled.is_set():
+                raise asyncio.CancelledError
+
+        try:
+            checkpoint = await call(pending.result, before_poll=before_poll)
+        finally:
+            cancelled.set()
+        job["checkpoint"] = asdict(checkpoint)
+        del job["export"]
+        # A final-size upgrade shares this export. Keep its persisted checkpoint
+        # available for cleanup even if the earlier evaluation subsequently fails.
+        current = self._jobs[str(step)]
+        if current is not job:
+            current["checkpoint"] = job["checkpoint"]
+            current.pop("export", None)
+        # The submitted request was persisted before this task started. A crash
+        # can re-poll it and recover the same deterministic deployment key. State
+        # snapshots belong to the trainer's boundary lock, not this background task.
+        await self._evaluate_exported_checkpoint(step, job)
+
+    async def _evaluate_exported_checkpoint(self, step, job):
+        if "deployment" in job:
+            await self._evaluate_deployment(step, job)
+        else:
+            tasks = [
+                asyncio.create_task(self._evaluate(step, variant, job))
+                for variant in self.variants
+                if variant not in job["done"]
+            ]
+            try:
+                await asyncio.gather(*tasks)
+            finally:
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _evaluate_deployment(self, step, job, after=()):
+        if after:
+            await asyncio.gather(*after)
+        assert self.deployment is not None
+        checkpoint = Checkpoint(**job["checkpoint"])
+        pending = [variant for variant in self.variants if variant not in job["done"]]
+        if not pending:
+            await self.deployment.cleanup(checkpoint, job["deployment"])
+            return
+        async with self.deployment.open(checkpoint, job["deployment"]) as deployed:
+            tasks = [
+                asyncio.create_task(self._evaluate(step, v, job, deployed=deployed))
+                for v in pending
+            ]
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*tasks), self.deployment.evaluation_timeout
+                )
+            finally:
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _evaluate(self, step, variant, job, after=(), deployed=None):
+        if after:
+            await asyncio.gather(*after)
         checkpoint = Checkpoint(**job["checkpoint"])
         engine = self.engine_factory(checkpoint, variant)
         if (
@@ -201,6 +360,13 @@ class Evaluator:
         ):
             raise ValueError(
                 "evaluation engines must use CheckpointSampler pinned to the measured checkpoint"
+            )
+        if deployed is not None:
+            from .deployment import DeploymentSampler
+
+            assert self.deployment is not None
+            engine.model = DeploymentSampler(
+                engine.model, self.deployment.client, deployed
             )
         trajectories = []
         async for group in engine.rollout(
@@ -242,14 +408,22 @@ class Evaluator:
             if not task.done():
                 task.cancel()
         await asyncio.gather(*self._tasks, return_exceptions=True)
+        if self.deployment is not None:
+            # Retry failed teardown and surface any still-owned capacity. The
+            # persisted job retains its ID until deletion has completed.
+            for job in self._jobs.values():
+                if "deployment" in job and "checkpoint" in job:
+                    await self.deployment.cleanup(
+                        Checkpoint(**job["checkpoint"]), job["deployment"]
+                    )
 
     def state_dict(self):
         return self._jobs
 
-    def load_state_dict(self, state):
+    def load_state_dict(self, state, *, model=None):
         self._jobs = state
         for step in state:
-            self._start(int(step))
+            self._start(int(step), model=model)
 
 
 class WandbSink:

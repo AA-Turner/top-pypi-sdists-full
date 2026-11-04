@@ -31,13 +31,10 @@ answer from an abandoned one.
 STDLIB ONLY, AND PYTHON 3.9. This file is vendored into the plugin's hooks
 directory, where it executes under the SYSTEM python3 with no `probe` package
 importable — macOS still ships 3.9, so nothing newer than that may appear here.
-Two copies exist on purpose and must stay byte-identical:
-
-    src/probe/sdk/session_marker.py                     (canonical — edit here)
-    plugins/probe-research/hooks/_session_marker.py     (vendored — never edit)
-
-`make sync-session-marker` refreshes the copy, and tests/test_session_marker_parity.py
-fails CI whenever the two differ.
+This file is kept as pieces in src/probe/sdk/marker/ (edit there). `tools/vendor.py`
+joins them into src/probe/sdk/session_marker.py and the hooks' `_session_marker.py`,
+which must stay byte-identical: `make sync-session-marker sync-daemon-plugin` refreshes
+them, and tests/test_session_marker_parity.py fails CI whenever they differ.
 
 FAIL-SOFT THROUGHOUT. Nothing here may raise into a caller: the writer runs beside
 a research write that must survive a full disk, and the reader runs on a render
@@ -734,6 +731,9 @@ GAPS_SUFFIX = ".gaps"
 KEPT_SUFFIXES = (GAPS_SUFFIX, ".state")
 #: A gap file that names no transcript (or does not read) goes after this long.
 UNKNOWN_TRANSCRIPT_KEEP_SECONDS = 90 * 86400
+#: Per-session suffixes of two parts, read whole (`_get_session_id`): the gap
+#: file's lock (`capture_gate.LOCK_SUFFIX`).
+MULTIPART_SUFFIXES = (GAPS_SUFFIX + ".lock",)
 
 
 def _keeps_gaps(path: str, mtime: float, now: float) -> bool:
@@ -764,7 +764,9 @@ def prune(max_age_seconds: float = MAX_AGE_SECONDS) -> None:
     A session whose gap file still holds a gap (`_keeps_gaps`) keeps that file
     and its `.state` (what says it was off) whatever their age; its other
     files go as any session's do. A gap file that is done with goes now. A
-    `.home` stays while its session lives (`_keeps_home`).
+    session that still lives (`_is_session_live`) keeps every file, whatever
+    its age: a live session's `.state` is its switch, and its daemon stops
+    60 s after the switch goes (Anthrogen 11-04: a 30-day-old session lost it).
     """
     try:
         now = time.time()
@@ -772,6 +774,7 @@ def prune(max_age_seconds: float = MAX_AGE_SECONDS) -> None:
         with os.scandir(sessions_dir()) as listing:
             entries = list(listing)
         kept: set[str] = set()
+        live: dict[str, bool] = {}
         for entry in entries:
             if not entry.name.endswith(GAPS_SUFFIX):
                 continue
@@ -789,7 +792,12 @@ def prune(max_age_seconds: float = MAX_AGE_SECONDS) -> None:
                 suffix = next((s for s in KEPT_SUFFIXES if entry.name.endswith(s)), None)
                 if suffix is not None and entry.name[: -len(suffix)] in kept:
                     continue
-                if entry.is_file() and entry.stat().st_mtime < cutoff and not _keeps_home(entry.name, cutoff):
+                if not entry.is_file() or entry.stat().st_mtime >= cutoff:
+                    continue
+                session_id = _get_session_id(entry.name)
+                if session_id not in live:
+                    live[session_id] = _is_session_live(session_id, cutoff)
+                if not live[session_id]:
                     os.unlink(entry.path)
             except OSError:
                 continue
@@ -797,12 +805,20 @@ def prune(max_age_seconds: float = MAX_AGE_SECONDS) -> None:
         pass
 
 
-def _keeps_home(name: str, cutoff: float) -> bool:
-    """Is this an old `.home` whose session still lives? A home never expires on its own,
-    so it stays while the session's marker, daemon lease or scope was written in the window."""
-    if not name.endswith(HOME_SUFFIX):
-        return False
-    session_id = name[: -len(HOME_SUFFIX)]
+def _get_session_id(file_name: str) -> str:
+    """The session a file in the sessions folder is of: its name less its
+    suffix, one dot and a word (`.state`, `.writer-notified`) but for
+    MULTIPART_SUFFIXES. Cut at the last dot, so a session id may hold dots."""
+    for suffix in MULTIPART_SUFFIXES:
+        if file_name.endswith(suffix):
+            return file_name[: -len(suffix)]
+    return file_name.rsplit(".", 1)[0]
+
+
+def _is_session_live(session_id: str, cutoff: float) -> bool:
+    """Does this session still live: its marker, daemon lease or scope written
+    since `cutoff`? A live daemon renews its lease every few minutes; a file
+    that does not read is no sign of life."""
     for path in (marker_path(session_id), lease_path(session_id), scope_path(session_id)):
         try:
             if path.stat().st_mtime >= cutoff:
@@ -1585,10 +1601,11 @@ def daemon_allows_agent(matched: str) -> bool:
 #: person and labels it as from an agent session, never as the researcher.
 #: `session owed` reads the session's own owed ledger (notes parity N3); the
 #: plugin's end-of-turn hook runs it, and the agent may too. `session home show`
-#: prints where this session's runs go, as `session status` does.
+#: prints where this session's runs go, as `session status` does. `cli search`
+#: searches this CLI's own commands, on this computer.
 DAEMON_PROFILE_ALLOWED = frozenset(
     {"ask", "session status", "session parent", "session send", "ignore check", "run expect", "doctor", "paper find",
-     "docs", "feedback send", "approvals", "outbox status", "run check", "sync", "artifact download",
+     "docs", "cli search", "feedback send", "approvals", "outbox status", "run check", "sync", "artifact download",
      "daemon status", "whoami", "context list", "wandb discover", "wandb key status",
      "update", "status", "flush", "service status", "service start", "service stop", "service check-now",
      "token list", "context show", "outbox drain", "outbox retry", "outbox watch", "statusline status",

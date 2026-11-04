@@ -81,7 +81,9 @@ class PrivateScheduleSDK(BaseSDK):
             )
 
         # Resolve connection names to IDs
-        connection_ids = self._job_sdk.resolve_connection_ids(job_config.connections)
+        connection_ids, connection_config_ids = self._job_sdk.resolve_connection_ids(
+            job_config.connections
+        )
 
         schedule: DecoratedSchedule = self.client.apply_schedule(
             CreateSchedule(
@@ -93,6 +95,7 @@ class PrivateScheduleSDK(BaseSDK):
                     cloud_id=cloud_id,
                     compute_config_id=compute_config_id,
                     connection_ids=connection_ids,
+                    connection_config_ids=connection_config_ids,
                 ),
                 job_queue_config=job_queue_config,
                 schedule=BackendScheduleConfig(
@@ -227,8 +230,10 @@ class PrivateScheduleSDK(BaseSDK):
 
             # Resolve connections from IDs if present
             connections = (
-                self._job_sdk.resolve_connection_ids_to_configs(prod_job_config.connection_ids)
-                if prod_job_config and prod_job_config.connection_ids
+                self._job_sdk.resolve_connection_ids_to_configs(
+                    prod_job_config.connection_ids, prod_job_config.connection_config_ids
+                )
+                if prod_job_config
                 else None
             )
 

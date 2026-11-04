@@ -9,6 +9,7 @@ from fivetran_connector_sdk_common.helpers import (
     _validate_schema,
 )
 from fivetran_connector_sdk_common.logger import Logging
+from fivetran_connector_sdk_cli.regression_test.max_record_helper import MaxRecordHandler
 from fivetran_connector_sdk_cli import runtime
 from fivetran_connector_sdk_cli.file_upload import FileUpload, file_upload_chunks, validate_file_upload_if_present
 from fivetran_connector_sdk_cli.records import Checkpoint, RecordType, Task, Warning, make_record, make_truncate
@@ -31,6 +32,7 @@ class Operations:
         """
         _validate_table_name(table)
         _validate_schema(schema)
+        MaxRecordHandler.raise_if_cap_reached()
         record = _build_row_data_record(schema, table, data, RecordType.UPSERT, file)
         _emit_record(schema, table, record, file)
 
@@ -46,11 +48,12 @@ class Operations:
         """
         _validate_table_name(table)
         _validate_schema(schema)
+        MaxRecordHandler.raise_if_cap_reached()
         record = _build_row_data_record(schema, table, modified, RecordType.UPDATE, file)
         _emit_record(schema, table, record, file)
 
     @staticmethod
-    def truncate(table: str, *, schema: Optional[str] = None):
+    def truncate(table: str, *, schema: Optional[str] = None, deferred: bool = False):
         """Marks all existing rows in the specified table as deleted.
 
         This operation performs a soft delete on all rows by setting _fivetran_deleted = TRUE.
@@ -59,13 +62,16 @@ class Operations:
         Args:
             table (str): The name of the table to truncate.
             schema (str, optional): The name of the source schema this table belongs to.
+            deferred (bool, optional): If True, the truncate is applied only after update() returns
+                successfully, instead of at the next checkpoint. If the sync fails, nothing is deleted.
+                Defaults to False.
 
         Returns:
             None
         """
         _validate_table_name(table)
         _validate_schema(schema)
-        truncate = make_truncate(table, schema)
+        truncate = make_truncate(table, schema, deferred)
         with runtime.producer_lock:
             runtime.current().truncate(truncate)
 
@@ -80,8 +86,9 @@ class Operations:
         """
         _validate_table_name(table)
         _validate_schema(schema)
+        MaxRecordHandler.raise_if_cap_reached()
         columns = _get_columns(schema, table)
-        encoded_data = encode_row_data(columns, keys)
+        encoded_data = encode_row_data(columns, keys, table)
         record = make_record(table, RecordType.DELETE, encoded_data, schema)
         with runtime.producer_lock:
             runtime.current().record(record)
@@ -181,7 +188,7 @@ def _build_row_data_record(schema: Optional[str], table: str, data: dict, record
     validate_file_upload_if_present(file_upload)
 
     columns = _get_columns(schema, table)
-    encoded_data = encode_row_data(columns, data)
+    encoded_data = encode_row_data(columns, data, table)
     if file_upload is not None:
         if FIVETRAN_FILE_PATH_COLUMN in data and not Operations._file_path_override_logged:
             print_library_log(

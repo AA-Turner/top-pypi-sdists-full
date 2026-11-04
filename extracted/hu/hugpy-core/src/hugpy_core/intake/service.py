@@ -72,6 +72,13 @@ def presence(worker, state, models, storage=None, resources=None):
         }
     if isinstance(state.get('settings_report'), dict):
         payload['settings_report'] = state['settings_report']
+    if (payload['data_service'].get('capabilities') or {}).get('physical_inventory') is False:
+        # A routable Discovery catalog is not a report of copies on this box.
+        payload['catalog'] = inventory
+        payload['models'] = [m['id'] for m in inventory if m.get('selectable') is not False]
+        payload['models_discovered'] = None
+        payload['models_local'] = []
+        payload['models_central'] = {}
     if isinstance(storage, dict):
         payload['storage'] = storage
     if isinstance(resources, dict):
@@ -88,6 +95,7 @@ def collect(worker, since=-1, wait=30):
     name = worker['name']
     query = '?' + urllib.parse.urlencode({'wait': wait, 'since': since}) if since >= 0 else ''
     state = get(worker, '/v1/telemetry/state' + query, 60)
+    capabilities = (state.get('data_service') or {}).get('capabilities') or {}
     health = get(worker, '/health', 5)
     store_id = str(state.get("store_id") or "")
     db = store()
@@ -116,7 +124,7 @@ def collect(worker, since=-1, wait=30):
         raise ValueError('worker did not return a model inventory')
     try:
         # This is the worker's HTTP storage survey, not a local filesystem walk.
-        storage = get(worker, '/storage', 30)
+        storage = get(worker, '/storage', 30) if capabilities.get('storage') is not False else None
     except Exception as exc:
         log.warning('%s: storage survey unavailable: %s', name, exc)
         storage = None
@@ -160,7 +168,8 @@ def collect(worker, since=-1, wait=30):
         log.exception('%s: planner refresh failed', name)
     try:
         from hugpy_core.intake.fact_exchange import schedule
-        schedule(worker)
+        if capabilities.get('fact_exchange') is not False:
+            schedule(worker)
     except Exception:
         log.exception('%s: identified fact exchange failed', name)
     # models-db-v1: when the Wrapper advertises a models DB, mirror its changed

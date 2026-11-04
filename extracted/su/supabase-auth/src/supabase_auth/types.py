@@ -1,23 +1,19 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from time import time
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Literal, NotRequired
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, with_config
-
-try:
-    # > 2
-    from pydantic import model_validator
-
-    model_validator_v1_v2_compat = model_validator(mode="before")
-except ImportError:
-    # < 2
-    from pydantic import root_validator
-
-    model_validator_v1_v2_compat = root_validator  # type: ignore
-
-from typing_extensions import Literal, NotRequired, TypedDict
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    model_validator,
+    with_config,
+)
+from typing_extensions import TypedDict
 
 Provider = Literal[
     "apple",
@@ -72,7 +68,7 @@ class AMREntry(BaseModel):
     identity and at what time.
     """
 
-    method: Union[Literal["password", "otp", "oauth", "mfa/totp"], str]
+    method: Literal["password", "otp", "oauth", "mfa/totp"] | str
     """
     Authentication method name.
     """
@@ -85,7 +81,7 @@ class AMREntry(BaseModel):
 
 class AMREntryDict(TypedDict):
     timestamp: int
-    method: Union[Literal["password", "otp", "oauth", "mfa/totp"], str]
+    method: Literal["password", "otp", "oauth", "mfa/totp"] | str
 
 
 class Options(TypedDict):
@@ -103,14 +99,14 @@ class InviteUserByEmailOptions(TypedDict):
 
 
 class AuthResponse(BaseModel):
-    user: Optional[User] = None
-    session: Optional[Session] = None
+    user: User | None = None
+    session: Session | None = None
 
 
 class AuthOtpResponse(BaseModel):
     user: None = None
     session: None = None
-    message_id: Optional[str] = None
+    message_id: str | None = None
 
 
 class OAuthResponse(BaseModel):
@@ -127,11 +123,11 @@ class LinkIdentityResponse(BaseModel):
 
 
 class IdentitiesResponse(BaseModel):
-    identities: List[UserIdentity]
+    identities: list[UserIdentity]
 
 
 class UserList(BaseModel):
-    users: List[User]
+    users: list[User]
 
 
 class UserResponse(BaseModel):
@@ -139,12 +135,12 @@ class UserResponse(BaseModel):
 
 
 class Session(BaseModel):
-    provider_token: Optional[str] = None
+    provider_token: str | None = None
     """
     The oauth provider token. If present, this can be used to make external API
     requests to the oauth provider used.
     """
-    provider_refresh_token: Optional[str] = None
+    provider_refresh_token: str | None = None
     """
     The oauth provider refresh token. If present, this can be used to refresh
     the provider_token via the oauth provider's API.
@@ -160,30 +156,29 @@ class Session(BaseModel):
     The number of seconds until the token expires (since it was issued).
     Returned when a login is confirmed.
     """
-    expires_at: Optional[int] = None
+    expires_at: int | None = None
     """
     A timestamp of when the token will expire. Returned when a login is confirmed.
     """
     token_type: str
     user: User
 
-    @model_validator_v1_v2_compat
-    def validator(cls, values: dict) -> dict:
-        expires_in = values.get("expires_in")
-        if expires_in and not values.get("expires_at"):
-            values["expires_at"] = round(time()) + expires_in
-        return values
+    @model_validator(mode="after")
+    def validator(self) -> Session:
+        if self.expires_in and not self.expires_at:
+            self.expires_at = round(time()) + self.expires_in
+        return self
 
 
 class UserIdentity(BaseModel):
     id: str
     identity_id: str
     user_id: str
-    identity_data: Dict[str, Any]
+    identity_data: dict[str, Any]
     provider: str
     created_at: datetime
-    last_sign_in_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    last_sign_in_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class Factor(BaseModel):
@@ -195,11 +190,15 @@ class Factor(BaseModel):
     """
     ID of the factor.
     """
-    friendly_name: Optional[str] = None
+    friendly_name: str | None = None
     """
     Friendly name of the factor, useful to disambiguate between multiple factors.
     """
-    factor_type: Union[Literal["totp", "phone"], str]
+    phone: str | None = None
+    """
+    Phone number associated with a phone factor.
+    """
+    factor_type: Literal["totp", "phone"] | str
     """
     Type of factor. Only `totp` supported with this version but may change in
     future versions.
@@ -214,31 +213,31 @@ class Factor(BaseModel):
 
 class User(BaseModel):
     id: str
-    app_metadata: Dict[str, Any]
-    user_metadata: Dict[str, Any]
+    app_metadata: dict[str, Any]
+    user_metadata: dict[str, Any]
     aud: str
-    confirmation_sent_at: Optional[datetime] = None
-    recovery_sent_at: Optional[datetime] = None
-    email_change_sent_at: Optional[datetime] = None
-    new_email: Optional[str] = None
-    new_phone: Optional[str] = None
-    invited_at: Optional[datetime] = None
-    action_link: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
+    confirmation_sent_at: datetime | None = None
+    recovery_sent_at: datetime | None = None
+    email_change_sent_at: datetime | None = None
+    new_email: str | None = None
+    new_phone: str | None = None
+    invited_at: datetime | None = None
+    action_link: str | None = None
+    email: str | None = None
+    phone: str | None = None
     created_at: datetime
-    confirmed_at: Optional[datetime] = None
-    email_confirmed_at: Optional[datetime] = None
-    phone_confirmed_at: Optional[datetime] = None
-    last_sign_in_at: Optional[datetime] = None
-    role: Optional[str] = None
-    updated_at: Optional[datetime] = None
-    identities: Optional[List[UserIdentity]] = None
+    confirmed_at: datetime | None = None
+    email_confirmed_at: datetime | None = None
+    phone_confirmed_at: datetime | None = None
+    last_sign_in_at: datetime | None = None
+    role: str | None = None
+    updated_at: datetime | None = None
+    identities: list[UserIdentity] | None = None
     is_anonymous: bool = False
     is_sso_user: bool = False
-    factors: Optional[List[Factor]] = None
-    deleted_at: Optional[str] = None
-    banned_until: Optional[str] = None
+    factors: list[Factor] | None = None
+    deleted_at: str | None = None
+    banned_until: str | None = None
 
 
 class UserAttributes(TypedDict):
@@ -255,7 +254,7 @@ class AdminUserAttributes(UserAttributes, TypedDict):
     app_metadata: NotRequired[Any]
     email_confirm: NotRequired[bool]
     phone_confirm: NotRequired[bool]
-    ban_duration: NotRequired[Union[str, Literal["none"]]]
+    ban_duration: NotRequired[str | Literal["none"]]
     role: NotRequired[str]
     """
     The `role` claim set in the user's access token JWT.
@@ -285,7 +284,7 @@ class Subscription(BaseModel):
     """
     The subscriber UUID. This will be set by the client.
     """
-    callback: Callable[[AuthChangeEvent, Optional[Session]], None]
+    callback: Callable[[AuthChangeEvent, Session | None], None]
     """
     The function to call every time there is an event.
     """
@@ -325,10 +324,9 @@ class SignUpWithPhoneAndPasswordCredentials(TypedDict):
     options: NotRequired[SignUpWithPhoneAndPasswordCredentialsOptions]
 
 
-SignUpWithPasswordCredentials = Union[
-    SignUpWithEmailAndPasswordCredentials,
-    SignUpWithPhoneAndPasswordCredentials,
-]
+SignUpWithPasswordCredentials = (
+    SignUpWithEmailAndPasswordCredentials | SignUpWithPhoneAndPasswordCredentials
+)
 
 
 class SignInWithPasswordCredentialsOptions(TypedDict):
@@ -348,10 +346,9 @@ class SignInWithPhoneAndPasswordCredentials(TypedDict):
     options: NotRequired[SignInWithPasswordCredentialsOptions]
 
 
-SignInWithPasswordCredentials = Union[
-    SignInWithEmailAndPasswordCredentials,
-    SignInWithPhoneAndPasswordCredentials,
-]
+SignInWithPasswordCredentials = (
+    SignInWithEmailAndPasswordCredentials | SignInWithPhoneAndPasswordCredentials
+)
 
 
 class SignInWithIdTokenCredentials(TypedDict):
@@ -394,10 +391,10 @@ class SignInWithPhoneAndPasswordlessCredentials(TypedDict):
     options: NotRequired[SignInWithPhoneAndPasswordlessCredentialsOptions]
 
 
-SignInWithPasswordlessCredentials = Union[
-    SignInWithEmailAndPasswordlessCredentials,
-    SignInWithPhoneAndPasswordlessCredentials,
-]
+SignInWithPasswordlessCredentials = (
+    SignInWithEmailAndPasswordlessCredentials
+    | SignInWithPhoneAndPasswordlessCredentials
+)
 
 
 class ResendEmailCredentialsOptions(TypedDict):
@@ -421,13 +418,13 @@ class ResendPhoneCredentials(TypedDict):
     options: NotRequired[ResendPhoneCredentialsOptions]
 
 
-ResendCredentials = Union[ResendEmailCredentials, ResendPhoneCredentials]
+ResendCredentials = ResendEmailCredentials | ResendPhoneCredentials
 
 
 class SignInWithOAuthCredentialsOptions(TypedDict):
     redirect_to: NotRequired[str]
     scopes: NotRequired[str]
-    query_params: NotRequired[Dict[str, str]]
+    query_params: NotRequired[dict[str, str]]
 
 
 class SignInWithOAuthCredentials(TypedDict):
@@ -483,9 +480,7 @@ class VerifyTokenHashParams(TypedDict):
     options: NotRequired[VerifyOtpParamsOptions]
 
 
-VerifyOtpParams = Union[
-    VerifyEmailOtpParams, VerifyMobileOtpParams, VerifyTokenHashParams
-]
+VerifyOtpParams = VerifyEmailOtpParams | VerifyMobileOtpParams | VerifyTokenHashParams
 
 
 class GenerateLinkParamsOptions(TypedDict):
@@ -522,12 +517,12 @@ class GenerateEmailChangeLinkParams(TypedDict):
     options: NotRequired[GenerateLinkParamsOptions]
 
 
-GenerateLinkParams = Union[
-    GenerateSignupLinkParams,
-    GenerateInviteOrMagiclinkParams,
-    GenerateRecoveryLinkParams,
-    GenerateEmailChangeLinkParams,
-]
+GenerateLinkParams = (
+    GenerateSignupLinkParams
+    | GenerateInviteOrMagiclinkParams
+    | GenerateRecoveryLinkParams
+    | GenerateEmailChangeLinkParams
+)
 
 GenerateLinkType = Literal[
     "signup",
@@ -551,7 +546,7 @@ class MFAEnrollPhoneParams(TypedDict):
     phone: str
 
 
-MFAEnrollParams = Union[MFAEnrollTOTPParams, MFAEnrollPhoneParams]
+MFAEnrollParams = MFAEnrollTOTPParams | MFAEnrollPhoneParams
 
 
 class MFAUnenrollParams(TypedDict):
@@ -562,15 +557,15 @@ class MFAUnenrollParams(TypedDict):
 
 
 class CodeExchangeParams(TypedDict):
-    code_verifier: str
+    code_verifier: NotRequired[str]
     """
-    Randomly generated string
+    Randomly generated string. Defaults to the verifier stored by the PKCE flow.
     """
     auth_code: str
     """
     Code returned after completing one of the authorization flows
     """
-    redirect_to: str
+    redirect_to: NotRequired[str]
     """
     The URL to route to after a session is successfully obtained
     """
@@ -662,7 +657,7 @@ class AuthMFAEnrollResponse(BaseModel):
     """
     Type of MFA factor. Only `totp` supported for now.
     """
-    totp: Optional[AuthMFAEnrollResponseTotp] = None
+    totp: AuthMFAEnrollResponseTotp | None = None
     """
     TOTP enrollment information.
     """
@@ -671,16 +666,16 @@ class AuthMFAEnrollResponse(BaseModel):
     """
     Friendly name of the factor, useful for distinguishing between factors
     """
-    phone: Optional[str] = None
+    phone: str | None = None
     """
     Phone number of the MFA factor in E.164 format. Used to send messages
     """
 
-    @model_validator_v1_v2_compat
-    def validate_phone_required_for_phone_type(cls, values: dict) -> dict:
-        if values.get("type") == "phone" and not values.get("phone"):
+    @model_validator(mode="after")
+    def validate_phone_required_for_phone_type(self) -> AuthMFAEnrollResponse:
+        if self.type == "phone" and not self.phone:
             raise ValueError("phone is required when type is 'phone'")
-        return values
+        return self
 
 
 class AuthMFAUnenrollResponse(BaseModel):
@@ -699,7 +694,7 @@ class AuthMFAChallengeResponse(BaseModel):
     """
     Timestamp in UNIX seconds when this challenge will no longer be usable.
     """
-    factor_type: Optional[Literal["totp", "phone"]] = Field(
+    factor_type: Literal["totp", "phone"] | None = Field(
         validation_alias="type", default=None
     )
     """
@@ -708,15 +703,15 @@ class AuthMFAChallengeResponse(BaseModel):
 
 
 class AuthMFAListFactorsResponse(BaseModel):
-    all: List[Factor]
+    all: list[Factor]
     """
     All available factors (verified and unverified).
     """
-    totp: List[Factor]
+    totp: list[Factor]
     """
     Only verified TOTP factors. (A subset of `all`.)
     """
-    phone: List[Factor]
+    phone: list[Factor]
     """
     Only verified Phone factors. (A subset of `all`.)
     """
@@ -726,16 +721,16 @@ AuthenticatorAssuranceLevels = Literal["aal1", "aal2"]
 
 
 class AuthMFAGetAuthenticatorAssuranceLevelResponse(BaseModel):
-    current_level: Optional[AuthenticatorAssuranceLevels] = None
+    current_level: AuthenticatorAssuranceLevels | None = None
     """
     Current AAL level of the session.
     """
-    next_level: Optional[AuthenticatorAssuranceLevels] = None
+    next_level: AuthenticatorAssuranceLevels | None = None
     """
     Next possible AAL level for the session. If the next level is higher
     than the current one, the user should go through MFA.
     """
-    current_authentication_methods: List[AMREntry]
+    current_authentication_methods: list[AMREntry]
     """
     A list of all authentication methods attached to this session. Use
     the information here to detect the last time a user verified a
@@ -761,7 +756,7 @@ class AuthMFAAdminDeleteFactorParams(TypedDict):
     """
 
 
-AuthMFAAdminListFactorsResponse = List[Factor]
+AuthMFAAdminListFactorsResponse = list[Factor]
 
 AuthMFAAdminListFactorsResponseParser: TypeAdapter[AuthMFAAdminListFactorsResponse] = (
     TypeAdapter(AuthMFAAdminListFactorsResponse)
@@ -813,8 +808,8 @@ class GenerateLinkResponse(BaseModel):
 
 class DecodedJWTDict(TypedDict):
     exp: NotRequired[int]
-    aal: NotRequired[Optional[AuthenticatorAssuranceLevels]]
-    amr: NotRequired[Optional[List[AMREntry]]]
+    aal: NotRequired[AuthenticatorAssuranceLevels | None]
+    amr: NotRequired[list[AMREntry] | None]
 
 
 SignOutScope = Literal["global", "local", "others"]
@@ -824,12 +819,10 @@ class SignOutOptions(TypedDict):
     scope: NotRequired[SignOutScope]
 
 
-@with_config(
-    ConfigDict(extra="allow")
-)  # pydantic <2.7.0 with_config does not accept kwargs
+@with_config(ConfigDict(extra="allow"))
 class JWTHeader(TypedDict):
     alg: Literal["RS256", "ES256", "HS256"]
-    typ: str
+    typ: NotRequired[str]
     kid: NotRequired[str]
 
 
@@ -837,7 +830,7 @@ class JWTHeader(TypedDict):
 class RequiredClaims(TypedDict):
     iss: str
     sub: str
-    auth: Union[str, List[str]]
+    auth: str | list[str]
     exp: int
     iat: int
     role: str
@@ -845,19 +838,17 @@ class RequiredClaims(TypedDict):
     session_id: str
 
 
-@with_config(
-    ConfigDict(extra="allow")
-)  # pydantic <2.7.0 with_config does not accept kwargs
+@with_config(ConfigDict(extra="allow"))
 class JWTPayload(TypedDict, total=False):
     iss: str
     sub: str
-    auth: Union[str, List[str]]
+    auth: str | list[str]
     exp: int
     iat: int
     role: str
     aal: AuthenticatorAssuranceLevels
     session_id: str
-    amr: NotRequired[List[AMREntryDict]]
+    amr: NotRequired[list[AMREntryDict]]
 
 
 class ClaimsResponse(TypedDict):
@@ -866,18 +857,16 @@ class ClaimsResponse(TypedDict):
     signature: bytes
 
 
-@with_config(
-    ConfigDict(extra="allow")
-)  # pydantic <2.7.0 with_config does not accept kwargs
+@with_config(ConfigDict(extra="allow"))
 class JWK(TypedDict, total=False):
     kty: Literal["RSA", "EC", "oct"]
-    key_ops: List[str]
-    alg: Optional[str]
-    kid: Optional[str]
+    key_ops: list[str]
+    alg: str | None
+    kid: str | None
 
 
 class JWKSet(TypedDict):
-    keys: List[JWK]
+    keys: list[JWK]
 
 
 OAuthClientGrantType = Literal["authorization_code", "refresh_token"]
@@ -921,9 +910,9 @@ class OAuthClient(BaseModel):
 
     client_id: str
     """Unique client identifier"""
-    client_name: str
+    client_name: str | None = None
     """Human-readable name of the client application"""
-    client_secret: Optional[str] = None
+    client_secret: str | None = None
     """Client secret for confidential clients (only returned on registration/regeneration)"""
     client_type: OAuthClientType
     """Type of the client"""
@@ -931,17 +920,17 @@ class OAuthClient(BaseModel):
     """Authentication method for the token endpoint"""
     registration_type: OAuthClientRegistrationType
     """Registration type of the client"""
-    client_uri: Optional[str] = None
+    client_uri: str | None = None
     """URL of the client application's homepage"""
-    logo_uri: Optional[str] = None
+    logo_uri: str | None = None
     """URL of the client application's logo"""
-    redirect_uris: List[str]
+    redirect_uris: list[str]
     """Array of redirect URIs used by the client"""
-    grant_types: List[OAuthClientGrantType]
+    grant_types: list[OAuthClientGrantType]
     """OAuth grant types the client is authorized to use"""
-    response_types: List[OAuthClientResponseType]
+    response_types: list[OAuthClientResponseType]
     """OAuth response types the client can use"""
-    scope: Optional[str] = None
+    scope: str | None = None
     """Space-separated list of scope values"""
     created_at: str
     """Timestamp when the client was created"""
@@ -957,17 +946,17 @@ class CreateOAuthClientParams(BaseModel):
 
     client_name: str
     """Human-readable name of the OAuth client"""
-    client_uri: Optional[str] = None
+    client_uri: str | None = None
     """URL of the client application's homepage"""
-    logo_uri: Optional[str] = None
+    logo_uri: str | None = None
     """URL of the client application's logo"""
-    redirect_uris: List[str]
+    redirect_uris: list[str]
     """Array of redirect URIs used by the client"""
-    grant_types: Optional[List[OAuthClientGrantType]] = None
+    grant_types: list[OAuthClientGrantType] | None = None
     """OAuth grant types the client is authorized to use (optional, defaults to authorization_code and refresh_token)"""
-    response_types: Optional[List[OAuthClientResponseType]] = None
+    response_types: list[OAuthClientResponseType] | None = None
     """OAuth response types the client can use (optional, defaults to code)"""
-    scope: Optional[str] = None
+    scope: str | None = None
     """Space-separated list of scope values"""
 
 
@@ -977,15 +966,15 @@ class UpdateOAuthClientParams(BaseModel):
     Only relevant when the OAuth 2.1 server is enabled in Supabase Auth.
     """
 
-    client_name: Optional[str] = None
+    client_name: str | None = None
     """Human-readable name of the OAuth client"""
-    client_uri: Optional[str] = None
+    client_uri: str | None = None
     """URI of the OAuth client"""
-    logo_uri: Optional[str] = None
+    logo_uri: str | None = None
     """URI of the OAuth client's logo"""
-    redirect_uris: Optional[List[str]] = None
+    redirect_uris: list[str] | None = None
     """Array of allowed redirect URIs"""
-    grant_types: Optional[List[OAuthClientGrantType]] = None
+    grant_types: list[OAuthClientGrantType] | None = None
     """Array of allowed grant types"""
 
 
@@ -995,7 +984,7 @@ class OAuthClientResponse(BaseModel):
     Only relevant when the OAuth 2.1 server is enabled in Supabase Auth.
     """
 
-    client: Optional[OAuthClient] = None
+    client: OAuthClient | None = None
 
 
 class Pagination(BaseModel):
@@ -1003,7 +992,7 @@ class Pagination(BaseModel):
     Pagination information for list responses.
     """
 
-    next_page: Optional[int] = None
+    next_page: int | None = None
     last_page: int = 0
     total: int = 0
 
@@ -1014,9 +1003,9 @@ class OAuthClientListResponse(BaseModel):
     Only relevant when the OAuth 2.1 server is enabled in Supabase Auth.
     """
 
-    clients: List[OAuthClient]
-    aud: Optional[str] = None
-    next_page: Optional[int] = None
+    clients: list[OAuthClient] = Field(default_factory=list)
+    aud: str | None = None
+    next_page: int | None = None
     last_page: int = 0
     total: int = 0
 
@@ -1026,7 +1015,7 @@ class PageParams(BaseModel):
     Pagination parameters.
     """
 
-    page: Optional[int] = None
+    page: int | None = None
     """Page number"""
-    per_page: Optional[int] = None
+    per_page: int | None = None
     """Number of items per page"""

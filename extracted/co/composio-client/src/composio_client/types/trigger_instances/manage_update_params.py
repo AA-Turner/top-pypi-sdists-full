@@ -1,11 +1,19 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.trigger_instances.manage_update_params."""
 
 from __future__ import annotations
 
-from typing_extensions import Literal, Required, TypedDict
+from typing import Literal
 
-__all__ = ["ManageUpdateParams"]
+from typing_extensions import NotRequired, TypedDict
 
 
 class ManageUpdateParams(TypedDict, total=False):
-    status: Required[Literal["enable", "disable"]]
+    status: NotRequired[Literal['enable', 'disable']]
+    user_id: NotRequired[str]
+    egress_url: NotRequired[str | None]
+
+
+__all__ = [
+    "ManageUpdateParams",
+]

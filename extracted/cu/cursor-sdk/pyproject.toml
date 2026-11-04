@@ -4,11 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cursor-sdk"
-version = "1.2.0"
+version = "1.3.1"
 description = "cursor-sdk requires a binary wheel - install from PyPI."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Proprietary - see LICENSE.md" }
+# hatchling's default globs treat LICENSE.md as a core-metadata
+# License-File. That field is invalid on metadata 2.1, which this
+# license table still produces. Empty globs keep the file in the
+# sdist without recording it as License-File.
+license-files = { globs = [] }
 authors = [{ name = "Anysphere", email = "support@cursor.com" }]
 
 [tool.hatch.build.targets.sdist]

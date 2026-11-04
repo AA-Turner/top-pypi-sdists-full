@@ -1,0 +1,1757 @@
+"""
+Tests for the `edx-enterprise` models module.
+"""
+
+import unittest
+from collections import OrderedDict
+from datetime import datetime, timedelta
+from unittest import mock
+
+import ddt
+from edx_django_utils.cache import TieredCache
+from opaque_keys.edx.keys import CourseKey
+from pytest import mark
+from slumber.exceptions import HttpClientError, HttpServerError
+from testfixtures import LogCapture
+
+from django.db import DatabaseError, transaction
+from django.test import TestCase, override_settings
+
+from consent.helpers import IMPLIED_CONSENT_CHANGE_REASON
+from consent.models import DataSharingConsent
+from enterprise.constants import ENTERPRISE_ADMIN_ROLE, ENTERPRISE_LEARNER_ROLE
+from enterprise.models import (
+    EnterpriseCourseEnrollment,
+    EnterpriseCustomer,
+    EnterpriseCustomerAdmin,
+    EnterpriseCustomerCatalog,
+    EnterpriseCustomerUser,
+    EnterpriseGroupMembership,
+    PendingEnrollment,
+    PendingEnterpriseCustomerAdminUser,
+    PendingEnterpriseCustomerUser,
+    SystemWideEnterpriseRole,
+    SystemWideEnterpriseUserRoleAssignment,
+)
+from enterprise.platform_support.utils import get_data_consent_share_cache_key
+from enterprise.signals import (
+    _unlink_enterprise_user_from_idp,
+    course_enrollment_changed_receiver,
+    create_enterprise_enrollment_receiver,
+    enterprise_unenrollment_receiver,
+    handle_enterprise_learner_passing_grade,
+    handle_enterprise_learner_subsection,
+    handle_social_auth_disconnect,
+    handle_user_post_save,
+    refund_order_voucher,
+    retire_user_from_pending_enterprise_customer_user,
+)
+from integrated_channels.integrated_channel.models import OrphanedContentTransmissions
+from test_utils import EmptyCacheMixin
+from test_utils.factories import (
+    ContentMetadataItemTransmissionFactory,
+    DataSharingConsentFactory,
+    EnterpriseCatalogQueryFactory,
+    EnterpriseCourseEnrollmentFactory,
+    EnterpriseCustomerCatalogFactory,
+    EnterpriseCustomerFactory,
+    EnterpriseCustomerIdentityProviderFactory,
+    EnterpriseCustomerUserFactory,
+    EnterpriseGroupMembershipFactory,
+    LearnerCreditEnterpriseCourseEnrollmentFactory,
+    PendingEnrollmentFactory,
+    PendingEnterpriseCustomerAdminUserFactory,
+    PendingEnterpriseCustomerUserFactory,
+    SAPSuccessFactorsEnterpriseCustomerConfigurationFactory,
+    SystemWideEnterpriseUserRoleAssignmentFactory,
+    UserFactory,
+)
+
+LOGGER_NAME = "enterprise.signals"
+TEST_EMAIL = "test@edx.org"
+TEST_ECOMMERCE_WORKER = 'ecommerce_worker'
+ORDER_NUMBER = 'EDX-000000001'
+
+
+@mark.django_db(transaction=True)
+@ddt.ddt
+class TestUserPostSaveSignalHandler(EmptyCacheMixin, unittest.TestCase):
+    """
+    Test User post_save signal handler.
+    """
+    def test_handle_user_post_save_no_user_instance_nothing_happens(self):
+        # precondition checks
+        assert PendingEnterpriseCustomerUser.objects.count() == 0
+        assert EnterpriseCustomerUser.objects.count() == 0
+
+        parameters = {"instance": None, "created": False}
+        with transaction.atomic():
+            handle_user_post_save(mock.Mock(), **parameters)
+
+        assert PendingEnterpriseCustomerUser.objects.count() == 0
+        assert EnterpriseCustomerUser.objects.count() == 0
+
+    def test_handle_user_post_save_no_matching_pending_link(self):
+        user = UserFactory(email="jackie.chan@hollywood.com")
+
+        assert PendingEnterpriseCustomerUser.objects.count() == 0, "Precondition check: no pending links available"
+        assert EnterpriseCustomerUser.objects.count() == 0, "Precondition check: no links exists"
+
+        parameters = {"instance": user, "created": True}
+        handle_user_post_save(mock.Mock(), **parameters)
+
+        assert PendingEnterpriseCustomerUser.objects.count() == 0
+        assert EnterpriseCustomerUser.objects.count() == 0
+
+    def test_handle_user_post_save_created_user(self):
+        email = "jackie.chan@hollywood.com"
+        user = UserFactory(id=1, email=email)
+        pending_link = PendingEnterpriseCustomerUserFactory(user_email=email)
+
+        assert EnterpriseCustomerUser.objects.filter(user_id=user.id).count() == 0, "Precondition check: no links exist"
+        assert PendingEnterpriseCustomerUser.objects.filter(user_email=email).count() == 1, \
+            "Precondition check: pending link exists"
+
+        parameters = {"instance": user, "created": True}
+        with transaction.atomic():
+            handle_user_post_save(mock.Mock(), **parameters)
+
+        assert PendingEnterpriseCustomerUser.objects.count() == 0
+        assert EnterpriseCustomerUser.objects.filter(
+            enterprise_customer=pending_link.enterprise_customer, user_id=user.id
+        ).count() == 1
+
+    def test_handle_user_post_save_created_user_multiple_enterprises(self):
+        email = "jackie.chan@hollywood.com"
+        user = UserFactory(id=1, email=email)
+        enterprise_customer = EnterpriseCustomerFactory()
+        enterprise_customer_2 = EnterpriseCustomerFactory()
+        PendingEnterpriseCustomerUserFactory(enterprise_customer=enterprise_customer, user_email=email)
+        PendingEnterpriseCustomerUserFactory(enterprise_customer=enterprise_customer_2, user_email=email)
+
+        assert EnterpriseCustomerUser.objects.filter(user_id=user.id).count() == 0, "Precondition check: no links exist"
+        assert PendingEnterpriseCustomerUser.objects.filter(user_email=email).count() == 2, \
+            "Precondition check: pending link exists"
+
+        parameters = {"instance": user, "created": True}
+        with transaction.atomic():
+            handle_user_post_save(mock.Mock(), **parameters)
+
+        assert PendingEnterpriseCustomerUser.objects.count() == 0
+        assert EnterpriseCustomerUser.objects.filter(
+            enterprise_customer=enterprise_customer, user_id=user.id
+        ).count() == 1
+        assert EnterpriseCustomerUser.objects.filter(
+            enterprise_customer=enterprise_customer_2, user_id=user.id
+        ).count() == 1
+
+    def test_handle_user_post_save_modified_user_not_linked(self):
+        email = "jackie.chan@hollywood.com"
+        user = UserFactory(id=1, email=email)
+        pending_link = PendingEnterpriseCustomerUserFactory(user_email=email)
+
+        assert EnterpriseCustomerUser.objects.filter(user_id=user.id).count() == 0, "Precondition check: no links exist"
+        assert PendingEnterpriseCustomerUser.objects.filter(user_email=email).count() == 1, \
+            "Precondition check: pending link exists"
+
+        parameters = {"instance": user, "created": False}
+        with transaction.atomic():
+            handle_user_post_save(mock.Mock(), **parameters)
+
+        assert PendingEnterpriseCustomerUser.objects.count() == 0
+        assert EnterpriseCustomerUser.objects.filter(
+            enterprise_customer=pending_link.enterprise_customer, user_id=user.id
+        ).count() == 1
+
+    @mock.patch('enterprise.utils.track_event')
+    @mock.patch('enterprise.models.track_enrollment')
+    @mock.patch('enterprise.models.EnrollmentApiClient')
+    def test_handle_user_post_save_with_pending_course_enrollment(
+            self,
+            mock_course_enrollment,
+            mock_track_enrollment,
+            mock_track_event  # pylint: disable=unused-argument
+    ):
+        mock_course_enrollment.enroll.return_value = None
+        email = "fake_email@edx.org"
+        user = UserFactory(id=1, email=email)
+        pending_link = PendingEnterpriseCustomerUserFactory(user_email=email)
+        pending_link.enterprise_customer.enable_autocohorting = True
+        pending_link.enterprise_customer.save()
+        course_id = 'course-v1:edX+DemoX+Demo_Course'
+        PendingEnrollmentFactory(user=pending_link, course_id=course_id, cohort_name='test_cohort')
+
+        assert EnterpriseCustomerUser.objects.filter(user_id=user.id).count() == 0, "Precondition check: no links exist"
+        assert PendingEnterpriseCustomerUser.objects.filter(user_email=email).count() == 1, \
+            "Precondition check: pending link exists"
+        assert PendingEnrollment.objects.filter(user=pending_link).count() == 1, \
+            'Precondition check: only one enrollment exists.'
+
+        mock_course_enrollment.return_value = mock.Mock(
+            get_course_enrollment=mock.Mock(
+                side_effect=[None, {'is_active': False, 'mode': 'verified'}]
+            ),
+            enroll_user_in_course=mock.Mock()
+        )
+        parameters = {'instance': user, "created": False}
+        with transaction.atomic():
+            handle_user_post_save(mock.Mock(), **parameters)
+        assert PendingEnterpriseCustomerUser.objects.count() == 0
+        assert EnterpriseCustomerUser.objects.filter(
+            enterprise_customer=pending_link.enterprise_customer, user_id=user.id
+        ).count() == 1
+        assert PendingEnrollment.objects.count() == 0
+        assert EnterpriseCourseEnrollment.objects.count() == 1
+        mock_course_enrollment.return_value.enroll_user_in_course.assert_called_once_with(
+            user.username,
+            course_id,
+            'audit',
+            cohort='test_cohort',
+            enterprise_uuid=str(pending_link.enterprise_customer.uuid)
+        )
+        mock_track_enrollment.assert_called_once_with('pending-admin-enrollment', user.id, course_id)
+
+    def test_handle_user_post_save_with_pending_enterprise_admin(self):
+        email = "jackie.chan@hollywood.com"
+        user = UserFactory(id=1, email=email)
+        enterprise_customer = EnterpriseCustomerFactory()
+        PendingEnterpriseCustomerAdminUserFactory(enterprise_customer=enterprise_customer, user_email=email)
+
+        assert PendingEnterpriseCustomerAdminUser.objects.filter(user_email=email).count() == 1, \
+            "Precondition check: pending admin user exists"
+
+        parameters = {"instance": user, "created": False}
+        handle_user_post_save(mock.Mock(), **parameters)
+
+        assert EnterpriseCustomerUser.objects.filter(user_id=user.id).count() == 1, \
+            "Precondition check: enterprise customer user exists"
+
+        enterprise_admin_role, __ = SystemWideEnterpriseRole.objects.get_or_create(name=ENTERPRISE_ADMIN_ROLE)
+        admin_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=user,
+            role=enterprise_admin_role,
+        )
+        assert admin_role_assignment.exists()
+
+        enterprise_customer_user = EnterpriseCustomerUser.objects.filter(user_id=user.id)
+        assert EnterpriseCustomerAdmin.objects.filter(
+            enterprise_customer_user=enterprise_customer_user.get()
+        ).count() == 1
+
+        assert PendingEnterpriseCustomerAdminUser.objects.filter(user_email=email).count() == 0, \
+            "Final check: pending admin user no longer exists"
+
+    def test_handle_user_post_save_modified_user_already_linked(self):
+        email = "jackie.chan@hollywood.com"
+        user = UserFactory(id=1, email=email)
+        enterprise_customer1, enterprise_customer2 = EnterpriseCustomerFactory(), EnterpriseCustomerFactory()
+        EnterpriseCustomerUserFactory(enterprise_customer=enterprise_customer1, user_id=user.id)
+        PendingEnterpriseCustomerUserFactory(enterprise_customer=enterprise_customer2, user_email=email)
+
+        assert EnterpriseCustomerUser.objects.filter(user_id=user.id).count() == 1, "Precondition check: links exists"
+        assert PendingEnterpriseCustomerUser.objects.filter(user_email=email).count() == 1, \
+            "Precondition check: pending link exists"
+
+        parameters = {"instance": user, "created": False}
+        handle_user_post_save(mock.Mock(), **parameters)
+
+        assert EnterpriseCustomerUser.objects.filter(user_id=user.id).count() == 2, "Should return 2 existing links"
+
+        link_1 = EnterpriseCustomerUser.objects.get(
+            user_id=user.id,
+            enterprise_customer=enterprise_customer1,
+        )
+        link_2 = EnterpriseCustomerUser.objects.get(
+            user_id=user.id,
+            enterprise_customer=enterprise_customer2,
+        )
+        assert link_1.enterprise_customer == enterprise_customer1
+        assert link_2.enterprise_customer == enterprise_customer2
+
+        assert PendingEnterpriseCustomerUser.objects.count() == 0, "Should delete pending link"
+
+    def test_handle_user_post_save_raw(self):
+        email = "jackie.chan@hollywood.com"
+        user = UserFactory(id=1, email=email)
+        PendingEnterpriseCustomerUserFactory(user_email=email)
+
+        assert EnterpriseCustomerUser.objects.filter(user_id=user.id).count() == 0, "Precondition check: no links exist"
+        assert PendingEnterpriseCustomerUser.objects.filter(user_email=email).count() == 1, \
+            "Precondition check: pending link exists"
+
+        parameters = {"instance": user, "created": False, "raw": True}
+        handle_user_post_save(mock.Mock(), **parameters)
+
+        assert EnterpriseCustomerUser.objects.filter(user_id=user.id).count() == 0, "Link have been created"
+        assert PendingEnterpriseCustomerUser.objects.filter(user_email=email).count() == 1, \
+            "Pending link should be kept"
+
+    def test_handle_user_post_save_fulfills_pending_group_memberships(self):
+        email = "jackie.chan@hollywood.com"
+        user = UserFactory(id=1, email=email)
+        pending_user = PendingEnterpriseCustomerUserFactory(user_email=email)
+        new_membership = EnterpriseGroupMembershipFactory(
+            pending_enterprise_customer_user=pending_user,
+            enterprise_customer_user=None
+        )
+        assert not new_membership.activated_at
+        assert new_membership.status == 'pending'
+
+        parameters = {"instance": user, "created": False}
+        handle_user_post_save(mock.Mock(), **parameters)
+        # Should delete pending link
+        assert PendingEnterpriseCustomerUser.objects.count() == 0
+        assert len(EnterpriseGroupMembership.objects.all()) == 1
+
+        new_enterprise_user = EnterpriseCustomerUser.objects.get(user_id=user.id)
+        membership = EnterpriseGroupMembership.objects.first()
+        assert membership.pending_enterprise_customer_user is None
+        assert membership.enterprise_customer_user == new_enterprise_user
+        assert membership.activated_at
+        assert membership.status == 'accepted'
+
+
+@mark.django_db
+@ddt.ddt
+class TestDefaultContentFilter(unittest.TestCase):
+    """
+    Tests for the content_filter field of the EnterpriseCustomerCatalog model.
+    """
+
+    @ddt.data(
+        (
+            {
+                'content_type': 'course',
+                'partner': 'edx'
+            },
+            {
+                'content_type': 'course',
+                'partner': 'edx'
+            }
+        ),
+        (
+            {
+                'content_type': 'course',
+                'level_type': [
+                    'Introductory',
+                    'Intermediate'
+                ],
+                'availability': [
+                    'Current',
+                    'Starting Soon',
+                    'Upcoming'
+                ],
+                'status': 'published'
+            },
+            {
+                'content_type': 'course',
+                'level_type': [
+                    'Introductory',
+                    'Intermediate'
+                ],
+                'availability': [
+                    'Current',
+                    'Starting Soon',
+                    'Upcoming'
+                ],
+                'status': 'published'
+            }
+        ),
+        # if the value is not set is settings, it picks default value from constant.
+        (
+            {},
+            {'content_type': 'course'}
+        )
+    )
+    @ddt.unpack
+    @mock.patch('enterprise.utils.DEFAULT_CATALOG_CONTENT_FILTER', {'content_type': 'course'})
+    def test_default_content_filter(self, default_content_filter, expected_content_filter):
+        """
+        Test that `EnterpriseCustomerCatalog`.content_filter is saved with correct default content filter.
+        """
+        with override_settings(ENTERPRISE_CUSTOMER_CATALOG_DEFAULT_CONTENT_FILTER=default_content_filter):
+            enterprise_catalog = EnterpriseCustomerCatalogFactory(enterprise_catalog_query=None)
+            assert enterprise_catalog.content_filter == expected_content_filter
+
+
+@mark.django_db
+class TestPendingEnterpriseAdminUserSignals(unittest.TestCase):
+    """
+    Test signals associated with PendingEnterpriseCustomerAdminUser.
+    """
+
+    def setUp(self):
+        """
+        Setup for `TestPendingEnterpriseAdminUserSignals` test.
+        """
+        self.admin_user = UserFactory(id=2, email='user@example.com')
+        self.enterprise_customer = EnterpriseCustomerFactory()
+        super().setUp()
+
+    def _assert_pending_ecus_exist(self, should_exist=True):
+        """
+        Assert whether ``PendingEnterpriseCustomerUser`` record(s) exist for the specified user
+        and enterprise customer.
+        """
+        pending_ecus = PendingEnterpriseCustomerUser.objects.filter(
+            user_email=self.admin_user.email,
+            enterprise_customer=self.enterprise_customer,
+        )
+        assert should_exist == pending_ecus.exists()
+
+    def test_create_pending_enterprise_admin_user(self):
+        """
+        Assert that creating a ``PendingEnterpriseCustomerAdminUser`` creates a ``PendingEnterpriseCustomerUser``.
+        """
+        # verify that PendingEnterpriseCustomerUser record does not yet exist.
+        self._assert_pending_ecus_exist(should_exist=False)
+
+        # create new PendingEnterpriseCustomerAdminUser
+        PendingEnterpriseCustomerAdminUserFactory(
+            user_email=self.admin_user.email,
+            enterprise_customer=self.enterprise_customer,
+        )
+
+        # verify that PendingEnterpriseCustomerUser record was created.
+        self._assert_pending_ecus_exist()
+
+    def test_delete_pending_enterprise_admin_user(self):
+        """
+        Assert that deleting a ``PendingEnterpriseCustomerAdminUser`` deletes its ``PendingEnterpriseCustomerUser``.
+        """
+        # create new PendingEnterpriseCustomerAdminUser
+        PendingEnterpriseCustomerAdminUserFactory(
+            user_email=self.admin_user.email,
+            enterprise_customer=self.enterprise_customer,
+        )
+
+        # verify that PendingEnterpriseCustomerUser record exists.
+        self._assert_pending_ecus_exist()
+
+        # delete the PendingEnterpriseCustomerAdminUser record and verify that the
+        # associated PendingEnterpriseCustomerUser is also deleted.
+        PendingEnterpriseCustomerAdminUser.objects.filter(
+            user_email=self.admin_user.email,
+            enterprise_customer=self.enterprise_customer,
+        ).delete()
+        self._assert_pending_ecus_exist(should_exist=False)
+
+
+@mark.django_db
+@ddt.ddt
+class TestEnterpriseAdminRoleSignals(unittest.TestCase):
+    """
+    Test signals associated with EnterpriseCustomerUser and the enterprise_admin role.
+    """
+
+    def setUp(self):
+        """
+        Setup for `TestEnterpriseAdminRoleSignals` test.
+        """
+        self.enterprise_admin_role, __ = SystemWideEnterpriseRole.objects.get_or_create(name=ENTERPRISE_ADMIN_ROLE)
+        self.admin_user = UserFactory(id=2, email='user@example.com')
+        self.enterprise_customer = EnterpriseCustomerFactory()
+        super().setUp()
+
+    def test_delete_enterprise_admin_role_assignment_success(self):
+        """
+        Test that when `EnterpriseCustomerUser` record is deleted, the associated
+        enterprise admin user role assignment is also deleted.
+        """
+        # create new EnterpriseCustomerUser and SystemWideEnterpriseUserRoleAssignment records.
+        EnterpriseCustomerUserFactory(
+            user_id=self.admin_user.id,
+            enterprise_customer=self.enterprise_customer,
+        )
+        SystemWideEnterpriseUserRoleAssignmentFactory(
+            user=self.admin_user,
+            role=self.enterprise_admin_role,
+            enterprise_customer=self.enterprise_customer,
+        )
+
+        # verify that a new admin role assignment was created.
+        admin_role_assignments = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.admin_user,
+            role=self.enterprise_admin_role,
+            enterprise_customer=self.enterprise_customer,
+        )
+        self.assertTrue(admin_role_assignments.exists())
+
+        # delete EnterpriseCustomerUser record and verify that admin role assignment is deleted as well.
+        EnterpriseCustomerUser.objects.filter(user_id=self.admin_user.id).delete()
+        admin_role_assignments = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.admin_user,
+            role=self.enterprise_admin_role,
+            enterprise_customer=self.enterprise_customer,
+        )
+        self.assertFalse(admin_role_assignments.exists())
+
+
+@mark.django_db
+@ddt.ddt
+class TestEnterpriseLearnerRoleSignals(unittest.TestCase):
+    """
+    Tests signals associated with EnterpriseCustomerUser and the enterprise_learner role.
+    """
+    def setUp(self):
+        """
+        Setup for `TestEnterpriseLearnerRoleSignals` test.
+        """
+        self.enterprise_learner_role, __ = SystemWideEnterpriseRole.objects.get_or_create(name=ENTERPRISE_LEARNER_ROLE)
+        self.learner_user = UserFactory(id=2, email='user@example.com')
+        self.enterprise_customer = EnterpriseCustomerFactory(
+            name='Team Titans',
+        )
+        self.second_enterprise_customer = EnterpriseCustomerFactory(
+            name='Duke',
+        )
+        super().setUp()
+
+    def test_assign_enterprise_learner_role_success(self):
+        """
+        Test that when a new `EnterpriseCustomerUser` record is created, `assign_enterprise_learner_role` assigns an
+        enterprise learner role to it.
+        """
+        enterprise_customer_user = EnterpriseCustomerUser.objects.filter(
+            user_id=self.learner_user.id
+        )
+        self.assertFalse(enterprise_customer_user.exists())
+
+        # Verify that no learner role assignment exists.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role
+        )
+        self.assertFalse(learner_role_assignment.exists())
+
+        # Create a new EnterpriseCustomerUser record.
+        EnterpriseCustomerUserFactory(
+            user_id=self.learner_user.id,
+            enterprise_customer=self.enterprise_customer,
+        )
+
+        enterprise_customer_user = EnterpriseCustomerUser.objects.filter(
+            user_id=self.learner_user.id
+        )
+        self.assertTrue(enterprise_customer_user.exists())
+
+        # Verify that now a new learner role assignment is created.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role
+        )
+        self.assertTrue(learner_role_assignment.exists())
+
+    def test_enterprise_learner_role_post_save_create(self):
+        """
+        Test that the "enterprise_learner" role is created when a new EnterpriseCustomerUser
+        record is created.
+        """
+        # Create a new EnterpriseCustomerUser record.
+        EnterpriseCustomerUserFactory(
+            user_id=self.learner_user.id,
+            enterprise_customer=self.enterprise_customer,
+        )
+        learner_role_assignments = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role,
+            enterprise_customer=self.enterprise_customer,
+        )
+        self.assertTrue(learner_role_assignments.exists())
+
+    def test_enterprise_learner_role_post_save_update(self):
+        """
+        Test "enterprise_learner" role is deleted when an EnterpriseCustomerUser
+        record is unlinked and that the "enterprise_learner" role is created when the
+        same EnterpriseCustomerUser record is re-linked.
+        """
+        # Create a new EnterpriseCustomerUser record
+        EnterpriseCustomerUserFactory(
+            user_id=self.learner_user.id,
+            enterprise_customer=self.enterprise_customer,
+        )
+
+        # Verify "enterprise_learner" role now exists
+        learner_role_assignments = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role,
+            enterprise_customer=self.enterprise_customer,
+        )
+        self.assertTrue(learner_role_assignments.exists())
+
+        # Unlink EnterpriseCustomerUser record
+        enterprise_customer_user = EnterpriseCustomerUser.objects.get(
+            user_id=self.learner_user.id,
+        )
+        enterprise_customer_user.linked = False
+        enterprise_customer_user.save()
+
+        # Verify "enterprise_learner" role is deleted when unlinking an EnterpriseCustomerUser
+        learner_role_assignments = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role
+        )
+        self.assertFalse(learner_role_assignments.exists())
+
+        # Re-link EnterpriseCustomerUser record
+        enterprise_customer_user.linked = True
+        enterprise_customer_user.save()
+
+        # Verify "enterprise_learner" role now exists again
+        learner_role_assignments = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role,
+            enterprise_customer=self.enterprise_customer,
+        )
+        self.assertTrue(learner_role_assignments.exists())
+
+    def test_assign_enterprise_learner_role_no_user_association(self):
+        """
+        Test that `assign_enterprise_learner_role` does not do anything if no User object is not associated with
+        `EnterpriseCustomerUser` record.
+        """
+        # Verify that no learner role assignment exists.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role
+        )
+        self.assertFalse(learner_role_assignment.exists())
+
+        # Create a new EnterpriseCustomerUser with no user associated.
+        EnterpriseCustomerUserFactory(
+            enterprise_customer=self.enterprise_customer,
+        )
+
+        # Verify that no learner role assignment exists.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role
+        )
+        self.assertFalse(learner_role_assignment.exists())
+
+    def test_delete_enterprise_learner_role_assignment_success(self):
+        """
+        Test that when `EnterpriseCustomerUser` record is deleted, `delete_enterprise_learner_role_assignment` also
+        deletes the enterprise learner role assignment associated with it.
+        """
+        # Create a new EnterpriseCustomerUser record.
+        EnterpriseCustomerUserFactory(
+            user_id=self.learner_user.id,
+            enterprise_customer=self.enterprise_customer,
+        )
+
+        enterprise_customer_user = EnterpriseCustomerUser.objects.filter(
+            user_id=self.learner_user.id
+        )
+        self.assertTrue(enterprise_customer_user.exists())
+
+        # Verify that now a new learner role assignment is created.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role
+        )
+        self.assertTrue(learner_role_assignment.exists())
+
+        # Delete EnterpriseCustomerUser record.
+        enterprise_customer_user.delete()
+
+        # Verify that enterprise_customer_user is deleted
+        enterprise_customer_user = EnterpriseCustomerUser.objects.filter(
+            user_id=self.learner_user.id
+        )
+        self.assertFalse(enterprise_customer_user.exists())
+
+        # Also verify that learner role assignment is deleted as well.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role
+        )
+        self.assertFalse(learner_role_assignment.exists())
+
+    def test_delete_single_enterprise_learner_role_assignment(self):
+        """
+        Test that when `EnterpriseCustomerUser` record is deleted, `delete_enterprise_learner_role_assignment`
+        also deletes the enterprise learner role assignment associated with the user's previously linked enterprise
+        customer. However. it should *not* delete the enterprise learner role assignment associated with other
+        enterprise customers.
+        """
+        # Create a new EnterpriseCustomerUser record.
+        EnterpriseCustomerUserFactory(
+            user_id=self.learner_user.id,
+            enterprise_customer=self.enterprise_customer,
+        )
+
+        # Create a EnterpriseCustomerUser record such that the user is linked to multiple enterprises.
+        EnterpriseCustomerUserFactory(
+            user_id=self.learner_user.id,
+            enterprise_customer=self.second_enterprise_customer,
+        )
+
+        # Verify that a new learner role assignment is created for both linked enterprise customers.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role,
+            enterprise_customer=self.enterprise_customer,
+        )
+        self.assertTrue(learner_role_assignment.exists())
+        second_learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role,
+            enterprise_customer=self.second_enterprise_customer,
+        )
+        self.assertTrue(second_learner_role_assignment.exists())
+
+        # Delete EnterpriseCustomerUser record.
+        enterprise_customer_user = EnterpriseCustomerUser.objects.get(
+            user_id=self.learner_user.id,
+            enterprise_customer=self.enterprise_customer,
+        )
+        enterprise_customer_user.delete()
+
+        # Verify appropriate learner role assignment is deleted, but the other
+        # learner role assignment remains.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role,
+            enterprise_customer=self.enterprise_customer,
+        )
+        self.assertFalse(learner_role_assignment.exists())
+        second_learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role,
+            enterprise_customer=self.second_enterprise_customer,
+        )
+        self.assertTrue(second_learner_role_assignment.exists())
+
+    def test_unlink_single_enterprise_learner_role_assignment(self):
+        """
+        Test that when `EnterpriseCustomerUser` record is unlinked, `assign_or_delete_enterprise_learner_role`
+        also deletes the enterprise learner role assignment associated with the user's previously linked enterprise
+        customer. However. it should *not* delete the enterprise learner role assignment associated with other
+        enterprise customers.
+        """
+        # Create a new EnterpriseCustomerUser record.
+        EnterpriseCustomerUserFactory(
+            user_id=self.learner_user.id,
+            enterprise_customer=self.enterprise_customer,
+        )
+
+        # Create a EnterpriseCustomerUser record such that the user is linked to multiple enterprises.
+        EnterpriseCustomerUserFactory(
+            user_id=self.learner_user.id,
+            enterprise_customer=self.second_enterprise_customer,
+        )
+
+        # Verify that a new learner role assignment is created for both linked enterprise customers.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role,
+            enterprise_customer=self.enterprise_customer,
+        )
+        self.assertTrue(learner_role_assignment.exists())
+        second_learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role,
+            enterprise_customer=self.second_enterprise_customer,
+        )
+        self.assertTrue(second_learner_role_assignment.exists())
+
+        # Unlink EnterpriseCustomerUser record.
+        enterprise_customer_user = EnterpriseCustomerUser.objects.get(
+            user_id=self.learner_user.id,
+            enterprise_customer=self.enterprise_customer,
+        )
+        enterprise_customer_user.linked = False
+        enterprise_customer_user.save()
+
+        # Verify appropriate learner role assignment is deleted, but the other
+        # learner role assignment remains.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role,
+            enterprise_customer=self.enterprise_customer,
+        )
+        self.assertFalse(learner_role_assignment.exists())
+        second_learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role,
+            enterprise_customer=self.second_enterprise_customer,
+        )
+        self.assertTrue(second_learner_role_assignment.exists())
+
+    def test_delete_enterprise_learner_role_assignment_no_role_assignment(self):
+        """
+        Test that when if no role assignment is associated with a deleted `EnterpriseCustomerUser` record,
+        `delete_enterprise_learner_role_assignment` does nothing.
+        """
+        # Create a new EnterpriseCustomerUser record.
+        EnterpriseCustomerUserFactory(
+            user_id=self.learner_user.id,
+            enterprise_customer=self.enterprise_customer,
+        )
+
+        enterprise_customer_user = EnterpriseCustomerUser.objects.filter(
+            user_id=self.learner_user.id
+        )
+        self.assertTrue(enterprise_customer_user.exists())
+
+        # Delete the role assignment record for tesing purposes.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role
+        )
+        learner_role_assignment.delete()
+
+        # Delete EnterpriseCustomerUser record.
+        enterprise_customer_user.delete()
+
+        # Verify that enterprise_customer_user is deleted
+        enterprise_customer_user = EnterpriseCustomerUser.objects.filter(
+            user_id=self.learner_user.id
+        )
+        self.assertFalse(enterprise_customer_user.exists())
+
+        # Also verify that no new learner role assignment is created hence won't be deleted.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role
+        )
+        self.assertFalse(learner_role_assignment.exists())
+
+    def test_delete_enterprise_learner_role_assignment_no_user_associated(self):
+        """
+        Test that when if no user is associated with a deleted `EnterpriseCustomerUser` record,
+        `delete_enterprise_learner_role_assignment` does nothing.
+        """
+        # Create a new EnterpriseCustomerUser with no user associated.
+        EnterpriseCustomerUserFactory(
+            enterprise_customer=self.enterprise_customer,
+        )
+
+        enterprise_customer_user = EnterpriseCustomerUser.objects.filter(
+            enterprise_customer=self.enterprise_customer
+        )
+        self.assertTrue(enterprise_customer_user.exists())
+
+        # Verify that no new learner role assignment is created.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role
+        )
+        self.assertFalse(learner_role_assignment.exists())
+
+        # Delete EnterpriseCustomerUser record.
+        enterprise_customer_user.delete()
+
+        # Verify that enterprise_customer_user is deleted
+        enterprise_customer_user = EnterpriseCustomerUser.objects.filter(
+            enterprise_customer=self.enterprise_customer
+        )
+        self.assertFalse(enterprise_customer_user.exists())
+
+        # Also verify that no new learner role assignment is created hence won't be deleted.
+        learner_role_assignment = SystemWideEnterpriseUserRoleAssignment.objects.filter(
+            user=self.learner_user,
+            role=self.enterprise_learner_role
+        )
+        self.assertFalse(learner_role_assignment.exists())
+
+
+@mark.django_db
+@ddt.ddt
+class TestCourseEnrollmentSignals(TestCase):
+    """
+    Tests signals associated with CourseEnrollments (that are found in edx-platform).
+    """
+    def setUp(self):
+        """
+        Setup for `TestCourseEnrollmentSignals` test.
+        """
+        self.user = UserFactory(id=2, email='user@example.com')
+        self.enterprise_customer = EnterpriseCustomerFactory(
+            name='Team Titans',
+        )
+        self.enterprise_customer_user = EnterpriseCustomerUserFactory(
+            user_id=self.user.id,
+            enterprise_customer=self.enterprise_customer,
+        )
+        self.non_enterprise_user = UserFactory(id=999, email='user999@example.com')
+        super().setUp()
+
+    @mock.patch('enterprise.tasks.create_enterprise_enrollment.apply_async')
+    def test_create_ece_receiver_calls_task_if_ecu_exists(self, mock_task):
+        """
+        Receiver should call a task
+        if user tied to the CourseEnrollment that is handed into the function
+        is an EnterpriseCustomerUser
+        """
+        sender = mock.Mock()  # This would be a CourseEnrollment class
+        instance = mock.Mock()  # This would be a CourseEnrollment instance
+        instance.user = self.user
+        instance.course_id = "fake:course_id"
+        # Signal metadata (note: 'signal' would be an actual object, but we dont need it here)
+        kwargs = {
+            'update_fields': None,
+            'raw': False,
+            'signal': '<django.db.models.signals.ModelSignal object at 0x7fcfc38b5e90>',
+            'using': 'default',
+            'created': True,
+        }
+
+        with self.captureOnCommitCallbacks(execute=True), \
+             override_settings(CREATE_ENTERPRISE_ENROLLMENT_TASK_COUNTDOWN=42):
+            create_enterprise_enrollment_receiver(sender, instance, **kwargs)
+        mock_task.assert_called_once_with((str(instance.course_id), self.enterprise_customer_user.id), countdown=42)
+
+    @mock.patch('enterprise.tasks.create_enterprise_enrollment.apply_async')
+    def test_create_ece_receiver_does_not_call_task_if_ecu_not_exists(self, mock_task):
+        """
+        Receiver should NOT call a task
+        if user tied to the CourseEnrollment that is handed into the function
+        is NOT an EnterpriseCustomerUser
+        """
+        sender = mock.Mock()  # This would be a CourseEnrollment class
+        instance = mock.Mock()  # This would be a CourseEnrollment instance
+        instance.user = self.non_enterprise_user
+        instance.course_id = "fake:course_id"
+        # Signal metadata (note: 'signal' would be an actual object, but we dont need it here)
+        kwargs = {
+            'update_fields': None,
+            'raw': False,
+            'signal': '<django.db.models.signals.ModelSignal object at 0x7fcfc38b5e90>',
+            'using': 'default',
+            'created': True,
+        }
+
+        create_enterprise_enrollment_receiver(sender, instance, **kwargs)
+        mock_task.assert_not_called()
+
+    @ddt.data(True, False)
+    def test_course_enrollment_changed_receiver(self, create_related_lc_fulfillment):
+        """
+        Test receiver that is supposed to handle course enrollments being reactivated (re-enrolled).
+        """
+        # Create an unenrolled EnterpriseCourseEnrollment.
+        enterprise_enrollment = EnterpriseCourseEnrollmentFactory(
+            enterprise_customer_user=self.enterprise_customer_user,
+            saved_for_later=True,
+            unenrolled=True,
+            unenrolled_at=datetime.now() - timedelta(days=1),
+        )
+
+        # Optionally create a revoked LearnerCreditEnterpriseCourseEnrollment.
+        lc_fulfillment = None
+        if create_related_lc_fulfillment:
+            lc_fulfillment = LearnerCreditEnterpriseCourseEnrollmentFactory(
+                enterprise_course_enrollment=enterprise_enrollment,
+                is_revoked=True,
+            )
+
+        # Simulate a previously inactive course enrollment being re-activated.
+        mock_enrollment_data = mock.Mock()
+        mock_enrollment_data.course.course_key = enterprise_enrollment.course_id
+        mock_enrollment_data.user.id = self.enterprise_customer_user.user.id
+        mock_enrollment_data.is_active = True
+        kwargs = {
+            'enrollment': mock_enrollment_data,
+        }
+        course_enrollment_changed_receiver(mock.Mock(), **kwargs)
+
+        # Make sure the previously inactive enterprise enrollment has now been re-activated in response to the system
+        # enrollment being re-activated.
+        enterprise_enrollment.refresh_from_db()
+        assert enterprise_enrollment.saved_for_later is False
+        assert enterprise_enrollment.unenrolled is False
+        assert enterprise_enrollment.unenrolled_at is None
+
+        # Make sure the related LC fulfillment is SILL REVOKED. Fulfillment re-activation is unsupported.
+        if create_related_lc_fulfillment:
+            lc_fulfillment.refresh_from_db()
+            assert lc_fulfillment.is_revoked is True
+
+    @mock.patch('enterprise.models.send_learner_credit_course_enrollment_revoked_event')
+    @ddt.data(True, False)
+    def test_enterprise_unenrollment_receiver(self, create_related_lc_fulfillment, mock_send_revoked_event):
+        """
+        Test receiver that is supposed to handle course enrollments being deactivated (unenrolled).
+        """
+        # Create an enrolled EnterpriseCourseEnrollment.
+        enterprise_enrollment = EnterpriseCourseEnrollmentFactory(
+            enterprise_customer_user=self.enterprise_customer_user,
+            saved_for_later=False,
+            unenrolled=None,
+            unenrolled_at=None,
+        )
+
+        # Optionally create an enrolled LearnerCreditEnterpriseCourseEnrollment.
+        lc_fulfillment = None
+        if create_related_lc_fulfillment:
+            lc_fulfillment = LearnerCreditEnterpriseCourseEnrollmentFactory(
+                enterprise_course_enrollment=enterprise_enrollment,
+            )
+
+        # Simulate a previously active course enrollment being deactivated.
+        mock_enrollment_data = mock.Mock()
+        mock_enrollment_data.course.course_key = enterprise_enrollment.course_id
+        mock_enrollment_data.user.id = self.enterprise_customer_user.user.id
+        mock_enrollment_data.is_active = False
+        kwargs = {
+            'enrollment': mock_enrollment_data,
+        }
+        enterprise_unenrollment_receiver(mock.Mock(), **kwargs)
+
+        # Make sure the previously active enterprise enrollment has now been deactivated in response to the system
+        # enrollment being deactivated.
+        enterprise_enrollment.refresh_from_db()
+        assert enterprise_enrollment.saved_for_later is True
+        assert enterprise_enrollment.unenrolled is True
+        assert enterprise_enrollment.unenrolled_at is not None
+
+        # Make sure the related LC fulfillment is also revoked, and a signal sent.
+        if create_related_lc_fulfillment:
+            lc_fulfillment.refresh_from_db()
+            assert lc_fulfillment.is_revoked is True
+            mock_send_revoked_event.assert_called_once()
+            event_fulfillment = mock_send_revoked_event.call_args.args[0]
+            assert event_fulfillment.uuid == lc_fulfillment.uuid
+        else:
+            mock_send_revoked_event.assert_not_called()
+
+
+@mark.django_db
+@ddt.ddt
+class TestImpliedDataSharingConsentSignal(TestCase):
+    """
+    Tests for the `grant_implied_data_sharing_consent_receiver` signal handler.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.enterprise_customer = EnterpriseCustomerFactory(
+            enforce_data_sharing_consent=EnterpriseCustomer.EXTERNALLY_MANAGED,
+        )
+        self.enterprise_customer_user = EnterpriseCustomerUserFactory(
+            enterprise_customer=self.enterprise_customer,
+        )
+        self.course_id = 'course-v1:edX+DemoX+Demo_Course'
+
+    def _get_consent_records(self):
+        return DataSharingConsent.objects.filter(
+            enterprise_customer=self.enterprise_customer,
+            username=self.enterprise_customer_user.username,
+            course_id=self.course_id,
+        )
+
+    def test_externally_managed_enrollment_grants_consent(self):
+        """
+        A new enrollment of a customer with externally managed consent gets a granted consent record.
+        """
+        EnterpriseCourseEnrollmentFactory(
+            enterprise_customer_user=self.enterprise_customer_user,
+            course_id=self.course_id,
+        )
+        consent_records = self._get_consent_records()
+        assert consent_records.count() == 1
+        assert consent_records.first().granted is True
+        assert consent_records.first().history.first().history_change_reason == IMPLIED_CONSENT_CHANGE_REASON
+
+    @ddt.data(
+        # Consent is requested from the learner at enrollment, so it is not implied.
+        {'enable_data_sharing_consent': True, 'enforce_data_sharing_consent': EnterpriseCustomer.AT_ENROLLMENT},
+        # Data sharing consent is disabled, whatever the enforcement setting.
+        {'enable_data_sharing_consent': False, 'enforce_data_sharing_consent': EnterpriseCustomer.AT_ENROLLMENT},
+        {'enable_data_sharing_consent': False, 'enforce_data_sharing_consent': EnterpriseCustomer.EXTERNALLY_MANAGED},
+    )
+    @ddt.unpack
+    def test_consent_not_implied(self, enable_data_sharing_consent, enforce_data_sharing_consent):
+        """
+        No consent record is written unless the customer has enabled, externally managed consent.
+        """
+        self.enterprise_customer.enable_data_sharing_consent = enable_data_sharing_consent
+        self.enterprise_customer.enforce_data_sharing_consent = enforce_data_sharing_consent
+        self.enterprise_customer.save()
+        EnterpriseCourseEnrollmentFactory(
+            enterprise_customer_user=self.enterprise_customer_user,
+            course_id=self.course_id,
+        )
+        assert not self._get_consent_records().exists()
+
+    @ddt.data(
+        # Revoked for the course run being enrolled in.
+        {'revoked_course_id': 'course-v1:edX+DemoX+Demo_Course', 'granted': False},
+        # Revoked for the course; a new course run record would take precedence over it in consent lookups.
+        {'revoked_course_id': 'edX+DemoX', 'granted': False},
+        # Never granted (``granted`` is None) counts as not granted.
+        {'revoked_course_id': 'edX+DemoX', 'granted': None},
+    )
+    @ddt.unpack
+    def test_revoked_consent_is_not_overridden(self, revoked_course_id, granted):
+        """
+        A learner who revoked or never granted consent stays that way, whether the record is for the course run
+        or for the course.
+        """
+        DataSharingConsentFactory(
+            enterprise_customer=self.enterprise_customer,
+            username=self.enterprise_customer_user.username,
+            course_id=revoked_course_id,
+            granted=granted,
+        )
+        EnterpriseCourseEnrollmentFactory(
+            enterprise_customer_user=self.enterprise_customer_user,
+            course_id=self.course_id,
+        )
+        consent_records = DataSharingConsent.objects.filter(enterprise_customer=self.enterprise_customer)
+        assert consent_records.count() == 1
+        revoked_record = consent_records.get(course_id=revoked_course_id)
+        assert revoked_record.granted is granted
+        assert revoked_record.history.first().history_change_reason is None
+
+    def test_updated_enrollment_does_not_grant_consent(self):
+        """
+        Only newly created enrollments get a consent record.
+        """
+        self.enterprise_customer.enforce_data_sharing_consent = EnterpriseCustomer.AT_ENROLLMENT
+        self.enterprise_customer.save()
+        enrollment = EnterpriseCourseEnrollmentFactory(
+            enterprise_customer_user=self.enterprise_customer_user,
+            course_id=self.course_id,
+        )
+        self.enterprise_customer.enforce_data_sharing_consent = EnterpriseCustomer.EXTERNALLY_MANAGED
+        self.enterprise_customer.save()
+        enrollment.saved_for_later = True
+        enrollment.save()
+        assert not self._get_consent_records().exists()
+
+    @mock.patch('consent.helpers.update_change_reason', side_effect=DatabaseError('history write failed'))
+    def test_consent_failure_does_not_fail_enrollment(self, mock_update_change_reason):
+        """
+        A failure while recording implied consent rolls back the partial write and does not fail the enrollment.
+        """
+        with mock.patch('enterprise.signals.logger') as mock_logger:
+            enrollment = EnterpriseCourseEnrollmentFactory(
+                enterprise_customer_user=self.enterprise_customer_user,
+                course_id=self.course_id,
+            )
+        mock_update_change_reason.assert_called_once()
+        mock_logger.exception.assert_called_once()
+        assert EnterpriseCourseEnrollment.objects.filter(id=enrollment.id).exists()
+        assert not self._get_consent_records().exists()
+
+    @ddt.data(
+        # The enterprise learner's user no longer exists.
+        {'user_exists': False, 'linked': True},
+        # The learner is unlinked; learner progress reporting excludes unlinked learners.
+        {'user_exists': True, 'linked': False},
+    )
+    @ddt.unpack
+    def test_learner_not_eligible_does_not_grant_consent(self, user_exists, linked):
+        """
+        No consent record is written for a learner without a user, or for an unlinked learner.
+        """
+        enterprise_customer_user = EnterpriseCustomerUserFactory(
+            enterprise_customer=self.enterprise_customer,
+            user_id=UserFactory().id if user_exists else 999999,
+            linked=linked,
+        )
+        EnterpriseCourseEnrollmentFactory(
+            enterprise_customer_user=enterprise_customer_user,
+            course_id=self.course_id,
+        )
+        assert not DataSharingConsent.objects.exists()
+
+
+@mark.django_db
+class TestEnterpriseCatalogSignals(unittest.TestCase):
+    """
+    Tests the EnterpriseCustomerCatalogAdmin
+    """
+
+    @mock.patch('enterprise.signals.EnterpriseCatalogApiClient')
+    def test_delete_catalog(self, api_client_mock):
+        enterprise_catalog = EnterpriseCustomerCatalogFactory()
+        enterprise_catalog_uuid = enterprise_catalog.uuid
+        api_client_mock.return_value.get_enterprise_catalog.return_value = True
+        enterprise_catalog.delete()
+
+        # Verify the API was called correctly and the catalog was deleted
+        api_client_mock.return_value.delete_enterprise_catalog.assert_called_with(enterprise_catalog_uuid)
+        self.assertFalse(EnterpriseCustomerCatalog.objects.exists())
+
+    @mock.patch('enterprise.signals.EnterpriseCatalogApiClient')
+    def test_delete_catalog_cleaning_up_orphaned_content_transmission_items(self, api_client_mock):
+        """
+        Tests that when an EnterpriseCustomerCatalog is deleted, any associated
+        Integrated Channels content metadata records are also marked as orphaned.
+        """
+        api_client_mock.return_value.get_enterprise_catalog.return_value = True
+        customer = EnterpriseCustomerFactory()
+        enterprise_catalog_to_be_deleted = EnterpriseCustomerCatalogFactory(enterprise_customer=customer)
+        enterprise_catalog_to_be_kept = EnterpriseCustomerCatalogFactory(enterprise_customer=customer)
+
+        customer.enterprise_customer_catalogs.set([enterprise_catalog_to_be_deleted, enterprise_catalog_to_be_kept])
+        customer.save()
+        integrated_channels_config = SAPSuccessFactorsEnterpriseCustomerConfigurationFactory(
+            enterprise_customer=customer,
+        )
+        # A record that would be orphaned if the test catalog is deleted
+        orphaned_content_transmission_item = ContentMetadataItemTransmissionFactory(
+            integrated_channel_code=integrated_channels_config.channel_code(),
+            enterprise_customer=customer,
+            plugin_configuration_id=integrated_channels_config.id,
+            enterprise_customer_catalog_uuid=enterprise_catalog_to_be_deleted.uuid,
+            remote_deleted_at=None,
+            remote_created_at=datetime.now(),
+        )
+        # A normal record that is unaffected by the test catalog deletion
+        ContentMetadataItemTransmissionFactory(
+            integrated_channel_code=integrated_channels_config.channel_code(),
+            enterprise_customer=customer,
+            plugin_configuration_id=integrated_channels_config.id,
+            enterprise_customer_catalog_uuid=enterprise_catalog_to_be_kept.uuid,
+            remote_deleted_at=None,
+            remote_created_at=datetime.now(),
+        )
+        enterprise_catalog_to_be_deleted.delete()
+
+        assert OrphanedContentTransmissions.objects.all().count() == 1
+        assert OrphanedContentTransmissions.objects.filter(id=orphaned_content_transmission_item.id).exists()
+
+    @mock.patch('enterprise.signals.EnterpriseCatalogApiClient')
+    def test_create_catalog(self, api_client_mock):
+        api_client_mock.return_value.get_enterprise_catalog.return_value = {}
+        enterprise_catalog = EnterpriseCustomerCatalogFactory()
+
+        # Verify the API was called and the catalog "was created" (even though it already was)
+        # This method is a little weird in that the object is sort of created / not-created at the same time
+        api_client_mock.return_value.create_enterprise_catalog.assert_called_with(
+            str(enterprise_catalog.uuid),
+            str(enterprise_catalog.enterprise_customer.uuid),
+            enterprise_catalog.enterprise_customer.name,
+            enterprise_catalog.title,
+            enterprise_catalog.content_filter,
+            enterprise_catalog.enabled_course_modes,
+            enterprise_catalog.publish_audit_enrollment_urls,
+            str(enterprise_catalog.enterprise_catalog_query.uuid),
+            enterprise_catalog.enterprise_catalog_query.title,
+            enterprise_catalog.enterprise_catalog_query.include_exec_ed_2u_courses,
+        )
+        api_client_mock.return_value.refresh_catalogs.assert_called_with([enterprise_catalog])
+
+    @mock.patch('enterprise.signals.EnterpriseCatalogApiClient')
+    def test_update_catalog_without_existing_service_catalog(self, api_client_mock):
+        enterprise_catalog = EnterpriseCustomerCatalogFactory()
+        api_client_mock.return_value.get_enterprise_catalog.return_value = {}
+
+        enterprise_catalog.title = 'New title'
+        enterprise_catalog.save()
+
+        # Verify the API was called and the catalog is the same as there were no real updates
+        api_client_mock.return_value.create_enterprise_catalog.assert_called_with(
+            str(enterprise_catalog.uuid),
+            str(enterprise_catalog.enterprise_customer.uuid),
+            enterprise_catalog.enterprise_customer.name,
+            enterprise_catalog.title,
+            enterprise_catalog.content_filter,
+            enterprise_catalog.enabled_course_modes,
+            enterprise_catalog.publish_audit_enrollment_urls,
+            str(enterprise_catalog.enterprise_catalog_query.uuid),
+            enterprise_catalog.enterprise_catalog_query.title,
+            enterprise_catalog.enterprise_catalog_query.include_exec_ed_2u_courses,
+        )
+        api_client_mock.return_value.refresh_catalogs.assert_called_with([enterprise_catalog])
+
+    @mock.patch('enterprise.signals.EnterpriseCatalogApiClient')
+    def test_update_catalog_with_existing_service_catalog(self, api_client_mock):
+        enterprise_catalog = EnterpriseCustomerCatalogFactory()
+        api_client_mock.return_value.get_enterprise_catalog.return_value = True
+
+        enterprise_catalog.title = 'New title'
+        enterprise_catalog.save()
+
+        # Verify the API was called and the catalog is the same as there were no real updates
+        api_client_mock.return_value.update_enterprise_catalog.assert_called_with(
+            enterprise_catalog.uuid,
+            enterprise_customer=str(enterprise_catalog.enterprise_customer.uuid),
+            enterprise_customer_name=enterprise_catalog.enterprise_customer.name,
+            title=enterprise_catalog.title,
+            content_filter=enterprise_catalog.content_filter,
+            enabled_course_modes=enterprise_catalog.enabled_course_modes,
+            publish_audit_enrollment_urls=enterprise_catalog.publish_audit_enrollment_urls,
+            catalog_query_uuid=str(enterprise_catalog.enterprise_catalog_query.uuid),
+            query_title=enterprise_catalog.enterprise_catalog_query.title,
+            include_exec_ed_2u_courses=enterprise_catalog.enterprise_catalog_query.include_exec_ed_2u_courses,
+        )
+        api_client_mock.return_value.refresh_catalogs.assert_called_with([enterprise_catalog])
+
+    @mock.patch('enterprise.signals.EnterpriseCatalogApiClient')
+    def test_update_enterprise_catalog_query(self, api_client_mock):
+        """
+        Tests the update_enterprise_query post_save signal.
+
+        Creates an EnterpriseCatalogQuery instance and two separate EnterpriseCatalog
+        instances that are associated with the query. The query's content filter is then
+        updated to see if the changes are applied across both related catalogs. Additionally,
+        there is a test to see if the sync is sent to the EnterpriseCatalogApi service
+        which is done through the mock api client.
+        """
+        content_filter_1 = OrderedDict({
+            'content_type': 'course1',
+        })
+        content_filter_2 = OrderedDict({
+            'content_type': 'course2',
+        })
+
+        test_query = EnterpriseCatalogQueryFactory(
+            content_filter=content_filter_1
+        )
+        enterprise_catalog_1 = EnterpriseCustomerCatalogFactory(
+            enterprise_catalog_query=test_query
+        )
+        enterprise_catalog_2 = EnterpriseCustomerCatalogFactory(
+            enterprise_catalog_query=test_query
+        )
+
+        test_query.content_filter = content_filter_2
+        test_query.save()
+
+        enterprise_catalog_1.refresh_from_db()
+        enterprise_catalog_2.refresh_from_db()
+
+        self.assertEqual(enterprise_catalog_1.content_filter, content_filter_2)
+        self.assertEqual(enterprise_catalog_2.content_filter, content_filter_2)
+
+        api_client_mock.return_value.get_enterprise_catalog.return_value = True
+
+        # verify that the mock api was called when saving the catalog after updating the query
+        # enterprise_catalog_2 was most recently modified so the last call should be for that
+        api_client_mock.return_value.update_enterprise_catalog.assert_called_with(
+            enterprise_catalog_2.uuid,
+            enterprise_customer=str(enterprise_catalog_2.enterprise_customer.uuid),
+            enterprise_customer_name=enterprise_catalog_2.enterprise_customer.name,
+            title=enterprise_catalog_2.title,
+            content_filter=enterprise_catalog_2.content_filter,
+            enabled_course_modes=enterprise_catalog_2.enabled_course_modes,
+            publish_audit_enrollment_urls=enterprise_catalog_2.publish_audit_enrollment_urls,
+            catalog_query_uuid=str(test_query.uuid),
+            query_title=test_query.title,
+            include_exec_ed_2u_courses=test_query.include_exec_ed_2u_courses,
+        )
+        api_client_mock.return_value.refresh_catalogs.assert_called_with([enterprise_catalog_2])
+
+
+@mark.django_db
+class TestRetireUserFromPendingEnterpriseCustomerUser(unittest.TestCase):
+    """
+    Tests for the retire_user_from_pending_enterprise_customer_user signal handler.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.user = UserFactory()
+        self.retired_email = f'retired__{self.user.email}'
+        self.pending_enterprise_user = PendingEnterpriseCustomerUserFactory(
+            user_email=self.user.email,
+        )
+
+    def _send_signal(self):
+        retire_user_from_pending_enterprise_customer_user(
+            sender=None,
+            user=self.user,
+            retired_username=f'retired__{self.user.username}',
+            retired_email=self.retired_email,
+        )
+
+    def test_retires_user_email_on_pending_records(self):
+        self._send_signal()
+
+        self.pending_enterprise_user.refresh_from_db()
+        assert self.pending_enterprise_user.user_email == self.retired_email
+
+    def test_no_records_with_original_email_remain(self):
+        original_email = self.user.email
+        self._send_signal()
+
+        assert not PendingEnterpriseCustomerUser.objects.filter(user_email=original_email).exists()
+
+    def test_idempotent_when_already_retired(self):
+        """Calling the handler twice does not raise and leaves data in the correct state."""
+        self._send_signal()
+        self._send_signal()
+
+        self.pending_enterprise_user.refresh_from_db()
+        assert self.pending_enterprise_user.user_email == self.retired_email
+
+
+@mark.django_db
+class TestUnlinkEnterpriseUserFromIdp(unittest.TestCase):
+    """
+    Tests for _unlink_enterprise_user_from_idp helper.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.user = UserFactory()
+
+    @mock.patch('enterprise.signals.Registry')
+    @mock.patch('enterprise.signals.enterprise_customer_for_request')
+    def test_unlink_enterprise_user_from_idp(self, mock_customer_for_request, mock_registry):
+        """
+        Verify that the user is unlinked from the enterprise customer when
+        the IdP backend matches the enterprise identity provider.
+        """
+        customer_idp = EnterpriseCustomerIdentityProviderFactory.create(
+            provider_id='the-provider',
+        )
+        customer = customer_idp.enterprise_customer
+        EnterpriseCustomerUserFactory.create(
+            enterprise_customer=customer,
+            user_id=self.user.id,
+        )
+        mock_customer_for_request.return_value = {'uuid': customer.uuid}
+        mock_registry.get_enabled_by_backend_name.return_value = [
+            mock.Mock(provider_id='the-provider'),
+        ]
+        request = mock.Mock()
+
+        _unlink_enterprise_user_from_idp(request, self.user, idp_backend_name='the-backend-name')
+
+        assert EnterpriseCustomerUser.objects.filter(user_id=self.user.id).count() == 0
+
+    @mock.patch('enterprise.signals.Registry')
+    @mock.patch('enterprise.signals.enterprise_customer_for_request')
+    def test_unlink_enterprise_user_from_idp_no_customer_user(self, mock_customer_for_request, mock_registry):
+        """
+        Verify no error when user has no EnterpriseCustomerUser record.
+        """
+        customer_idp = EnterpriseCustomerIdentityProviderFactory.create(
+            provider_id='the-provider',
+        )
+        customer = customer_idp.enterprise_customer
+        mock_customer_for_request.return_value = {'uuid': customer.uuid}
+        mock_registry.get_enabled_by_backend_name.return_value = [
+            mock.Mock(provider_id='the-provider'),
+        ]
+        request = mock.Mock()
+
+        _unlink_enterprise_user_from_idp(request, self.user, idp_backend_name='the-backend-name')
+
+        assert EnterpriseCustomerUser.objects.filter(user_id=self.user.id).count() == 0
+
+    @mock.patch('enterprise.signals.Registry')
+    @mock.patch('enterprise.signals.enterprise_customer_for_request')
+    def test_no_op_when_enterprise_customer_is_none(self, mock_customer_for_request, mock_registry):
+        """
+        Verify that nothing happens when enterprise_customer_for_request returns None.
+        """
+        mock_customer_for_request.return_value = None
+        request = mock.Mock()
+
+        _unlink_enterprise_user_from_idp(request, self.user, idp_backend_name='the-backend-name')
+
+        mock_registry.get_enabled_by_backend_name.assert_not_called()
+
+    @mock.patch('enterprise.signals.Registry')
+    @mock.patch('enterprise.signals.enterprise_customer_for_request')
+    def test_no_op_when_no_matching_idps(self, mock_customer_for_request, mock_registry):
+        """
+        Verify that unlink_user is not called when registry provider IDs don't
+        match any EnterpriseCustomerIdentityProvider records.
+        """
+        customer_idp = EnterpriseCustomerIdentityProviderFactory.create(
+            provider_id='provider-A',
+        )
+        customer = customer_idp.enterprise_customer
+        EnterpriseCustomerUserFactory.create(
+            enterprise_customer=customer,
+            user_id=self.user.id,
+        )
+        mock_customer_for_request.return_value = {'uuid': customer.uuid}
+        # Registry returns a provider with a different ID than the one in the DB.
+        mock_registry.get_enabled_by_backend_name.return_value = [
+            mock.Mock(provider_id='provider-B'),
+        ]
+        request = mock.Mock()
+
+        _unlink_enterprise_user_from_idp(request, self.user, idp_backend_name='the-backend-name')
+
+        # The user should still be linked since no IdPs matched.
+        assert EnterpriseCustomerUser.objects.filter(user_id=self.user.id).count() == 1
+
+
+@mark.django_db
+class TestHandleSocialAuthDisconnect(unittest.TestCase):
+    """
+    Tests for handle_social_auth_disconnect signal handler.
+    """
+
+    @override_settings(ENABLE_ENTERPRISE_INTEGRATION=True)
+    @mock.patch(
+        'enterprise.signals._unlink_enterprise_user_from_idp',
+    )
+    def test_calls_unlink(self, mock_unlink):
+        """
+        Test that _unlink_enterprise_user_from_idp is called.
+        """
+        request = mock.MagicMock()
+        user = mock.MagicMock()
+        saml_backend = mock.MagicMock()
+
+        handle_social_auth_disconnect(
+            sender=None,
+            request=request,
+            user=user,
+            saml_backend=saml_backend,
+        )
+        mock_unlink.assert_called_once_with(request, user, saml_backend.name)
+
+    @override_settings(ENABLE_ENTERPRISE_INTEGRATION=False)
+    @mock.patch(
+        'enterprise.signals._unlink_enterprise_user_from_idp',
+    )
+    def test_skips_unlink_when_enterprise_integration_disabled(self, mock_unlink):
+        """
+        Test that _unlink_enterprise_user_from_idp is not called when
+        ENABLE_ENTERPRISE_INTEGRATION is False.
+        """
+        request = mock.MagicMock()
+        user = mock.MagicMock()
+        saml_backend = mock.MagicMock()
+
+        handle_social_auth_disconnect(
+            sender=None,
+            request=request,
+            user=user,
+            saml_backend=saml_backend,
+        )
+        mock_unlink.assert_not_called()
+
+
+@ddt.ddt
+@override_settings(ENABLE_ENTERPRISE_INTEGRATION=True)
+@override_settings(ECOMMERCE_SERVICE_WORKER_USERNAME=TEST_ECOMMERCE_WORKER)
+class TestConsentCacheAndLearnerEventSignals(TestCase):
+    """
+    Tests for the data sharing consent cache, refund, and grade transmission signal handlers.
+
+    The two DSC-cache handlers fire off this app's own model signals and are exercised
+    end to end. The remaining three bind to openedx-platform signals whose senders --
+    the platform's ``CourseEnrollment`` and grading signals -- do not exist in this repo,
+    so each handler is invoked directly with the payload the platform would deliver.
+    Connecting them to those signals is covered separately by ``tests/test_apps.py``.
+    """
+
+    def setUp(self):
+        super().setUp()
+        # ``is_enterprise_learner`` memoises per user id. The database rolls back between
+        # tests but the cache does not, and rolled-back ids get reused, so a stale True
+        # from an earlier test would leak into the "not an enterprise learner" assertions.
+        TieredCache.dangerous_clear_all_tiers()
+        self.ecommerce_worker = UserFactory.create(username=TEST_ECOMMERCE_WORKER)
+        self.user = UserFactory.create(username='test', email=TEST_EMAIL)
+        self.course_id = 'course-v1:edX+DemoX+Demo_Course'
+        self.enterprise_customer = EnterpriseCustomerFactory()
+        self.enterprise_customer_uuid = str(self.enterprise_customer.uuid)
+
+    @staticmethod
+    def _create_dsc_cache(user_id, course_id, enterprise_customer_uuid):
+        consent_cache_key = get_data_consent_share_cache_key(user_id, course_id, enterprise_customer_uuid)
+        TieredCache.set_all_tiers(consent_cache_key, 0)
+
+    @staticmethod
+    def _is_dsc_cache_found(user_id, course_id, enterprise_customer_uuid):
+        consent_cache_key = get_data_consent_share_cache_key(user_id, course_id, enterprise_customer_uuid)
+        data_sharing_consent_needed_cache = TieredCache.get_cached_response(consent_cache_key)
+        return data_sharing_consent_needed_cache.is_found
+
+    def _create_enterprise_enrollment(self, user_id, course_id):
+        """
+        Create enterprise user and enrollment
+        """
+        enterprise_customer_user = EnterpriseCustomerUserFactory(
+            user_id=user_id,
+            enterprise_customer=self.enterprise_customer
+        )
+        EnterpriseCourseEnrollmentFactory(
+            course_id=course_id,
+            enterprise_customer_user=enterprise_customer_user,
+        )
+
+    def test_signal_update_dsc_cache_on_course_enrollment(self):
+        """
+        make sure update_dsc_cache_on_course_enrollment signal clears cache when Enterprise Course Enrollment
+        takes place
+        """
+
+        self._create_dsc_cache(self.user.id, self.course_id, self.enterprise_customer_uuid)
+        assert self._is_dsc_cache_found(self.user.id, self.course_id, self.enterprise_customer_uuid)
+
+        self._create_enterprise_enrollment(self.user.id, self.course_id)
+        assert not self._is_dsc_cache_found(self.user.id, self.course_id, self.enterprise_customer_uuid)
+
+    def test_signal_update_dsc_cache_on_enterprise_customer_update(self):
+        """
+        make sure update_dsc_cache_on_enterprise_customer_update signal clears data_sharing_consent_needed cache after
+         enable_data_sharing_consent flag is changed.
+        """
+
+        self._create_enterprise_enrollment(self.user.id, self.course_id)
+        self._create_dsc_cache(self.user.id, self.course_id, self.enterprise_customer_uuid)
+        assert self._is_dsc_cache_found(self.user.id, self.course_id, self.enterprise_customer_uuid)
+
+        # updating enable_data_sharing_consent flag
+        self.enterprise_customer.enable_data_sharing_consent = False
+        self.enterprise_customer.save()
+
+        assert not self._is_dsc_cache_found(self.user.id, self.course_id, self.enterprise_customer_uuid)
+
+    def _build_enrollment(self, refundable=True, order_voucher_refundable=True, order_number=ORDER_NUMBER):
+        """
+        Stand in for the platform's ``CourseEnrollment`` as ``refund_order_voucher`` sees it.
+        """
+        enrollment = mock.MagicMock()
+        enrollment.user_id = self.user.id
+        enrollment.user = self.user
+        enrollment.course.id = self.course_id
+        enrollment.refundable.return_value = refundable
+        enrollment.is_order_voucher_refundable.return_value = order_voucher_refundable
+        enrollment.get_order_attribute_value.return_value = order_number
+        return enrollment
+
+    @ddt.data(
+        {
+            'description': 'skip_refund short-circuits before anything else',
+            'skip_refund': True, 'enterprise_enrollment_exists': True,
+            'refundable': True, 'order_voucher_refundable': True, 'api_called': False,
+        },
+        {
+            'description': 'the refund window has passed',
+            'skip_refund': False, 'enterprise_enrollment_exists': True,
+            'refundable': False, 'order_voucher_refundable': True, 'api_called': False,
+        },
+        {
+            'description': 'the learner has no enterprise enrollment for this course',
+            'skip_refund': False, 'enterprise_enrollment_exists': False,
+            'refundable': True, 'order_voucher_refundable': True, 'api_called': False,
+        },
+        {
+            'description': 'the order voucher expiration date has already passed',
+            'skip_refund': False, 'enterprise_enrollment_exists': True,
+            'refundable': True, 'order_voucher_refundable': False, 'api_called': False,
+        },
+        {
+            'description': 'success: refundable enterprise enrollment inside the window',
+            'skip_refund': False, 'enterprise_enrollment_exists': True,
+            'refundable': True, 'order_voucher_refundable': True, 'api_called': True,
+        },
+    )
+    @ddt.unpack
+    def test_refund_order_voucher(
+        self,
+        description,
+        skip_refund,
+        enterprise_enrollment_exists,
+        refundable,
+        order_voucher_refundable,
+        api_called,
+    ):
+        """
+        Test refund_order_voucher signal
+        """
+        if enterprise_enrollment_exists:
+            self._create_enterprise_enrollment(self.user.id, self.course_id)
+        enrollment = self._build_enrollment(
+            refundable=refundable,
+            order_voucher_refundable=order_voucher_refundable,
+        )
+
+        with mock.patch('enterprise.signals.ecommerce_api_client') as mock_ecommerce_api_client:
+            refund_order_voucher(sender=None, course_enrollment=enrollment, skip_refund=skip_refund)
+            assert mock_ecommerce_api_client.called == api_called, description
+
+    def test_refund_order_voucher_without_order_number(self):
+        """
+        An enrollment carrying no order number reaches the client but posts nothing.
+        """
+        self._create_enterprise_enrollment(self.user.id, self.course_id)
+        enrollment = self._build_enrollment(order_number=None)
+
+        with mock.patch('enterprise.signals.ecommerce_api_client') as mock_ecommerce_api_client:
+            refund_order_voucher(sender=None, course_enrollment=enrollment)
+            client = mock_ecommerce_api_client.return_value
+            assert not client.enterprise.coupons.create_refunded_voucher.post.called
+
+    @ddt.data(
+        {'error': HttpClientError, 'log_level': 'INFO'},
+        {'error': HttpServerError, 'log_level': 'ERROR'},
+        {'error': Exception, 'log_level': 'ERROR'},
+    )
+    @ddt.unpack
+    def test_refund_order_voucher_with_client_errors(self, error, log_level):
+        """
+        Test refund_order_voucher signal client_error.
+        """
+        self._create_enterprise_enrollment(self.user.id, self.course_id)
+        enrollment = self._build_enrollment()
+
+        with mock.patch('enterprise.signals.ecommerce_api_client') as mock_ecommerce_api_client:
+            client_instance = mock_ecommerce_api_client.return_value
+            client_instance.enterprise.coupons.create_refunded_voucher.post.side_effect = error()
+            with LogCapture(LOGGER_NAME) as logger:
+                refund_order_voucher(sender=None, course_enrollment=enrollment)
+                assert mock_ecommerce_api_client.called is True
+                logger.check(
+                    (
+                        LOGGER_NAME,
+                        log_level,
+                        'Encountered {} from ecommerce while creating refund voucher. '
+                        'Order={}, enrollment={}, user={}'.format(
+                            error.__name__, ORDER_NUMBER, enrollment, enrollment.user
+                        ),
+                    )
+                )
+
+    def test_handle_enterprise_learner_passing_grade(self):
+        """
+        Test to assert transmit_single_learner_data is called when a learner passes a course
+        """
+        with mock.patch(
+            'enterprise.signals.transmit_single_learner_data.apply_async',
+            return_value=None
+        ) as mock_task_apply:
+            course_key = CourseKey.from_string(self.course_id)
+            handle_enterprise_learner_passing_grade(sender=None, user=self.user, course_id=course_key)
+            assert not mock_task_apply.called
+
+            self._create_enterprise_enrollment(self.user.id, self.course_id)
+            handle_enterprise_learner_passing_grade(sender=None, user=self.user, course_id=course_key)
+            mock_task_apply.assert_called_once_with(kwargs={
+                'username': self.user.username,
+                'course_run_id': self.course_id,
+            })
+
+    def test_handle_enterprise_learner_subsection(self):
+        """
+        Test to assert transmit_subsection_learner_data is called when a subsection grade changes.
+        """
+        with mock.patch(
+            'enterprise.signals.transmit_single_subsection_learner_data.apply_async',
+            return_value=None
+        ) as mock_task_apply:
+            kwargs = {
+                'sender': None,
+                'user': self.user,
+                'course_id': CourseKey.from_string(self.course_id),
+                'subsection_id': 'subsection_id',
+                'subsection_grade': 1.0,
+            }
+            handle_enterprise_learner_subsection(**kwargs)
+            assert not mock_task_apply.called
+
+            self._create_enterprise_enrollment(self.user.id, self.course_id)
+            handle_enterprise_learner_subsection(**kwargs)
+            mock_task_apply.assert_called_once_with(kwargs={
+                'username': self.user.username,
+                'course_run_id': self.course_id,
+                'subsection_id': 'subsection_id',
+                'grade': '1.0',
+            })

@@ -1009,10 +1009,11 @@ class TestExtendedCases(unittest.TestCase):
         self.assert_group_equal('!(a|?(b|c)|d)', '!(a|b|c||d)')
         self.assert_group_equal('!(a|b|?(c|d))', '!(a|b|c|d|)')
 
-        self.assert_group_equal('@(?(a|b|c))', '?(a|b|c)')
+        # An optional group can be skipped on a leading dot, but a group that must match something cannot.
+        self.assert_group_equal('@(?(a|b|c))', '@(a|b|c|)')
         self.assert_group_equal('?(?(a|b|c))', '?(a|b|c)')
         self.assert_group_equal('*(?(a|b|c))', '*(a|b|c)')
-        self.assert_group_equal('+(?(a|b|c))', '*(a|b|c)')
+        self.assert_group_equal('+(?(a|b|c))', '+(a|b|c|)')
 
     def test_more_or_none(self):
         """Test reduction of the `*` group and other groups."""
@@ -1025,7 +1026,7 @@ class TestExtendedCases(unittest.TestCase):
         self.assert_group_equal('+(a|*(b|c)|d)', '+(a|b|c||d)')
         self.assert_group_equal('+(a|b|*(c|d))', '+(a|b|c|d|)')
 
-        self.assert_group_equal('@(*(a|b|c))', '*(a|b|c)')
+        self.assert_group_equal('@(*(a|b|c))', '+(a|b|c|)')
 
     def test_one_or_more(self):
         """Test reduction of the `+` group and other groups."""
@@ -1047,6 +1048,17 @@ class TestExtendedCases(unittest.TestCase):
 
         self.assert_group_equal('@(!(a|b|c))', '!(a|b|c)')
         self.assert_group_equal('!(!(a|b|c))', '@(a|b|c)')
+
+    def test_promoted_group_reduction(self):
+        """Test that a group promoted to another type is reduced into its parent as the promoted type."""
+
+        self.assert_group_equal('@(a|@(!(b)))', '@(a|!(b))')
+        self.assert_group_equal('@(a|@(+(b)))', '@(a|+(b))')
+        self.assert_group_equal('@(a|@(*(b)))', '@(a|*(b))')
+        self.assert_group_equal('@(a|@(?(b)))', '@(a|?(b))')
+        self.assert_group_equal('+(a|@(+(b)))', '+(a|+(b))')
+        self.assert_group_equal('!(@(+(a)))', '!(+(a))')
+        self.assert_group_equal('!(@(?(a)))', '!(?(a))')
 
     def test_mixed(self):
         """Test mixed cases."""
@@ -1200,6 +1212,91 @@ def test_optional_group_literal_dot(as_bytes, capture):
 
     assert fnmatch.fnmatch(hidden, pattern, flags=flags)
     assert fnmatch.fnmatch(visible, pattern, flags=flags)
+
+
+@pytest.mark.parametrize(
+    ('pattern', 'visible'),
+    [
+        ('*.env', 'a.env'),
+        ('**.env', 'a.env'),
+        ('?(old-)@(*)', 'a.env'),
+        ('*@(*)', 'a.env'),
+        ('@(*?env)', 'a.env'),
+        ('@(*).env', 'a.env'),
+        ('+(*).env', 'a.env'),
+        ('*@(*.env)', 'a.env'),
+        ('?(a)@(*.env)', 'a.env'),
+        ('?(a)*.env', 'a.env'),
+        ('*(a)*.env', 'a.env'),
+        ('@(a|*).env', 'a.env'),
+        ('@(?(a)*).env', 'a.env'),
+        ('!(a).env', 'b.env'),
+        ('?(x)!(a).env', 'b.env'),
+    ]
+)
+@pytest.mark.parametrize('as_bytes', [False, True])
+@pytest.mark.parametrize('capture', [False, True])
+@pytest.mark.parametrize('dotmatch', [False, True])
+def test_wildcard_start_leading_dot_fnmatch(pattern, visible, as_bytes, capture, dotmatch):
+    """A wildcard at the start of a name never matches the leading dot, even when it matches nothing."""
+
+    flags = fnmatch.EXTMATCH | fnmatch.FORCEUNIX
+    if capture:
+        flags |= fnmatch.CAPTURE
+    if dotmatch:
+        flags |= fnmatch.DOTMATCH
+    hidden = '.env'
+    if as_bytes:
+        pattern, hidden, visible = pattern.encode(), hidden.encode(), visible.encode()
+
+    assert fnmatch.fnmatch(hidden, pattern, flags=flags) is dotmatch
+    assert fnmatch.fnmatch(visible, pattern, flags=flags)
+
+
+@pytest.mark.parametrize('pattern', ['+(.?|*)', '*(.?|*)', '+(*|.?)', '+(.|*)'])
+def test_group_loop_wildcard_after_first_iteration_fnmatch(pattern):
+    """Only the first iteration of a group at the start of a name is restricted from matching a leading dot."""
+
+    flags = fnmatch.EXTMATCH | fnmatch.FORCEUNIX
+
+    assert fnmatch.fnmatch('.a.', pattern, flags=flags)
+    assert fnmatch.fnmatch('.a..', pattern, flags=flags)
+    assert not fnmatch.fnmatch('..', pattern, flags=flags)
+
+
+@pytest.mark.parametrize(
+    ('pattern', 'plain', 'matches', 'excludes'),
+    [
+        ('@(a|@(!(b)))', '@(a|!(b))', ['a', 'c', 'bb'], ['b']),
+        ('@(a|@(+(b)))', '@(a|+(b))', ['a', 'b', 'bb'], ['c']),
+        ('@(a|@(*(b)))', '@(a|*(b))', ['a', 'b', 'bb'], ['c']),
+        ('@(a|@(?(b)))', '@(a|?(b))', ['a', 'b'], ['bb', 'c']),
+        ('+(a|@(+(b)))', '+(a|+(b))', ['a', 'bb', 'ab'], ['c']),
+        ('!(@(+(a)))', '!(+(a))', ['ab', 'b'], ['a', 'aa']),
+        ('!(@(?(a)))', '!(?(a))', ['aa', 'b'], ['a']),
+        ('?(a|@(!(b)))', '?(a|!(b))', ['a', 'c'], ['b']),
+    ]
+)
+def test_promoted_group_reduction_fnmatch(pattern, plain, matches, excludes):
+    """A group that is promoted to another type must keep its meaning when it is reduced into its parent."""
+
+    flags = fnmatch.EXTMATCH | fnmatch.FORCEUNIX
+
+    for name in matches:
+        assert fnmatch.fnmatch(name, pattern, flags=flags), (pattern, name)
+        assert fnmatch.fnmatch(name, plain, flags=flags), (plain, name)
+    for name in excludes:
+        assert not fnmatch.fnmatch(name, pattern, flags=flags), (pattern, name)
+        assert not fnmatch.fnmatch(name, plain, flags=flags), (plain, name)
+
+
+def test_promoted_group_reduction_empty_fnmatch():
+    """A promoted optional or star group still matches nothing when reduced into its parent."""
+
+    flags = fnmatch.EXTMATCH | fnmatch.FORCEUNIX
+
+    for pattern in ('@(a|@(?(b)))', '@(a|@(*(b)))', '?(a|@(*(b)))'):
+        assert fnmatch.fnmatch('', pattern, flags=flags), pattern
 
 
 class NoTruthIterable:

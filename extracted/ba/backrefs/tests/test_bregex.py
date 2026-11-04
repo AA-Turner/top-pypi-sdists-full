@@ -722,6 +722,9 @@ class TestReplaceTemplate(unittest.TestCase):
         with pytest.raises(PatternError):
             bregex.sub('test', r'\N{A', 'test')
 
+        with pytest.raises(PatternError):
+            bregex.sub('test', r'\N{Undefined character}', 'test')
+
     def test_group_failures(self):
         """Test group failures."""
 
@@ -1538,6 +1541,8 @@ class TestReplaceTemplate(unittest.TestCase):
         self.assertEqual(pattern.subf(r'{1:1^30}', 'Testing'), '11111111111111Te11111111111111')
         self.assertEqual(pattern.subf(r'{1:<30s}', 'Testing'), 'Te                            ')
         self.assertEqual(pattern.subf(r'{1:s}', 'Testing'), 'Te')
+        self.assertEqual(pattern.subf(r'{1:}', 'Testing'), 'Te')
+        self.assertEqual(pattern.subf(r'{1:}-x', 'Testing'), 'Te-x')
         self.assertEqual(pattern.subf(r'{2!r}', 'Testing'), "'st'")
 
         with pytest.raises(PatternError):
@@ -1570,6 +1575,8 @@ class TestReplaceTemplate(unittest.TestCase):
         self.assertEqual(pattern.subf(br'{1:1^30}', b'Testing'), b'11111111111111Te11111111111111')
         self.assertEqual(pattern.subf(br'{1:<30s}', b'Testing'), b'Te                            ')
         self.assertEqual(pattern.subf(br'{1:s}', b'Testing'), b'Te')
+        self.assertEqual(pattern.subf(br'{1:}', b'Testing'), b'Te')
+        self.assertEqual(pattern.subf(br'{1:}-x', b'Testing'), b'Te-x')
         self.assertEqual(pattern.subf(br'{2!r}', b'Testing'), b"b'st'")
 
         with pytest.raises(PatternError):
@@ -1589,6 +1596,39 @@ class TestReplaceTemplate(unittest.TestCase):
 
         with pytest.raises(ValueError):
             pattern.subf(br'{:030}', b'Testing')
+
+    def test_case_hex_above_byte_range(self):
+        """Test case conversion of hex escapes beyond the byte range."""
+
+        pattern = regex.compile('Test')
+        for template, expected in (
+            (r'\c\xb5', '\u039c'),
+            (r'\C\l\xb5\E', '\u03bc'),
+            (r'\C\x5c\E', '\\')
+        ):
+            with self.subTest(template=template):
+                expand = bregex.compile_replace(pattern, template)
+                results = expand(pattern.match('Test'))
+                self.assertEqual(expected, results)
+
+    def test_case_escape_multiple_chars(self):
+        """Test case conversion of escapes that give more than one character."""
+
+        pattern = regex.compile('Test')
+        for template, expected in (
+            (r'\C\xdf\E', 'SS'),
+            (r'\c\337', 'SS'),
+            (r'\C\N{LATIN SMALL LETTER SHARP S}\E', 'SS'),
+            (r'\C\u00df\E', 'SS'),
+            (r'\L\u0130\E', 'i\u0307'),
+            (r'\C\l\460\E', 'i\u0307'),
+            (r'\C\l\N{LATIN CAPITAL LETTER I WITH DOT ABOVE}\E', 'i\u0307'),
+            (r'\C\l\u0130\E', 'i\u0307')
+        ):
+            with self.subTest(template=template):
+                expand = bregex.compile_replace(pattern, template)
+                results = expand(pattern.match('Test'))
+                self.assertEqual(expected, results)
 
     def test_dont_case_special_refs(self):
         """Test that we don't case Unicode and bytes tokens, but case the character."""
@@ -1659,6 +1699,27 @@ class TestReplaceTemplate(unittest.TestCase):
 
 class TestExceptions(unittest.TestCase):
     """Test Exceptions."""
+
+    def test_bad_char_in_numeric_group_name(self):
+        """Test bad character in a numeric group name."""
+
+        p = bregex.compile_search(r'(a)(b)')
+        with pytest.raises(PatternError):
+            bregex.compile_replace(p, r'Replace \g<1X>')
+
+    def test_bad_char_in_group_name(self):
+        """Test bad character in a named group reference."""
+
+        p = bregex.compile_search(r'(?P<word>a)(b)')
+        with pytest.raises(PatternError):
+            bregex.compile_replace(p, r'Replace \g<w-ord>')
+
+    def test_bad_char_in_group_name_spacing(self):
+        """Test spacing in a group name reference."""
+
+        p = bregex.compile_search(r'(?P<word>a)(b)')
+        with pytest.raises(PatternError):
+            bregex.compile_replace(p, r'Replace \g<word >')
 
     def test_format_existing_group_no_match_with_index(self):
         """Test format group with no match and attempt at indexing."""

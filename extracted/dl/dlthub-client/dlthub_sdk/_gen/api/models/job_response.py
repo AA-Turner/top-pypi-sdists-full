@@ -21,43 +21,47 @@ T = TypeVar("T", bound="JobResponse")
 
 @_attrs_define
 class JobResponse:
-    """The job as it stands after the deploy.
-
+    """
     Attributes:
-        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        created_by (UUID): The ID of the identity who created the job
-        id (UUID): The unique ID of the entity
-        job_definition (TJobDefinition): Full job definition from dlt deployment manifest
-        job_definition_engine_version (int): Manifest engine version for future migration
-        job_definition_hash (str): Hash of the job definition for change detection
+        created_at (datetime.datetime): When it was created.
+        created_by (UUID): The `organization_membership_id` of the member who created the job.
+        id (UUID): Unique ID (a UUID).
+        job_definition (TJobDefinition): Job definition from the dlt deployment manifest.
+        job_definition_engine_version (int): Version of the job definition format.
+        job_definition_hash (str): Hash of the job definition; a deploy compares it to detect changes.
         job_ref (str): Canonical job reference, unique per workspace
         job_type (JobType | str): The type of the job: batch, interactive, or stream
-        job_url (None | str): The URL where the job can be accessed if interactive
+        job_url (None | str): The URL of the job in the web app for an interactive job; `null` otherwise.
         profile (str): The profile the job runs under
-        public_url (None | str): The public URL where the job can be accessed without authentication, is None if not
-            enabled
-        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        version (int): The current version of the job
+        public_url (None | str): The public URL where the job can be accessed without authentication; `null` when the
+            job is not published. It does not work while the job is archived.
+        updated_at (datetime.datetime): When it was last changed.
+        version (int): Version number, starting at 1 and incremented by each update to the job: a job's current version,
+            or a job version's own number.
         workspace_id (UUID): The ID of the workspace the job belongs to
-        default_trigger (None | str | Unset): Primary trigger string (computed from job_definition)
-        deployment_module (None | str | Unset): Deployment module name (e.g. __deployment__)
+        default_trigger (None | str | Unset): The trigger fired when a run is started without naming one, computed from
+            the job definition.
+        deployment_module (None | str | Unset): Deployment module the job was deployed from, e.g. `__deployment__`;
+            `null` for a job deployed outside a module.
         description (None | str | Unset): The description of the job
         freshness (list[str] | None | Unset): Freshness constraint strings (computed from job_definition)
-        interval_end (datetime.datetime | None | Unset): Upper bound of the bounded work window (from
-            job_definition.interval.end). None means no upper bound; the schedule halts once the next tick would exceed it.
-        interval_start (datetime.datetime | None | Unset): Lower bound of the bounded work window (from
-            job_definition.interval.start). None means the job has no bounded window.
-        is_archived (bool | Unset): Whether the job is archived and hidden from default listings Default: False.
-        is_paused (bool | Unset): Whether the job's scheduled runs are paused. The scheduler skips it, both on its own
-            schedule and through a freshness cascade; manual runs, `trigger` and `job.success:`/`job.fail:` chains are
-            unaffected. Only a job with `next_scheduled_run_at` can be paused, and losing that schedule on a deploy clears
-            the pause. Default: False.
+        interval_end (datetime.datetime | None | Unset): Upper bound of the job's work window, from `interval.end` in
+            its definition; `null` when there is no upper bound. The schedule stops once the next run would pass it.
+        interval_start (datetime.datetime | None | Unset): Lower bound of the job's work window, from `interval.start`
+            in its definition; `null` when the job has no bounded window.
+        is_archived (bool | Unset): Whether the job is archived. Archived jobs cannot be run and their public URL stops
+            working. Default: False.
+        is_paused (bool | Unset): Whether the job's scheduled runs are paused. The scheduler does not start it,
+            including a scheduled run that was waiting for its upstream jobs; manual runs, runs started by a trigger
+            request, and runs started by another job's success or failure still run. Only a job with `next_scheduled_run_at`
+            can be paused, and a deploy that removes the schedule clears the pause. Default: False.
         name (None | str | Unset): Display name for the job
-        next_scheduled_run_at (datetime.datetime | None | Unset): The next scheduled run of the job, is None if no
-            schedule is set
+        next_scheduled_run_at (datetime.datetime | None | Unset): When the job is next scheduled to run; `null` if it
+            has no schedule.
         pipeline_name (None | str | Unset): Pipeline name this job operates on (computed from job_definition)
-        public_secret (None | Unset | UUID): The secret UUID used to generate the public URL for this job
-        triggers (list[str] | None | Unset): Trigger strings for this job (computed from job_definition)
+        public_secret (None | Unset | UUID): The secret in the job's public URL; `null` when the job is not published.
+        triggers (list[str] | None | Unset): Every trigger the job answers to, computed from its definition; selectors
+            match against these.
     """
 
     created_at: datetime.datetime

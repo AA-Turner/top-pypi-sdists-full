@@ -1,33 +1,9 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Generated exports for ``client.tool_router.session``."""
 
-from .files import (
-    FilesResource,
-    AsyncFilesResource,
-    FilesResourceWithRawResponse,
-    AsyncFilesResourceWithRawResponse,
-    FilesResourceWithStreamingResponse,
-    AsyncFilesResourceWithStreamingResponse,
-)
-from .session import (
-    SessionResource,
-    AsyncSessionResource,
-    SessionResourceWithRawResponse,
-    AsyncSessionResourceWithRawResponse,
-    SessionResourceWithStreamingResponse,
-    AsyncSessionResourceWithStreamingResponse,
-)
+from __future__ import annotations
 
-__all__ = [
-    "FilesResource",
-    "AsyncFilesResource",
-    "FilesResourceWithRawResponse",
-    "AsyncFilesResourceWithRawResponse",
-    "FilesResourceWithStreamingResponse",
-    "AsyncFilesResourceWithStreamingResponse",
-    "SessionResource",
-    "AsyncSessionResource",
-    "SessionResourceWithRawResponse",
-    "AsyncSessionResourceWithRawResponse",
-    "SessionResourceWithStreamingResponse",
-    "AsyncSessionResourceWithStreamingResponse",
-]
+from .files import AsyncFilesResource, FilesResource
+from .session import AsyncSessionResource, SessionResource
+
+__all__ = ["SessionResource", "AsyncSessionResource", "FilesResource", "AsyncFilesResource"]

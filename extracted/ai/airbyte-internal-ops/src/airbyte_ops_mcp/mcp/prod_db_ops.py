@@ -1375,6 +1375,19 @@ def query_prod_connections_by_stream(
             ),
         ),
     ] = "TIER_2",
+    *,
+    exclude_pinned: Annotated[
+        bool,
+        Field(
+            description=(
+                "If True, exclude connections whose connector is already pinned to a "
+                "specific version (at any scope level: actor, workspace, or organization). "
+                "Useful for 'prove fix' workflows where you want to find unpinned "
+                "connections for live testing. Default: False (include all connections)."
+            ),
+            default=False,
+        ),
+    ],
 ) -> list[dict[str, Any]]:
     """Find connections that have a specific stream enabled in their catalog.
 
@@ -1385,6 +1398,10 @@ def query_prod_connections_by_stream(
 
     Results are always enriched with customer_tier and is_eu fields.
     The customer_tier_filter parameter is required to ensure tier-aware querying.
+
+    Set `exclude_pinned=True` to filter out connections that are already pinned to a
+    specific version. This is useful for 'prove fix' live connection testing workflows
+    where you want to find unpinned connections to test against.
 
     Use cases:
     - Finding connections with a specific stream enabled for regression testing
@@ -1437,6 +1454,7 @@ def query_prod_connections_by_stream(
             stream_name=stream_name,
             organization_id=resolved_organization_id,
             limit=limit,
+            exclude_pinned=exclude_pinned,
         )
     ]
     enriched = enrich_rows_by_org(

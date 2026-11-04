@@ -91,9 +91,9 @@ def sync_detailed(
     """ResumeJob
 
     Resumes a paused job, so the scheduler starts it again. The first run after resuming covers
-    the whole period the job was paused for. This operation is idempotent.
+    the whole period the job was paused for. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -127,9 +127,9 @@ def sync(
     """ResumeJob
 
     Resumes a paused job, so the scheduler starts it again. The first run after resuming covers
-    the whole period the job was paused for. This operation is idempotent.
+    the whole period the job was paused for. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -158,9 +158,9 @@ async def asyncio_detailed(
     """ResumeJob
 
     Resumes a paused job, so the scheduler starts it again. The first run after resuming covers
-    the whole period the job was paused for. This operation is idempotent.
+    the whole period the job was paused for. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -192,9 +192,9 @@ async def asyncio(
     """ResumeJob
 
     Resumes a paused job, so the scheduler starts it again. The first run after resuming covers
-    the whole period the job was paused for. This operation is idempotent.
+    the whole period the job was paused for. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

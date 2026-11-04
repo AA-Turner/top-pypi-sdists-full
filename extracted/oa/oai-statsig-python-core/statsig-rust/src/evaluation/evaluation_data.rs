@@ -1,5 +1,8 @@
 use crate::{
-    evaluation::{dynamic_returnable::DynamicReturnable, dynamic_string::DynamicString},
+    evaluation::{
+        dynamic_returnable::DynamicReturnable,
+        dynamic_string::{DynamicString, lowercase_if_changed},
+    },
     interned_string::InternedString,
     interned_values::InternedStore,
     interned_values::mmap_data_v2::{
@@ -11,7 +14,7 @@ use crate::{
     },
 };
 use serde_json::Value;
-use std::{collections::HashMap, hash::BuildHasher};
+use std::{borrow::Cow, collections::HashMap, hash::BuildHasher};
 
 #[derive(Clone, Copy)]
 pub(crate) enum InternedStrRef<'a> {
@@ -74,8 +77,16 @@ impl<'a> DynamicStringRef<'a> {
         self.value.as_str()
     }
 
-    pub(crate) fn lowercased_value(self) -> &'a str {
-        self.lowercased_value.as_str()
+    pub(crate) fn lowercased_value(self) -> Cow<'a, str> {
+        let cached = self.lowercased_value.as_str();
+        // Old mmap writers could retain non-ASCII capitals in this derived cache,
+        // including when a matching wire checksum allows the rule to be reused.
+        match self.lowercased_value {
+            InternedStrRef::Mmap(_) => lowercase_if_changed(cached)
+                .map(Cow::Owned)
+                .unwrap_or(Cow::Borrowed(cached)),
+            InternedStrRef::Owned(_) => Cow::Borrowed(cached),
+        }
     }
 
     pub(crate) fn from_mmap(value: &'a ArchivedMmapDynamicString) -> Self {

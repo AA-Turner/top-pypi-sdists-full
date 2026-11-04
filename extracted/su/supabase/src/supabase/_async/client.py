@@ -1,7 +1,7 @@
 import asyncio
 import copy
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from httpx import Timeout
 from postgrest import (
@@ -32,6 +32,13 @@ class SupabaseException(Exception):
         super().__init__(self.message)
 
 
+def _validate_str_arg(name: str, value: object) -> None:
+    if value is not None and not isinstance(value, str):
+        raise SupabaseException(f"{name} must be a string, got {type(value).__name__}")
+    if not value:
+        raise SupabaseException(f"{name} is required")
+
+
 class AsyncClient:
     """Supabase client class."""
 
@@ -39,7 +46,7 @@ class AsyncClient:
         self,
         supabase_url: str,
         supabase_key: str,
-        options: Optional[ClientOptions] = None,
+        options: ClientOptions | None = None,
     ) -> None:
         """Instantiate the client.
 
@@ -54,10 +61,8 @@ class AsyncClient:
             `DEFAULT_OPTIONS` dict.
         """
 
-        if not supabase_url:
-            raise SupabaseException("supabase_url is required")
-        if not supabase_key:
-            raise SupabaseException("supabase_key is required")
+        _validate_str_arg("supabase_url", supabase_url)
+        _validate_str_arg("supabase_key", supabase_key)
 
         # Check if the url and key are valid
         if not re.match(r"^(https?)://.+", supabase_url):
@@ -94,9 +99,10 @@ class AsyncClient:
             supabase_key=self.supabase_key,
             options=self.options.realtime if self.options else None,
         )
-        self._postgrest: Optional[AsyncPostgrestClient] = None
-        self._storage: Optional[AsyncStorageClient] = None
-        self._functions: Optional[AsyncFunctionsClient] = None
+        self._postgrest: AsyncPostgrestClient | None = None
+        self._storage: AsyncStorageClient | None = None
+        self._functions: AsyncFunctionsClient | None = None
+        self._background_tasks: set[asyncio.Task[None]] = set()
         self.auth.on_auth_state_change(self._listen_to_auth_events)
 
     @classmethod
@@ -104,7 +110,7 @@ class AsyncClient:
         cls,
         supabase_url: str,
         supabase_key: str,
-        options: Optional[ClientOptions] = None,
+        options: ClientOptions | None = None,
     ) -> "AsyncClient":
         auth_header = options.headers.get("Authorization") if options else None
         client = cls(supabase_url, supabase_key, options)
@@ -152,8 +158,8 @@ class AsyncClient:
     def rpc(
         self,
         fn: str,
-        params: Optional[Dict[Any, Any]] = None,
-        count: Optional[CountMethod] = None,
+        params: dict[Any, Any] | None = None,
+        count: CountMethod | None = None,
         head: bool = False,
         get: bool = False,
     ) -> AsyncRPCFilterRequestBuilder:
@@ -187,6 +193,7 @@ class AsyncClient:
                 headers=self.options.headers,
                 schema=self.options.schema,
                 timeout=self.options.postgrest_client_timeout,
+                retry_enabled=self.options.postgrest_client_retry,
                 http_client=self.options.httpx_client,
             )
 
@@ -219,12 +226,12 @@ class AsyncClient:
         return self._functions
 
     def channel(
-        self, topic: str, params: Optional[RealtimeChannelOptions] = None
+        self, topic: str, params: RealtimeChannelOptions | None = None
     ) -> AsyncRealtimeChannel:
         """Creates a Realtime channel with Broadcast, Presence, and Postgres Changes."""
         return self.realtime.channel(topic, params or {})
 
-    def get_channels(self) -> List[AsyncRealtimeChannel]:
+    def get_channels(self) -> list[AsyncRealtimeChannel]:
         """Returns all realtime channels."""
         return self.realtime.get_channels()
 
@@ -240,7 +247,7 @@ class AsyncClient:
     def _init_realtime_client(
         realtime_url: URL,
         supabase_key: str,
-        options: Optional[RealtimeClientOptions] = None,
+        options: RealtimeClientOptions | None = None,
     ) -> AsyncRealtimeClient:
         realtime_options = options or {}
         """Private method for creating an instance of the realtime-py client."""
@@ -251,11 +258,11 @@ class AsyncClient:
     @staticmethod
     def _init_storage_client(
         storage_url: str,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         storage_client_timeout: int = DEFAULT_STORAGE_CLIENT_TIMEOUT,
         verify: bool = True,
-        proxy: Optional[str] = None,
-        http_client: Union[AsyncHttpxClient, None] = None,
+        proxy: str | None = None,
+        http_client: AsyncHttpxClient | None = None,
     ) -> AsyncStorageClient:
         if http_client is not None:
             # If an http client is provided, use it
@@ -276,7 +283,7 @@ class AsyncClient:
         auth_url: str,
         client_options: ClientOptions,
         verify: bool = True,
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
     ) -> AsyncSupabaseAuthClient:
         """Creates a wrapped instance of the GoTrue Client."""
         return AsyncSupabaseAuthClient(
@@ -294,18 +301,23 @@ class AsyncClient:
     @staticmethod
     def _init_postgrest_client(
         rest_url: str,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         schema: str,
-        timeout: Union[int, float, Timeout] = DEFAULT_POSTGREST_CLIENT_TIMEOUT,
+        timeout: int | float | Timeout = DEFAULT_POSTGREST_CLIENT_TIMEOUT,
         verify: bool = True,
-        proxy: Optional[str] = None,
-        http_client: Union[AsyncHttpxClient, None] = None,
+        proxy: str | None = None,
+        http_client: AsyncHttpxClient | None = None,
+        retry_enabled: bool = True,
     ) -> AsyncPostgrestClient:
         """Private helper for creating an instance of the Postgrest client."""
         if http_client is not None:
             # If an http client is provided, use it
             return AsyncPostgrestClient(
-                rest_url, headers=headers, schema=schema, http_client=http_client
+                rest_url,
+                headers=headers,
+                schema=schema,
+                http_client=http_client,
+                retry_enabled=retry_enabled,
             )
         return AsyncPostgrestClient(
             rest_url,
@@ -315,12 +327,13 @@ class AsyncClient:
             verify=verify,
             proxy=proxy,
             http_client=None,
+            retry_enabled=retry_enabled,
         )
 
     def _create_auth_header(self, token: str) -> str:
         return f"Bearer {token}"
 
-    def _get_auth_headers(self, authorization: Optional[str] = None) -> Dict[str, str]:
+    def _get_auth_headers(self, authorization: str | None = None) -> dict[str, str]:
         if authorization is None:
             authorization = self.options.headers.get(
                 "Authorization", self._create_auth_header(self.supabase_key)
@@ -333,25 +346,26 @@ class AsyncClient:
         }
 
     def _listen_to_auth_events(
-        self, event: AuthChangeEvent, session: Optional[Session]
+        self, event: AuthChangeEvent, session: Session | None
     ) -> None:
-        access_token = self.supabase_key
-        if event in ["SIGNED_IN", "TOKEN_REFRESHED", "SIGNED_OUT"]:
-            # reset postgrest and storage instance on event change
-            self._postgrest = None
-            self._storage = None
-            self._functions = None
-            access_token = session.access_token if session else self.supabase_key
+        # Every event except SIGNED_OUT carries the current session, including
+        # USER_UPDATED and MFA_CHALLENGE_VERIFIED, whose token can carry new claims (aal2).
+        self._postgrest = None
+        self._storage = None
+        self._functions = None
+        access_token = session.access_token if session else self.supabase_key
         auth_header = self._create_auth_header(access_token)
         self.options.headers["Authorization"] = auth_header
         self.auth._headers["Authorization"] = auth_header
-        asyncio.create_task(self.realtime.set_auth(access_token))
+        task = asyncio.create_task(self.realtime.set_auth(access_token))
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
 
 async def create_client(
     supabase_url: str,
     supabase_key: str,
-    options: Optional[ClientOptions] = None,
+    options: ClientOptions | None = None,
 ) -> AsyncClient:
     """Create client function to instantiate supabase client like JS runtime.
 

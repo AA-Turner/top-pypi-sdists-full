@@ -4,6 +4,7 @@
 //! than a second implementation of the set. All identifiers are synthetic.
 
 use super::{IdListMetadata, IdListUpdate, IdListsUpdateListener};
+use crate::StatsigOptions;
 use crate::sdk_event_emitter::SdkEventEmitter;
 use crate::spec_store::{SpecStore, SpecStoreData};
 use crate::statsig_runtime::StatsigRuntime;
@@ -34,11 +35,12 @@ fn metadata(index: usize) -> IdListMetadata {
     }
 }
 
-fn checkpoint(phase: &str, elapsed_ms: f64, counts: &[usize]) {
+fn emit_checkpoint(phase: &str, elapsed_ms: f64, counts: &[usize], requested_format: &str) {
     println!(
         "ID_LIST_BENCH {}",
         json!({
             "phase": phase,
+            "requested_format": requested_format,
             "elapsed_ms": elapsed_ms,
             "pid": std::process::id(),
             "lists": counts.len(),
@@ -107,6 +109,16 @@ fn updates(
 #[test]
 #[ignore = "large opt-in memory benchmark; requires external checkpoint driver"]
 fn id_list_memory_benchmark() {
+    run_benchmark(false);
+}
+
+#[test]
+#[ignore = "large opt-in memory benchmark; requires external checkpoint driver"]
+fn id_list_elias_fano_memory_benchmark() {
+    run_benchmark(true);
+}
+
+fn run_benchmark(enable_id_list_elias_fano: bool) {
     let path = std::env::var("STATSIG_ID_LIST_BENCH_COUNTS").expect("counts file required");
     let counts: Vec<usize> = std::fs::read_to_string(path)
         .unwrap()
@@ -125,15 +137,25 @@ fn id_list_memory_benchmark() {
         "synthetic-memory-benchmark".into(),
         StatsigRuntime::get_runtime_with_thread_count(Some(1)),
         Arc::new(SdkEventEmitter::default()),
-        None,
+        Some(&StatsigOptions {
+            enable_id_list_elias_fano: Some(enable_id_list_elias_fano),
+            ..Default::default()
+        }),
     );
-    checkpoint("empty", 0.0, &counts);
+    let requested_format = if enable_id_list_elias_fano {
+        "private_elias_fano"
+    } else {
+        "private_hash"
+    };
+    let checkpoint =
+        |phase, elapsed_ms| emit_checkpoint(phase, elapsed_ms, &counts, requested_format);
+    checkpoint("empty", 0.0);
 
     let started = Instant::now();
     store.did_receive_id_list_updates(updates(&counts, true, None));
     let build_ms = started.elapsed().as_secs_f64() * 1000.0;
     check_snapshot(&store.load_data(), &counts, 0, sparse);
-    checkpoint("steady", build_ms, &counts);
+    checkpoint("steady", build_ms);
 
     let initial = store.load_data();
     let started = Instant::now();
@@ -141,9 +163,9 @@ fn id_list_memory_benchmark() {
     let update_ms = started.elapsed().as_secs_f64() * 1000.0;
     check_snapshot(&initial, &counts, 0, sparse);
     check_snapshot(&store.load_data(), &counts, 1, sparse);
-    checkpoint("all_updated_old_pinned", update_ms, &counts);
+    checkpoint("all_updated_old_pinned", update_ms);
     drop(initial);
-    checkpoint("all_updated_released", 0.0, &counts);
+    checkpoint("all_updated_released", 0.0);
 
     let before_sparse = store.load_data();
     let started = Instant::now();
@@ -151,9 +173,9 @@ fn id_list_memory_benchmark() {
     let sparse_ms = started.elapsed().as_secs_f64() * 1000.0;
     check_snapshot(&before_sparse, &counts, 1, sparse);
     check_snapshot(&store.load_data(), &counts, 2, sparse);
-    checkpoint("sparse_updated_old_pinned", sparse_ms, &counts);
+    checkpoint("sparse_updated_old_pinned", sparse_ms);
     drop(before_sparse);
-    checkpoint("sparse_updated_released", 0.0, &counts);
+    checkpoint("sparse_updated_released", 0.0);
 
     // Precompute keys so the measured lookup loop measures membership checks,
     // not identifier formatting. Every list gets both a hit and a miss.
@@ -177,7 +199,7 @@ fn id_list_memory_benchmark() {
     }
     assert_eq!(hits, repeats * lists.len());
     let lookup_ms = started.elapsed().as_secs_f64() * 1000.0;
-    checkpoint("lookup", lookup_ms, &counts);
+    checkpoint("lookup", lookup_ms);
 
     // Spread probes over the actual tables instead of revisiting one hot bucket.
     // Key preparation is outside the timer and after the steady memory phases.
@@ -210,6 +232,6 @@ fn id_list_memory_benchmark() {
     }
     assert_eq!(hits, distributed_repeats * lists.len() * 512);
     let lookup_ms = started.elapsed().as_secs_f64() * 1000.0;
-    checkpoint("lookup_distributed", lookup_ms, &counts);
+    checkpoint("lookup_distributed", lookup_ms);
     black_box(data);
 }

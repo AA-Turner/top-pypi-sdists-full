@@ -1711,6 +1711,10 @@ if TYPE_CHECKING:
         DecisionsScoreQuestionType,
         DecisionsScoreQuestionTypedDict,
     )
+    from .decisionsusageinputtokensdetails import (
+        DecisionsUsageInputTokensDetails,
+        DecisionsUsageInputTokensDetailsTypedDict,
+    )
     from .defaultparameters import DefaultParameters, DefaultParametersTypedDict
     from .deferredbm25search import (
         DeferredBm25Search,
@@ -4432,14 +4436,6 @@ if TYPE_CHECKING:
         UpdateOrganizationSettingsRequest,
         UpdateOrganizationSettingsRequestTypedDict,
     )
-    from .updateprivateendpointparametersrequest import (
-        UpdatePrivateEndpointParametersRequest,
-        UpdatePrivateEndpointParametersRequestTypedDict,
-    )
-    from .updateprivateendpointpricingrequest import (
-        UpdatePrivateEndpointPricingRequest,
-        UpdatePrivateEndpointPricingRequestTypedDict,
-    )
     from .updateprivateendpointrequest import (
         UpdatePrivateEndpointRequest,
         UpdatePrivateEndpointRequestDeclaredRegion,
@@ -5858,6 +5854,8 @@ __all__ = [
     "DecisionsScoreQuestionType",
     "DecisionsScoreQuestionTypedDict",
     "DecisionsTypedDict",
+    "DecisionsUsageInputTokensDetails",
+    "DecisionsUsageInputTokensDetailsTypedDict",
     "DefaultEffort",
     "DefaultParameters",
     "DefaultParametersTypedDict",
@@ -8002,10 +8000,6 @@ __all__ = [
     "UpdateObservabilityDestinationResponseTypedDict",
     "UpdateOrganizationSettingsRequest",
     "UpdateOrganizationSettingsRequestTypedDict",
-    "UpdatePrivateEndpointParametersRequest",
-    "UpdatePrivateEndpointParametersRequestTypedDict",
-    "UpdatePrivateEndpointPricingRequest",
-    "UpdatePrivateEndpointPricingRequestTypedDict",
     "UpdatePrivateEndpointRequest",
     "UpdatePrivateEndpointRequestDeclaredRegion",
     "UpdatePrivateEndpointRequestTypedDict",
@@ -9380,6 +9374,8 @@ _dynamic_imports: dict[str, str] = {
     "DecisionsScoreQuestionInstructionsTypedDict": ".decisionsscorequestion",
     "DecisionsScoreQuestionType": ".decisionsscorequestion",
     "DecisionsScoreQuestionTypedDict": ".decisionsscorequestion",
+    "DecisionsUsageInputTokensDetails": ".decisionsusageinputtokensdetails",
+    "DecisionsUsageInputTokensDetailsTypedDict": ".decisionsusageinputtokensdetails",
     "DefaultParameters": ".defaultparameters",
     "DefaultParametersTypedDict": ".defaultparameters",
     "DeferredBm25Search": ".deferredbm25search",
@@ -11437,10 +11433,6 @@ _dynamic_imports: dict[str, str] = {
     "UpdateObservabilityDestinationResponseTypedDict": ".updateobservabilitydestinationresponse",
     "UpdateOrganizationSettingsRequest": ".updateorganizationsettingsrequest",
     "UpdateOrganizationSettingsRequestTypedDict": ".updateorganizationsettingsrequest",
-    "UpdatePrivateEndpointParametersRequest": ".updateprivateendpointparametersrequest",
-    "UpdatePrivateEndpointParametersRequestTypedDict": ".updateprivateendpointparametersrequest",
-    "UpdatePrivateEndpointPricingRequest": ".updateprivateendpointpricingrequest",
-    "UpdatePrivateEndpointPricingRequestTypedDict": ".updateprivateendpointpricingrequest",
     "UpdatePrivateEndpointRequest": ".updateprivateendpointrequest",
     "UpdatePrivateEndpointRequestDeclaredRegion": ".updateprivateendpointrequest",
     "UpdatePrivateEndpointRequestTypedDict": ".updateprivateendpointrequest",

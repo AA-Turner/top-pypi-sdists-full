@@ -21,6 +21,7 @@ from mistralai.vibe_agents.sdk.app.config import ControlPlaneSettings, SessionCl
 from mistralai.vibe_agents.sdk.authoring import errors as sdk_errors
 from mistralai.vibe_agents.sdk.authoring.errors import (
     AgentsError,
+    LegacySessionError,
     OutcomeUnknownError,
     RemoteAgentDeploymentNotFoundError,
     RemoteStreamLostError,
@@ -29,7 +30,7 @@ from mistralai.vibe_agents.sdk.authoring.errors import (
     public_iter_errors,
     sdk_runtime_error,
 )
-from mistralai.vibe_agents.session_workflow.send_message import message_command_id, sdk_command_id
+from mistralai.vibe_agents.session_workflow.command_ids import message_command_id, sdk_command_id
 from mistralai.vibe_agents.sessions_client import (
     AgentSessionResponse,
     AgentSessionStatus,
@@ -45,15 +46,10 @@ from mistralai.vibe_agents.sessions_client.client import ProcedureRoute
 from .client_tools import NO_CLIENT_TOOLS, ClientToolRegistry, ClientToolSessionClient
 from .event_ids import _CURSOR_PREFIX, _EMPTY_CURSOR, _encode_base64url, _encode_event_id
 from .procedures import SESSION_PROCEDURES, refuse_unlisted_procedure
-from .projection import VibeAgentsSessionProjection, build_session_from_product
-from .projection_v1 import VibeAgentsSessionV1Projection
+from .product_session import build_session_from_product
+from .projection_v1 import RelayedPayload, VibeAgentsSessionV1Projection
 
 logger = structlog.get_logger(__name__)
-
-# Both fold a product `/events` stream into the same Harness session view. Members the transport
-# reads from either are shared; the legacy-only ones (command outcomes, the initialized row) are
-# reached after narrowing, which is what keeps a v1 session out of the paths that need them.
-RemoteSessionProjection = VibeAgentsSessionProjection | VibeAgentsSessionV1Projection
 
 # The x-internal-service identity this transport calls vibe-api with. It reads the same today as
 # the application name it starts Sessions under, but the two are different contracts and each is
@@ -130,26 +126,6 @@ class _RemoteSessionTurnActiveError(sdk_errors.SessionBusyError, harness_session
     """
 
 
-# FIXME: delete once MAIS 2026.11 is released, with its section in docs/site/docs/core/sessions.mdx
-class RemoteSessionCommandRejectedError(AgentsError, RuntimeError):
-    """Raised when Vibe Agents rejects a command for a reason other than a Turn race.
-
-    Examples are a full intake, a message that is too large, or a reason newer than this SDK. The
-    SDK does not guess what the reason means: it gives the server's reason as it is. ``retryable``
-    is the server's hint that the same command can succeed later; it is ``None`` when the server
-    does not say.
-    """
-
-    def __init__(self, *, command_id: str, reason: str, retryable: bool | None) -> None:
-        hint = {True: "retryable", False: "not retryable", None: "no retry hint"}[retryable]
-        super().__init__(
-            f"Vibe Agents rejected command {command_id} for a reason other than a Turn race: {reason!r} ({hint})"
-        )
-        self.command_id = command_id
-        self.reason = reason
-        self.retryable = retryable
-
-
 class RemoteSessionStartFailedError(AgentsError, RuntimeError):
     """Raised when a Session ends before it reports itself ready, with the failure Vibe Agents retained."""
 
@@ -165,6 +141,13 @@ class RemoteAgentDeployment:
     agent_deployment_name: str | None = None
     # The connection pool of the agents.Client this handle came from, or None for a connection per request.
     pool: Callable[[], httpx.AsyncClient | None] | None = field(default=None, compare=False, repr=False)
+    # FIXME: delete once MAIS 2026.11 is released
+    # Procedure routes a Session answered 501 or a bare 404 to, keyed by the target Session since a
+    # callback answer can target another Session of the tree. Held here rather than on a transport
+    # because a handle binds a new transport for each call.
+    unserved_routes: set[tuple[UUID, ProcedureRoute]] = field(
+        default_factory=set, init=False, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         # No identity is a handle that only reattaches: session requests are keyed by the session id.
@@ -240,9 +223,9 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         self._owns_sessions_client = sessions_client is None
         self._owns_agents_client = agents_client is None and self._agents is not None
         self._resolved_deployment_name = deployment.agent_deployment_name
-        # FIXME: delete once MAIS 2026.11 is released
-        self._session_protocol: SessionProtocol | None = None
-        self._read_projection: RemoteSessionProjection | None = None
+        # Set once the bound Session's row said it uses Session v1: a Session's protocol is fixed at creation.
+        self._session_v1_checked = False
+        self._read_projection: VibeAgentsSessionV1Projection | None = None
         self._read_projection_lock = asyncio.Lock()
         # Set once the control plane answered that it has no callbacks route: a wait reads the
         # Session's active Turn on every change, and each read would ask again.
@@ -250,9 +233,6 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         # Turns of messages `send_message` was refused because the Session was stopping. The
         # Session may have published the message, naming the Turn, before refusing it.
         self._refused_turn_ids: set[str] = set()
-        # Procedure routes a Session answered 501 or a bare 404 to. Keyed by the target Session,
-        # since a callback answer can target another Session of the tree.
-        self._unserved_routes: set[tuple[UUID, ProcedureRoute]] = set()
         self._closed = False
 
     @public_errors
@@ -343,19 +323,18 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         ):
             return await self._answer_callback(params)
         if method == "app_server/session/callbacks/tree" and isinstance(params, harness_session.CallbacksTreeParams):
+            session_id = self._require_session_id(params.session_id)
+            # Before the route checks, so a legacy Session raises LegacySessionError on every host.
+            await self._require_session_v1()
             if self._no_callbacks_tree:
                 raise _tree_unsupported()
             try:
-                tree = await self._sessions.read_session_callbacks(
-                    agent_session_id=self._require_session_id(params.session_id)
-                )
+                return await self._sessions.read_session_callbacks(agent_session_id=session_id)
             except httpx.HTTPStatusError as error:
                 if _route_missing(error):
                     self._no_callbacks_tree = True
                     raise _tree_unsupported() from error
                 raise
-            await self._require_v1_callbacks_tree()
-            return tree
         raise RemoteSessionProcedureUnsupportedError(
             method=method,
             backend="vibe_agents",
@@ -403,7 +382,6 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         history: list[harness_session.HistoryImportEntry],
         timeout_seconds: float,
         idempotency_key: str | None = None,
-        session_protocol: SessionProtocol | None = None,
         agent: wire.SessionAgentCustomization | None = None,
         session_inputs: Mapping[str, JsonValue] | None = None,
         until_started: bool = False,
@@ -437,7 +415,6 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
                 agent_name=deployment_name,
                 agent=agent,
                 idempotency_key=idempotency_key,
-                session_protocol=session_protocol,
                 session_inputs=dict(session_inputs) if session_inputs else None,
                 initial_turn=initial_turn,
             )
@@ -453,8 +430,10 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
                 raise
             raise sdk_errors.SdkError(_detail_message(error, "The control plane refused the Session start")) from error
         self._session_id = started.agent_session.agent_session_id
-        # FIXME: delete once MAIS 2026.11 is released
-        self._session_protocol = started.agent_session.session_protocol
+        # A repeated start returns the Session its key first started, which a raw client may have started in
+        # the legacy task protocol.
+        _require_session_v1(started.agent_session)
+        self._session_v1_checked = True
         if until_started and started.agent_session.status in _TERMINAL_PRODUCT_STATUSES:
             # Only a repeated start returns a Session that has already ended.
             projection = await self._build_projection(started.agent_session)
@@ -472,7 +451,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
             turn_id = started.initial_turn.id
             description = f"initial Turn {turn_id}"
 
-        def ready(projection: RemoteSessionProjection) -> bool:
+        def ready(projection: VibeAgentsSessionV1Projection) -> bool:
             if turn_id is not None and turn_id in projection.turns:
                 return True
             if until_started:
@@ -547,7 +526,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
                     resume_cursor,
                     subevent_index=index if index < len(resume_payloads) - 1 else None,
                 )
-                yield harness_session.Event(
+                yield _relayed_event(
                     event_id=last_event_id,
                     emitted_at=projection.session.updated_at,
                     session_id=str(session_id),
@@ -556,7 +535,6 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
                 )
 
         loop = asyncio.get_running_loop()
-        terminal_event_deadline: float | None = None
         reconnect_delay = _RETRY_INITIAL_SECONDS
         # A dropped connection is retried from the cursor of the last applied event until this
         # budget runs out. It restarts when an event arrives or a reopened stream sends something
@@ -598,7 +576,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
                                 continue
                             emitted_at = _relayed_emitted_at(projection)
                             events = [
-                                harness_session.Event(
+                                _relayed_event(
                                     event_id=_encode_event_id(
                                         observed.sequence,
                                         subevent_index=index if index < len(payloads) - 1 else None,
@@ -615,11 +593,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
                     except httpx.HTTPError as error:
                         # v1 publishes no terminal event, so a Session that ended while `/events`
                         # failed shows only on its row: read the row before reconnecting.
-                        if (
-                            self._closed
-                            or not isinstance(projection, VibeAgentsSessionV1Projection)
-                            or not _is_transient_read_failure(error)
-                        ):
+                        if self._closed or not _is_transient_read_failure(error):
                             raise
                         stream_error = error
 
@@ -652,9 +626,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
                 # for the client's read timeout.
                 raise lost_stream.lost_error(after_event_id=last_event_id) from error
 
-            if not product_is_terminal:
-                terminal_event_deadline = None
-            elif isinstance(projection, VibeAgentsSessionV1Projection):
+            if product_is_terminal:
                 # v1 excludes session_terminated from the read contract on purpose, so no
                 # terminal event is coming. The product row is the signal: adopt it and let
                 # the loop condition end the stream, rather than time out waiting. Relay the
@@ -668,14 +640,6 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
                 if events:
                     last_event_id = events[-1].event_id
                     yield events[0] if len(events) == 1 else harness_session.EventBatch(events=events)
-            else:
-                if terminal_event_deadline is None:
-                    terminal_event_deadline = loop.time() + _OUTCOME_TIMEOUT_SECONDS
-                elif loop.time() >= terminal_event_deadline:
-                    raise OutcomeUnknownError(
-                        "Vibe Agents did not deliver the terminal Session event within "
-                        f"{_OUTCOME_TIMEOUT_SECONDS:g} seconds"
-                    )
 
             await asyncio.sleep(reconnect_delay)
             reconnect_delay = min(reconnect_delay * 2, _RETRY_MAX_SECONDS)
@@ -697,9 +661,9 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         """
 
         session_id = self._require_session_id(params.session_id)
+        await self._require_session_v1()
         if self._no_callbacks_tree:
             raise _tree_unsupported()
-        await self._require_v1_callbacks_tree()
         lost_stream = _LostStreamBudget(asyncio.get_running_loop(), session_id, stream="callbacks")
         reconnect_delay = _RETRY_INITIAL_SECONDS
         last: harness_session.CallbacksTreeResponse | None = None
@@ -770,22 +734,27 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         params: harness_session.SessionReadParams,
     ) -> harness_session.SessionReadResponse:
         session_id = self._require_session_id(params.session_id)
-        product = await self._read_bound_session(session_id)
-        projection = await self._build_projection(product)
-        ended_turns = projection.reconcile_product_snapshot()
-        last_event_id = _last_event_id(projection)
-        if ended_turns and isinstance(projection, VibeAgentsSessionV1Projection):
-            # A reader relays these Turns' ends after the last frame, each with an id of its own:
-            # the read is at the last of them.
+        async with self._read_projection_lock:
+            # The product row is read before history, so the history read after it already holds
+            # any terminal event behind a terminal row and the row only fills in a closure history
+            # never retained. Both are read under the lock, so a read never reports an older row
+            # than a read on this client that completed before it.
+            product = await self._read_bound_session(session_id)
+            projection = await self._advance_read_projection(product)
+            last_event_id = _last_event_id(projection)
+            state, ended_turns = projection.state_with_product(product)
+            # A reader relays these Turns' ends after the last frame, each with an id of its
+            # own: the read is at the last of them.
             relayed = _reconciled_turn_events(projection, ended_turns, session_id=session_id, after_index=None)
             if relayed:
                 last_event_id = relayed[-1].event_id
-        state = projection.state()
+        # Pages come from the returned state, not the projection, so a closure the product
+        # row reported reaches the paged Turns too.
         if params.history is not None:
             state = state.model_copy(
                 update={
                     "history": _build_page(
-                        projection.history,
+                        state.history.items,
                         params.history,
                         item_id=lambda entry: entry.id,
                     )
@@ -795,7 +764,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
             state = state.model_copy(
                 update={
                     "turns": _build_page(
-                        list(projection.turns.values()),
+                        state.turns.items,
                         params.turns,
                         item_id=lambda turn: turn.id,
                     )
@@ -840,9 +809,9 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         gateway 502, a lost connection or a busy 429 is retried with the same idempotency key
         until the outcome budget is spent: the Session deduplicates it and replays the original
         receipt. A ``Retry-After`` delays the next attempt. The budget bounds each attempt too, and
-        this loop owns every retry because ``make_request`` does not retry a POST. A legacy Session,
-        an older Agent or an older control plane cannot serve it, and there is no fallback: nothing
-        on ``/commands`` starts or steers depending on the running Turn.
+        this loop owns every retry because ``make_request`` does not retry a POST. An older Agent or an
+        older control plane cannot serve it, and there is no fallback: nothing on ``/commands``
+        starts or steers depending on the running Turn.
         """
 
         session_id = self._require_session_id(params.session_id)
@@ -857,20 +826,29 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
 
         # Not `_call_procedure`: there is no fallback to remember a 501 for, and a 501 can refuse
         # one message's format only, so every send asks the control plane.
-        return await _retry_within_budget(
-            lambda: self._sessions.send_message(
-                agent_session_id=session_id,
-                message=params.message,
-                idempotency_key=idempotency_key,
-                context_messages=params.context_messages,
-                message_entry_id=params.message_entry_id,
-                source=wire.AGENTS_SDK_COMMAND_SOURCE,
-            ),
-            classify=_refusing(refusal),
-            outcome_unknown=lambda: _unconfirmed(f"message {idempotency_key}", idempotency_key=idempotency_key),
-            # An attempt after the pause would be cut short during the Agent's busy wait.
-            busy_wait_seconds=wire.SEND_MESSAGE_BUSY_WAIT_SECONDS,
-        )
+        try:
+            return await _retry_within_budget(
+                lambda: self._sessions.send_message(
+                    agent_session_id=session_id,
+                    message=params.message,
+                    idempotency_key=idempotency_key,
+                    context_messages=params.context_messages,
+                    message_entry_id=params.message_entry_id,
+                    source=wire.AGENTS_SDK_COMMAND_SOURCE,
+                ),
+                classify=_refusing(refusal),
+                outcome_unknown=lambda: _unconfirmed(f"message {idempotency_key}", idempotency_key=idempotency_key),
+                # An attempt after the pause would be cut short during the Agent's busy wait.
+                busy_wait_seconds=wire.SEND_MESSAGE_BUSY_WAIT_SECONDS,
+            )
+        except RemoteSessionProcedureUnsupportedError as unsupported:
+            # The control plane refuses send_message on a legacy Session with a 501: name that cause.
+            try:
+                await self._require_session_v1()
+            except httpx.HTTPError:
+                # The Session could not be read: the refusal is still the clearest error.
+                raise unsupported from None
+            raise
 
     async def _start_turn(
         self,
@@ -956,7 +934,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         if routed is not None:
             return _with_route_cursor(routed)
         # FIXME: delete once MAIS 2026.11 is released
-        session_v1 = await self._session_is_v1()
+        await self._require_session_v1()
 
         async def submit() -> None:
             await self._sessions.submit_message(
@@ -976,25 +954,13 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         # The wait still reads the Session once when the submit used the whole budget.
         remaining = max(deadline - loop.time(), 0.0)
         try:
-            if session_v1:
-                return await self._await_v1_turn_start(
-                    command_id=turn_id, timeout_seconds=remaining, other_turns_seen=other_turns_seen
-                )
-            acknowledged = await self._wait_for_legacy_projection(
-                lambda candidate: str(command_id) in candidate.command_outcomes,
-                description=f"Turn {turn_id} start acknowledgement",
-                timeout_seconds=remaining,
+            return await self._await_v1_turn_start(
+                command_id=turn_id, timeout_seconds=remaining, other_turns_seen=other_turns_seen
             )
         except OutcomeUnknownError as error:
             # The submit was taken, so the Turn may have started. Only the same key retries it
             # safely, and the caller may not know it when the SDK generated it.
-            running_turn_id = await self._other_running_turn_id(turn_id) if session_v1 else None
-            raise outcome_unknown(running_turn_id) from error
-        _raise_if_rejected(acknowledged, str(command_id), conflict="The remote Session already has an active Turn")
-        return harness_session.TurnStartResponse(
-            turn=acknowledged.turns[turn_id],
-            last_event_id=_last_event_id(acknowledged),
-        )
+            raise outcome_unknown(await self._other_running_turn_id(turn_id)) from error
 
     async def _steer_turn(
         self,
@@ -1023,6 +989,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         if routed is not None:
             return _with_route_cursor(routed)
         # FIXME: delete once MAIS 2026.11 is released
+        await self._require_session_v1()
         try:
             # The same command_id on every attempt, so a retry cannot steer twice.
             await _retry_busy_within_budget(
@@ -1038,18 +1005,9 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
             )
         except SessionCommandRejectedError as error:
             raise RemoteSessionTurnConflictError(str(error)) from error
-        if await self._session_is_v1():
-            # The control plane answered the compare-and-set on the call itself, so reaching
-            # here means the Session applied it. Legacy has no such answer and polls below.
-            return harness_session.TurnSteerResponse(last_event_id=await self._current_last_event_id())
-        outcome = await self._wait_for_command_outcome(str(command_id), deadline=deadline)
-        _raise_if_rejected(
-            outcome,
-            str(command_id),
-            conflict=f"Expected active Turn {params.expected_turn_id!r} is stale",
-            conflict_error=RemoteSessionTurnConflictError,
-        )
-        return harness_session.TurnSteerResponse(last_event_id=_last_event_id(outcome))
+        # The control plane answered the compare-and-set on the call itself, so reaching here
+        # means the Session applied it.
+        return harness_session.TurnSteerResponse(last_event_id=await self._current_last_event_id())
 
     async def _interrupt_turn(
         self,
@@ -1075,6 +1033,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         if routed is not None:
             return _with_route_cursor(routed)
         # FIXME: delete once MAIS 2026.11 is released
+        await self._require_session_v1()
         try:
             await _retry_busy_within_budget(
                 lambda: self._sessions.interrupt_session(
@@ -1089,16 +1048,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
             )
         except SessionCommandRejectedError as error:
             raise RemoteSessionTurnConflictError(str(error)) from error
-        if await self._session_is_v1():
-            return harness_session.TurnInterruptResponse(last_event_id=await self._current_last_event_id())
-        outcome = await self._wait_for_command_outcome(str(command_id), deadline=deadline)
-        _raise_if_rejected(
-            outcome,
-            str(command_id),
-            conflict=f"Expected active Turn {params.expected_turn_id!r} is stale",
-            conflict_error=RemoteSessionTurnConflictError,
-        )
-        return harness_session.TurnInterruptResponse(last_event_id=_last_event_id(outcome))
+        return harness_session.TurnInterruptResponse(last_event_id=await self._current_last_event_id())
 
     async def _cancel_session(
         self,
@@ -1167,24 +1117,29 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
                 result=params.result.model_copy(update={"callback_id": str(callback_id)})
             ),
             harness_session.CallbackResultResponse,
-            refusal=lambda error: _callback_settled(error, callback_id=callback_id),
+            refusal=lambda error: _callback_refusal(error, callback_id=callback_id),
             outcome_unknown=lambda: _unconfirmed(f"callback {callback_id}", idempotency_key=str(callback_id)),
             deadline=deadline,
         )
-        if routed is None:
-            # FIXME: delete once MAIS 2026.11 is released
-            await self._submit_callback_result(
-                session_id=session_id, callback_id=callback_id, result=params.result, deadline=deadline
-            )
+        if routed is not None:
+            # The route answers once the control plane recorded the resolution, which its open
+            # callbacks list reads too, so there is nothing left to wait for.
+            if session_id != attached_id:
+                # A callback of another Session of the tree: this transport follows the events of
+                # its own Session only, and the cursor is the owner's.
+                return harness_session.CallbackResultResponse(last_event_id=_EMPTY_CURSOR)
+            return _with_route_cursor(routed)
+        # FIXME: delete once MAIS 2026.11 is released
+        # A subagent's Session has its root's protocol, so checking the bound Session covers it.
+        await self._require_session_v1()
+        await self._submit_callback_result(
+            session_id=session_id, callback_id=callback_id, result=params.result, deadline=deadline
+        )
         if session_id != attached_id:
-            # A callback of another Session of the tree: this transport follows the events of its
-            # own Session only, so its owner's event cursor is not known here. The open callbacks
-            # list acknowledges the answer.
+            # The open callbacks list acknowledges the answer, as the owner's event cursor is not known here.
             await self._wait_until_not_listed(session_id, callback_id, deadline=deadline)
             return harness_session.CallbackResultResponse(last_event_id=_EMPTY_CURSOR)
-        # The route answers with a cursor from before the resolution, so both paths wait until the
-        # Session shows the callback resolved. Both projections report resolved callbacks, so the
-        # wait does not care which protocol the Session speaks.
+        # `/callbacks` answers before the resolution, so wait until the Session shows it.
         try:
             acknowledged = await self._wait_for_projection(
                 lambda candidate: str(callback_id) in candidate.resolved_callback_ids,
@@ -1196,10 +1151,11 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
             raise _unconfirmed(f"callback {callback_id}", idempotency_key=str(callback_id)) from error
         return harness_session.CallbackResultResponse(last_event_id=_last_event_id(acknowledged))
 
+    # FIXME: delete once MAIS 2026.11 is released
     async def _wait_until_not_listed(self, session_id: UUID, callback_id: UUID, *, deadline: float) -> None:
         """Wait until the control plane's open callbacks of ``session_id`` no longer list ``callback_id``.
 
-        The control plane takes an answer before it records the callback's resolution, so a read
+        `/callbacks` takes an answer before the control plane records its resolution, so a read
         right after the answer could still list the callback as open. A control plane without the
         list, or one that leaves the Session's callbacks out of it, has nothing to wait on. The
         wait shares the answer's outcome budget, which ends at ``deadline`` on the loop's clock; it
@@ -1285,8 +1241,8 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
                 deadline=deadline,
             )
         except httpx.HTTPStatusError as error:
-            if (settled := _callback_settled(error, callback_id=callback_id)) is not None:
-                raise settled from error
+            if (refusal := _callback_refusal(error, callback_id=callback_id)) is not None:
+                raise refusal from error
             raise
 
     async def _call_procedure[ResponseT: harness_session.SessionModel](
@@ -1303,16 +1259,17 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         """Call a Session protocol route, or return None when the caller must fall back.
 
         A 501 (this Session or its Worker cannot serve the procedure, and nothing was applied) or
-        the framework's bare 404 (a control plane without the route) is remembered for this
-        Session and route, so later calls go straight to the fallback. The fallback sends the same
-        command id, so a command an earlier attempt applied is not applied twice, and gets the same
-        ``deadline``, so both share one budget. ``refusal`` types the procedure's own
+        the framework's bare 404 (a control plane without the route) is remembered on the
+        deployment for this Session and route, so later calls, from any transport bound to that
+        deployment, go straight to the fallback. The fallback sends the same command id, so a
+        command an earlier attempt applied is not applied twice, and gets the same ``deadline``,
+        so both share one budget. ``refusal`` types the procedure's own
         refusals; a 403, a 410 and a named 404 reach ``request()``. Every attempt sends the same
         body and the server replays a command id it took, so a busy or unknown outcome is retried
         until ``deadline``, as ``_retry_within_budget`` describes.
         """
 
-        if (session_id, route) in self._unserved_routes:
+        if (session_id, route) in self._deployment.unserved_routes:
             return None
         try:
             return await _retry_within_budget(
@@ -1326,7 +1283,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         except httpx.HTTPStatusError as error:
             if error.response.status_code != httpx.codes.NOT_IMPLEMENTED and not _route_missing(error):
                 raise
-            self._unserved_routes.add((session_id, route))
+            self._deployment.unserved_routes.add((session_id, route))
             return None
 
     async def _resolve_deployment_name(self) -> str:
@@ -1348,21 +1305,33 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         self._resolved_deployment_name = product.agent_name
         return product.agent_name
 
-    async def _read_current_projection(self) -> RemoteSessionProjection:
-        """Advance one transport-local projection for paginated Session reads.
+    async def _read_current_projection(self) -> VibeAgentsSessionV1Projection:
+        """Advance one transport-local projection for Session reads.
 
         Event readers and command polling use private projections because their
-        cursors and lifetimes differ. History and Turn pages share this guarded
-        projection so walking pages does not replay retained product history
-        from the beginning for every page.
+        cursors and lifetimes differ. Session reads and History and Turn pages
+        share this guarded projection, so a caller that reads the same Session
+        repeatedly fetches only the history retained since its last read instead
+        of replaying it from the beginning every time.
         """
 
         async with self._read_projection_lock:
-            if self._read_projection is None:
+            return await self._advance_read_projection()
+
+    async def _advance_read_projection(
+        self, product: AgentSessionResponse | None = None
+    ) -> VibeAgentsSessionV1Projection:
+        """Advance the shared read projection; the caller holds ``_read_projection_lock``.
+
+        ``product`` seeds the projection when the caller already holds a fresh product row.
+        """
+
+        if self._read_projection is None:
+            if product is None:
                 product = await self._read_bound_session(self._require_session_id())
-                self._read_projection = _new_projection(product, self._refused_turn_ids)
-            await self._advance_projection(self._read_projection)
-            return self._read_projection
+            self._read_projection = _new_projection(product, self._refused_turn_ids)
+        await self._advance_projection(self._read_projection)
+        return self._read_projection
 
     async def _read_bound_session(self, session_id: UUID) -> AgentSessionResponse:
         """Read the row of the Session this transport is bound to.
@@ -1381,7 +1350,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
     async def _build_projection(
         self,
         product: AgentSessionResponse,
-    ) -> RemoteSessionProjection:
+    ) -> VibeAgentsSessionV1Projection:
         projection = _new_projection(product, self._refused_turn_ids)
         await self._advance_projection(projection)
         return projection
@@ -1392,7 +1361,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         *,
         cursor: str | None,
         capture_cursor: str | None = None,
-    ) -> tuple[RemoteSessionProjection, list[harness_session.SessionEvent]]:
+    ) -> tuple[VibeAgentsSessionV1Projection, list[RelayedPayload]]:
         """Reconstruct retained history through the SSE resume position.
 
         Command acknowledgements poll retained history and may replace the
@@ -1407,7 +1376,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         projection = _new_projection(product, self._refused_turn_ids)
         if cursor is None:
             return projection, []
-        captured_payloads: list[harness_session.SessionEvent] = []
+        captured_payloads: list[RelayedPayload] = []
         await self._advance_projection(
             projection,
             replay_through=cursor,
@@ -1428,14 +1397,13 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
 
     async def _advance_projection(
         self,
-        projection: RemoteSessionProjection,
+        projection: VibeAgentsSessionV1Projection,
         *,
         replay_through: str | None = None,
         capture_sequence: str | None = None,
-        captured_payloads: list[harness_session.SessionEvent] | None = None,
+        captured_payloads: list[RelayedPayload] | None = None,
     ) -> bool:
-        if isinstance(projection, VibeAgentsSessionV1Projection):
-            projection.drop_refused_turn()
+        projection.drop_refused_turn()
         cursor = projection.product_cursor
         observed_new_event = False
         stop_before: str | None = None
@@ -1491,7 +1459,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         ``other_turns_seen``, which tells a start an older agent refused from a lost one.
         """
 
-        def opened(candidate: RemoteSessionProjection) -> bool:
+        def opened(candidate: VibeAgentsSessionV1Projection) -> bool:
             active_turn_id = candidate.active_turn_id
             if active_turn_id is not None and active_turn_id not in (command_id, *other_turns_seen):
                 other_turns_seen.append(active_turn_id)
@@ -1507,29 +1475,18 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
             raise OutcomeUnknownError(f"Vibe Agents accepted command {command_id} but reported no Turn")
         return harness_session.TurnStartResponse(turn=turn, last_event_id=_last_event_id(started))
 
-    async def _require_v1_callbacks_tree(self) -> None:
-        """Raise unless the control plane's open callbacks list holds this Session's callbacks.
+    async def _require_session_v1(self) -> None:
+        """Raise ``LegacySessionError`` unless the bound Session uses Session v1, read once and remembered.
 
-        The list holds those of Session v1 Sessions only: an older-format Session's own callbacks
-        are missing from it, so it would say an open callback is not. Without the list, a reader
-        takes the callbacks from the Session's read instead.
+        A Session's protocol is fixed at creation, so only the first call reads its row. Calls that
+        read the Session's events check its row anyway. The `/commands` and `/callbacks` fallbacks
+        call this before they send; `message/send`, which the control plane refuses with a 501 on a
+        legacy Session, calls it after that refusal.
         """
 
-        if not await self._session_is_v1():
-            raise _tree_unsupported("the control plane lists the callbacks of Session v1 Sessions only")
-
-    # FIXME: delete once MAIS 2026.11 is released
-    async def _session_is_v1(self) -> bool:
-        """Whether this Session speaks Session v1, read once and remembered.
-
-        A Session's protocol is fixed at creation, so this is cached: it is consulted on every
-        Turn command, and re-reading it would charge each one an extra round trip.
-        """
-
-        if self._session_protocol is None:
-            product = await self._read_bound_session(self._require_session_id())
-            self._session_protocol = product.session_protocol
-        return self._session_protocol is SessionProtocol.SESSION_V1
+        if not self._session_v1_checked:
+            _require_session_v1(await self._read_bound_session(self._require_session_id()))
+            self._session_v1_checked = True
 
     # FIXME: delete once MAIS 2026.11 is released
     async def _current_last_event_id(self) -> str:
@@ -1538,49 +1495,15 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         projection = await self._read_current_projection()
         return _last_event_id(projection)
 
-    # FIXME: delete once MAIS 2026.11 is released
-    async def _wait_for_command_outcome(self, command_id: str, *, deadline: float) -> VibeAgentsSessionProjection:
-        return await self._wait_for_legacy_projection(
-            lambda candidate: command_id in candidate.command_outcomes,
-            description=f"command {command_id} outcome",
-            # The wait still reads the Session once when the route and the submit used the whole budget.
-            timeout_seconds=max(deadline - asyncio.get_running_loop().time(), 0.0),
-        )
-
-    # FIXME: delete once MAIS 2026.11 is released
-    async def _wait_for_legacy_projection(
-        self,
-        predicate: Callable[[VibeAgentsSessionProjection], bool],
-        *,
-        description: str,
-        timeout_seconds: float,
-    ) -> VibeAgentsSessionProjection:
-        """Wait on a predicate that only the legacy projection can answer.
-
-        Callers reach this after ruling out Session v1. Checking again here rather than
-        folding the check into the predicate means a routing mistake raises immediately,
-        instead of polling for the full timeout and then blaming the server.
-        """
-
-        if await self._session_is_v1():
-            raise OutcomeUnknownError(f"Session v1 cannot report {description}")
-        projection = await self._wait_for_projection(
-            lambda candidate: isinstance(candidate, VibeAgentsSessionProjection) and predicate(candidate),
-            description=description,
-            timeout_seconds=timeout_seconds,
-        )
-        assert isinstance(projection, VibeAgentsSessionProjection)  # noqa: S101 - guaranteed by the check above
-        return projection
-
     async def _wait_for_projection(
         self,
-        predicate: Callable[[RemoteSessionProjection], bool],
+        predicate: Callable[[VibeAgentsSessionV1Projection], bool],
         *,
         description: str,
         timeout_seconds: float,
         product_session: AgentSessionResponse | None = None,
         session_start: bool = False,
-    ) -> RemoteSessionProjection:
+    ) -> VibeAgentsSessionV1Projection:
         """Poll the Session history until `predicate` holds, then return the projection.
 
         Raise `OutcomeUnknownError` if `predicate` still fails after `timeout_seconds`.
@@ -1628,8 +1551,8 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
     async def _raise_if_product_terminal(
         self,
         session_id: UUID,
-        projection: RemoteSessionProjection,
-        predicate: Callable[[RemoteSessionProjection], bool],
+        projection: VibeAgentsSessionV1Projection,
+        predicate: Callable[[VibeAgentsSessionV1Projection], bool],
     ) -> None:
         """Fail fast if the Session already ended while we wait for it to become ready.
 
@@ -1669,7 +1592,6 @@ async def _create_remote_session(
     *,
     history: list[harness_session.HistoryImportEntry] | None = None,
     idempotency_key: str | None = None,
-    session_protocol: SessionProtocol | None = None,
     agent: wire.SessionAgentCustomization | None = None,
     session_inputs: Mapping[str, JsonValue] | None = None,
     initial_turn: harness_session.InitialTurn | None = None,
@@ -1682,7 +1604,6 @@ async def _create_remote_session(
         response = await transport.start_deployment_session(
             history=history or [],
             idempotency_key=idempotency_key,
-            session_protocol=session_protocol,
             agent=agent,
             timeout_seconds=settings.session_startup_timeout_seconds,
             session_inputs=session_inputs,
@@ -1733,7 +1654,6 @@ async def _start_remote_run(
     deployment: RemoteAgentDeployment,
     *,
     idempotency_key: str | None = None,
-    session_protocol: SessionProtocol | None = None,
     agent: wire.SessionAgentCustomization | None = None,
     session_inputs: Mapping[str, JsonValue] | None = None,
     initial_turn: harness_session.InitialTurn | None = None,
@@ -1750,7 +1670,6 @@ async def _start_remote_run(
         started = await transport.start_deployment_session(
             history=[],
             idempotency_key=idempotency_key,
-            session_protocol=session_protocol,
             agent=agent,
             session_inputs=session_inputs,
             timeout_seconds=SessionClientSettings().session_startup_timeout_seconds,
@@ -1982,7 +1901,7 @@ def _build_info_response() -> harness_session.InfoResponse:
     return harness_session.InfoResponse(
         server_info=harness_session.ServerInfo(
             name="vibe_agents",
-            version="legacy-session-transport-v1",
+            version="session-v1-transport",
         ),
         capabilities={
             "app_server/session": harness_session.app_server_capability(_REMOTE_PROCEDURES),
@@ -2235,15 +2154,23 @@ def _send_message_outcome_unknown(error: httpx.HTTPStatusError) -> bool:
     return status_code == httpx.codes.BAD_GATEWAY and _response_detail(error) is None
 
 
-def _message_rejection(error: httpx.HTTPStatusError) -> harness_session.SessionMessageRejectedError | None:
-    """Type the control plane's own refusal of a rejected or too large message, or return None.
+def _refusal_detail(error: httpx.HTTPStatusError) -> str | None:
+    """The ``detail`` of the control plane's own 422 refusal of a command's content, or None.
 
-    That refusal is a 422 whose ``detail`` is a string. Request validation answers a list, which is
-    a caller bug.
+    That refusal's ``detail`` is a string. Request validation answers a list, which is a caller bug.
     """
 
     detail = _response_detail(error)
     if error.response.status_code != httpx.codes.UNPROCESSABLE_ENTITY or not isinstance(detail, str):
+        return None
+    return detail
+
+
+def _message_rejection(error: httpx.HTTPStatusError) -> harness_session.SessionMessageRejectedError | None:
+    """Type the control plane's own refusal of a rejected or too large message, or return None."""
+
+    detail = _refusal_detail(error)
+    if detail is None:
         return None
     return harness_session.SessionMessageRejectedError(detail or "The Session rejected the message")
 
@@ -2329,24 +2256,24 @@ def _route_missing(error: httpx.HTTPStatusError) -> bool:
     return status_code == httpx.codes.NOT_FOUND and _response_detail(error) == "Not Found"
 
 
-def _tree_unsupported(
-    reason: str = "the control plane predates the callbacks tree; upgrade it",
-) -> harness_session.UnsupportedSessionProcedureError:
+def _tree_unsupported() -> harness_session.UnsupportedSessionProcedureError:
     return RemoteSessionProcedureUnsupportedError(
         method="app_server/session/callbacks/tree",
         backend="vibe_agents",
-        reason=reason,
+        reason="the control plane predates the callbacks tree; upgrade it",
     )
 
 
-def _callback_settled(
+def _callback_refusal(
     error: httpx.HTTPStatusError, *, callback_id: UUID
-) -> harness_session.SessionCallbackSettledError | None:
-    """Return the settled-callback error for an answer the control plane cannot apply, or None.
+) -> harness_session.SessionCallbackSettledError | harness_session.SessionCallbackRejectedError | None:
+    """Return the in-process host's error for an answer the control plane refused, or None.
 
     The control plane answers 404 when the callback is no longer open (its turn ended, or its
-    Session takes no more commands) and 410 when the Session is gone. The answer changed nothing,
-    as with the in-process host. The framework's bare 404 for an unknown route stays an HTTP error.
+    Session takes no more commands) and 410 when the Session is gone: the callback is settled. It
+    answers a 422 string for an answer the Session refused (it does not fit the callback, or is
+    too large): the callback stays open. Either way the answer changed nothing. The framework's
+    bare 404 for an unknown route stays an HTTP error.
     """
 
     status_code = error.response.status_code
@@ -2354,7 +2281,12 @@ def _callback_settled(
         return harness_session.SessionCallbackSettledError(
             f"Callback {callback_id} is no longer open: {_detail_message(error, 'its Session ended')}"
         )
-    return None
+    detail = _refusal_detail(error)
+    if detail is None:
+        return None
+    return harness_session.SessionCallbackRejectedError(
+        f"The Session refused the answer to callback {callback_id}: {detail or 'it does not fit the callback'}"
+    )
 
 
 def _is_idempotency_conflict(error: httpx.HTTPStatusError) -> bool:
@@ -2418,16 +2350,20 @@ def _decode_event_id(event_id: str | None) -> tuple[str | None, int | None]:
         raise RemoteSessionConflictError(f"Invalid Vibe Agents event cursor: {event_id!r}") from error
 
 
-def _new_projection(product: AgentSessionResponse, refused_turn_ids: Set[str]) -> RemoteSessionProjection:
-    """Pick the projection the session's own event format calls for.
+def _new_projection(product: AgentSessionResponse, refused_turn_ids: Set[str]) -> VibeAgentsSessionV1Projection:
+    """Start a projection of the Session's events, refusing a Session in the legacy task protocol.
 
-    Read from the product row rather than remembered from the create call, so a transport
-    that attached to a session it did not open reads it the same way.
+    Checked on the product row rather than remembered from the create call, so a transport
+    that attached to a session it did not open refuses it the same way.
     """
 
-    if product.session_protocol is SessionProtocol.SESSION_V1:
-        return VibeAgentsSessionV1Projection(product, refused_turn_ids=refused_turn_ids)
-    return VibeAgentsSessionProjection(product)
+    _require_session_v1(product)
+    return VibeAgentsSessionV1Projection(product, refused_turn_ids=refused_turn_ids)
+
+
+def _require_session_v1(product: AgentSessionResponse) -> None:
+    if product.session_protocol is not SessionProtocol.SESSION_V1:
+        raise LegacySessionError(str(product.agent_session_id))
 
 
 def _reconciled_turn_events(
@@ -2476,20 +2412,35 @@ def _split_reconciled_event_id(event_id: str | None) -> tuple[str | None, int | 
     return cursor_event_id, int(index)
 
 
-def _relayed_emitted_at(projection: RemoteSessionProjection) -> int:
-    """When to say a relayed event happened.
+def _relayed_event(
+    *, event_id: str, emitted_at: int, session_id: str, root_session_id: str | None, payload: RelayedPayload
+) -> harness_session.Event:
+    """The event that carries ``payload``: a client event for one this SDK has no model for."""
 
-    A v1 frame carries the server's own `emittedAt`, so it is used verbatim. The legacy
-    protocol has no per-frame time, so its events are dated from the session snapshot.
-    """
+    event_type = (
+        harness_session.ClientEvent
+        if isinstance(payload, harness_session.UnknownEventPayload)
+        else harness_session.Event
+    )
+    return event_type(
+        event_id=event_id,
+        emitted_at=emitted_at,
+        session_id=session_id,
+        root_session_id=root_session_id,
+        payload=payload,
+    )
 
-    if isinstance(projection, VibeAgentsSessionV1Projection) and projection.last_emitted_at is not None:
+
+def _relayed_emitted_at(projection: VibeAgentsSessionV1Projection) -> int:
+    """When to say a relayed event happened: the frame's own `emittedAt`, else the session snapshot's time."""
+
+    if projection.last_emitted_at is not None:
         return projection.last_emitted_at
     return projection.session.updated_at
 
 
 # FIXME: delete once MAIS 2026.11 is released
-def _v1_started_turn(projection: RemoteSessionProjection, command_id: str) -> harness_session.TurnState | None:
+def _v1_started_turn(projection: VibeAgentsSessionV1Projection, command_id: str) -> harness_session.TurnState | None:
     """The Turn a Session v1 start opened, or None while it has not appeared.
 
     The Turn a start opens carries the command's own id: the worker names it after the command
@@ -2498,12 +2449,10 @@ def _v1_started_turn(projection: RemoteSessionProjection, command_id: str) -> ha
     while a Turn runs, it does not add the message to that Turn.
     """
 
-    if not isinstance(projection, VibeAgentsSessionV1Projection):
-        return None
     return projection.turns.get(command_id)
 
 
-def _left_starting(projection: RemoteSessionProjection) -> bool:
+def _left_starting(projection: VibeAgentsSessionV1Projection) -> bool:
     """Whether a Session has been up at least once: idle now, or it has started a turn."""
 
     return _started_idle(projection) or bool(projection.turns)
@@ -2538,57 +2487,22 @@ def _refuses_initial_turn_field(error: httpx.HTTPStatusError) -> bool:
     detail = _response_detail(error)
     if not isinstance(detail, list):
         return False
-    # The field itself, or one inside it that the control plane does not know yet.
     return any(
-        isinstance(item, dict)
-        and item.get("type") == "extra_forbidden"
-        and isinstance(loc := item.get("loc"), list)
-        and loc[:2] == ["body", "initial_turn"]
+        isinstance(item, dict) and item.get("type") == "extra_forbidden" and item.get("loc") == ["body", "initial_turn"]
         for item in detail
     )
 
 
-def _started_idle(projection: RemoteSessionProjection) -> bool:
+def _started_idle(projection: VibeAgentsSessionV1Projection) -> bool:
     """Whether a freshly created Session has reported itself up and waiting.
 
-    Session v1 has no initialized entry kind, so its retained waiting status is the whole
-    signal. The legacy protocol emits both rows and waiting can precede initialization in
-    the fold, so it waits for the pair.
+    Session v1 has no initialized entry kind, so its retained waiting status is the whole signal.
     """
 
-    if isinstance(projection, VibeAgentsSessionV1Projection):
-        return projection.session.status == "waiting"
-    return projection.initialized and projection.session.status == "waiting"
+    return projection.session.status == "waiting"
 
 
-# FIXME: delete once MAIS 2026.11 is released
-def _raise_if_rejected(
-    projection: VibeAgentsSessionProjection,
-    command_id: str,
-    *,
-    conflict: str,
-    conflict_error: type[RemoteSessionConflictError] = RemoteSessionConflictError,
-) -> None:
-    """Raise the error for a rejected command outcome; do nothing for an accepted one.
-
-    A Turn race raises ``conflict``. Any other reason raises the server's reason as it is, so
-    that a full intake or a newer rejection is not reported as a Turn conflict.
-    """
-
-    outcome = projection.command_outcomes[command_id]
-    if outcome.outcome != "rejected":
-        return
-    reason = outcome.non_race_rejection_reason
-    if reason is not None:
-        raise RemoteSessionCommandRejectedError(
-            command_id=command_id,
-            reason=reason,
-            retryable=outcome.retryable,
-        )
-    raise conflict_error(conflict)
-
-
-def _last_event_id(projection: RemoteSessionProjection) -> str:
+def _last_event_id(projection: VibeAgentsSessionV1Projection) -> str:
     return _encode_event_id(projection.product_cursor) if projection.product_cursor is not None else _EMPTY_CURSOR
 
 
@@ -2659,7 +2573,7 @@ def _build_page[ItemT](
     )
 
 
-RemoteSessionProcedureUnsupportedError = harness_session.UnsupportedSessionProcedureError
+RemoteSessionProcedureUnsupportedError = sdk_errors.UnsupportedSessionProcedureError
 
 if TYPE_CHECKING:
     RemoteSessionOutcomeUnknownError = OutcomeUnknownError
@@ -2682,8 +2596,6 @@ def __getattr__(name: str) -> object:
 __all__ = [
     "RemoteAgentDeployment",
     "RemoteAgentDeploymentNotFoundError",
-    # FIXME: delete once MAIS 2026.11 is released
-    "RemoteSessionCommandRejectedError",
     "RemoteSessionConflictError",
     "RemoteSessionProcedureUnsupportedError",
     "RemoteSessionStartFailedError",

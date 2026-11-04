@@ -68,6 +68,14 @@ def test_a_control_that_finishes_early_leaves_the_target_the_rest(
     assert budget.target_share_s() == 150 * 60
 
 
+def test_setup_gets_the_read_time_left_when_it_starts(clock: _FakeClock) -> None:
+    budget = ReadBudget.start(600)
+
+    assert budget.setup_share_s() == 540
+    clock.advance(100)
+    assert budget.setup_share_s() == 440
+
+
 def test_setup_before_the_control_is_charged_to_the_budget(clock: _FakeClock) -> None:
     budget = ReadBudget.start(170 * 60)
 

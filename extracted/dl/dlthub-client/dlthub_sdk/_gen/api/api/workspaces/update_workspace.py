@@ -100,9 +100,9 @@ def sync_detailed(
 
     Updates the information for a workspace.
 
-    Playground workspaces cannot be updated.
+    Answers 400 for a playground workspace and 409 for an archived one.
 
-    Requires MANAGE_WORKSPACE permission on the workspace level.
+    Requires the workspace owner role.
 
     Args:
         workspace_id (UUID):
@@ -137,9 +137,9 @@ def sync(
 
     Updates the information for a workspace.
 
-    Playground workspaces cannot be updated.
+    Answers 400 for a playground workspace and 409 for an archived one.
 
-    Requires MANAGE_WORKSPACE permission on the workspace level.
+    Requires the workspace owner role.
 
     Args:
         workspace_id (UUID):
@@ -169,9 +169,9 @@ async def asyncio_detailed(
 
     Updates the information for a workspace.
 
-    Playground workspaces cannot be updated.
+    Answers 400 for a playground workspace and 409 for an archived one.
 
-    Requires MANAGE_WORKSPACE permission on the workspace level.
+    Requires the workspace owner role.
 
     Args:
         workspace_id (UUID):
@@ -204,9 +204,9 @@ async def asyncio(
 
     Updates the information for a workspace.
 
-    Playground workspaces cannot be updated.
+    Answers 400 for a playground workspace and 409 for an archived one.
 
-    Requires MANAGE_WORKSPACE permission on the workspace level.
+    Requires the workspace owner role.
 
     Args:
         workspace_id (UUID):

@@ -84,6 +84,15 @@ class ComputerRequest(BaseModel):
     scroll_direction: ScrollDirection | None = None
     scroll_amount: int | None = None
     duration: float | None = None
+    # Seconds the desktop agent should wait after executing the action before
+    # capturing the result screenshot ("settle time"). None keeps the agent's
+    # built-in default (2.0s on the Windows agent — inherited verbatim from
+    # Anthropic's computer-use reference demo and never revisited; measured to
+    # be the dominant per-action cost on windows-vm tasks). RL rollouts pay
+    # this on every turn, so callers that prefer throughput over perfectly
+    # settled screenshots can lower it. Old agents ignore unknown fields, so
+    # this degrades gracefully.
+    screenshot_delay_s: float | None = None
 
 
 class BashRequest(BaseModel):

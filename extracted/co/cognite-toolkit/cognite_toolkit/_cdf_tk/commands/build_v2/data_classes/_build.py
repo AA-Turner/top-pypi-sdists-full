@@ -25,6 +25,7 @@ from ._insights import (
     Insight,
     InsightList,
     InternalValidatorException,
+    Recommendation,
 )
 from ._module import BuildVariable, FailedReadYAMLFile, IgnoredFile, ModuleId
 from ._types import AbsoluteDirPath, AbsoluteFilePath, RelativeDirPath, RelativeFilePath, ValidationType
@@ -174,12 +175,40 @@ class BuiltResource(BaseModel):
         return not self.has_syntax_error and not self.failed_extra
 
 
+class BuiltResourceList(UserList[BuiltResource]):
+    def load_resource_of_type(
+        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
+    ) -> dict[T_Identifier, tuple[BuiltResource, T_RequestResource]]:
+        """Reload this module's built resources for the given CRUD, the same way ``cdf deploy`` does.
+
+        Only resources matching the CRUD's resource type and without syntax/read errors are considered.
+        """
+        resource_type = crud.as_resource_type()
+        resource_by_id = {
+            resource.identifier: resource
+            for resource in self.data
+            if resource.type == resource_type and resource.can_verify
+        }
+        if not resource_by_id:
+            return {}
+
+        build_paths = {resource.build_path for resource in resource_by_id.values()}
+        local_by_id: dict[T_Identifier, tuple[BuiltResource, T_RequestResource]] = {}
+        for build_path in build_paths:
+            for raw in crud.load_resource_file(build_path):
+                request = crud.load_resource(raw)
+                item_id = crud.get_id(request)
+                if item_id in resource_by_id:
+                    local_by_id[item_id] = (resource_by_id[item_id], request)
+        return local_by_id
+
+
 class BuiltModule(BaseModel):
     module_id: ModuleId
     resources: list[BuiltResource] = Field(default_factory=list)
     insights: list[Insight] = Field(default_factory=list)
     syntax_errors_by_source: dict[Path, BuildError] = Field(default_factory=dict)
-    syntax_warnings_by_source: dict[Path, list[BuildWarning]] = Field(default_factory=dict)
+    syntax_warnings_by_source: dict[Path, list[BuildWarning | Recommendation]] = Field(default_factory=dict)
     unresolved_variables_by_source: dict[Path, list[str]] = Field(default_factory=dict)
     failed_files: list[FailedReadYAMLFile] = Field(default_factory=list)
     ignored_files: list[IgnoredFile] = Field(default_factory=list)
@@ -196,32 +225,6 @@ class BuiltModule(BaseModel):
     def is_success(self) -> bool:
         """Determines if the module build was successful based on the presence of built file and validation errors."""
         return self.files_built
-
-    def load_local_resources(
-        self, crud: ResourceIO[T_Identifier, T_RequestResource, Any, Any]
-    ) -> dict[T_Identifier, tuple[BuiltResource, T_RequestResource]]:
-        """Reload this module's built resources for the given CRUD, the same way ``cdf deploy`` does.
-
-        Only resources matching the CRUD's resource type and without syntax/read errors are considered.
-        """
-        resource_type = ResourceType(resource_folder=crud.folder_name, kind=crud.kind)
-        resource_by_id = {
-            resource.identifier: resource
-            for resource in self.resources
-            if resource.type == resource_type and resource.can_verify
-        }
-        if not resource_by_id:
-            return {}
-
-        build_paths = {resource.build_path for resource in resource_by_id.values()}
-        local_by_id: dict[T_Identifier, tuple[BuiltResource, T_RequestResource]] = {}
-        for build_path in build_paths:
-            for raw in crud.load_resource_file(build_path):
-                request = crud.load_resource(raw)
-                item_id = crud.get_id(request)
-                if item_id in resource_by_id:
-                    local_by_id[item_id] = (resource_by_id[item_id], request)
-        return local_by_id
 
     @property
     def all_insights(self) -> InsightList:

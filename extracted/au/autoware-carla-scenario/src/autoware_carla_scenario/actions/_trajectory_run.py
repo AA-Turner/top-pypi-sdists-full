@@ -216,7 +216,8 @@ class TrajectoryRun(BaseAction):
 
     Raises:
         ValueError: If a timing is given for an untimed trajectory, the
-            initial distance offset or the speed is negative,
+            initial distance offset is negative or not finite, the speed is
+            negative or not finite,
             or *hidden_outside_trajectory* is asked for without ``POSITION``
             mode and a time reference.
     """
@@ -288,10 +289,20 @@ class TrajectoryRun(BaseAction):
                 f"trajectory {trajectory.name!r} has no vertex times, so a "
                 "time reference has nothing to apply to; pass time_reference=None"
             )
-        if initial_distance_offset < 0.0:
-            raise ValueError("initial_distance_offset must not be negative")
-        if speed is not None and not speed >= 0.0:
-            raise ValueError("speed must not be negative")
+        # NaN passes `< 0.0`.
+        if not math.isfinite(initial_distance_offset) or initial_distance_offset < 0.0:
+            raise ValueError(
+                "initial_distance_offset must be finite and not negative, "
+                f"not {initial_distance_offset!r}"
+            )
+        # An infinite speed makes the run's distance infinite after one tick
+        # (#1333); ``None`` is how the entity keeps its own speed.
+        if speed is not None:
+            given_speed: float = speed
+            if not math.isfinite(given_speed) or given_speed < 0.0:
+                raise ValueError(
+                    f"speed must be finite and not negative, not {given_speed!r}"
+                )
         # An if statement, not a conditional expression: Codon does not take
         # a subclass for an Optional of its base there (docs/typecheck.md).
         ending: Optional[BaseCondition] = until
@@ -573,10 +584,21 @@ class TrajectoryRun(BaseAction):
         if self._following_mode is TrajectoryFollowingMode.POSITION:
             sample = self._position_sample(world)
             if self._hidden_outside and self._absent():
-                self._hide(actor, sample)
+                self._hide(world, actor, sample)
                 return
             self._show(actor)
-            _place(actor, sample, walker)
+            put_z = _place(actor, sample, walker)
+            # Teleported: a place written against it on this frame reads it
+            # here, not where the world still shows it (or a SpawnAction put
+            # it earlier on the frame).  FOLLOW mode moves it by control, so
+            # it stays where it was this frame and nothing changes.
+            from .spawn import note_brought_in  # noqa: PLC0415
+
+            note_brought_in(
+                world,
+                str(self._entity_name),
+                CarlaWorldPose(sample.x, sample.y, put_z, yaw=sample.yaw),
+            )
         elif walker:
             self._walk(world, actor)
         else:
@@ -738,9 +760,13 @@ class TrajectoryRun(BaseAction):
         it from."""
         return self._trajectory_time() < self._clock_start - 1e-9
 
-    def _hide(self, actor: "carla.Actor", sample: TrajectorySample) -> None:
+    def _hide(
+        self, world: "carla.World", actor: "carla.Actor", sample: TrajectorySample
+    ) -> None:
         """Park *actor* under where *sample* is, out of the simulation."""
         import typesafe_carla.carla as carla  # noqa: PLC0415
+
+        from .spawn import forget_brought_in  # noqa: PLC0415
 
         if not self._hidden:
             actor.set_simulate_physics(False)
@@ -751,6 +777,8 @@ class TrajectoryRun(BaseAction):
                 carla.Rotation(yaw=sample.yaw),
             )
         )
+        # Brought in on this frame, it is not where a SpawnAction put it.
+        forget_brought_in(world, str(self._entity_name))
 
     def _show(self, actor: "carla.Actor") -> None:
         """Bring a hidden *actor* back into the simulation."""
@@ -800,7 +828,10 @@ class TrajectoryRun(BaseAction):
                 yaw_rate=sample.yaw_rate / scale,
             )
         sample = resolved.at_distance(self._distance, self._speed)
-        if not resolved.closed and self._distance >= resolved.length:
+        # _distance is a running sum of speed * dt, so a path a whole number
+        # of steps long can fall a hair short of its length on the step that
+        # reaches it: the same tolerance as the timed branch above.
+        if not resolved.closed and self._distance >= resolved.length - 1e-9:
             self._finished = True
         self._distance += self._speed * _tick_seconds(world)
         return sample
@@ -1640,8 +1671,9 @@ def _walker_speed(speed_mps: float) -> float:
     return walker_control_speed(speed_mps)
 
 
-def _place(actor: "carla.Actor", sample: TrajectorySample, walker: bool) -> None:
-    """Put *actor* at *sample*, moving with the sample's velocity.
+def _place(actor: "carla.Actor", sample: TrajectorySample, walker: bool) -> float:
+    """Put *actor* at *sample*, moving with the sample's velocity; the z its
+    origin was put at.
 
     The velocity goes with the pose so that what reads the actor's speed -- a
     speed condition, the recorder, a TrafficManager car behind it -- sees the
@@ -1652,9 +1684,10 @@ def _place(actor: "carla.Actor", sample: TrajectorySample, walker: bool) -> None
     import typesafe_carla.carla as carla  # noqa: PLC0415
 
     lift = float(actor.bounding_box.extent.z) if walker else 0.0
+    put_z = sample.z + lift
     actor.set_transform(
         carla.Transform(
-            carla.Location(x=sample.x, y=sample.y, z=sample.z + lift),
+            carla.Location(x=sample.x, y=sample.y, z=put_z),
             carla.Rotation(yaw=sample.yaw),
         )
     )
@@ -1668,9 +1701,10 @@ def _place(actor: "carla.Actor", sample: TrajectorySample, walker: bool) -> None
         _as_walker(actor).apply_control(
             carla.WalkerControl(direction=direction, speed=_walker_speed(speed))
         )
-        return
+        return put_z
     actor.set_target_velocity(carla.Vector3D(sample.vx, sample.vy, 0.0))
     actor.set_target_angular_velocity(carla.Vector3D(0.0, 0.0, sample.yaw_rate))
+    return put_z
 
 
 def _stop(actor: "carla.Actor", walker: bool) -> None:

@@ -1,0 +1,140 @@
+Metadata-Version: 2.4
+Name: edx-enterprise
+Version: 9.1.0
+Summary: Enterprise features for the Open edX platform
+Author-email: Open edX Project <oscm@openedx.org>
+License-Expression: AGPL-3.0-or-later
+Project-URL: Homepage, https://github.com/openedx/edx-enterprise
+Project-URL: Repository, https://github.com/openedx/edx-enterprise
+Keywords: Django,edx
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.2
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.12
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: bleach
+Requires-Dist: celery
+Requires-Dist: code-annotations
+Requires-Dist: cryptography
+Requires-Dist: django-cache-memoize
+Requires-Dist: django-config-models
+Requires-Dist: django-countries
+Requires-Dist: django-crum
+Requires-Dist: django-fernet-fields-v2
+Requires-Dist: django-filter
+Requires-Dist: django-ipware
+Requires-Dist: django-model-utils
+Requires-Dist: django-multi-email-field
+Requires-Dist: django-object-actions
+Requires-Dist: django-simple-history
+Requires-Dist: django-waffle
+Requires-Dist: Django
+Requires-Dist: djangorestframework-xml
+Requires-Dist: djangorestframework
+Requires-Dist: edx-django-utils>=3.12.0
+Requires-Dist: edx-drf-extensions
+Requires-Dist: edx-opaque-keys[django]
+Requires-Dist: edx-rest-api-client
+Requires-Dist: edx-rbac
+Requires-Dist: tincan
+Requires-Dist: edx-toggles
+Requires-Dist: jsondiff
+Requires-Dist: jsonfield
+Requires-Dist: lxml
+Requires-Dist: markupsafe
+Requires-Dist: openedx-atlas
+Requires-Dist: openedx-events
+Requires-Dist: openedx-filters
+Requires-Dist: paramiko
+Requires-Dist: path.py
+Requires-Dist: pillow
+Requires-Dist: python-dateutil
+Requires-Dist: python3-saml
+Requires-Dist: pytz
+Requires-Dist: requests
+Requires-Dist: rules
+Requires-Dist: slumber
+Requires-Dist: social-auth-app-django
+Requires-Dist: stevedore
+Requires-Dist: testfixtures
+Requires-Dist: unicodecsv
+Requires-Dist: PGPy
+Requires-Dist: django-oauth-toolkit
+Provides-Extra: braze
+Requires-Dist: edx-braze-client; extra == "braze"
+Dynamic: license-file
+
+enterprise
+==========
+
+.. image:: https://img.shields.io/pypi/v/edx-enterprise.svg
+    :target: https://pypi.python.org/pypi/edx-enterprise/
+    :alt: PyPI
+
+.. image:: http://codecov.io/github/edx/edx-enterprise/coverage.svg?branch=master
+    :target: http://codecov.io/github/edx/edx-enterprise?branch=master
+    :alt: Codecov
+
+.. image:: https://readthedocs.org/projects/open-edx-enterprise-service-documentation/badge/?version=latest
+    :target: http://open-edx-enterprise-service-documentation.readthedocs.io/en/latest/
+    :alt: Documentation
+
+.. image:: https://img.shields.io/pypi/pyversions/edx-enterprise.svg
+    :target: https://pypi.python.org/pypi/edx-enterprise/
+    :alt: Supported Python versions
+
+.. image:: https://img.shields.io/github/license/edx/edx-enterprise.svg
+    :target: https://github.com/openedx/edx-enterprise/blob/master/LICENSE.txt
+    :alt: License
+
+The ``Open edx Enterprise Service`` app provides enterprise features to the Open
+edX platform.  The majority of these features are structured around the concept
+of an ``Enterprise Customer``, which is an organization or a group of people
+that "consumes" courses published on the Open edX platform.
+
+Documentation
+-------------
+
+Full documentation for the Open edX Enterprise Service can be found at
+http://open-edx-enterprise-service-documentation.readthedocs.io/en/latest/.
+
+License
+-------
+
+The code in this repository is licensed under the AGPL 3.0 unless otherwise noted.
+
+Please see ``LICENSE.txt`` for details.
+
+How To Contribute
+-----------------
+
+Contributions are very welcome.
+
+Please read `How To Contribute <https://github.com/openedx/.github/blob/master/CONTRIBUTING.md>`_ for details.
+
+A Pull Request Description Template can be found at`PULL_REQUEST_TEMPLATE.md`_ - this
+template is automatically applied when you open a pull request from GitHub.  Please
+make sure to include this template if submitting a pull request via other channels.
+
+.. _PULL_REQUEST_TEMPLATE.md: https://github.com/openedx/edx-enterprise/blob/master/.github/PULL_REQUEST_TEMPLATE_TEMPLATE.md
+
+After submitting a pull request, please use the Github "Reviewers" widget to add
+relevant reviewers and track review process.
+
+Reporting Security Issues
+-------------------------
+
+Please do not report security issues in public. Please email security@openedx.org.
+
+Getting Help
+------------
+
+Have a question about this repository, or about Open edX in general?  Please
+refer to this `list of resources`_ if you need any assistance.
+
+.. _list of resources: https://openedx.org/getting-help

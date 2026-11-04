@@ -1,21 +1,21 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.connected_account_refresh_params."""
 
 from __future__ import annotations
 
-from typing_extensions import Annotated, TypedDict
+from typing import Annotated
 
-from .._utils import PropertyInfo
-
-__all__ = ["ConnectedAccountRefreshParams"]
+from typing_extensions import TypedDict
+from .._types import PropertyInfo
 
 
 class ConnectedAccountRefreshParams(TypedDict, total=False):
-    query_redirect_url: Annotated[str, PropertyInfo(alias="redirect_url")]
-
-    body_redirect_url: Annotated[str, PropertyInfo(alias="redirect_url")]
-
+    query_redirect_url: Annotated[str, PropertyInfo(alias='redirect_url')]
+    body_redirect_url: Annotated[str, PropertyInfo(alias='redirect_url')]
     validate_credentials: bool
-    """
-    [EXPERIMENTAL] Whether to validate the provided credentials, validates only for
-    API Key Auth scheme
-    """
+    "[EXPERIMENTAL] Whether to validate the provided credentials, validates only for\nAPI Key Auth scheme"
+
+
+__all__ = [
+    "ConnectedAccountRefreshParams",
+]

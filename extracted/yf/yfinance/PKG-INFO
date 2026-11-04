@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yfinance
-Version: 1.7.0
+Version: 1.8.0
 Summary: Download market data from Yahoo! Finance API
 Author-email: Ran Aroussi <ran@aroussi.com>
 License: Apache-2.0
@@ -30,9 +30,8 @@ Classifier: Programming Language :: Python :: 3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: beautifulsoup4>=4.11.1
-Requires-Dist: curl_cffi>=0.15
+Requires-Dist: curl_cffi>=0.17
 Requires-Dist: lxml>=4.9.0
-Requires-Dist: multitasking>=0.0.7
 Requires-Dist: numpy>=1.16.5
 Requires-Dist: pandas>=1.3.0
 Requires-Dist: peewee>=3.16.2
@@ -100,6 +99,9 @@ Dynamic: license-file
 - `Search`: quotes and news from search
 - `Sector` and `Industry`: sector and industry information
 - `EquityQuery` and `Screener`: build query to screen market
+
+> [!NOTE]
+> [Prices are default adjusted for dividends (`auto_adjust=True`)](https://ranaroussi.github.io/yfinance/advanced/price_adjustment.html).
 
 ## Installation
 

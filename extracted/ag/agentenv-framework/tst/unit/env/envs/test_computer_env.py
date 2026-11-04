@@ -37,8 +37,10 @@ from agent_env.config import get_config
 from agent_env.env import Env
 from agent_env.env import env as env_module
 from agent_env.env.env import DeployedEnv
-from agent_env.env.envs.computer.utils import boot, builder, composer, gate, inside, packages, resolve_in_base
-from agent_env.env.envs.computer.utils.composer import Composing, _probe
+from agent_env.env.envs.computer.utils import (boot, builder, composed, composer, gate, inside, packages, probing,
+                                               resolve_in_base)
+from agent_env.env.envs.computer.utils.composer import Composing
+from agent_env.env.envs.computer.utils.probing import _probe
 from agent_env.env.envs.computer.env import ComputerEnv
 from agent_env.env.envs.computer import app_env
 from agent_env.env.envs.computer.app_env import ComputerAppEnv
@@ -248,7 +250,7 @@ def test_gate_3_probes_a_build_with_its_apps_defaults_as_a_deploy_with_no_env_pa
 
     monkeypatch.setattr(boot, "boot", fake_boot)
     monkeypatch.setattr(boot, "discard", AsyncMock())
-    monkeypatch.setattr(composer, "run_probe", AsyncMock(return_value="report"))
+    monkeypatch.setattr(probing, "run_probe", AsyncMock(return_value="report"))
 
     asyncio.run(_probe([SimpleNamespace()], env, driver, "img"))
 
@@ -288,7 +290,7 @@ def test_the_probe_boots_a_build_at_the_envs_settings_with_a_token_of_its_own_as
     monkeypatch.setattr(boot, "boot", fake_boot)
     monkeypatch.setattr(boot, "discard", AsyncMock())
     probed = AsyncMock(return_value="report")
-    monkeypatch.setattr(composer, "run_probe", probed)
+    monkeypatch.setattr(probing, "run_probe", probed)
 
     assert asyncio.run(_probe([SimpleNamespace()], env, driver, "img")) == (
         "report", CARD, "SimpleNamespace")
@@ -310,10 +312,10 @@ def test_a_build_whose_probe_fails_or_that_never_gets_ready_fails_at_the_probe_a
     async def overran(*args):
         raise TimeoutError
 
-    monkeypatch.setattr(composer, "_probe", never_ready)
+    monkeypatch.setattr(probing, "_probe", never_ready)
     unbooted = Env.get(_put(base, driver, id="@local/~/kit/other", environment_name="other").id).metadata[
         "composed"]["container"]["arm64"]
-    monkeypatch.setattr(composer, "_probe", overran)
+    monkeypatch.setattr(probing, "_probe", overran)
     stuck = Env.get(_put(base, driver, id="@local/~/kit/stuck", environment_name="stuck").id).metadata[
         "composed"]["container"]["arm64"]
 
@@ -324,7 +326,33 @@ def test_a_build_whose_probe_fails_or_that_never_gets_ready_fails_at_the_probe_a
     assert unbooted["reason"].startswith("it didn't boot: LocalSandboxProvider: the computer at http://127.0.0.1:1 "
                                          "wasn't ready within 180 s")
     assert (stuck["status"], stuck["stage"], stuck["reason"]) == (
-        "failed", "probe", f"the probe didn't finish within {composer._PROBE_TIMEOUT_S} s")
+        "failed", "probe", f"the probe didn't finish within {probing._PROBE_TIMEOUT_S} s")
+
+
+def test_a_probe_ended_by_a_dropped_connection_runs_again_on_a_fresh_boot_and_one_with_a_failed_check_doesnt(
+        base, driver, docker):
+    """The record keeps every attempt; a build whose every probe drops its connection fails at the probe."""
+    docker.probe_drops["arm64"] = 1
+    retried = Env.get(_put(base, driver).id).metadata["composed"]["container"]["arm64"]
+    probes = len(docker.probed)
+    docker.probe_fails["arm64"] = "the click never landed"
+    strict = Env.get(_put(base, driver, id="@local/~/kit/strict", environment_name="strict").id).metadata[
+        "composed"]["container"]["arm64"]
+    strict_probes = len(docker.probed) - probes
+    docker.probe_fails.clear()
+    docker.probe_drops["arm64"] = probing._PROBE_ATTEMPTS
+    dropped = Env.get(_put(base, driver, id="@local/~/kit/dropped", environment_name="dropped").id).metadata[
+        "composed"]["container"]["arm64"]
+
+    assert retried["status"] == "ready" and [a["status"] for a in retried["attempts"]] == ["dropped", "ready"]
+    assert retried["attempts"][0]["reason"] == "RemoteProtocolError: Server disconnected without sending a response."
+    assert retried["attempts"][1]["probe"] == retried["probe"] and probes == 2
+    assert (strict["status"], strict_probes, "attempts" in strict) == ("failed", 1, False)
+    assert (dropped["status"], dropped["stage"]) == ("failed", "probe")
+    assert [a["status"] for a in dropped["attempts"]] == ["dropped"] * probing._PROBE_ATTEMPTS
+    assert dropped["reason"] == (f"each of its {probing._PROBE_ATTEMPTS} probes, each on a fresh boot, ended on a "
+                                 "transport error talking to its driver, the last RemoteProtocolError: Server "
+                                 "disconnected without sending a response.")
 
 
 @pytest.mark.parametrize("result, stored, replaces", [
@@ -338,7 +366,7 @@ def test_a_build_whose_probe_fails_or_that_never_gets_ready_fails_at_the_probe_a
 ], ids=["unprobed-over-ready", "build-failure-over-built", "building-over-built", "probe-failure-over-unprobed",
         "probe-failure-over-ready", "ready-over-probe-failure", "building-over-build-failure"])
 def test_a_result_takes_a_pairs_place_only_when_it_got_at_least_as_far(result, stored, replaces):
-    assert (composer._rank(result) >= composer._rank(stored)) is replaces
+    assert (composed._rank(result) >= composed._rank(stored)) is replaces
 
 
 def test_env_build_builds_what_a_put_left_and_prints_each_pair(base, driver, docker, caplog):
@@ -375,8 +403,9 @@ async def test_a_computer_env_with_no_ready_build_is_refused_at_deploy_naming_it
     env = _put(base, driver)
 
     with pytest.raises(DeployRefused, match=r"has no ready build to deploy; its builds are \{'container/amd64': "
-                                            r"'unverified', 'container/arm64': 'failed'\}"):
+                                            r"'unverified', 'container/arm64': 'failed'\}; compose it with: ") as refused:
         await Env.get(env.id).deploy()
+    assert str(refused.value).endswith(f"agent-env env build --id {env.id}")
 
 
 @pytest.mark.parametrize("changes, problem", [
@@ -418,6 +447,40 @@ def test_a_driver_that_cant_compose_with_the_base_is_refused(base, docker, tmp_p
         _put(base, make(tmp_path / "driver"))
 
     assert problem in str(refused.value)
+
+
+@pytest.mark.parametrize("names, problem", [
+    ((), "apps: @local/~/kit/desk's screen is a website browser's page, so its computer takes exactly one website "
+         "browser; it has 0"),
+    (("first", "second"), "it has 2: @local/~/kit/first, @local/~/kit/second"),
+])
+def test_a_driver_whose_screen_is_a_page_takes_exactly_one_website_browser_and_any_other_apps(base, docker, tmp_path,
+                                                                                               names, problem):
+    page = _driver(tmp_path / "driver", features={"screen": "page"})
+    mail = _app(None, None, tmp_path / "mail", compose=False)
+    browsers = [_app(None, None, tmp_path / name, compose=False, name=name, browser=True) for name in names]
+
+    with pytest.raises(ValueError) as refused:
+        _put(base, page, compose=False, apps=[*browsers, mail])
+    alone = _put(base, page, compose=False, apps=[_app(None, None, tmp_path / "one", compose=False, name="one",
+                                                       browser=True), mail])
+    desktop = _put(base, _driver(tmp_path / "desktop-driver"), compose=False, id="@local/~/kit/two",
+                   apps=[_app(None, None, tmp_path / "a", compose=False, name="a", browser=True),
+                         _app(None, None, tmp_path / "b", compose=False, name="b", browser=True)])
+
+    assert problem in str(refused.value)
+    assert [app.environment_name for app in alone.apps] == ["one", "mail"] and len(desktop.apps) == 2
+
+
+def test_an_app_deployed_alone_on_a_driver_whose_screen_is_a_page_is_one_website_browser(base, docker, tmp_path):
+    page = _driver(tmp_path / "driver", features={"screen": "page"})
+
+    with pytest.raises(ValueError, match="app: @local/~/kit/desk's screen is a website browser's page, so its "
+                                         "computer takes exactly one website browser; it has 0"):
+        _app(base, page, tmp_path / "mail", compose=False)
+    browser = _app(base, page, tmp_path / "browser", compose=False, name="browser", browser=True)
+
+    assert browser.declaration.browser is True
 
 
 def test_a_base_and_driver_with_no_arch_in_common_and_an_image_that_cant_be_got_are_refused(docker, tmp_path):
@@ -735,6 +798,27 @@ async def test_a_boot_is_ready_with_the_card_read_once_its_status_asked_with_its
 
     assert await boot.ready("http://desk", 5, "t0ken") == {"name": "desk", "children_environments": [{"name": "mail"}]}
     assert sent == [{"Authorization": "Bearer t0ken"}] * 2
+
+
+@pytest.mark.asyncio
+async def test_a_boot_whose_status_says_the_computer_failed_raises_at_once_with_why(monkeypatch):
+    asked = []
+
+    async def card(url, timeout):
+        return {"name": "desk"}
+
+    async def status(url, card, uri, params, timeout, method, headers):
+        asked.append(method)
+        return {"ready": False, "failed": "browser: it ended on its own", "checks": [
+            {"name": "browser", "ok": False, "detail": "it ended on its own", "final": True}]}
+
+    monkeypatch.setattr(boot.protocol_v1, "get_card", card)
+    monkeypatch.setattr(boot.protocol_v1, "invoke_extension", status)
+    monkeypatch.setattr(boot, "_POLL_S", 0)
+
+    with pytest.raises(boot.ComputerFailed, match="the computer at http://desk failed: browser: it ended on its own"):
+        await boot.ready("http://desk", 5, "t0ken")
+    assert asked == ["status"]
 
 
 def test_a_boot_mints_a_generated_setting_resolves_a_secret_its_record_withholds_both_and_a_secret_is_a_reference(

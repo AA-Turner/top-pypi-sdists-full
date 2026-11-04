@@ -1,0 +1,96 @@
+name: Build and upload to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      wip:
+        description: "Publish work in progress package."
+        type: boolean
+        default: true
+
+jobs:
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Build sdist
+        run: pipx run build --sdist
+        env:
+          BUILD_NUMBER: auto
+          PIP_EXTRA_INDEX_URL: ${{ inputs.wip && 'https://test.pypi.org/simple/' || '' }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+  build_wheels:
+    needs: [build_sdist]
+    name: Build ${{ matrix.python }}-${{ matrix.target.tag }}
+    runs-on: ${{ matrix.target.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [cp39, cp310, cp311, cp312, cp313, cp314, cp315]
+        target:
+          - { tag: manylinux_x86_64, os: ubuntu-latest }
+          - { tag: manylinux_aarch64, os: ubuntu-latest }
+          - { tag: manylinux_ppc64le, os: ubuntu-latest }
+          - { tag: musllinux_x86_64, os: ubuntu-latest }
+          - { tag: win_amd64, os: windows-latest }
+          - { tag: macosx_arm64, os: macos-latest }
+          - { tag: macosx_x86_64, os: macos-latest }
+        include:
+          - python: pp311
+            target: { tag: manylinux_x86_64, os: ubuntu-latest }
+          - python: pp312
+            target: { tag: manylinux_x86_64, os: ubuntu-latest }
+          - python: cp314t
+            target: { tag: manylinux_x86_64, os: ubuntu-latest }
+          - python: cp315t
+            target: { tag: manylinux_x86_64, os: ubuntu-latest }
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up QEMU
+        if: endsWith(matrix.target.tag, 'linux_ppc64le') || endsWith(matrix.target.tag, 'linux_aarch64')
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: all
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v4.3.0
+        env:
+          CIBW_BUILD: ${{ matrix.python }}-${{ matrix.target.tag }}
+          CIBW_ENABLE: all
+          CIBW_ARCHS: all
+          CIBW_ENVIRONMENT: "BUILD_NUMBER=auto PIP_EXTRA_INDEX_URL=${{ inputs.wip && 'https://test.pypi.org/simple/' || '' }}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cibw-${{ matrix.python }}-${{ matrix.target.tag }}
+          path: ./wheelhouse/*.whl
+
+  upload_pypi:
+    permissions:
+      id-token: write
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ inputs.wip && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}

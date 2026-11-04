@@ -69,6 +69,8 @@ def test_jira_and_asana_as_one_number(make_client: MakeClient):
     assert 'data-group="Studio · Asana" data-subgroup="Newsletter"' in work
     assert 'data-group="acme · Jira" data-subgroup="APP"' in work
     assert "Open Jira" in work and "Open Asana" in work
+    # The backlog is not in the number, but has its own count to list it.
+    assert 'data-filter="backlog"' in work and ">Backlog<" in work
 
     # Kept after a restart, and undone the same way.
     client = make_client(plugins=plugins)

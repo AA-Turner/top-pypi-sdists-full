@@ -21,12 +21,12 @@ T = TypeVar("T", bound="PlainPublicVariable")
 class PlainPublicVariable:
     """
     Attributes:
-        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        created_by (UUID): User who created the variable
+        created_at (datetime.datetime): When the variable was created
+        created_by (UUID): ID of the user who created the variable.
         name (str): Environment variable name
-        type_ (Literal['plain']): Readable back
-        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        updated_by (UUID): User who last updated the variable
+        type_ (Literal['plain']): `plain`: the value is returned when listing.
+        updated_at (datetime.datetime): When the variable was last updated
+        updated_by (UUID): ID of the user who last updated the variable.
         value (str): Value as stored
     """
 

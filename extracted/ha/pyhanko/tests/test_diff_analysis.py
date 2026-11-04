@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from io import BytesIO
 from itertools import product
 from pathlib import Path
@@ -11,7 +11,7 @@ from pyhanko.pdf_utils.content import RawContent
 from pyhanko.pdf_utils.generic import Reference, TrailerReference, pdf_name
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.layout import BoxConstraints
-from pyhanko.pdf_utils.misc import PdfReadError
+from pyhanko.pdf_utils.misc import PdfReadError, PdfStrictReadError
 from pyhanko.pdf_utils.reader import (
     HistoricalResolver,
     PdfFileReader,
@@ -118,7 +118,7 @@ def test_cross_linked_pages_do_not_blow_up_paths():
     )
 
     w = IncrementalPdfFileWriter(out)
-    dt = generic.pdf_date(datetime(2020, 10, 10, tzinfo=timezone.utc))
+    dt = generic.pdf_date(datetime(2020, 10, 10, tzinfo=UTC))
     w.set_info(generic.DictionaryObject({pdf_name('/CreationDate'): dt}))
     w.write_in_place()
 
@@ -206,7 +206,7 @@ def test_no_changes_policy():
 
     w = IncrementalPdfFileWriter(out)
     # do an /Info update
-    dt = generic.pdf_date(datetime(2020, 10, 10, tzinfo=timezone.utc))
+    dt = generic.pdf_date(datetime(2020, 10, 10, tzinfo=UTC))
     info = generic.DictionaryObject({pdf_name('/CreationDate'): dt})
     w.set_info(info)
     w.write_in_place()
@@ -231,6 +231,59 @@ def test_no_changes_policy():
     assert not status.docmdp_ok
 
 
+@freeze_time('2020-11-01')
+@pytest.mark.parametrize('changed_first', [True, False])
+@pytest.mark.parametrize('strict', [True, False])
+def test_duplicate_xref_table_entry_rejected(changed_first, strict):
+    # Other readers take the first entry and pyHanko used to take the last,
+    # so a certified document could be shown modified while passing validation.
+    out = signers.sign_pdf(
+        IncrementalPdfFileWriter(BytesIO(MINIMAL)),
+        signers.PdfSignatureMetadata(
+            field_name='Sig1',
+            certify=True,
+            docmdp_permissions=fields.MDPPerm.NO_CHANGES,
+        ),
+        signer=FROM_CA,
+    )
+    r = PdfFileReader(out)
+    contents_ref = r.root['/Pages']['/Kids'][0].raw_get('/Contents')
+    idnum, gen = contents_ref.idnum, contents_ref.generation
+    original = r.get_object(contents_ref).data
+    prev = r.xrefs.get_startxref_for_revision(r.xrefs.total_revisions - 1)
+    size = r.trailer['/Size']
+    root_idnum = r.trailer.raw_get('/Root').idnum
+
+    data = bytearray(out.getvalue())
+    offsets = []
+    for content in (b'BT /F1 24 Tf 50 700 Td (Hi!) Tj ET', original):
+        offsets.append(len(data))
+        data += (
+            b'%d %d obj\n<< /Length %d >>\nstream\n%s\nendstream\nendobj\n'
+            % (
+                idnum,
+                gen,
+                len(content),
+                content,
+            )
+        )
+    if not changed_first:
+        offsets.reverse()
+    xref_start = len(data)
+    data += b'xref\n0 1\n0000000000 65535 f \n'
+    for offset in offsets:
+        data += b'%d 1\n%010d %05d n \n' % (idnum, offset, gen)
+    data += b'trailer\n<< /Size %d /Root %d 0 R /Prev %d >>\n' % (
+        size,
+        root_idnum,
+        prev,
+    )
+    data += b'startxref\n%d\n%%%%EOF\n' % xref_start
+
+    with pytest.raises(PdfReadError, match='more than one subsection'):
+        PdfFileReader(BytesIO(bytes(data)), strict=strict)
+
+
 DOUBLE_SIG_TESTDATA_FILES = [
     MINIMAL,
     MINIMAL_XREF,
@@ -252,7 +305,7 @@ def test_double_sig_add_field(file_ix):
     # create a new signature field after signing
     w = IncrementalPdfFileWriter(out)
     # throw in an /Info update for good measure
-    dt = generic.pdf_date(datetime(2020, 10, 10, tzinfo=timezone.utc))
+    dt = generic.pdf_date(datetime(2020, 10, 10, tzinfo=UTC))
     info = generic.DictionaryObject({pdf_name('/CreationDate'): dt})
     w.set_info(info)
 
@@ -299,7 +352,7 @@ def test_double_sig_different_pages():
 
     w = IncrementalPdfFileWriter(out)
     # throw in an /Info update for good measure
-    dt = generic.pdf_date(datetime(2020, 10, 10, tzinfo=timezone.utc))
+    dt = generic.pdf_date(datetime(2020, 10, 10, tzinfo=UTC))
     info = generic.DictionaryObject({pdf_name('/CreationDate'): dt})
     w.set_info(info)
     w.write_in_place()
@@ -810,6 +863,33 @@ def test_form_field_postsign_modify():
     s = r.embedded_signatures[0]
     assert s.field_name == 'Sig1'
     val_trusted(s, extd=True)
+
+
+def set_text_field_keep_undefined_ap(writer, val):
+    set_text_field(writer, val)
+    tf = writer.root['/AcroForm']['/Fields'][1].get_object()
+    # no revision defines this object
+    tf['/AP']['/D'] = generic.IndirectObject(91299, 0, None)
+
+
+@freeze_time('2020-11-01')
+def test_form_field_postsign_modify_undefined_ap_ref():
+    w = IncrementalPdfFileWriter(BytesIO(SIMPLE_FORM))
+
+    # fill in, then sign, with the same undefined /D appearance both times
+    set_text_field_keep_undefined_ap(w, "Some text")
+    meta = signers.PdfSignatureMetadata(field_name='Sig1')
+    out = signers.sign_pdf(w, meta, signer=FROM_CA)
+    w = IncrementalPdfFileWriter(out)
+    set_text_field_keep_undefined_ap(w, "Some other text")
+    out = BytesIO()
+    w.write(out)
+
+    r = PdfFileReader(out, strict=False)
+    s = r.embedded_signatures[0]
+    assert s.field_name == 'Sig1'
+    val_status = val_trusted(s, extd=True)
+    assert val_status.modification_level == ModificationLevel.FORM_FILLING
 
 
 def set_text_field_in_group(writer, ix, val):
@@ -2855,6 +2935,37 @@ def test_allow_identical_object_replacement_nonsensical_obj_nonstrict():
     s = r.embedded_signatures[0]
     val_status = validate_pdf_signature(s, notrust_v_context())
     assert val_status.modification_level == ModificationLevel.LTA_UPDATES
+
+
+def _sign_twice_with_undefined_refs() -> BytesIO:
+    # Both the page and the form refer to an object that no revision
+    # defines, and the second signature updates both of them, so the
+    # orphan check meets an undefined reference whichever it reads first.
+    fname = PDF_DATA_DIR + '/minimal-with-nonexistent-refs-in-form.pdf'
+    w = IncrementalPdfFileWriter(BytesIO(read_all(fname)))
+    meta = signers.PdfSignatureMetadata(field_name='Sig1')
+    out = signers.sign_pdf(w, meta, signer=FROM_CA)
+    w = IncrementalPdfFileWriter(out)
+    meta = signers.PdfSignatureMetadata(field_name='Sig2')
+    signers.sign_pdf(w, meta, signer=FROM_CA, in_place=True)
+    return out
+
+
+@freeze_time('2020-11-01')
+def test_sign_twice_with_undefined_refs_nonstrict():
+    r = PdfFileReader(_sign_twice_with_undefined_refs(), strict=False)
+    s = r.embedded_signatures[0]
+    assert s.field_name == 'Sig1'
+    val_status = val_trusted(s, extd=True)
+    assert val_status.modification_level == ModificationLevel.FORM_FILLING
+
+
+@freeze_time('2020-11-01')
+def test_sign_twice_with_undefined_refs_strict():
+    r = PdfFileReader(_sign_twice_with_undefined_refs())
+    s = r.embedded_signatures[0]
+    with pytest.raises(PdfStrictReadError, match='not found'):
+        validate_pdf_signature(s, simple_v_context())
 
 
 @pytest.mark.parametrize(

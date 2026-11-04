@@ -6,7 +6,7 @@ use parking_lot::Mutex;
 use crate::{
     DynamicReturnable,
     evaluation::{
-        dynamic_string::DynamicString,
+        dynamic_string::{DynamicString, lowercase_if_changed},
         evaluator_value::{EvaluatorValueType, MemoizedEvaluatorValue},
     },
     hashing,
@@ -215,9 +215,14 @@ fn mmap_interned_string(hash: u64) -> InternedString {
 
 fn mmap_dynamic_string(value: &ArchivedMmapDynamicString) -> DynamicString {
     let raw = get_string(value.value.to_native()).unwrap_or_default();
+    // Repair derived caches from older writers without changing original IDs.
+    let cached = mmap_interned_string(value.lowercased_value.to_native());
+    let lowercased_value = lowercase_if_changed(cached.as_str())
+        .map(InternedString::from_string)
+        .unwrap_or(cached);
     DynamicString {
         value: mmap_interned_string(value.value.to_native()),
-        lowercased_value: mmap_interned_string(value.lowercased_value.to_native()),
+        lowercased_value,
         hash_value: hashing::ahash_str(raw),
     }
 }

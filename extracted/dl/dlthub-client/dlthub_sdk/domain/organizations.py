@@ -29,34 +29,29 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Membership(Generic[M]):
-    """A workspace the caller belongs to, and their role in it.
+    """A workspace the caller belongs to, and their role in it."""
 
-    Attributes:
-        workspace: The workspace, bound and ready to navigate from.
-        role: The caller's role in it.
-    """
-
+    # doc: sdk
     workspace: Workspace[M]
+    """The workspace, bound and ready to navigate from."""
     role: str
+    """The role of the user in the workspace."""
 
 
 @dataclass(frozen=True)
 class OrganizationCaller(Generic[M]):
-    """Who the token belongs to, and what they may do in one organization.
-
-    Attributes:
-        email: The caller's email.
-        user_id: The caller's user uuid.
-        organization_membership_id: The caller's member uuid in this organization.
-        role: The caller's role in this organization.
-        workspace_memberships: The organization's workspaces the caller belongs to.
-    """
+    """Who the token belongs to, and what they may do in one organization."""
 
     email: str
+    """The email of the current user."""
     user_id: str
+    """The ID of the current user."""
     organization_membership_id: str
+    """The ID of the organization member for this organization."""
     role: str
+    """The role of the user in this organization."""
     workspace_memberships: tuple[Membership[M], ...]
+    """The organization's workspaces the caller belongs to."""
 
     @staticmethod
     def _from_payload(
@@ -82,21 +77,18 @@ class OrganizationCaller(Generic[M]):
 
 @dataclass(frozen=True, repr=False)
 class Organization(Entity[M]):
-    """An organization: what workspaces, members and billing hang off.
-
-    Attributes:
-        id: The organization's uuid.
-        name: Organization name.
-        description: Free-text description, or ``None``.
-        dataplane_id: Default data plane for new workspaces, when one is set.
-        created_at: When the organization was created.
-    """
+    """An organization: what workspaces, members and billing hang off."""
 
     id: str
+    """Unique ID (a UUID)."""
     name: str
+    """The name of the organization."""
     description: str | None
+    """Free-text description of the organization; `None` when none is set."""
     dataplane_id: str | None
+    """Data plane of the organization's workspaces; `None` until a region is set."""
     created_at: datetime
+    """When it was created."""
 
     _identity = ("id", "name")
     _kind = EntityKind.ORGANIZATION
@@ -117,7 +109,7 @@ class Organization(Entity[M]):
         """Choose the data plane this organization's workspaces live on.
 
         Must be set before the organization can hold any workspace, and it
-        fixes where that data resides.
+        fixes where that data resides. One-time and irreversible.
 
         Args:
             dataplane_id: The data plane to assign.
@@ -126,8 +118,13 @@ class Organization(Entity[M]):
             A fresh snapshot; awaitable in async mode.
 
         Raises:
-            BadRequest: No such data plane, or the organization already has one.
-            NotAuthorized: The caller may not administer this organization.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
+            NotFound: The organization does not exist.
         """
         organization_id = self.id
         return self._ctx.run(
@@ -153,7 +150,8 @@ class Organization(Entity[M]):
             organization; awaitable in async mode.
 
         Raises:
-            NotAuthorized: The caller has no access to this organization.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             NotFound: The organization no longer exists.
         """
         organization_id = self.id
@@ -215,8 +213,11 @@ class Organizations(Collection[M]):
             The organization; awaitable in async mode.
 
         Raises:
-            BadRequest: ``id`` is not a uuid.
-            NotFound: No such organization, or it is not visible to this caller.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
+            NotFound: No such organization.
         """
         return self._ctx.run(
             lambda t: t.get_organization(organization_id=id),

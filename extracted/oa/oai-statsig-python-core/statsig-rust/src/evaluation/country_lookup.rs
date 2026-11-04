@@ -174,9 +174,9 @@ impl CountryLookup {
 
     fn lookup(ip_address: &str, evaluator_context: &mut EvaluatorContext) -> Option<DynamicValue> {
         let parts: Vec<&str> = ip_address.split('.').collect();
-        if parts.len() != 4 {
+        let [n0, n1, n2, n3] = parts.as_slice() else {
             return None;
-        }
+        };
 
         let lock = unwrap_or_return_with!(
             COUNTRY_LOOKUP_DATA.try_read_for(std::time::Duration::from_secs(5)),
@@ -196,13 +196,13 @@ impl CountryLookup {
             None
         });
 
-        let nums: Vec<Option<i64>> = parts.iter().map(|&x| x.parse().ok()).collect();
-        if let (Some(n0), Some(n1), Some(n2), Some(n3)) = (nums[0], nums[1], nums[2], nums[3]) {
-            let ip_number = (n0 * 256_i64.pow(3)) + (n1 << 16) + (n2 << 8) + n3;
-            return Self::lookup_numeric(ip_number, country_lookup_data);
-        }
-
-        None
+        let address = u32::from_be_bytes([
+            n0.parse().ok()?,
+            n1.parse().ok()?,
+            n2.parse().ok()?,
+            n3.parse().ok()?,
+        ]);
+        Self::lookup_numeric(i64::from(address), country_lookup_data)
     }
 
     fn lookup_numeric(
@@ -297,6 +297,33 @@ mod tests {
             let first_boundary = data.ip_ranges[0];
             assert_eq!(CountryLookup::binary_search(first_boundary - 1, data), 0);
             assert_eq!(CountryLookup::binary_search(first_boundary, data), 1);
+
+            drop(lookup);
+            let user = crate::StatsigUser::with_user_id("country-test-user");
+            let internal_user = crate::user::StatsigUserInternal::new(&user, None);
+            let specs = crate::specs_response::spec_types::SpecsResponseFull::default();
+            let hashing = crate::hashing::HashUtil::new();
+            let id_list_callback = |_: &str, _: &str| false;
+            let mut context = crate::evaluation::evaluator_context::EvaluatorContext::new(
+                &internal_user,
+                &specs,
+                crate::evaluation::evaluator_context::IdListResolution::Callback(&id_list_callback),
+                &hashing,
+                None,
+                None,
+                false,
+                false,
+            );
+            for (ip, expected) in [
+                ("31.13.64.1", Some("NL")),
+                ("256.0.0.0", None),
+                ("8.8.7.264", None),
+                ("8.-1.0.0", None),
+            ] {
+                let actual = CountryLookup::lookup(ip, &mut context)
+                    .and_then(|value| value.string_value.map(|country| country.value));
+                assert_eq!(actual.as_deref(), expected, "{ip}");
+            }
         }
     }
 }

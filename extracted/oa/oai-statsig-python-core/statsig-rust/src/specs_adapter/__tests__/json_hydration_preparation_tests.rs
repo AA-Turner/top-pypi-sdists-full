@@ -1,4 +1,5 @@
 use super::*;
+use crate::interned_values::interned_store::MmapProjectId;
 use crate::networking::NetworkClient;
 use crate::observability::ops_stats::OPS_STATS;
 use std::io::Cursor;
@@ -7,6 +8,9 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
+
+#[path = "realistic_json_hydration_benchmark.rs"]
+mod realistic_benchmark;
 
 #[path = "json_hydration_discovery_filter_tests.rs"]
 mod discovery_filter;
@@ -197,15 +201,10 @@ async fn hydrate(
         Entrypoint::Store => hydrate_response_for_store(
             hydrator,
             data,
-            JsonStoreHydrationContext {
-                source_url,
-                sync_trigger: None,
-                current_verified_values,
-                mmap_project_id: MmapProjectId::for_sdk_key("json-preparation"),
-                preserve_session_update_mode: false,
-                capture_data_store_bytes,
-                response_has_updates: None,
-            },
+            StoreHydrationOptions::new(source_url, MmapProjectId::for_sdk_key("json-preparation"))
+                .with_data_store_capture(capture_data_store_bytes),
+            current_verified_values,
+            None,
             &mut result,
         )
         .await

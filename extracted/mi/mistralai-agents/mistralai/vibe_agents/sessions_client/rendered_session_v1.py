@@ -1,16 +1,17 @@
 """Client-side reconstruction of a Session v1 session from its ``/events`` stream.
 
-Unlike the legacy task protocol (see :mod:`~mistralai.vibe_agents.sessions_client.rendered_session`,
-a JSON-patch stream against an opaque entry list), Session v1 delivers whole
-history entries: ``history_entry_added`` carries the entry, ``history_entry_completed``
-carries its final form, and ``history_entry_patched`` refines one entry in place
-while it is still generating. Turn, session and callback lifecycle arrive as their
-own events rather than being encoded as state rows.
+Session v1 delivers whole history entries: ``history_entry_added`` carries the
+entry, ``history_entry_completed`` carries its final form, and
+``history_entry_patched`` refines one entry in place while it is still generating.
+Turn, session and callback lifecycle arrive as their own events.
 
 Frames are parsed with ``ClientEvent``, whose validator downgrades payload types
 this SDK does not know to ``UnknownEventPayload`` instead of raising, so a server
-that starts emitting new event types never breaks an older client. Each frame is
-parsed once; a frame that does not parse is logged and skipped.
+that starts emitting new event types never breaks an older client. It also
+downgrades a known event that holds a value this SDK does not know; a termination
+or callback outcome this SDK does not know is read as its own unknown variant, so its
+event keeps its type.
+Each frame is parsed once; a frame that does not parse is logged and skipped.
 """
 
 import copy
@@ -38,13 +39,24 @@ from mistralai.vibe.harness.app_server.session.models import (
     UnknownEventPayload,
     UnknownHistoryEntry,
 )
-from mistralai.vibe_agents.sessions_client.rendered_session import Callback
 
 logger = structlog.get_logger(__name__)
 
+
+@dataclass(slots=True)
+class Callback:
+    """An open callback the client can answer, e.g. an approval or a question to the user."""
+
+    id: UUID
+    # The callback kind: ``approval``, ``user_input``, ``client_tool``, ...
+    name: str
+    prompt: str
+    input: Any
+
+
 # Callback kinds whose open callback leaves the session waiting on a client answer.
-# The Nuage-native channel sends ask_user_question and connector prompts as client_tool.
-V1_BLOCKING_CALLBACK_KINDS = frozenset({"approval", "user_input", "client_tool"})
+# The Nuage-native channel sends ask_user_question as client_tool and connector sign-ins as auth.
+V1_BLOCKING_CALLBACK_KINDS = frozenset({"approval", "user_input", "client_tool", "auth"})
 
 # History entries the harness also emits outside a turn, so their arrival says
 # nothing about the agent taking back control. An entry of a type this SDK does not
@@ -94,11 +106,12 @@ _LEGACY_FRAME_TYPES = frozenset({"history_update", "callback_call", "task_result
 def parse_session_v1_event(event: dict[str, Any]) -> ClientEvent | None:
     """Parse one ``/events`` frame payload; ``None`` when it is not a valid v1 event."""
     frame_type = event.get("type")
-    if frame_type in _LEGACY_FRAME_TYPES:
+    # A type that is not a string is no legacy frame; it is validated like any other unknown one.
+    if isinstance(frame_type, str) and frame_type in _LEGACY_FRAME_TYPES:
         logger.debug("Skipping legacy task-protocol frame", frame_type=frame_type)
         return None
     try:
-        return ClientEvent.model_validate(event)
+        parsed = ClientEvent.model_validate(event)
     except ValidationError as error:
         payload = event.get("payload")
         logger.warning(
@@ -107,6 +120,7 @@ def parse_session_v1_event(event: dict[str, Any]) -> ClientEvent | None:
             error=str(error),
         )
         return None
+    return parsed
 
 
 @dataclass(slots=True)

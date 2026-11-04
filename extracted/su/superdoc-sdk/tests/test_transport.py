@@ -194,18 +194,6 @@ class TestSyncInvoke:
         finally:
             _cleanup_wrapper(cli)
 
-    def test_per_open_auth_fails_before_spawning_a_standalone_document_host(self):
-        transport = SyncHostTransport('/unused', process_mode='document')
-
-        with pytest.raises(SuperDocError) as exc_info:
-            transport.invoke(
-                _TEST_OPEN_OP,
-                {'doc': 'fixture.docx'},
-                collaboration_auth={'type': 'token', 'token': _AUTH_SENTINEL},
-            )
-
-        assert exc_info.value.code == 'CAPABILITY_UNSUPPORTED'
-        assert transport.state == 'DISCONNECTED'
 
     def test_cli_error_passthrough(self):
         cli = _mock_cli_bin({

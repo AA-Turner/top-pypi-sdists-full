@@ -191,7 +191,7 @@ def run(directory: str | None = None) -> int:
 def _run_leased(journal) -> int:
     """`run`, while holding the lease (its handle stays open in `run`)."""
     from ... import redaction
-    from .drain.drain import drain
+    from .drain.drain import SenderClients, drain
 
     # The scrub cache, as in the training process that spawned this worker. The drain
     # re-scrubs every op it sends; a fresh worker with the cache off rescanned each point's
@@ -199,10 +199,14 @@ def _run_leased(journal) -> int:
     # coalesced one-step writes, waited out by `finish()` behind the drain lock (0.9 s with
     # it). Off in multi-tenant processes (redaction.py); this drains one OS user's outbox.
     redaction.enable_scrub_cache()
-    episode = _WorkerEpisode(journal)
+    # The clients every pass sends with, kept for this worker's life (I13): one TLS handshake
+    # per credential, not one per pass.
+    senders = SenderClients()
+    episode = _WorkerEpisode(journal, senders=senders)
     try:
         return _run_episode(journal, episode, drain)
     finally:
+        senders.close()
         # The last word: a waiter tells this clean exit from a worker that died.
         episode.tracker.publish(exiting=True)
 
@@ -225,9 +229,13 @@ def _run_episode(journal, episode: "_WorkerEpisode", drain) -> int:
             window=episode.window,
             priority_runs=episode.waited_runs(),
             set_best_effort_aside=True,
+            senders=episode.senders,
         )
         episode.count(report)
+        released = episode.release_held_on_recovery(report)
         episode.handle_stalls(report)
+        if released and not report.auth_stopped:
+            continue  # what came back goes out in the next pass, not after a wait
         ended = episode.handle_report(report, before)
         if ended is not None:
             return ended
@@ -237,7 +245,7 @@ class _WorkerEpisode:
     """One worker's run of passes over a queue: its backoff, its tally, and what each pass's
     report makes it do next (another pass, a wait, or an exit code)."""
 
-    def __init__(self, journal) -> None:
+    def __init__(self, journal, *, senders=None) -> None:
         from .. import journal as journal_module
         from .drain.lanes import LaneBackoff
         from .drain.window import CollectWindow
@@ -266,6 +274,17 @@ class _WorkerEpisode:
         self.lanes = LaneBackoff(ceiling=_BACKOFF_CAP_SECONDS)
         # Each writer's collect window (plan T2), stamped on its ops as `send_after`.
         self.window = CollectWindow()
+        #: The worker's `SenderClients` (I13); None: each pass builds and closes its own.
+        self.senders = senders
+        #: Servers (`held.get_server_key`) that failed a pass with nothing landing: the first
+        #: write landing on one again lets its held writes out (I14). Seeded from what an earlier
+        #: worker held, so a restart does not leave those writes to their hour.
+        from .held import get_held_servers
+
+        try:
+            self.servers_down: set = get_held_servers(journal.dir)
+        except OSError:
+            self.servers_down = set()
         self.woken_at = _wake_stamp(journal)
         self.started = time.monotonic()
         self.delivered = self.dead_lettered = self.passes = self.waiting_passes = 0
@@ -328,11 +347,9 @@ class _WorkerEpisode:
     def restart_lanes_after_sign_in(self) -> None:
         """A sign-in since the last pass: runs held for a credential are tried now, not
         when their backoff ends (#2041 round 5: 57 s, up to 300 s)."""
-        from .drain.lanes import LaneBackoff
-
         if _wake_stamp(self.journal) != self.woken_at:
             self.woken_at = _wake_stamp(self.journal)
-            self.lanes = LaneBackoff(ceiling=_BACKOFF_CAP_SECONDS)
+            self.lanes.forget_all()
 
     def waited_runs(self) -> list[str]:
         """The runs a `finish()` waits on (R2): their writes go first this pass."""
@@ -352,6 +369,25 @@ class _WorkerEpisode:
             release_held(self.journal.dir)
         except OSError:
             pass
+
+    def release_held_on_recovery(self, report) -> int:
+        """Held writes of a server that answers again go back in line now, not at their hour
+        (I14): a 503 storm's set-aside writes land with the first write after it. A server counts
+        as back only after a pass it failed with nothing landing, and a let-out write failing again
+        does not count as failing (`DrainReport.failing_servers`), so a write held while its
+        server answered waits its hour (`HELD_RETRY_SECONDS`, the backstop). Returns how many
+        writes and lanes came back."""
+        from .held import release_held
+
+        answered = report.answered_servers
+        recovered = self.servers_down & answered
+        self.servers_down = (self.servers_down - answered) | (report.failing_servers - answered)
+        if not recovered:
+            return 0
+        try:
+            return release_held(self.journal.dir, due_only=False, servers=recovered)
+        except OSError:
+            return 0
 
     def handle_stalls(self, report) -> None:
         """After a pass: set aside what stalled (R12) and tell the server what it must hear (D5).
@@ -589,8 +625,10 @@ class _WorkerEpisode:
         """At least as long as the server asked (`Retry-After` on a 503 or
         429), never past the cap."""
         self.tracker.publish(force=True)  # a waiter sees where things stand while this sleeps
+        step = next(self.delays)
+        # Full jitter (I14): every worker of a fleet that failed in one second must not retry in it.
         backoff = durable.honor_retry_after(
-            next(self.delays), report.retry_after, ceiling=_BACKOFF_CAP_SECONDS
+            durable.pick_jittered_wait(step), report.retry_after, ceiling=_BACKOFF_CAP_SECONDS
         )
         print(
             f"transient failure, {report.remaining} left; retrying in "
@@ -600,8 +638,9 @@ class _WorkerEpisode:
         time.sleep(backoff)
         # A worker retrying at the CAP has failed for minutes and may never exit, so it
         # would report nothing. Report once per worker, on the way INTO that state (each
-        # capped pass would turn one wedged queue into a beacon).
-        if backoff >= _BACKOFF_CAP_SECONDS and not self.stalled_reported:
+        # capped pass would turn one wedged queue into a beacon). The ladder's step, not the
+        # jittered wait, says it got there.
+        if step >= _BACKOFF_CAP_SECONDS and not self.stalled_reported:
             self.stalled_reported = True
             self.send_report(OutboxOutcome.STALLED)
 

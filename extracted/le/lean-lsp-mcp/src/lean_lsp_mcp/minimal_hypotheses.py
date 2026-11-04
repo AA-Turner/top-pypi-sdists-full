@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 
+from lean_lsp_mcp.lean_names import LEAN_NAME_END
+
 _DECL_RE = re.compile(r"\b(theorem|lemma|example|def)\s+([A-Za-z_][A-Za-z0-9_'.]*)")
 
 
@@ -33,13 +35,36 @@ def theorem_declared(source: str, name: str) -> bool:
     Lets callers distinguish a genuinely-missing theorem from one that simply
     has no binders (``find_theorem_binders`` returns ``[]`` for both).
     """
+    # The name must end where Lean's name ends: `foo` is not `foo₁`/`foo!`/`foo.bar`.
     return (
         re.search(
-            rf"\b(theorem|lemma|example|def)\s+{re.escape(name)}(?![A-Za-z0-9_'])",
+            rf"\b(theorem|lemma|example|def)\s+{re.escape(name)}{LEAN_NAME_END}",
             source,
         )
         is not None
     )
+
+
+def disable_auto_implicit_for_theorem(source: str, name: str) -> str:
+    """Scope both auto-implicit options off around one declaration.
+
+    A dropped explicit binder can otherwise be silently recreated as an
+    auto-implicit parameter, making the declaration appear to elaborate.
+    """
+    pattern = re.compile(
+        rf"\b(theorem|lemma|example|def)\s+{re.escape(name)}{LEAN_NAME_END}"
+    )
+    match = pattern.search(source)
+    if match is None:
+        return source
+
+    # Put the scoped commands at the declaration's line start so same-line
+    # attributes and modifiers remain part of the wrapped declaration.
+    declaration_start = source.rfind("\n", 0, match.start()) + 1
+    options = (
+        "set_option autoImplicit false in\nset_option relaxedAutoImplicit false in\n"
+    )
+    return source[:declaration_start] + options + source[declaration_start:]
 
 
 def find_theorem_binders(source: str, name: str) -> list[tuple[str, int, int]]:
@@ -55,7 +80,7 @@ def find_theorem_binders(source: str, name: str) -> list[tuple[str, int, int]]:
     be unique within a file or this will pick the wrong one.
     """
     pattern = re.compile(
-        rf"\b(theorem|lemma|example|def)\s+{re.escape(name)}(?![A-Za-z0-9_'])"
+        rf"\b(theorem|lemma|example|def)\s+{re.escape(name)}{LEAN_NAME_END}"
     )
     m = pattern.search(source)
     if not m:

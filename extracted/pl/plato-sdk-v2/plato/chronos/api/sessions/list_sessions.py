@@ -20,10 +20,14 @@ def _build_request_args(
     offset: int | None = None,
     status: str | None = None,
     top_level_only: bool | None = True,
-    world_package: str | None = None,
+    parent_session_id: str | None = None,
+    chain_id: str | None = None,
+    world_package: list[str] | None = None,
     world_version: str | None = None,
     archived_only: bool | None = False,
     experiment_folder: str | None = None,
+    include_children: bool | None = True,
+    org_id: int | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
@@ -48,6 +52,10 @@ def _build_request_args(
         params["status"] = status
     if top_level_only is not None:
         params["top_level_only"] = top_level_only
+    if parent_session_id is not None:
+        params["parent_session_id"] = parent_session_id
+    if chain_id is not None:
+        params["chain_id"] = chain_id
     if world_package is not None:
         params["world_package"] = world_package
     if world_version is not None:
@@ -56,6 +64,10 @@ def _build_request_args(
         params["archived_only"] = archived_only
     if experiment_folder is not None:
         params["experiment_folder"] = experiment_folder
+    if include_children is not None:
+        params["include_children"] = include_children
+    if org_id is not None:
+        params["org_id"] = org_id
 
     headers: dict[str, str] = {}
     if x_api_key is not None:
@@ -80,10 +92,14 @@ def sync(
     offset: int | None = None,
     status: str | None = None,
     top_level_only: bool | None = True,
-    world_package: str | None = None,
+    parent_session_id: str | None = None,
+    chain_id: str | None = None,
+    world_package: list[str] | None = None,
     world_version: str | None = None,
     archived_only: bool | None = False,
     experiment_folder: str | None = None,
+    include_children: bool | None = True,
+    org_id: int | None = None,
     x_api_key: str | None = None,
 ) -> SessionListResponse:
     """List sessions for the org with pagination and filtering.
@@ -102,10 +118,14 @@ def sync(
         offset=offset,
         status=status,
         top_level_only=top_level_only,
+        parent_session_id=parent_session_id,
+        chain_id=chain_id,
         world_package=world_package,
         world_version=world_version,
         archived_only=archived_only,
         experiment_folder=experiment_folder,
+        include_children=include_children,
+        org_id=org_id,
         x_api_key=x_api_key,
     )
 
@@ -125,10 +145,14 @@ async def asyncio(
     offset: int | None = None,
     status: str | None = None,
     top_level_only: bool | None = True,
-    world_package: str | None = None,
+    parent_session_id: str | None = None,
+    chain_id: str | None = None,
+    world_package: list[str] | None = None,
     world_version: str | None = None,
     archived_only: bool | None = False,
     experiment_folder: str | None = None,
+    include_children: bool | None = True,
+    org_id: int | None = None,
     x_api_key: str | None = None,
 ) -> SessionListResponse:
     """List sessions for the org with pagination and filtering.
@@ -147,10 +171,14 @@ async def asyncio(
         offset=offset,
         status=status,
         top_level_only=top_level_only,
+        parent_session_id=parent_session_id,
+        chain_id=chain_id,
         world_package=world_package,
         world_version=world_version,
         archived_only=archived_only,
         experiment_folder=experiment_folder,
+        include_children=include_children,
+        org_id=org_id,
         x_api_key=x_api_key,
     )
 

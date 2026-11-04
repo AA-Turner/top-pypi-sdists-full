@@ -5,8 +5,15 @@ import time
 
 import pytest
 import ray
+import ray.actor
+from ray._private import state
 from ray.util.state import list_actors
 from ray.util.state.exception import RayStateApiException
+
+# More than Ray's state API cap (RAY_MAX_LIMIT_FROM_DATA_SOURCE, 10,000).
+NUM_ACTORS = 11000
+REGISTRATION_TIMEOUT_S = 120
+REGISTRATION_POLL_S = 0.5
 
 
 @ray.remote
@@ -15,17 +22,31 @@ class DummyActor:
         return "pong"
 
 
+def _create_registered_actors(num_actors: int) -> list[ray.actor.ActorHandle]:
+    """Create actors and wait until the GCS has registered all of them.
+
+    ``.remote()`` returns before the actor is registered, and the state API only
+    sees actors the GCS has registered.
+    """
+    actors = [DummyActor.remote() for _ in range(num_actors)]
+    deadline = time.monotonic() + REGISTRATION_TIMEOUT_S
+    # The private actor table is read uncapped; the public state API is not.
+    while (registered := len(state.actors())) < num_actors:
+        if time.monotonic() > deadline:
+            pytest.fail(
+                f"{registered} of {num_actors} actors registered after "
+                f"{REGISTRATION_TIMEOUT_S}s"
+            )
+        time.sleep(REGISTRATION_POLL_S)
+    return actors
+
+
 @pytest.mark.limit
 @pytest.mark.ray
 def test_actor_listing_explodes() -> None:
     ray.init()
     try:
-        # Spin up > 10,000 actors (Ray’s state API cap is 10k)
-        num_actors = 11000
-        actors = [DummyActor.remote() for _ in range(num_actors)]  # noqa: F841
-
-        # Give Ray a moment to register all the actors
-        time.sleep(2)
+        actors = _create_registered_actors(NUM_ACTORS)  # noqa: F841
 
         # Call list_actors without filters, which will trigger truncation
         # and raise RayStateApiException because there are >10,000 actors
@@ -40,9 +61,7 @@ def test_actor_listing_explodes() -> None:
 def test_actor_listing_truncates() -> None:
     ray.init()
     try:
-        # Spin up > 10,000 actors (Ray’s state API cap is 10k)
-        num_actors = 11000
-        actors = [DummyActor.remote() for _ in range(num_actors)]  # noqa: F841
+        actors = _create_registered_actors(NUM_ACTORS)  # noqa: F841
 
         # Call list_actors without filters, but truncating
         lst_actors = list_actors(limit=42, raise_on_missing_output=False)  # truncates
@@ -56,9 +75,7 @@ def test_actor_listing_truncates() -> None:
 def test_actor_listing_filter() -> None:
     ray.init()
     try:
-        # Spin up > 10,000 actors (Ray’s state API cap is 10k)
-        num_actors = 11000
-        actors = [DummyActor.remote() for _ in range(num_actors)]  # noqa: F841
+        actors = _create_registered_actors(NUM_ACTORS)  # noqa: F841
 
         # Call list_actors without filters, but truncating
         _ = list_actors(

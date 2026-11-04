@@ -122,6 +122,15 @@ async def run_e2e_tests(
 
     if failed or errors:
         raise RuntimeError(f"E2E tests failed: {summary}")
+    if total == 0:
+        # A filter that matches nothing must fail loudly: the runner exiting 0
+        # with zero tests produced a vacuous PASS that was reported as live
+        # validation (salvage e2e, 2026-07-14). The filter matches FUNCTION
+        # names — a file-name-only match runs nothing.
+        raise RuntimeError(
+            f"E2E ran no tests: filter {test_filter!r} matched no test function "
+            f"names in {test_dir_path} — refusing to report a vacuous pass"
+        )
 
 
 def _import_file(path: Path) -> ModuleType | None:

@@ -5,6 +5,7 @@ const FILE_URL: &str = "https://files.test/users?private=true";
 fn update(ts: Option<u64>, size: u64, range: Option<Range<u64>>) -> IdListPropagationUpdate {
     IdListPropagationUpdate {
         file_id: Some("A".into()),
+        creation_time: 1,
         url: file_identity_url(FILE_URL),
         ts,
         size,

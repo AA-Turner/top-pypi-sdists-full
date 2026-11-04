@@ -2,7 +2,6 @@ import pytest
 from io import StringIO
 from pathlib import Path
 import gzip
-import numpy
 
 from .._json_api import (
     read_json,
@@ -16,6 +15,12 @@ from .._json_api import write_gzip_json, json_dumps, is_json_serializable
 from .._json_api import json_loads
 from ..util import force_string
 from .util import make_tempdir
+
+
+@pytest.mark.parametrize("sort_keys", [False, True])
+def test_json_dumps_indent_none(sort_keys):
+    data = {"a": [1]}
+    assert json_dumps(data, indent=None, sort_keys=sort_keys) == '{"a":[1]}'
 
 
 def test_json_dumps_sort_keys():
@@ -55,8 +60,8 @@ def test_write_json_file():
     data = {"hello": "world", "test": 123}
     # Provide two expected options, depending on how keys are ordered
     expected = [
-        '{\n  "hello":"world",\n  "test":123\n}',
-        '{\n  "test":123,\n  "hello":"world"\n}',
+        '{\n  "hello": "world",\n  "test": 123\n}',
+        '{\n  "test": 123,\n  "hello": "world"\n}',
     ]
     with make_tempdir() as temp_dir:
         file_path = temp_dir / "tmp.json"
@@ -69,8 +74,8 @@ def test_write_json_file_gzip():
     data = {"hello": "world", "test": 123}
     # Provide two expected options, depending on how keys are ordered
     expected = [
-        '{\n  "hello":"world",\n  "test":123\n}',
-        '{\n  "test":123,\n  "hello":"world"\n}',
+        '{\n  "hello": "world",\n  "test": 123\n}',
+        '{\n  "test": 123,\n  "hello": "world"\n}',
     ]
     with make_tempdir() as temp_dir:
         file_path = force_string(temp_dir / "tmp.json")
@@ -83,8 +88,8 @@ def test_write_json_stdout(capsys):
     data = {"hello": "world", "test": 123}
     # Provide two expected options, depending on how keys are ordered
     expected = [
-        '{\n  "hello":"world",\n  "test":123\n}\n',
-        '{\n  "test":123,\n  "hello":"world"\n}\n',
+        '{\n  "hello": "world",\n  "test": 123\n}\n',
+        '{\n  "test": 123,\n  "hello": "world"\n}\n',
     ]
     write_json("-", data)
     captured = capsys.readouterr()
@@ -208,8 +213,14 @@ def test_json_loads_raises(obj):
 
 
 def test_unsupported_type_error():
+    with pytest.raises(TypeError, match="is not JSON serializable"):
+        s = json_dumps({1, 2})
+
+
+def test_unsupported_type_error_numpy():
+    numpy = pytest.importorskip("numpy")
     f = numpy.float32()
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="is not JSON serializable"):
         s = json_dumps(f)
 
 
@@ -241,6 +252,7 @@ def test_write_jsonl_gzip_append():
         write_gzip_jsonl(file_path, data, append=True)
         with gzip.open(file_path, "r") as f:
             assert [line.decode("utf8") for line in f.readlines()] == expected
+        assert list(read_gzip_jsonl(file_path)) == data + data
 
 
 def test_read_jsonl_gzip():
@@ -262,3 +274,52 @@ def test_read_jsonl_gzip():
     assert len(data[1]) == 1
     assert data[0]["hello"] == "world"
     assert data[1]["test"] == 123
+
+
+@pytest.mark.parametrize("blank_line", ["\n", " \t\r\n"])
+@pytest.mark.parametrize("skip", [False, True])
+def test_read_jsonl_gzip_blank_lines(tmp_path, blank_line, skip):
+    file_path = tmp_path / "data.jsonl.gz"
+    contents = blank_line + '{"text":"café"}\n' + blank_line + '{"id":2}\n' + blank_line
+    with gzip.open(file_path, "wb") as f:
+        f.write(contents.encode("utf8"))
+    assert list(read_gzip_jsonl(file_path, skip=skip)) == [{"text": "café"}, {"id": 2}]
+
+
+@pytest.mark.parametrize("skip", [False, True])
+def test_read_jsonl_gzip_invalid_line(tmp_path, skip):
+    file_path = tmp_path / "data.jsonl.gz"
+    with gzip.open(file_path, "wb") as f:
+        f.write(b'{"id":1}\ninvalid\n{"id":2}\n')
+    if skip:
+        assert list(read_gzip_jsonl(file_path, skip=True)) == [{"id": 1}, {"id": 2}]
+    else:
+        with pytest.raises(ValueError, match="invalid"):
+            list(read_gzip_jsonl(file_path))
+
+
+def test_read_jsonl_gzip_invalid_line_message(tmp_path):
+    # Line numbers count blank lines, and bytes lines are shown decoded
+    file_path = tmp_path / "data.jsonl.gz"
+    with gzip.open(file_path, "wb") as f:
+        f.write('{"id":1}\n\n{"id":2}\ninvalid café\n'.encode("utf8"))
+    with pytest.raises(ValueError) as excinfo:
+        list(read_gzip_jsonl(file_path))
+    assert str(excinfo.value) == "Invalid JSON on line 4: invalid café"
+
+
+def test_read_jsonl_invalid_line_number_after_skipped_line(tmp_path):
+    # A line skipped as invalid still counts towards later line numbers
+    file_path = tmp_path / "data.jsonl"
+    file_path.write_text('{"id":1}\n\nbad\n{"id":2}\n', encoding="utf8")
+    assert list(read_jsonl(file_path, skip=True)) == [{"id": 1}, {"id": 2}]
+    file_path.write_text('{"id":1}\n\n{"id":2}\nbad\n', encoding="utf8")
+    with pytest.raises(ValueError, match="^Invalid JSON on line 4: bad$"):
+        list(read_jsonl(file_path))
+
+
+def test_read_jsonl_gzip_falsy_values(tmp_path):
+    file_path = tmp_path / "data.jsonl.gz"
+    with gzip.open(file_path, "wb") as f:
+        f.write(b'0\nfalse\nnull\n""\n{}\n[]\n')
+    assert list(read_gzip_jsonl(file_path)) == [0, False, None, "", {}, []]

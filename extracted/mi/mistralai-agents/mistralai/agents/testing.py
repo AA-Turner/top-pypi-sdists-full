@@ -7,7 +7,7 @@
 # Unlike `pattern` and `redaction`, no Temporal passthrough or log quieting: these names import no
 # `mistralai.workflows` module and no Temporal.
 from mistralai.vibe_agents.sdk.testing import ReplyStep as ReplyStep
-from mistralai.vibe_agents.sdk.testing import ScriptedModel, call, reply
+from mistralai.vibe_agents.sdk.testing import ScriptedModel, call, reply, run_typescript
 from mistralai.vibe_agents.sdk.testing import ToolCallStep as ToolCallStep
 
-__all__ = ["ScriptedModel", "call", "reply"]
+__all__ = ["ScriptedModel", "call", "reply", "run_typescript"]

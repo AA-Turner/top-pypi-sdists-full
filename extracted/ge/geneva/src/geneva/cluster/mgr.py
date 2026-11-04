@@ -87,6 +87,13 @@ class KubeRayConfig:
     aws_region: Optional[str] = attrs.field(default=None)
     aws_role_name: Optional[str] = attrs.field(default=None)
 
+    # Require the Ray pods' service account to carry a cloud identity annotation
+    # (iam.gke.io/gcp-service-account, azure.workload.identity/client-id or
+    # eks.amazonaws.com/role-arn). Set False on clusters with no cloud IAM
+    # provider -- e.g. bare metal -- where storage credentials come from
+    # storage_options instead. The RBAC access review always runs regardless.
+    require_cloud_identity: bool = attrs.field(default=True)
+
     # Arbitrary kwargs to pass to ray.init()
     ray_init_kwargs: Optional[dict[str, Any]] = attrs.field(
         factory=dict,

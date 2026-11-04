@@ -19,7 +19,7 @@ from typing import Iterator, Iterable, AnyStr, Generic, Pattern, Callable, Any, 
 
 __all__ = (
     "CASE", "IGNORECASE", "RAWCHARS", "DOTGLOB", "DOTMATCH",
-    "EXTGLOB", "EXTMATCH", "GLOBSTAR", "NEGATE", "MINUSNEGATE", "BRACE", "NOUNIQUE",
+    "EXTGLOB", "EXTMATCH", "GLOBSTAR", "NEGATE", "MINUSNEGATE", "BRACE", "SPLIT", "NOUNIQUE",
     "REALPATH", "FOLLOW", "MATCHBASE", "MARK", "NEGATEALL", "NODIR", "FORCEWIN", "FORCEUNIX", "GLOBTILDE",
     "NODOTDIR", "SCANDOTDIR", "SUPPORT_DIR_FD", "GLOBSTARLONG", "NUMRANGE", "CAPTURE",
     "C", "I", "R", "D", "E", "G", "N", "M", "B", "P", "L", "S", "X", 'K', "O", "A", "W", "U", "T", "Q", "Z", "SD", "GL",
@@ -187,6 +187,7 @@ class _GlobSplit(Generic[AnyStr]):
             flags ^= NEGATE
         self.flags = flags
         self.extend = bool(flags & EXTMATCH)
+        self.case_sensitive = _wcparse.get_case(self.flags)  # type: bool
         if not self.unix:
             self.win_drive_detect = True
             self.bslash_abort = True
@@ -306,7 +307,9 @@ class _GlobSplit(Generic[AnyStr]):
         globstarlong = self.globstarlong and value in (b'***', '***')
         globstar = globstarlong or (self.globstar and value in (b'**', '**'))
         magic = self.is_magic(value)
-        if magic:
+        # `.` and `..` are never subject to case and are resolved as literal directories,
+        # so they must stay plain strings even when matching case insensitively.
+        if magic or (not self.case_sensitive and value not in (b'.', b'..', '.', '..')):
             v = _wcparse._compile(value, self.flags)  # type: Pattern[AnyStr] | AnyStr
         else:
             v = value
@@ -489,13 +492,14 @@ class Glob(Generic[AnyStr]):
             self.re_pathlib_norm = _RE_WIN_PATHLIB_DOT_NORM[ptype]
             self.re_no_dir = _wcparse.RE_WIN_NO_DIR[ptype]
 
+        self.ptype = ptype  # type: int
         temp = os.fspath(root_dir) if root_dir is not None else self.current
         if not isinstance(temp, bytes if ptype else str):
             raise TypeError(
                 f'Pattern and root_dir should be of the same type, not {type(pats[0])} and {type(temp)}'
             )
 
-        self.root_dir = temp  # type: AnyStr
+        self.root_dir = temp or self.current  # type: AnyStr
         self.current_limit = self.limit
         self._expanded_patterns = 0
         self._parse_patterns(pats)
@@ -604,7 +608,7 @@ class Glob(Generic[AnyStr]):
     def _match_literal(self, a: AnyStr, b: AnyStr | None = None) -> bool:
         """Match two names."""
 
-        return a.lower() == b if not self.case_sensitive else a == b
+        return a == b
 
     def _get_matcher(self, target: AnyStr | Pattern[AnyStr] | None) -> Callable[..., Any] | None:
         """Get deep match."""
@@ -613,11 +617,7 @@ class Glob(Generic[AnyStr]):
             matcher = None  # type: Callable[..., Any] | None
         elif isinstance(target, (str, bytes)):
             # Plain text match
-            if not self.case_sensitive:
-                match = target.lower()
-            else:
-                match = target
-            matcher = functools.partial(self._match_literal, b=match)
+            matcher = functools.partial(self._match_literal, b=target)
         else:
             # File match pattern
             matcher = target.match
@@ -626,7 +626,7 @@ class Glob(Generic[AnyStr]):
     def _lexists(self, path: AnyStr) -> bool:
         """Check if file exists."""
 
-        if not self.dir_fd:
+        if self.dir_fd is None:
             return os.path.lexists(self._prepend_base(path))
         try:
             os.lstat(self._prepend_base(path), dir_fd=self.dir_fd)
@@ -659,15 +659,17 @@ class Glob(Generic[AnyStr]):
             else:
                 scandir = os.path.join(self.root_dir, curdir) if curdir else self.root_dir
 
-            # Python will never return . or .., so fake it.
-            for special in self.specials:
-                yield special, True, True, False
-
             try:
                 with os.scandir(scandir) as scan:
+                    # Python never returns . or ..; add them only after opening the directory.
+                    for special in self.specials:
+                        yield special, True, True, False
+
                     for f in scan:
                         try:
-                            hidden = self._is_hidden(f.name)  # type: ignore[arg-type]
+                            # Scanning a file descriptor returns string names, even for byte patterns.
+                            name: AnyStr = os.fsencode(f.name) if self.ptype else f.name  # type: ignore[assignment]
+                            hidden = self._is_hidden(name)
                             is_dir = f.is_dir()
                             if is_dir:
                                 is_link = f.is_symlink()
@@ -675,7 +677,7 @@ class Glob(Generic[AnyStr]):
                                 # We don't care if a file is a link
                                 is_link = False
                             if (not dir_only or is_dir):
-                                yield f.name, is_dir, hidden, is_link  # type: ignore[misc]
+                                yield name, is_dir, hidden, is_link
                         except OSError:  # pragma: no cover # noqa: PERF203
                             pass
             finally:
@@ -858,7 +860,7 @@ class Glob(Generic[AnyStr]):
                     # Make sure case matches, but running case insensitive
                     # on a case sensitive file system may return more than
                     # one starting location.
-                    results = self._get_starting_paths(curdir, dir_only)
+                    results = self._get_starting_paths(curdir, this.dir_only)
                     if not results:
                         continue
 

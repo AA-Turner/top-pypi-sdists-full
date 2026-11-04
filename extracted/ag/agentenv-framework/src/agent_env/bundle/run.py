@@ -31,10 +31,12 @@ from agent_env.store.base import NotFoundError
 from agent_env.store.routing import namespace_routing, run_scope
 from agent_env.task.store import record_task_cancelled
 from agent_env.task.interrupts import Interrupts
+from agent_env.utils.progress import run_progress
 from agent_env.task.task import Task, recorded_scores
 from agent_env.task.teardown import TeardownReport, teardown_run
 from agent_env.task_step.context import TaskStepContext, sandbox_overrides
 
+from .hub import SOURCE_KEY, HubSource
 from .installed import installed_bundles
 from .materialize import Materialization, Materialized, materialize
 from .parse import BundleEntry, BundleError, BundleKind, parse_bundle
@@ -217,15 +219,19 @@ def run_bundle(
     id_root: str | None = None,
     keep: bool = False,
     emulate: bool = True,
+    source: HubSource | None = None,
 ) -> BundleRun:
     """Write what the tasks and evals selected in ``root`` need, as ``plan_bundle`` selects them, then run
     each of their tasks once. ``model``, ``user_model`` and ``judge_model`` replace the models the solver, the
     user simulator and the judges run on, and ``agent`` the agent the solver runs as (``Plan.agent``), leaving the
-    tasks as written; ``sandbox`` is the provider that computer envs compose on and that envs,
-    agents, sandboxes and the judge deploy on; a computer env composing there emulates an arch no link runs natively
-    unless ``emulate`` is False, which leaves it skipped. ``on_progress`` is given a line of text
+    tasks as written; ``sandbox`` is the provider that envs, agents, sandboxes and the judge deploy on, whose deploys
+    pick the forms a computer env composes, on the env's default provider, this machine unless the config names
+    another; that compose emulates an arch no link of it runs natively unless ``emulate`` is False, which leaves it
+    skipped. ``on_progress`` is given a line of text
     at each write and step. ``id_root`` roots the ids of a bundle an installed package provides
-    (``InstalledBundle.id_root``); a folder's ids otherwise come from its path.
+    (``InstalledBundle.id_root``) or one downloaded from the Hub (``HubBundle.id_root``); a folder's ids otherwise come
+    from its path. ``source`` says where a Hub bundle came from (``HubBundle.source``), which each run's context
+    records under ``metadata["bundle_source"]``.
 
     Each run's sandboxes are torn down as it ends, so the contexts returned record sandboxes that are gone.
     ``keep`` leaves them up instead, for the caller to use and then remove with ``BundleRun.teardown()``.
@@ -252,7 +258,8 @@ def run_bundle(
         with Interrupts() as interrupts:
             overrides = _overrides(sandbox, user_model, judge_model)
             runs = interrupts.run(_run_all(plan, list(prepared.tasks), model, overrides,
-                                           solver_params(plan, prepared.materialization), keep, say, interrupts))
+                                           solver_params(plan, prepared.materialization), keep, say, interrupts,
+                                           source))
             _mark_cancelled(runs, interrupts.reason)
             result = _bundle_run(plan, prepared.materialization, runs,
                                  _skipped(plan, entries, every=not tasks and not evals))
@@ -304,9 +311,9 @@ def _write_bundle(
 
 
 def _written_with_infra(plan: Plan, preflight: Preflight, say: Callable[[str], None],
-                        composing: Composing = Composing()) -> Materialization:
-    """Write ``plan``, its computer envs composed as ``composing`` says, then set up the infra envs its runs deploy
-    on."""
+                        composing: Composing = Composing(), sandbox: str | None = None) -> Materialization:
+    """Write ``plan``, its computer envs composed as ``composing`` says and its steps preflighted for ``sandbox``,
+    then set up the infra envs its runs deploy on."""
     materialization = materialize(
         plan,
         on_wait=lambda: say("waiting for another agent-env run to finish writing this bundle's ids"),
@@ -315,6 +322,7 @@ def _written_with_infra(plan: Plan, preflight: Preflight, say: Callable[[str], N
         build_here=preflight.built_here,
         composing=composing,
         on_progress=lambda write, line: say(f"{_label(plan, write)}: {line}"),
+        sandbox=sandbox,
     )
     if preflight.infra:
         ensure_default_envs(preflight.infra_kinds, say=say)
@@ -347,7 +355,7 @@ def dry_run_bundle(
         plan, preflight = _planned(root, tasks, evals, id_root, sandbox, agent)
         _say_plan(plan, say, declaring_for(Path(root), installed=id_root is not None, dry_run=True))
         materialization = materialize(plan, dry_run=True, on_write=lambda done: say(_written(plan, done)),
-                                      composing=composing,
+                                      composing=composing, sandbox=sandbox,
                                       on_progress=lambda write, line: say(f"{_label(plan, write)}: {line}"))
         runs = _to_run(plan)
         return DryRun(materialization, runs, _skipped(plan, runs, every=not tasks and not evals), preflight.infra,
@@ -381,7 +389,7 @@ def _prepare(root: Path | str, tasks: Sequence[str], evals: Sequence[str], sandb
     plan, preflight = _planned(root, tasks, evals, id_root, sandbox, agent, played=played,
                                solver_endpoint=solver_endpoint)
     _say_plan(plan, say, declaring)
-    materialization = _written_with_infra(plan, preflight, say, composing)
+    materialization = _written_with_infra(plan, preflight, say, composing, sandbox)
     to_run = tuple((entry, Task.get(entry.id, materialization.version_of("task", entry.id))) for entry in _to_run(plan))
     return PreparedBundle(plan, materialization, to_run)
 
@@ -400,9 +408,10 @@ def _planned(root: Path | str, tasks: Sequence[str], evals: Sequence[str], id_ro
 
 
 def _composing(sandbox: str | None, emulate: bool = True) -> Composing:
-    """How a run composes its computer envs: on the provider ``sandbox`` names, and emulating unless ``emulate`` is
-    False. Raises ValueError when ``sandbox`` names no provider."""
-    return Composing(build_sandbox_provider(sandbox) if sandbox else None, emulate)
+    """How a run composes its computer envs: on the env's default provider, emulating unless ``emulate`` is False, only
+    the forms its deploys on the provider ``sandbox`` names boot. Raises ValueError when ``sandbox`` names no
+    provider."""
+    return Composing.for_run(build_sandbox_provider(sandbox) if sandbox else None, emulate)
 
 
 def planned_tasks(root: Path | str, *, tasks: Sequence[str] = (), evals: Sequence[str] = (),
@@ -482,6 +491,7 @@ def _overrides(sandbox: str | None, user_model: str | None, judge_model: str | N
 async def _run_all(
     plan: Plan, to_run: list[tuple[BundleEntry, Task]], model: str | None, overrides: dict[str, str],
     step_params: Mapping[str, dict], keep: bool, say: Callable[[str], None], interrupts: Interrupts,
+    source: HubSource | None,
 ) -> tuple[TaskRun, ...]:
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_RUNS)
     run_group_id = uuid.uuid4().hex
@@ -500,7 +510,8 @@ async def _run_all(
 
     async def run_one(entry: BundleEntry, task: Task) -> TaskRun:
         tag = f"[{plan.path(entry)}]"
-        metadata = {"run_group_id": run_group_id, "task_id": task.id}
+        metadata = {"run_group_id": run_group_id, "task_id": task.id,
+                    **({SOURCE_KEY: source.to_metadata()} if source else {})}
         user_overrides = {**overrides, **({"step_params": step_params[entry.id]} if entry.id in step_params else {})}
         if user_overrides:
             metadata["user_overrides"] = user_overrides
@@ -515,13 +526,14 @@ async def _run_all(
         error, cancelled = None, False
         try:
             try:
-                await task.run(
-                    on_step_start=lambda i, total, step, _: say(f"{tag} step {i + 1}/{total} {step.id} ({step.type})"),
-                    on_step_complete=lambda i, total, step, _, seconds: say(
-                        f"{tag} step {i + 1}/{total} {step.id} done in {seconds:.1f}s"),
-                    agent_model=model,
-                    context=context,
-                )
+                with run_progress(lambda line: say(f"{tag} {line}")):
+                    await task.run(
+                        on_step_start=lambda i, total, step, _: say(f"{tag} step {i + 1}/{total} {step.id} ({step.type})"),
+                        on_step_complete=lambda i, total, step, _, seconds: say(
+                            f"{tag} step {i + 1}/{total} {step.id} done in {seconds:.1f}s"),
+                        agent_model=model,
+                        context=context,
+                    )
             except Exception as e:
                 error = e
             except asyncio.CancelledError:

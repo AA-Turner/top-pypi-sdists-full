@@ -1,6 +1,7 @@
 use super::retry::{INITIALIZATION_DEADLINE, RetryExecutor, RetryPolicy};
 use tokio::sync::Notify;
 
+use super::http_types::NetworkRequest;
 use super::http2::http2_enabled;
 use super::network_error::NetworkError;
 use super::providers::get_network_provider;
@@ -8,11 +9,12 @@ use super::{
     HttpMethod, NetworkProvider, RequestArgs, Response, get_source_service_and_request_path,
     should_log_network_request_latency,
 };
+use crate::logging_utils::sanitize_secret_key;
 use crate::networking::proxy_config::ProxyConfig;
 use crate::observability::ErrorBoundaryEvent;
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
 use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
-use crate::sdk_diagnostics::marker::{ActionType, Marker, StepType};
+use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker, StepType};
 use crate::utils::get_loggable_sdk_key;
 use crate::{StatsigOptions, log_d, log_i, log_w};
 use std::collections::HashMap;
@@ -41,13 +43,75 @@ const DELTAS_USED_TAG: &str = "deltas_used";
 
 const TAG: &str = stringify!(NetworkClient);
 
+enum RequestTransport {
+    Provider(Weak<dyn NetworkProvider>),
+    #[cfg(not(feature = "custom_network_provider"))]
+    PooledEventUpload,
+    #[cfg(not(feature = "custom_network_provider"))]
+    FreshEventUpload(Weak<super::providers::net_provider_reqwest::NetworkProviderReqwest>),
+}
+
+impl RequestTransport {
+    async fn send(&self, request: NetworkRequest<'_>) -> Option<(Response, bool, bool)> {
+        let provider = match self {
+            Self::Provider(provider) => provider.upgrade()?,
+            #[cfg(not(feature = "custom_network_provider"))]
+            Self::PooledEventUpload => {
+                return Some(
+                    super::providers::get_event_upload_transport()
+                        .send(request)
+                        .await
+                        .into_parts(),
+                );
+            }
+            #[cfg(not(feature = "custom_network_provider"))]
+            Self::FreshEventUpload(provider) => {
+                return Some(
+                    provider
+                        .upgrade()?
+                        .send_fresh_event_upload(request)
+                        .await
+                        .into_parts(),
+                );
+            }
+        };
+
+        let NetworkRequest {
+            method,
+            args,
+            prefer_http2,
+            max_response_bytes,
+            disable_redirects,
+        } = request;
+        Some(if prefer_http2 {
+            provider
+                .send_http2_preferred(method, args, max_response_bytes, disable_redirects)
+                .await
+                .into_parts()
+        } else {
+            match (max_response_bytes, disable_redirects) {
+                (Some(max_response_bytes), _) => provider
+                    .send_with_response_limit(method, args, max_response_bytes)
+                    .await
+                    .into_parts(),
+                (None, true) => (
+                    provider.send_without_redirects(method, args).await,
+                    false,
+                    false,
+                ),
+                (None, false) => (provider.send(method, args).await, false, false),
+            }
+        })
+    }
+}
+
 pub struct NetworkClient {
     output_policy: crate::output_policy::OutputPolicy,
     headers: HashMap<String, String>,
     is_shutdown: Arc<AtomicBool>,
     shutdown_notify: Notify,
     ops_stats: Arc<OpsStatsForInstance>,
-    net_provider: Weak<dyn NetworkProvider>,
+    transport: RequestTransport,
     disable_network: bool,
     proxy_config: Option<ProxyConfig>,
     ca_cert_pem: Option<Vec<u8>>,
@@ -61,7 +125,7 @@ pub struct NetworkClient {
 impl NetworkClient {
     #[cfg(test)]
     pub(crate) fn set_network_provider_for_test(&mut self, provider: Weak<dyn NetworkProvider>) {
-        self.net_provider = provider;
+        self.transport = RequestTransport::Provider(provider);
     }
 
     #[must_use]
@@ -70,9 +134,41 @@ impl NetworkClient {
         headers: Option<HashMap<String, String>>,
         options: Option<&StatsigOptions>,
     ) -> Self {
+        Self::new_with_transport(sdk_key, headers, options, || {
+            RequestTransport::Provider(get_network_provider())
+        })
+    }
+
+    pub(crate) fn new_for_event_upload(
+        sdk_key: &str,
+        headers: Option<HashMap<String, String>>,
+        options: Option<&StatsigOptions>,
+    ) -> Self {
+        #[cfg(not(feature = "custom_network_provider"))]
+        if let Some(reuse) = options.and_then(|options| options.log_event_connection_reuse) {
+            return Self::new_with_transport(sdk_key, headers, options, || {
+                if reuse {
+                    RequestTransport::PooledEventUpload
+                } else {
+                    RequestTransport::FreshEventUpload(
+                        super::providers::get_reqwest_network_provider(),
+                    )
+                }
+            });
+        }
+
+        Self::new(sdk_key, headers, options)
+    }
+
+    fn new_with_transport(
+        sdk_key: &str,
+        headers: Option<HashMap<String, String>>,
+        options: Option<&StatsigOptions>,
+        create_transport: impl FnOnce() -> RequestTransport,
+    ) -> Self {
         let output_policy = crate::output_policy::OutputPolicy::from_options(options);
         let _output_scope = output_policy.enter();
-        let net_provider = get_network_provider();
+        let transport = create_transport();
         let (disable_network, proxy_config, ca_cert_pem, log_event_connection_reuse) = options
             .map(|opts| {
                 let ca_cert_pem = opts
@@ -114,7 +210,7 @@ impl NetworkClient {
             headers: headers.unwrap_or_default(),
             is_shutdown: Arc::new(AtomicBool::new(false)),
             shutdown_notify: Notify::new(),
-            net_provider,
+            transport,
             ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
             disable_network,
             proxy_config,
@@ -127,6 +223,10 @@ impl NetworkClient {
             loggable_sdk_key: get_loggable_sdk_key(sdk_key),
             http2_enabled: http2_enabled(options),
         }
+    }
+
+    pub(crate) fn shutdown_flag(&self) -> &Arc<AtomicBool> {
+        &self.is_shutdown
     }
 
     pub fn shutdown(&self) {
@@ -313,47 +413,45 @@ impl NetworkClient {
                         None,
                     );
                 }
+                // Retries, initialization deadlines and adapter shutdown can drop the
+                // transport future before the detailed response marker is available.
+                let pending_id_list = request_args
+                    .diagnostics_key
+                    .filter(|key| matches!(key, KeyType::GetIDList | KeyType::GetIDListSources));
+                let pending_marker = scopeguard::guard(pending_id_list, |pending| {
+                    if let Some(key) = pending {
+                        self.ops_stats.add_marker(
+                            Marker::new(key, ActionType::End, Some(StepType::NetworkRequest))
+                                .with_attempt(attempt)
+                                .with_url(request_args.url.clone())
+                                .with_is_success(false),
+                            None,
+                        );
+                    }
+                });
                 if is_shutdown.load(Ordering::SeqCst) {
                     log_i!(TAG, "{}", SHUTDOWN_ERROR);
                     return Err(NetworkError::ShutdownError(request_args.url.clone()));
                 }
 
                 let request_start = Instant::now();
-                let (mut response, response_size_limit_exceeded, response_limit_unsupported) =
-                    match self.net_provider.upgrade() {
-                        Some(net_provider) if self.http2_enabled => net_provider
-                            .send_http2_preferred(
-                                &method,
-                                request_args,
-                                max_response_bytes,
-                                disable_redirects,
-                            )
-                            .await
-                            .into_parts(),
-                        Some(net_provider) => match (max_response_bytes, disable_redirects) {
-                            (Some(max_response_bytes), _) => net_provider
-                                .send_with_response_limit(&method, request_args, max_response_bytes)
-                                .await
-                                .into_parts(),
-                            (None, true) => (
-                                net_provider
-                                    .send_without_redirects(&method, request_args)
-                                    .await,
-                                false,
-                                false,
-                            ),
-                            (None, false) => {
-                                (net_provider.send(&method, request_args).await, false, false)
-                            }
-                        },
-                        None => {
-                            return Err(NetworkError::RequestFailed(
-                                request_args.url.clone(),
-                                None,
-                                "Failed to get a NetworkProvider instance".to_string(),
-                            ));
-                        }
-                    };
+                let (mut response, response_size_limit_exceeded, response_limit_unsupported) = self
+                    .transport
+                    .send(NetworkRequest {
+                        method: &method,
+                        args: request_args,
+                        prefer_http2: self.http2_enabled,
+                        max_response_bytes,
+                        disable_redirects,
+                    })
+                    .await
+                    .ok_or_else(|| {
+                        NetworkError::RequestFailed(
+                            request_args.url.clone(),
+                            None,
+                            "Failed to get a NetworkProvider instance".to_string(),
+                        )
+                    })?;
 
                 let status = response.status_code;
                 let error_message = response.error.clone().unwrap_or_else(|| {
@@ -422,6 +520,7 @@ impl NetworkClient {
                     self.ops_stats.add_marker(end_marker, None);
                 }
 
+                scopeguard::ScopeGuard::into_inner(pending_marker);
                 if success {
                     return Ok(response);
                 }
@@ -483,7 +582,7 @@ impl NetworkClient {
                 tag: TAG.to_string(),
                 exception: exception.to_string(),
                 bypass_dedupe: false,
-                info: serde_json::to_string(error).unwrap_or_default(),
+                info: sanitize_secret_key(&serde_json::to_string(error).unwrap_or_default()),
                 dedupe_key: Some(dedupe_key),
                 extra: Some(get_network_error_extra_tags(error, args)),
             });
@@ -725,7 +824,7 @@ mod tests {
         });
         let network_provider: Arc<dyn NetworkProvider> = provider.clone();
         let mut client = NetworkClient::new("secret-test", None, None);
-        client.net_provider = Arc::downgrade(&network_provider);
+        client.set_network_provider_for_test(Arc::downgrade(&network_provider));
         client.ops_stats = Arc::new(OpsStatsForInstance::new());
         let mut metrics = client.ops_stats.subscribe_for_test();
 
@@ -759,7 +858,7 @@ mod tests {
         });
         let network_provider: Arc<dyn NetworkProvider> = provider.clone();
         let mut client = NetworkClient::new("secret-test", None, None);
-        client.net_provider = Arc::downgrade(&network_provider);
+        client.set_network_provider_for_test(Arc::downgrade(&network_provider));
 
         let result = client
             .get_with_response_limit(
@@ -936,3 +1035,7 @@ mod tests {
         assert_eq!(tags.get(STATUS_CODE_TAG), Some(&"429".to_string()));
     }
 }
+
+#[cfg(test)]
+#[path = "__tests__/network_client_error_redaction_tests.rs"]
+mod error_redaction_tests;

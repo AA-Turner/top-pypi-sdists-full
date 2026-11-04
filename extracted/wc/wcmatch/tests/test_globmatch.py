@@ -527,17 +527,18 @@ class TestGlobFilter:
             ]
         ],
 
+        # A leading `*` cannot match nothing to let a literal dot match the leading dot of a name.
         [
             '**.x/*',
             [
-                'test.x/a', '.x/a'
+                'test.x/a'
             ]
         ],
 
         [
             R'**\.x/*',
             [
-                'test.x/a', '.x/a'
+                'test.x/a'
             ]
         ],
 
@@ -595,6 +596,12 @@ class TestGlobFilter:
         [R'\.abc', ['.abc']],
         ['[.]abc', ['.abc'], glob.D],
         [R'[\.]abc', ['.abc'], glob.D],
+
+        # A `?` or bracket expression after a leading `*` is not a literal dot
+        ['*?abc', []],
+        ['*[.]abc', []],
+        ['!(x)?abc', [], glob.M],
+        ['*?abc', ['.abc', '..abc'], glob.D],
 
         ['.', ['.']],
         ['..', ['..']],
@@ -1199,9 +1206,8 @@ class TestGlobMatchSpecial(unittest.TestCase):
 
         value = (
             [
-                '^(?s:(?:(?!(?:[/]|^)\\.).)*?(?:^|$|[/])+' +
-                ('(?!(?:(?<=[/])|(?<=^))(?:\\.{1,2})(?:$|[/]))(?![/.])[\x00-\x7f][/]+stuff[/]+(?=[^/])') +
-                '(?!(?:(?<=[/])|(?<=^))(?:\\.{1,2})(?:$|[/]))(?:(?!\\.)[^/]*?)?[/]*?)$'
+                '^(?s:(?:(?!(?:[/]|^)\\.).)*?(?:^|$|[/]+)' +
+                '(?![/.])[\x00-\x7f][/]+stuff[/]+(?=[^/.])[^/]*?[/]*?)$'
             ],
             []
         )
@@ -1218,7 +1224,7 @@ class TestGlobMatchSpecial(unittest.TestCase):
         flags |= glob.FORCEUNIX
 
         value = (
-            ['^(?s:(?>(?=[^/])(?!(?:(?<=[/])|(?<=^))(?:\\.{1,2})(?:$|[/]))(?:(?!\\.)[^/]*?)?test)[^/]*?[/]*?)$'],
+            ['^(?s:(?>(?=[^/.])[^/]*?test)[^/]*?[/]*?)$'],
             []
         )
         self.assertEqual(
@@ -2208,6 +2214,107 @@ def test_optional_group_literal_dot(as_bytes, capture):
     assert glob.globmatch(visible, pattern, flags=flags)
 
 
+@pytest.mark.parametrize(
+    ('pattern', 'visible'),
+    [
+        ('*.env', 'a.env'),
+        ('**.env', 'a.env'),
+        ('?(old-)@(*)', 'a.env'),
+        ('*@(*)', 'a.env'),
+        ('@(*?env)', 'a.env'),
+        ('@(*).env', 'a.env'),
+        ('+(*).env', 'a.env'),
+        ('*@(*.env)', 'a.env'),
+        ('?(a)@(*.env)', 'a.env'),
+        ('?(a)*.env', 'a.env'),
+        ('*(a)*.env', 'a.env'),
+        ('@(a|*).env', 'a.env'),
+        ('@(?(a)*).env', 'a.env'),
+        ('!(a).env', 'b.env'),
+        ('?(x)!(a).env', 'b.env'),
+    ]
+)
+@pytest.mark.parametrize('as_bytes', [False, True])
+@pytest.mark.parametrize('capture', [False, True])
+@pytest.mark.parametrize('dotmatch', [False, True])
+def test_wildcard_start_leading_dot_glob(pattern, visible, as_bytes, capture, dotmatch):
+    """A wildcard at the start of a name never matches the leading dot, even when it matches nothing."""
+
+    flags = glob.EXTMATCH | glob.FORCEUNIX
+    if capture:
+        flags |= glob.CAPTURE
+    if dotmatch:
+        flags |= glob.DOTMATCH
+    hidden = '.env'
+    if as_bytes:
+        pattern, hidden, visible = pattern.encode(), hidden.encode(), visible.encode()
+
+    assert glob.globmatch(hidden, pattern, flags=flags) is dotmatch
+    assert glob.globmatch(visible, pattern, flags=flags)
+
+
+@pytest.mark.parametrize('pattern', ['+(.?|*)', '*(.?|*)', '+(*|.?)', '+(.|*)'])
+def test_group_loop_wildcard_after_first_iteration_glob(pattern):
+    """Only the first iteration of a group at the start of a name is restricted from matching a leading dot."""
+
+    flags = glob.EXTMATCH | glob.FORCEUNIX
+
+    assert glob.globmatch('.a.', pattern, flags=flags)
+    assert glob.globmatch('.a..', pattern, flags=flags)
+    assert not glob.globmatch('..', pattern, flags=flags)
+
+
+@pytest.mark.parametrize('windows', [False, True])
+@pytest.mark.parametrize(
+    ('pattern', 'visible'),
+    [
+        ('*.env', 'a.env'),
+        ('?(old-)@(*)', 'a.env'),
+        ('@(*).env', 'a.env'),
+        ('?(a)@(*.env)', 'a.env'),
+        ('!(a).env', 'b.env'),
+    ]
+)
+def test_wildcard_start_leading_dot_after_separator(pattern, visible, windows):
+    """Wildcards at the start of later path components do not match a leading dot either."""
+
+    flags = glob.EXTGLOB | (glob.FORCEWIN if windows else glob.FORCEUNIX)
+    separator = '\\' if windows else '/'
+
+    assert not glob.globmatch('root' + separator + '.env', 'root/' + pattern, flags=flags)
+    assert glob.globmatch('root' + separator + visible, 'root/' + pattern, flags=flags)
+
+
+@pytest.mark.parametrize('windows', [False, True])
+@pytest.mark.parametrize('dotmatch', [False, True])
+@pytest.mark.parametrize(
+    ('pattern', 'single', 'split'),
+    [
+        ('+(?)', 'ab', 'a/b'),
+        ('*(?)', 'ab', 'a/b'),
+        ('*(a|?)', 'ab', 'a/b'),
+        ('+([!x])', 'ab', 'a/b'),
+        ('+(?b)', 'abab', 'ab/b'),
+        ('*(??)', 'abab', 'aa/a'),
+        ('+(?)?', 'ab', 'a/b'),
+        ('x/+(?)', 'x/ab', 'x/a/b'),
+        ('+(?)/x', 'ab/x', 'a/b/x'),
+        ('**/x/+(?)', 'q/x/ab', 'q/x/a/b'),
+    ]
+)
+def test_group_wildcard_does_not_match_separator(pattern, single, split, dotmatch, windows):
+    """A wildcard at the start of a repeated group cannot match a path separator."""
+
+    flags = glob.EXTGLOB | glob.GLOBSTAR | (glob.FORCEWIN if windows else glob.FORCEUNIX)
+    if dotmatch:
+        flags |= glob.DOTMATCH
+    if windows:
+        single, split = single.replace('/', '\\'), split.replace('/', '\\')
+
+    assert glob.globmatch(single, pattern, flags=flags)
+    assert not glob.globmatch(split, pattern, flags=flags)
+
+
 @pytest.mark.parametrize('windows', [False, True])
 @pytest.mark.parametrize('pattern', ['?(a)*', '*(a)?hidden', '@(a|)[.]hidden', '+(a|)*'])
 def test_optional_group_after_separator(pattern, windows):
@@ -2218,6 +2325,32 @@ def test_optional_group_after_separator(pattern, windows):
 
     assert not glob.globmatch('root' + separator + '.hidden', 'root/' + pattern, flags=flags)
     assert glob.globmatch('root' + separator + 'a.hidden', 'root/' + pattern, flags=flags)
+
+
+@pytest.mark.parametrize(
+    ('pattern', 'plain', 'matches', 'excludes'),
+    [
+        ('@(a|@(!(b)))', '@(a|!(b))', ['a', 'c', 'bb'], ['b']),
+        ('@(a|@(+(b)))', '@(a|+(b))', ['a', 'b', 'bb'], ['c']),
+        ('@(a|@(*(b)))', '@(a|*(b))', ['a', 'b', 'bb'], ['c']),
+        ('@(a|@(?(b)))', '@(a|?(b))', ['a', 'b'], ['bb', 'c']),
+        ('+(a|@(+(b)))', '+(a|+(b))', ['a', 'bb', 'ab'], ['c']),
+        ('!(@(+(a)))', '!(+(a))', ['ab', 'b'], ['a', 'aa']),
+        ('!(@(?(a)))', '!(?(a))', ['aa', 'b'], ['a']),
+        ('?(a|@(!(b)))', '?(a|!(b))', ['a', 'c'], ['b']),
+    ]
+)
+def test_promoted_group_reduction_glob(pattern, plain, matches, excludes):
+    """A group that is promoted to another type must keep its meaning when it is reduced into its parent."""
+
+    flags = glob.EXTMATCH | glob.FORCEUNIX
+
+    for name in matches:
+        assert glob.globmatch(name, pattern, flags=flags), (pattern, name)
+        assert glob.globmatch(name, plain, flags=flags), (plain, name)
+    for name in excludes:
+        assert not glob.globmatch(name, pattern, flags=flags), (pattern, name)
+        assert not glob.globmatch(name, plain, flags=flags), (plain, name)
 
 
 class NoTruthIterable:
@@ -2253,3 +2386,99 @@ def test_filter_iterable_without_truth_value(precompiled, names, expected):
     else:
         actual = glob.globfilter(values, '*.txt', exclude='skip.txt')
     assert actual == expected
+
+
+@pytest.mark.parametrize('pattern', ['**/', 'dir/**/', '**/**/', '**//'])
+@pytest.mark.parametrize('filename', ['file.txt', 'dir/file.txt', 'dir', 'dir/sub'])
+@pytest.mark.parametrize('as_bytes', [False, True])
+def test_realpath_globstar_directory_only(tmp_path, pattern, filename, as_bytes):
+    """Keep terminal directory separators when matching a real path with `GLOBSTAR`."""
+
+    (tmp_path / 'dir' / 'sub').mkdir(parents=True)
+    (tmp_path / 'file.txt').touch()
+    (tmp_path / 'dir' / 'file.txt').touch()
+    root = os.fsencode(tmp_path) if as_bytes else str(tmp_path)
+    path = os.fsencode(filename) if as_bytes else filename
+    pattern = os.fsencode(pattern) if as_bytes else pattern
+    slash = b'/' if as_bytes else '/'
+    sep = os.fsencode(os.sep) if as_bytes else os.sep
+    flags = glob.GLOBSTAR | glob.REALPATH
+    matches = glob.glob(pattern, root_dir=root, flags=glob.GLOBSTAR)
+    # `glob` returns native separators (`\` on Windows), but `path` always uses `/`
+    expected = path in [name.replace(sep, slash).rstrip(slash) for name in matches]
+
+    assert glob.globmatch(path, pattern, root_dir=root, flags=flags) == expected
+    assert glob.compile(pattern, flags=flags).match(path, root_dir=root) == expected
+    assert glob.globfilter([path], pattern, root_dir=root, flags=flags) == ([path] if expected else [])
+
+
+@pytest.mark.parametrize('as_bytes', [False, True])
+@pytest.mark.parametrize('pattern', ['**/', '**/**/', 'dir/**/', '**\\/'])
+def test_globstar_directory_separator_translation(pattern, as_bytes):
+    """Require a directory separator in string matching and translated patterns."""
+
+    flags = glob.GLOBSTAR | glob.FORCEUNIX
+    if as_bytes:
+        pattern = pattern.encode('ascii')
+    for filename, expected in [('dir/file.txt', False), ('dir/sub/', True)]:
+        path = filename.encode('ascii') if as_bytes else filename
+        assert glob.globmatch(path, pattern, flags=flags) == expected
+        include, exclude = glob.translate(pattern, flags=flags)
+        assert not exclude
+        assert bool(re.fullmatch(include[0], path)) == expected
+
+
+@pytest.mark.parametrize('as_bytes', [False, True])
+def test_terminal_globstar_still_matches_files(as_bytes):
+    """Keep the existing file behavior when no directory separator is requested."""
+
+    for pattern in ['**', 'dir/**', '**/**']:
+        pattern = pattern.encode('ascii') if as_bytes else pattern
+        path = b'dir/file.txt' if as_bytes else 'dir/file.txt'
+        assert glob.globmatch(path, pattern, flags=glob.GLOBSTAR | glob.FORCEUNIX)
+
+
+@pytest.mark.parametrize('pattern', ['**/', 'dir/**/', '**/**/'])
+@pytest.mark.parametrize('as_bytes', [False, True])
+@pytest.mark.parametrize('long_globstar', [False, True])
+def test_globstar_directory_separator_windows(pattern, as_bytes, long_globstar):
+    """Preserve terminal separators in Windows-style pattern translation."""
+
+    flags = glob.FORCEWIN | (glob.GLOBSTARLONG if long_globstar else glob.GLOBSTAR)
+    if long_globstar:
+        pattern = pattern.replace('**', '***')
+    pattern = pattern.replace('/', '\\\\')
+    if as_bytes:
+        pattern = pattern.encode('ascii')
+    for filename, expected in [('dir\\file.txt', False), ('dir\\sub\\', True)]:
+        path = filename.encode('ascii') if as_bytes else filename
+        assert glob.globmatch(path, pattern, flags=flags) == expected
+        for capture in [0, glob.CAPTURE]:
+            include, exclude = glob.translate(pattern, flags=flags | capture)
+            assert not exclude
+            assert bool(re.fullmatch(include[0], path)) == expected
+
+
+@pytest.mark.parametrize('windows', [False, True])
+@pytest.mark.parametrize('as_bytes', [False, True])
+def test_globstar_ignored_trailing_escape(windows, as_bytes):
+    """Do not treat a dangling escape as a requested directory separator."""
+
+    flags = glob.GLOBSTAR | (glob.FORCEWIN if windows else glob.FORCEUNIX)
+    path = 'dir/file.txt'
+    for pattern in ['**\\', 'dir/**\\', '**/**\\']:
+        value = pattern.encode('ascii') if as_bytes else pattern
+        filename = path.encode('ascii') if as_bytes else path
+        assert glob.globmatch(filename, value, flags=flags)
+
+
+@pytest.mark.parametrize('windows', [False, True])
+@pytest.mark.parametrize('as_bytes', [False, True])
+def test_globstar_directory_separator_before_ignored_escape(windows, as_bytes):
+    """Keep a directory separator before an ignored trailing escape."""
+
+    flags = glob.GLOBSTAR | (glob.FORCEWIN if windows else glob.FORCEUNIX)
+    pattern = b'**/\\' if as_bytes else '**/\\'
+    for filename, expected in [('dir/file.txt', False), ('dir/sub/', True)]:
+        value = filename.encode('ascii') if as_bytes else filename
+        assert glob.globmatch(value, pattern, flags=flags) == expected

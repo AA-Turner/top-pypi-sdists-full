@@ -1,8 +1,8 @@
 """Public exception tree.
 
-Everything raised out of the SDK derives from :class:`DlthubError`, so one
-``except`` catches the lot. No exception from an underlying HTTP library ever
-reaches a caller.
+Every failure talking to the platform raises a `DlthubError`, so one `except`
+catches them. Invalid arguments raise `ValueError` before any request is sent,
+and `with` on an async client raises `TypeError`.
 """
 
 from __future__ import annotations
@@ -24,28 +24,22 @@ MIN_CLIENT_VERSION_HEADER = "x-dlthub-min-client-version"
 
 @dataclass(frozen=True)
 class FieldError:
-    """One reason the platform rejected a request, as it reported it.
-
-    Attributes:
-        key: The field at fault, when the platform named one.
-        message: What is wrong with it.
-    """
+    """One reason the platform rejected a request, as it reported it."""
 
     key: str | None
+    """The field at fault, when the platform named one."""
     message: str
+    """What is wrong with it."""
 
 
 @dataclass(frozen=True)
 class ClientUpdate:
-    """The platform requires a newer ``dlthub-client`` than the one installed.
-
-    Attributes:
-        installed: The version running here.
-        minimum: The lowest version the platform supports.
-    """
+    """The platform requires a newer ``dlthub-client`` than the one installed."""
 
     installed: str
+    """The version running here."""
     minimum: str
+    """The lowest version the platform supports."""
 
     @classmethod
     def from_headers(cls, headers: Mapping[str, str]) -> ClientUpdate | None:
@@ -136,16 +130,19 @@ class NotAuthenticated(DlthubError):
 
 
 class DataplaneTokenRejected(NotAuthenticated):
-    """The data plane rejected a token the platform issued for it.
+    """The data plane rejected the short-lived token the platform issued for it.
 
-    The caller's own credential was accepted, since it obtained that token, and
-    the SDK already re-minted it once. Renewing or replacing the credential will
-    not help.
+    Your own credential was accepted (it obtained that token), so renewing or
+    replacing it will not help. For regular calls the SDK has already fetched a
+    fresh token and retried once; uploads are not retried.
     """
 
 
 class NotAuthorized(DlthubError):
-    """The caller is authenticated but lacks access to the resource."""
+    """The caller is authenticated but lacks the access the call needs.
+
+    `message` says what was missing.
+    """
 
 
 class NotFound(DlthubError):
@@ -183,7 +180,12 @@ class NotFound(DlthubError):
 
 
 class Conflict(DlthubError):
-    """The resource is not in a state that allows the operation."""
+    """The current state does not allow the call, e.g. the workspace is archived.
+
+    `code` names the reason when the platform gave one (`workspace_archived`,
+    `upstream_not_fresh`, ...) and `message` describes it. The set of reasons grows
+    with the platform, so branch on `code` rather than on this class alone.
+    """
 
 
 class ApiError(DlthubError):
@@ -193,7 +195,10 @@ class ApiError(DlthubError):
 class BadRequest(ApiError):
     """The request itself was rejected. Retrying it unchanged will fail again.
 
-    ``fields`` carries the per-field reasons when the platform named any.
+    `message` says why, `code` names the reason when the platform gave one, and
+    `fields` carries the per-field reasons when the platform named any. Also
+    raised before sending when an argument cannot form a request, e.g. an id
+    that is not a uuid; `status` is then `None`.
     """
 
 
@@ -214,7 +219,10 @@ class TransportError(DlthubError):
 
 
 class TransportTimeout(TransportError, TimeoutError):
-    """The request took longer than the transport allows."""
+    """An upload or log stream exceeded its time limit.
+
+    Other requests have no client-side timeout.
+    """
 
 
 class ConnectionFailed(TransportError, ConnectionError):
@@ -226,11 +234,16 @@ class WaitTimeout(DlthubError, TimeoutError):
 
 
 class ScopeMissing(DlthubError, ValueError):
-    """An operation needed a scope the context does not carry."""
+    """The call needs an organization or workspace that was not given.
+
+    For example, `runtime.workspaces.list()` without `organization_id` at
+    connect time or as an argument.
+    """
 
 
 class UnboundEntity(DlthubError, AttributeError):
-    """An entity was constructed directly and carries no context.
+    """The object was constructed directly, so it cannot call the platform.
 
-    An ``AttributeError`` too, so ``hasattr`` keeps working.
+    Only objects returned by the SDK can. Also an `AttributeError`, so `hasattr`
+    keeps working.
     """

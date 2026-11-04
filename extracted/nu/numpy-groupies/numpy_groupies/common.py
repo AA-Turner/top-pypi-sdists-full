@@ -28,12 +28,13 @@ from numpy_groupies.validation import (
     check_filling_with_none,
     is_complex_dtype,
     is_inexact_dtype,
+    is_integer_dtype,
 )
 
 if TYPE_CHECKING:
     import numpy.typing as npt
 
-    from numpy_groupies.utils_np import AFillValue, AScalar
+    from numpy_groupies.typing import AFillValue, AScalar
 
 nan = float("nan")  # nan is just this float
 
@@ -65,7 +66,7 @@ aggregate_common_doc = """
         string (e.g. ``func='max'``) however a number of aliases are also
         defined (e.g. you can use the ``func=np.max``, or even ``func=max``,
         where ``max`` is the
-        builtin function).  To check the available aliases see ``utils.py``.
+        builtin function).  To check the available aliases see ``registry.py``.
     size: default=None
         the shape of the output array. If ``None``, the maximum value in
         ``group_idx`` will set the size of the output.  Note that for
@@ -83,7 +84,7 @@ aggregate_common_doc = """
         cannot hold ``nan``, so those functions fall back to ``0``.  For complex
         output the default ``nan`` fills with a nan in *both* parts, so that an
         empty group looks the same in every implementation.  Use
-        ``utils.default_fill_value(func, dtype)`` to query the value, or pass
+        ``common.default_fill_value(func, dtype)`` to query the value, or pass
         your own.  ``None`` is a value and not a request: it fills the object
         result of ``array`` and is refused for every other function, since the
         request for a default is made with ``DEFAULT_FILL_VALUE``.  Note that
@@ -178,8 +179,12 @@ def resolve_fill_value(
         return fill_value
     key = fill_value_key(func)
     # nan only fits where the output can hold it - the averaging and
-    # dispersion functions coerce their result to a float type anyway
-    fits = dtype is None or key in forced_float_types or key in forced_real_float_types or is_inexact_dtype(dtype)
+    # dispersion functions coerce their result to a float type anyway, but an
+    # explicitly requested integer output holds no nan, whatever the function
+    # answers by default
+    fits = not is_integer_dtype(dtype) and (
+        dtype is None or key in forced_float_types or key in forced_real_float_types or is_inexact_dtype(dtype)
+    )
     value = default_fill_values.get(key)
     if value is None:
         # a custom callable has no function specific default

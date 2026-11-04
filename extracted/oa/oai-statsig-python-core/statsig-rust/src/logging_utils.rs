@@ -9,14 +9,15 @@ pub fn sanitize_secret_key(input: &str) -> String {
             if i == 0 {
                 part.to_string()
             } else {
-                let (key, rest) =
-                    part.split_at(part.chars().take_while(|c| c.is_alphanumeric()).count());
-                let sanitized_key = if key.len() > 5 {
-                    format!("{}*****{}", &key[..5], rest)
-                } else {
-                    format!("{key}*****{rest}")
-                };
-                format!("secret-{sanitized_key}")
+                let key_end = part
+                    .find(|c: char| !c.is_alphanumeric())
+                    .unwrap_or(part.len());
+                let (key, rest) = part.split_at(key_end);
+                let prefix_end = key
+                    .char_indices()
+                    .nth(5)
+                    .map_or(key.len(), |(index, _)| index);
+                format!("secret-{}*****{rest}", &key[..prefix_end])
             }
         })
         .collect()

@@ -18,6 +18,7 @@ import contextlib
 import os
 import threading
 from collections.abc import AsyncIterator, Iterator
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -220,30 +221,27 @@ class TestMaterializeEmptyPrefix:
 
 
 class TestAzureClientClose:
-    async def test_executor_shutdown_does_not_block_the_loop(self) -> None:
+    async def test_credential_close_does_not_block_the_loop(self) -> None:
         probe = LoopProbe()
         from application_sdk.clients.azure.client import AzureClient
 
         client = AzureClient()
-        real_executor = client._executor
-        assert real_executor is not None
-        real_executor.shutdown(wait=True)
-        executor = mock.MagicMock()
-        shutdowns: list[int] = []
+        credential = mock.MagicMock()
+        closes: list[int] = []
 
-        def slow_shutdown(wait: bool = True) -> None:
-            shutdowns.append(threading.get_ident())
+        def slow_close() -> None:
+            closes.append(threading.get_ident())
             probe.block()
 
-        executor.shutdown.side_effect = slow_shutdown
-        client._executor = executor
+        credential.close.side_effect = slow_close
+        client.credential = credential
 
         with probe.bound():
             await client.close()
 
-        executor.shutdown.assert_called_once_with(wait=True)
-        assert client._executor is None
-        assert threading.get_ident() not in shutdowns, "shut down on the loop thread"
+        credential.close.assert_called_once_with()
+        assert client.credential is None
+        assert threading.get_ident() not in closes, "closed on the loop thread"
         probe.assert_loop_stayed_free("AzureClient.close")
 
 
@@ -280,6 +278,10 @@ class TestSizingInterceptorInputWalk:
             task_queue: str = "q"
             workflow_type: str = "W"
             attempt: int = 1
+            # The walk budget reads the attempt's deadlines; None = unbounded.
+            start_to_close_timeout: timedelta | None = None
+            schedule_to_close_timeout: timedelta | None = None
+            heartbeat_timeout: timedelta | None = None
 
         @dataclass
         class _ExecInput:

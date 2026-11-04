@@ -59,6 +59,7 @@ class MissingHome(StrEnum):
     DAEMON_DOWN = "daemon_down"  # the `daemon` state, but its worker is not running
     DAEMON_SLOW = "daemon_slow"  # the daemon did not pick one within HOME_WAIT_S
     DAEMON_ITSELF = "daemon_itself"  # the daemon's own `probe` command (`PROBE_DAEMON_SESSION`)
+    ELSEWHERE = "elsewhere"  # the session's project is set, but on another server or team
 
 
 #: Every way to name a project, for the agent cases.
@@ -78,6 +79,9 @@ MISSING_HOME_FIXES = {
     MissingHome.DAEMON_ITSELF: (
         "probe: this run needs a project, and the Probe daemon picks this session's project itself: "
         "pass --project, or set the session's project first (`probe session home set <project>`)."),
+    MissingHome.ELSEWHERE: (
+        "probe: this run needs a project. This session's project is set on another Probe server or "
+        "team than this run's credential (`probe session home show`). " + _NAME_ONE),
     MissingHome.DAEMON_SLOW: (
         f"probe: this run needs a project. The Probe daemon did not set this session's project within "
         f"{int(HOME_WAIT_S)} s (`probe session home show` prints it once set). " + _NAME_ONE),
@@ -202,22 +206,34 @@ def wait_for_session_home(
     HOME_WAIT_S, saying so on stderr; a daemon that stops meanwhile ends the wait early.
     Raises `ProjectRequired` (the fix for that case) when no project came."""
     session_id = get_session_id(env)
+    if _is_home_elsewhere(settings, env):
+        raise errors.ProjectRequired(MISSING_HOME_FIXES[MissingHome.ELSEWHERE])
     try:
         writer_requests.write_writer_request(session_id, HOME_REQUEST_TEXT)
     except (OSError, RuntimeError):
-        pass  # the writer's first look at the request picks it anyway (`triggers._needs_home`)
+        pass  # best effort: the writer still sees the agent's request in the transcript
     _say(f"probe: waiting for the daemon to pick this session's project (up to {int(HOME_WAIT_S)} s)...")
     started = clock()
     while True:
         record = load_session_home(settings, env)
         if record is not None:
             return _home_from_record(record, waited_s=round(clock() - started, 1))
+        if _is_home_elsewhere(settings, env):
+            raise errors.ProjectRequired(MISSING_HOME_FIXES[MissingHome.ELSEWHERE])
         case = get_missing_home_case(env)
         if case is None and clock() - started >= HOME_WAIT_S:
             case = MissingHome.DAEMON_SLOW
         if case is not None:
             raise errors.ProjectRequired(MISSING_HOME_FIXES[case])
         sleep(HOME_POLL_S)
+
+
+def _is_home_elsewhere(settings: Settings, env: Mapping[str, str] | None) -> bool:
+    """The session has a home record, but for another server or team: waiting cannot help."""
+    session_id = get_session_id(env)
+    if not session_id or session_marker.read_run_home(session_id) is None:
+        return False
+    return load_session_home(settings, env) is None
 
 
 def find_missing_home(client: Any, env: Mapping[str, str] | None = None) -> RunHome:

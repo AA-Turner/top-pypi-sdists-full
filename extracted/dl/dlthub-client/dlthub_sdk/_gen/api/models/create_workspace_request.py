@@ -13,7 +13,7 @@ T = TypeVar("T", bound="CreateWorkspaceRequest")
 class CreateWorkspaceRequest:
     """
     Attributes:
-        description (None | str): The description of the workspace
+        description (None | str): Free-text description of the workspace; `null` when none is set.
         name (str): The name of the workspace
     """
 

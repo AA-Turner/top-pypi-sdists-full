@@ -84,7 +84,7 @@ def sync_detailed(
 
     Gets the latest and therefore active configuration for a workspace.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -116,7 +116,7 @@ def sync(
 
     Gets the latest and therefore active configuration for a workspace.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -143,7 +143,7 @@ async def asyncio_detailed(
 
     Gets the latest and therefore active configuration for a workspace.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -173,7 +173,7 @@ async def asyncio(
 
     Gets the latest and therefore active configuration for a workspace.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

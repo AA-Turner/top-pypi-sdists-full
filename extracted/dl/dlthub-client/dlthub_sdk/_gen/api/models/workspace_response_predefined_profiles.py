@@ -11,7 +11,10 @@ T = TypeVar("T", bound="WorkspaceResponsePredefinedProfiles")
 
 @_attrs_define
 class WorkspaceResponsePredefinedProfiles:
-    """Predefined profile names keyed by access level name, e.g. {'DATA_WRITE': 'prod', 'DATA_READ': 'access'}"""
+    """Built-in profiles by data access: `DATA_WRITE` → `prod` (runs need developer or owner), `DATA_READ` → `access`
+    (viewers may run).
+
+    """
 
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 

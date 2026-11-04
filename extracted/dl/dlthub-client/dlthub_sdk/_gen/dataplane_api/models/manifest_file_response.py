@@ -15,9 +15,10 @@ T = TypeVar("T", bound="ManifestFileResponse")
 class ManifestFileResponse:
     """
     Attributes:
-        relative_path (str): Path of the file inside the package.
-        sha3_256 (str): Digest of the contents, or of `linkname` for a symlink.
-        size_bytes (int): Size of the file.
+        relative_path (str): Path of the file inside the package, with `/` separators: relative to the workspace root
+            for a deployment, and to the `.dlt` settings folder for a configuration.
+        sha3_256 (str): Base64 SHA3-256 of the file contents, or of the `linkname` string for a symlink.
+        size_bytes (int): Size of the file in bytes; 0 for a symlink.
         linkname (None | str | Unset): Symlink target; set for symlink entries only.
     """
 

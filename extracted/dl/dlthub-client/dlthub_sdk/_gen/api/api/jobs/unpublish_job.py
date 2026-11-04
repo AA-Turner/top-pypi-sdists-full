@@ -90,10 +90,10 @@ def sync_detailed(
 ) -> Response[ErrorResponse | JobResponse]:
     """UnpublishJob
 
-    Disables the public URL for a job by clearing the public_secret. After calling this
-    endpoint, the job will no longer be accessible via its public URL.
+    Disables the public URL for a job by clearing its `public_secret`. Afterwards the job is
+    no longer reachable through its public URL, and `public_url` is `null`.
 
-    Requires WRITE permission on the organization level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -126,10 +126,10 @@ def sync(
 ) -> ErrorResponse | JobResponse | None:
     """UnpublishJob
 
-    Disables the public URL for a job by clearing the public_secret. After calling this
-    endpoint, the job will no longer be accessible via its public URL.
+    Disables the public URL for a job by clearing its `public_secret`. Afterwards the job is
+    no longer reachable through its public URL, and `public_url` is `null`.
 
-    Requires WRITE permission on the organization level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -157,10 +157,10 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | JobResponse]:
     """UnpublishJob
 
-    Disables the public URL for a job by clearing the public_secret. After calling this
-    endpoint, the job will no longer be accessible via its public URL.
+    Disables the public URL for a job by clearing its `public_secret`. Afterwards the job is
+    no longer reachable through its public URL, and `public_url` is `null`.
 
-    Requires WRITE permission on the organization level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -191,10 +191,10 @@ async def asyncio(
 ) -> ErrorResponse | JobResponse | None:
     """UnpublishJob
 
-    Disables the public URL for a job by clearing the public_secret. After calling this
-    endpoint, the job will no longer be accessible via its public URL.
+    Disables the public URL for a job by clearing its `public_secret`. Afterwards the job is
+    no longer reachable through its public URL, and `public_url` is `null`.
 
-    Requires WRITE permission on the organization level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

@@ -1,6 +1,6 @@
 """Build the CARLA ground-truth payload a driver policy reads.
 
-The alpasim contract carries no traffic lights and no other vehicles.  Both ride
+The alpasim contract carries no traffic lights and no other road users.  Both ride
 inside ``egodriver.DriveRequest.renderer_data``, an upstream-sanctioned ``bytes``
 extension point, as a serialized ``carla_driver.v0.CarlaRendererData``.  A policy
 that ignores those bytes stays fully compatible; one that wants CARLA ground
@@ -8,7 +8,7 @@ truth parses them.
 
 Sending this matters more than it looks.  A policy such as
 `stl_driver <https://github.com/hakuturu583/stl_driver>`_ reads the payload
-defensively -- a missing one yields "no light applies" and "no other vehicles"
+defensively -- a missing one yields "no light applies" and "no other road users"
 rather than an error -- so an empty ``renderer_data`` does not fail loudly.  It
 silently disables every rule that depends on the world outside the ego.
 
@@ -27,12 +27,13 @@ too early.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
-from numpy.typing import NDArray
 
 from ..coordinate.map_manager import run_carla_map
+from ..kinematics.walker_motion import WalkerVelocities, is_walker
+from ..utils.clearance import _HIDDEN_BELOW_M
 from ..utils.traffic_light import traffic_light_state_name
 from carla_driver_interface.protocol import carla_driver_pb2, common_pb2
 
@@ -51,6 +52,10 @@ __all__ = ["RendererDataBuilder"]
 
 #: CARLA reports posted speed limits in km/h.
 _KMH_TO_MPS: float = 1.0 / 3.6
+
+#: Microseconds in a second: :meth:`RendererDataBuilder.build`'s timestamp is
+#: in microseconds, :class:`WalkerVelocities` measures in seconds.
+_US_PER_S: float = 1e6
 
 #: Proto states by :func:`traffic_light_state_name`.
 _LIGHT_STATES: Dict[str, "carla_driver_pb2.TrafficLightState"] = {
@@ -72,12 +77,25 @@ _WEATHER_FIELDS = (
     "wetness",
 )
 
+#: The road users and obstacles reported to the policy, as CARLA blueprint
+#: patterns: other vehicles, pedestrians and the props a scenario puts on the
+#: road (cones, barriers, boxes).  Nothing else in the world is something to
+#: drive around: a walker's AI controller (``controller.ai.walker``) is not a
+#: body, sensors ride on actors, and the spectator and traffic lights and signs
+#: are not in the way.
+_ACTOR_PATTERNS: Tuple[str, ...] = ("vehicle.*", "walker.*", "static.prop.*")
+
 
 class RendererDataBuilder:
     """Collects CARLA ground truth for one ego, once per policy step.
 
     Traffic-light geometry is cached: lights and junctions do not move, and the
     lane-graph walks behind them are not cheap enough to repeat at policy rate.
+
+    Walkers' velocities are measured from one build to the next
+    (:class:`~autoware_carla_scenario.kinematics.walker_motion.WalkerVelocities`),
+    so the builder keeps where each walker stood; :meth:`reset` forgets it.  A
+    builder serves one driver session.
 
     Args:
         world: The CARLA world.
@@ -103,13 +121,25 @@ class RendererDataBuilder:
         # The run's map: get_map() builds a whole new one on every call.
         self._map = run_carla_map(world)
         self._map_id = map_id
-        self._lights: Optional[List[Tuple[Any, str, List[Any]]]] = None
+        self._lights: Optional[
+            List[Tuple["carla.TrafficLight", str, List[carla_driver_pb2.StopPoint]]]
+        ] = None
         # The lane index and the stop points, cached there.
         self._stop_lines = StopLines(world, ego_actor, self._map, config)
+        # Where each walker stood at the last build: CARLA reports 0 for one
+        # walking on its controller, so its velocity is measured (#1252).
+        self._walkers = WalkerVelocities()
+        self._walker_ids: set[int] = set()
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    def reset(self) -> None:
+        """Forget where every walker stood (the session ended), so no
+        velocity is measured across runs."""
+        self._walkers.clear()
+        self._walker_ids.clear()
 
     def build(
         self,
@@ -164,7 +194,7 @@ class RendererDataBuilder:
             ego_traffic_light_distance_m=self._light_distance(light, ego_pose),
             speed_limit_mps=self._speed_limit_mps(),
             actors=(
-                self._actor_states(ego_pose)
+                self._actor_states(timestamp_us, ego_pose)
                 if self._config.send_actor_ground_truth
                 else []
             ),
@@ -176,7 +206,9 @@ class RendererDataBuilder:
     # Traffic lights
     # ------------------------------------------------------------------
 
-    def _governing_traffic_light(self, ego_pose: Pose) -> Optional[Any]:
+    def _governing_traffic_light(
+        self, ego_pose: Pose
+    ) -> Optional["carla.TrafficLight"]:
         """The light the ego must obey, found by looking down its own lane.
 
         The walk is :meth:`StopLines.governing_light
@@ -205,24 +237,32 @@ class RendererDataBuilder:
         and lane, which is how the policy finds them in its map file.
         """
         if self._lights is None:
-            self._lights = [
-                (
-                    light,
-                    str(light.get_opendrive_id()),
-                    [
-                        carla_driver_pb2.StopPoint(
-                            road_id=int(waypoint.road_id),
-                            section_id=int(waypoint.section_id),
-                            lane_id=int(waypoint.lane_id),
-                            position_local=_vec3(
-                                to_local_pose(waypoint.transform).position
-                            ),
-                        )
-                        for waypoint in stop_waypoints(light)
-                    ],
+            lights: List[
+                Tuple["carla.TrafficLight", str, List[carla_driver_pb2.StopPoint]]
+            ] = []
+            for actor in self._world.get_actors().filter("traffic.traffic_light*"):
+                if TYPE_CHECKING:
+                    light = actor.as_traffic_light()
+                else:
+                    light = actor
+                lights.append(
+                    (
+                        light,
+                        str(light.get_opendrive_id()),
+                        [
+                            carla_driver_pb2.StopPoint(
+                                road_id=int(waypoint.road_id),
+                                section_id=int(waypoint.section_id),
+                                lane_id=int(waypoint.lane_id),
+                                position_local=_vec3(
+                                    to_local_pose(waypoint.transform).position
+                                ),
+                            )
+                            for waypoint in stop_waypoints(light)
+                        ],
+                    )
                 )
-                for light in self._world.get_actors().filter("traffic.traffic_light*")
-            ]
+            self._lights = lights
         return [
             carla_driver_pb2.TrafficLight(
                 opendrive_id=opendrive_id,
@@ -233,7 +273,7 @@ class RendererDataBuilder:
         ]
 
     def _light_state(
-        self, light: Optional[Any]
+        self, light: Optional["carla.TrafficLight"]
     ) -> "carla_driver_pb2.TrafficLightState":
         """Map a CARLA light state onto the proto enum."""
         if light is None:
@@ -243,7 +283,9 @@ class RendererDataBuilder:
             carla_driver_pb2.TRAFFIC_LIGHT_STATE_UNKNOWN,
         )
 
-    def _light_distance(self, light: Optional[Any], ego_pose: Pose) -> float:
+    def _light_distance(
+        self, light: Optional["carla.TrafficLight"], ego_pose: Pose
+    ) -> float:
         """Distance the ego still has to travel before *light*'s stop line.
 
         Along the ego's heading, negative once the line is behind
@@ -280,12 +322,23 @@ class RendererDataBuilder:
             }
         )
 
-    def _actor_states(self, ego_pose: Pose) -> List[carla_driver_pb2.CarlaActorState]:
-        """Every other vehicle within the horizon, in the local frame.
+    def _actor_states(
+        self, timestamp_us: int, ego_pose: Pose
+    ) -> List[carla_driver_pb2.CarlaActorState]:
+        """Every other road user and prop within the horizon, in the local frame.
+
+        Vehicles (``vehicle.*``), pedestrians (``walker.*``) and the props a
+        scenario places (``static.prop.*``, :data:`_ACTOR_PATTERNS`), each told
+        apart by its ``type_id``.  Not the ego, not a walker's AI controller,
+        a sensor or the spectator; and not an actor parked under the map
+        (hidden): one whose CARLA ``z`` is below ``_HIDDEN_BELOW_M``
+        (:mod:`~autoware_carla_scenario.utils.clearance`'s, the threshold the
+        other consumers of the world share) is skipped explicitly, whatever
+        the horizon (#1248).
 
         Poses carry yaw only.  A policy reads this quaternion to orient the
         actor's bounding box in the ground plane, which roll and pitch do not
-        affect for a vehicle on a road.
+        affect for a road user on a road.
 
         The position is the centre of the bounding box, as the field's name
         says and a policy reads it (stl_driver's ``forecast_actors`` takes it
@@ -293,25 +346,64 @@ class RendererDataBuilder:
         is often well behind its box centre, and at ground level under it
         (#854).  The box's offset is rotated by the actor's yaw only, like
         the pose itself.
+
+        A vehicle's and a prop's velocity is the one CARLA reports, a prop's
+        zero unless its physics has it moving.  A walker's is measured
+        (:class:`~autoware_carla_scenario.kinematics.walker_motion.WalkerVelocities`,
+        as the trajectory log, the T4 dataset, the metrics and the conditions
+        measure it): CARLA reports 0 for a walker walking on its controller,
+        which places it rather than driving it (#1252).  It is measured from
+        where the walker stood at the previous build to where it stands now,
+        over the simulated time between them (*timestamp_us*), so it is the
+        walker's average velocity over the policy step.  At the first build,
+        and once a walker has been teleported -- brought in from under the
+        map, put where its walk starts -- there is nothing to measure from and
+        it is the one CARLA reports.  Hidden walkers are read too, though not
+        reported, so the one brought in is no walk.  Every velocity is
+        resolved in the local frame.
         """
         states: List[carla_driver_pb2.CarlaActorState] = []
         horizon = self._config.actor_horizon_m
         ego_position = ego_pose.position
-
-        for actor in self._world.get_actors().filter("*vehicle*"):
+        # One fetch from the server; CARLA's filter matches type_ids locally.
+        world_actors = self._world.get_actors()
+        actors = [
+            actor
+            for pattern in _ACTOR_PATTERNS
+            for actor in world_actors.filter(pattern)
+        ]
+        elapsed = timestamp_us / _US_PER_S
+        walker_ids: set[int] = set()
+        for actor in actors:
             if actor.id == self._ego.id:
+                continue
+            transform = actor.get_transform()
+            walker_velocity = None
+            if is_walker(actor):
+                # Measured before any skip -- hidden, beyond the horizon -- so
+                # that where it stood is always the last build's: a walker
+                # brought in from under the map is then a teleport, no walk.
+                walker_ids.add(int(actor.id))
+                walker_velocity = self._walkers.walker(
+                    actor, elapsed, transform.location
+                )
+            # Parked under the map until brought in: not on the road (#1248).
+            # Compared in CARLA's world frame, as every other consumer does.
+            if float(transform.location.z) < _HIDDEN_BELOW_M:
                 continue
             box = actor.bounding_box
             centre = box.location
             # The offset is in the actor's own CARLA frame (y right): its y
             # flips into the right-handed local frame, like the pose's.
-            pose = to_local_pose(actor.get_transform()) @ Pose.from_xyz_yaw(
+            pose = to_local_pose(transform) @ Pose.from_xyz_yaw(
                 float(centre.x), -float(centre.y), float(centre.z), 0.0
             )
             if float(np.linalg.norm(pose.position - ego_position)) > horizon:
                 continue
 
-            velocity = actor.get_velocity()
+            velocity = (
+                walker_velocity if walker_velocity is not None else actor.get_velocity()
+            )
             extent = box.extent
             states.append(
                 carla_driver_pb2.CarlaActorState(
@@ -333,9 +425,13 @@ class RendererDataBuilder:
                     ),
                 )
             )
+        # Walkers gone from the world: nothing more to measure.
+        for gone in self._walker_ids - walker_ids:
+            self._walkers.forget(gone)
+        self._walker_ids = walker_ids
         return states
 
 
-def _vec3(values: NDArray[np.float64]) -> common_pb2.Vec3:
+def _vec3(values: np.ndarray[tuple[int], np.dtype[np.float64]]) -> common_pb2.Vec3:
     """Return *values* as a protobuf ``Vec3``."""
     return common_pb2.Vec3(x=values[0], y=values[1], z=values[2])

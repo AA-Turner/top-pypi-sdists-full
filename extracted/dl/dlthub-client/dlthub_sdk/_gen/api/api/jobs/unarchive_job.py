@@ -90,10 +90,10 @@ def sync_detailed(
 ) -> Response[ErrorResponse | JobResponse]:
     """UnarchiveJob
 
-    Unarchives a job. The job will appear in default listings again and can be run.
-    This operation is idempotent.
+    Unarchives a job so it can run again, restoring the schedule and default trigger from its
+    definition; a pause is not restored. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -126,10 +126,10 @@ def sync(
 ) -> ErrorResponse | JobResponse | None:
     """UnarchiveJob
 
-    Unarchives a job. The job will appear in default listings again and can be run.
-    This operation is idempotent.
+    Unarchives a job so it can run again, restoring the schedule and default trigger from its
+    definition; a pause is not restored. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -157,10 +157,10 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | JobResponse]:
     """UnarchiveJob
 
-    Unarchives a job. The job will appear in default listings again and can be run.
-    This operation is idempotent.
+    Unarchives a job so it can run again, restoring the schedule and default trigger from its
+    definition; a pause is not restored. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -191,10 +191,10 @@ async def asyncio(
 ) -> ErrorResponse | JobResponse | None:
     """UnarchiveJob
 
-    Unarchives a job. The job will appear in default listings again and can be run.
-    This operation is idempotent.
+    Unarchives a job so it can run again, restoring the schedule and default trigger from its
+    definition; a pause is not restored. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

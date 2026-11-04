@@ -23,31 +23,35 @@ T = TypeVar("T", bound="JobRunResponse")
 class JobRunResponse:
     """
     Attributes:
-        configuration_id (UUID): The ID of the configuration that will be used when running the job
-        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        deployment_id (UUID): The ID of the deployment that will be used when running the job
-        duration_seconds (float | None): The duration of the run in seconds, may be fractional (null if not yet
-            completed)
-        finished_at (datetime.datetime | None): The time the run ended
-        id (UUID): The unique ID of the entity
-        job_version_id (UUID): The ID of the job version that will be used when running the job
+        configuration_id (UUID): The ID of the configuration the run uses.
+        created_at (datetime.datetime): When it was created.
+        deployment_id (UUID): The ID of the deployment the run uses.
+        duration_seconds (float | None): Duration of the run in seconds, possibly fractional; `null` until it has
+            finished.
+        finished_at (datetime.datetime | None): When the run finished; `null` until it has.
+        id (UUID): Unique ID (a UUID).
+        job_version_id (UUID): The ID of the job version the run uses.
         logs_url (None | str): A link to the logs of the run
-        number (int): The number of the run. Will increment for each new run of the job
+        number (int): Number of the run within its job, counting up from 1; numbers repeat across jobs.
         profile (str): The name of the profile that was used for the run
-        started_at (datetime.datetime | None): The time the run started
+        started_at (datetime.datetime | None): When the run started; `null` until it has.
         status (RunStatus | str): The status of the run
-        trigger (str): The trigger that started this run (full TTrigger string, e.g. schedule:0 8 * * *, manual:,
-            job.success:jobs.ref)
-        triggered_by (None | UUID): The ID of the identity who triggered the run if triggered manually
-        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
+        trigger (str): The trigger the run fired with, e.g. `schedule:0 8 * * *`, `manual:jobs.my_job`,
+            `job.success:jobs.upstream`.
+        triggered_by (None | UUID): The `organization_membership_id` of the member who started the run; set for any run
+            started through the API, `null` for runs the scheduler, another job or a public URL started.
+        updated_at (datetime.datetime): When it was last changed.
         workspace_id (UUID): The ID of the workspace the run belongs to
-        interval_end (datetime.datetime | None | Unset): End of the interval being processed (for interval-based jobs)
-        interval_start (datetime.datetime | None | Unset): Start of the interval being processed (for interval-based
-            jobs)
-        pipeline_run_summaries (list[PipelineRunSummaryResponse] | Unset): Pipeline run summaries linked to this job
-            run, populated by telemetry
-        previous_job_run_id (None | Unset | UUID): The ID of the upstream run that triggered this run (for job event
-            triggers)
+        interval_end (datetime.datetime | None | Unset): End of the interval the run processes; `null` for a job without
+            intervals.
+        interval_start (datetime.datetime | None | Unset): Start of the interval the run processes; `null` for a job
+            without intervals.
+        pipeline_run_summaries (list[PipelineRunSummaryResponse] | Unset): One entry per dlt pipeline name the run
+            reported; a pipeline that ran more than once shows its latest report. In no particular order, and empty until
+            telemetry has received the reports.
+        previous_job_run_id (None | Unset | UUID): The upstream run whose completion started this one, through a
+            `job.success:` / `job.fail:` trigger or a freshness dependency; `null` for a run started manually, by its own
+            schedule, or by a trigger request.
     """
 
     configuration_id: UUID

@@ -240,7 +240,6 @@ class SuperDocClient:
     def __init__(
         self,
         *,
-        document_host_path: str | None = None,
         env: dict[str, str] | None = None,
         startup_timeout_ms: int = 5_000,
         shutdown_timeout_ms: int = 5_000,
@@ -250,7 +249,6 @@ class SuperDocClient:
         user: UserIdentity | None = None,
     ) -> None:
         self._runtime = SuperDocSyncRuntime(
-            document_host_path=document_host_path,
             env=env,
             startup_timeout_ms=startup_timeout_ms,
             shutdown_timeout_ms=shutdown_timeout_ms,
@@ -368,7 +366,6 @@ class AsyncSuperDocClient:
     def __init__(
         self,
         *,
-        document_host_path: str | None = None,
         env: dict[str, str] | None = None,
         startup_timeout_ms: int = 5_000,
         shutdown_timeout_ms: int = 5_000,
@@ -382,7 +379,6 @@ class AsyncSuperDocClient:
         user: UserIdentity | None = None,
     ) -> None:
         self._runtime = SuperDocAsyncRuntime(
-            document_host_path=document_host_path,
             env=env,
             startup_timeout_ms=startup_timeout_ms,
             shutdown_timeout_ms=shutdown_timeout_ms,

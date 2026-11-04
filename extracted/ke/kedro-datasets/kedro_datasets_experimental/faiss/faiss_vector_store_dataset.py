@@ -438,7 +438,7 @@ class FAISSVectorStoreDataset(AbstractVectorStoreDataset):
 
         ```yaml
         my_index:
-          type: faiss.FAISSVectorStoreDataset
+          type: kedro_datasets_experimental.faiss.FAISSVectorStoreDataset
           dimension: 384
           index_path: data/06_models/my_index.faiss
         ```
@@ -491,7 +491,7 @@ class FAISSVectorStoreDataset(AbstractVectorStoreDataset):
         self._metric = metric
         self.metadata = metadata
 
-    def _load(self) -> FAISSVectorStoreHandle:
+    def load(self) -> FAISSVectorStoreHandle:
         index_file = Path(self._index_path) if self._index_path else None
         meta_file = Path(f"{self._index_path}.meta.json") if self._index_path else None
 

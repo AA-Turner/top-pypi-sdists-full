@@ -31,6 +31,7 @@ class KeyGenType(str, Enum):
     PEM_PK8 = 'PEM_PK8'
     PGP = 'PGP'
     JWK_RSA = 'JWK_RSA'
+    JWK_RSA_JWKS = 'JWK_RSA_JWKS'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

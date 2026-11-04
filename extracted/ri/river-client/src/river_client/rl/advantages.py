@@ -124,6 +124,21 @@ def _training_rewards(groups, truncation, *, estimator, min_members):
     return rewards
 
 
+def _rollout_counts(trajectories):
+    """Raw rollout diagnostics; truncation counts need a caller-owned denominator."""
+    counts = {
+        "rollout/dropped": float(sum(t.dropped for t in trajectories)),
+        "rollout/dropped_generated_tokens": float(
+            sum(t.generated_tokens for t in trajectories if t.dropped)
+        ),
+    }
+    for cause in {t.truncated for t in trajectories if t.truncated}:
+        counts[f"truncated/{cause}"] = sum(t.truncated == cause for t in trajectories)
+    for key in {key for t in trajectories for key in t.metrics}:
+        counts[f"rollout/{key}"] = sum(t.metrics.get(key, 0) for t in trajectories)
+    return counts
+
+
 def build_batch(
     groups,
     *,
@@ -271,10 +286,6 @@ def _build_batch(
     ]
     metrics = {
         "reward/count": float(len(flat_rewards)),
-        "rollout/dropped": float(sum(t.dropped for t in flat)),
-        "rollout/dropped_generated_tokens": float(
-            sum(t.generated_tokens for t in flat if t.dropped)
-        ),
         "train/error_excluded_groups": float(
             sum(
                 any(t.dropped for t in group) and not any(r is not None for r in values)
@@ -304,12 +315,10 @@ def _build_batch(
         if flat
         else 0.0,
     }
-    for cause in {t.truncated for t in flat if t.truncated}:
-        metrics[f"truncated/{cause}"] = sum(t.truncated == cause for t in flat) / len(
-            flat
-        )
-    for key in {key for t in flat for key in t.metrics}:
-        metrics[f"rollout/{key}"] = sum(t.metrics.get(key, 0) for t in flat)
+    metrics.update(
+        (key, value / len(flat) if key.startswith("truncated/") else value)
+        for key, value in _rollout_counts(flat).items()
+    )
     return data, metrics
 
 

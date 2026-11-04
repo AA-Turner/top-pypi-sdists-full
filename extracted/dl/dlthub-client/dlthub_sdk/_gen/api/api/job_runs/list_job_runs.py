@@ -8,6 +8,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.attention_reason import AttentionReason
 from ...models.error_response import ErrorResponse
 from ...models.job_category import JobCategory
 from ...models.job_type import JobType
@@ -25,11 +26,15 @@ def _get_kwargs(
     limit: int | Unset = 100,
     offset: int | Unset = 0,
     q: None | str | Unset = UNSET,
+    id: list[UUID] | None | Unset = UNSET,
     status: list[RunStatus] | None | Unset = UNSET,
+    attention_reason: list[AttentionReason] | None | Unset = UNSET,
     number: int | None | Unset = UNSET,
     job_id: None | Unset | UUID = UNSET,
     previous_job_run_id: None | Unset | UUID = UNSET,
     job_type: list[JobType] | None | Unset = UNSET,
+    category: list[JobCategory] | None | Unset = UNSET,
+    exclude_category: list[JobCategory] | None | Unset = UNSET,
     trigger: list[str] | None | Unset = UNSET,
     trigger_kind: list[TriggerKind] | None | Unset = UNSET,
     triggered_by: list[UUID] | None | Unset = UNSET,
@@ -59,6 +64,19 @@ def _get_kwargs(
         json_q = q
     params["q"] = json_q
 
+    json_id: list[str] | None | Unset
+    if isinstance(id, Unset):
+        json_id = UNSET
+    elif isinstance(id, list):
+        json_id = []
+        for id_type_0_item_data in id:
+            id_type_0_item = str(id_type_0_item_data)
+            json_id.append(id_type_0_item)
+
+    else:
+        json_id = id
+    params["id"] = json_id
+
     json_status: list[str] | None | Unset
     if isinstance(status, Unset):
         json_status = UNSET
@@ -71,6 +89,19 @@ def _get_kwargs(
     else:
         json_status = status
     params["status"] = json_status
+
+    json_attention_reason: list[str] | None | Unset
+    if isinstance(attention_reason, Unset):
+        json_attention_reason = UNSET
+    elif isinstance(attention_reason, list):
+        json_attention_reason = []
+        for attention_reason_type_0_item_data in attention_reason:
+            attention_reason_type_0_item = attention_reason_type_0_item_data.value
+            json_attention_reason.append(attention_reason_type_0_item)
+
+    else:
+        json_attention_reason = attention_reason
+    params["attention_reason"] = json_attention_reason
 
     json_number: int | None | Unset
     if isinstance(number, Unset):
@@ -109,6 +140,32 @@ def _get_kwargs(
     else:
         json_job_type = job_type
     params["job_type"] = json_job_type
+
+    json_category: list[str] | None | Unset
+    if isinstance(category, Unset):
+        json_category = UNSET
+    elif isinstance(category, list):
+        json_category = []
+        for category_type_0_item_data in category:
+            category_type_0_item = category_type_0_item_data.value
+            json_category.append(category_type_0_item)
+
+    else:
+        json_category = category
+    params["category"] = json_category
+
+    json_exclude_category: list[str] | None | Unset
+    if isinstance(exclude_category, Unset):
+        json_exclude_category = UNSET
+    elif isinstance(exclude_category, list):
+        json_exclude_category = []
+        for exclude_category_type_0_item_data in exclude_category:
+            exclude_category_type_0_item = exclude_category_type_0_item_data.value
+            json_exclude_category.append(exclude_category_type_0_item)
+
+    else:
+        json_exclude_category = exclude_category
+    params["exclude_category"] = json_exclude_category
 
     json_trigger: list[str] | None | Unset
     if isinstance(trigger, Unset):
@@ -311,11 +368,15 @@ def sync_detailed(
     limit: int | Unset = 100,
     offset: int | Unset = 0,
     q: None | str | Unset = UNSET,
+    id: list[UUID] | None | Unset = UNSET,
     status: list[RunStatus] | None | Unset = UNSET,
+    attention_reason: list[AttentionReason] | None | Unset = UNSET,
     number: int | None | Unset = UNSET,
     job_id: None | Unset | UUID = UNSET,
     previous_job_run_id: None | Unset | UUID = UNSET,
     job_type: list[JobType] | None | Unset = UNSET,
+    category: list[JobCategory] | None | Unset = UNSET,
+    exclude_category: list[JobCategory] | None | Unset = UNSET,
     trigger: list[str] | None | Unset = UNSET,
     trigger_kind: list[TriggerKind] | None | Unset = UNSET,
     triggered_by: list[UUID] | None | Unset = UNSET,
@@ -336,17 +397,24 @@ def sync_detailed(
 
     Gets the job runs of a workspace as a paginated list, newest first.
 
-    Search with `q` over the job name; filter by status, job, job type, trigger,
-    profile, upstream run (`previous_job_run_id`, giving the runs one run triggered), or a
-    time window; sort with paired `sort` and `order` lists.
+    Search with `q` over the job name and the names of the pipelines a run reported; a number
+    also matches the run number. Filter by run `id`, status, attention reason, run number, job,
+    job type, job category, trigger, trigger kind, who started the run (`triggered_by`), profile,
+    duration, upstream run (`previous_job_run_id`, giving the runs one run triggered), or a
+    `created_at` window; sort with paired `sort` and `order` lists.
+
+    `trigger_kind` matches the kind of trigger a run fired with, which for a run started through
+    the API may be the job's default trigger, e.g. `schedule:`. Use `triggered_by` to find runs a
+    person started.
 
     System runs, such as the dashboard job, are excluded unless `job_id` or
-    `previous_job_run_id` names one, or `include_system_job_runs` is set.
+    `previous_job_run_id` names one, or `include_system_job_runs` is set. Naming a
+    category does not lift the exclusion.
 
     Set `downstream_job_runs_limit` to attach, to each run, the runs its outcome
     triggered.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -355,17 +423,29 @@ def sync_detailed(
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
         q (None | str | Unset): Case-insensitive substring match on the job name and the pipeline
             names the run produced. A numeric value also matches the exact run number.
+        id (list[UUID] | None | Unset): Exact match on `id`. Repeat the parameter to match any of
+            several values.
         status (list[RunStatus] | None | Unset): Exact match on `status`. Repeat the parameter to
             match any of several values.
+        attention_reason (list[AttentionReason] | None | Unset): Match runs an operator has to
+            look at, for any of the given reasons: `failed`, `empty_run` (completed but loaded no
+            rows), `long_running` (completed after more than 5 hours). A run lists every reason that
+            applies in `attention_reasons`.
         number (int | None | Unset): Exact match on `number`.
         job_id (None | Unset | UUID): Exact match on `job_id`.
         previous_job_run_id (None | Unset | UUID): Exact match on `previous_job_run_id`.
         job_type (list[JobType] | None | Unset): Exact match on `job_type`. Repeat the parameter
             to match any of several values.
+        category (list[JobCategory] | None | Unset): Match runs of jobs declaring any of the given
+            `expose.category` values. Most jobs declare none and match nothing here.
+        exclude_category (list[JobCategory] | None | Unset): Drop runs of jobs declaring any of
+            the given `expose.category` values. A run of a job declaring none is kept.
         trigger (list[str] | None | Unset): Exact match on `trigger`. Repeat the parameter to
             match any of several values.
         trigger_kind (list[TriggerKind] | None | Unset): Match runs by the kind of trigger that
-            fired them, whatever its expression. `manual` means a person started the run.
+            fired them, whatever its expression. A run started through the API carries the trigger it
+            was started with, which may be the job's default trigger; use `triggered_by` to find runs
+            a person started.
         triggered_by (list[UUID] | None | Unset): Exact match on the identity that started the
             run. Repeat the parameter to match any of several values.
         profile (list[str] | None | Unset): Exact match on `profile`. Repeat the parameter to
@@ -374,12 +454,12 @@ def sync_detailed(
             given as `min_duration_seconds` and `max_duration_seconds`. Either bound may stand alone.
         max_duration_seconds (float | None | Unset): Inclusive range over `duration_seconds`,
             given as `min_duration_seconds` and `max_duration_seconds`. Either bound may stand alone.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
         sort (list[ListJobRunsSortType0Item] | None | Unset): Keys to sort by, applied in the
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListJobRunsOrderType0Item] | None | Unset): Sort directions, one per `sort`
@@ -407,11 +487,15 @@ def sync_detailed(
         limit=limit,
         offset=offset,
         q=q,
+        id=id,
         status=status,
+        attention_reason=attention_reason,
         number=number,
         job_id=job_id,
         previous_job_run_id=previous_job_run_id,
         job_type=job_type,
+        category=category,
+        exclude_category=exclude_category,
         trigger=trigger,
         trigger_kind=trigger_kind,
         triggered_by=triggered_by,
@@ -443,11 +527,15 @@ def sync(
     limit: int | Unset = 100,
     offset: int | Unset = 0,
     q: None | str | Unset = UNSET,
+    id: list[UUID] | None | Unset = UNSET,
     status: list[RunStatus] | None | Unset = UNSET,
+    attention_reason: list[AttentionReason] | None | Unset = UNSET,
     number: int | None | Unset = UNSET,
     job_id: None | Unset | UUID = UNSET,
     previous_job_run_id: None | Unset | UUID = UNSET,
     job_type: list[JobType] | None | Unset = UNSET,
+    category: list[JobCategory] | None | Unset = UNSET,
+    exclude_category: list[JobCategory] | None | Unset = UNSET,
     trigger: list[str] | None | Unset = UNSET,
     trigger_kind: list[TriggerKind] | None | Unset = UNSET,
     triggered_by: list[UUID] | None | Unset = UNSET,
@@ -468,17 +556,24 @@ def sync(
 
     Gets the job runs of a workspace as a paginated list, newest first.
 
-    Search with `q` over the job name; filter by status, job, job type, trigger,
-    profile, upstream run (`previous_job_run_id`, giving the runs one run triggered), or a
-    time window; sort with paired `sort` and `order` lists.
+    Search with `q` over the job name and the names of the pipelines a run reported; a number
+    also matches the run number. Filter by run `id`, status, attention reason, run number, job,
+    job type, job category, trigger, trigger kind, who started the run (`triggered_by`), profile,
+    duration, upstream run (`previous_job_run_id`, giving the runs one run triggered), or a
+    `created_at` window; sort with paired `sort` and `order` lists.
+
+    `trigger_kind` matches the kind of trigger a run fired with, which for a run started through
+    the API may be the job's default trigger, e.g. `schedule:`. Use `triggered_by` to find runs a
+    person started.
 
     System runs, such as the dashboard job, are excluded unless `job_id` or
-    `previous_job_run_id` names one, or `include_system_job_runs` is set.
+    `previous_job_run_id` names one, or `include_system_job_runs` is set. Naming a
+    category does not lift the exclusion.
 
     Set `downstream_job_runs_limit` to attach, to each run, the runs its outcome
     triggered.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -487,17 +582,29 @@ def sync(
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
         q (None | str | Unset): Case-insensitive substring match on the job name and the pipeline
             names the run produced. A numeric value also matches the exact run number.
+        id (list[UUID] | None | Unset): Exact match on `id`. Repeat the parameter to match any of
+            several values.
         status (list[RunStatus] | None | Unset): Exact match on `status`. Repeat the parameter to
             match any of several values.
+        attention_reason (list[AttentionReason] | None | Unset): Match runs an operator has to
+            look at, for any of the given reasons: `failed`, `empty_run` (completed but loaded no
+            rows), `long_running` (completed after more than 5 hours). A run lists every reason that
+            applies in `attention_reasons`.
         number (int | None | Unset): Exact match on `number`.
         job_id (None | Unset | UUID): Exact match on `job_id`.
         previous_job_run_id (None | Unset | UUID): Exact match on `previous_job_run_id`.
         job_type (list[JobType] | None | Unset): Exact match on `job_type`. Repeat the parameter
             to match any of several values.
+        category (list[JobCategory] | None | Unset): Match runs of jobs declaring any of the given
+            `expose.category` values. Most jobs declare none and match nothing here.
+        exclude_category (list[JobCategory] | None | Unset): Drop runs of jobs declaring any of
+            the given `expose.category` values. A run of a job declaring none is kept.
         trigger (list[str] | None | Unset): Exact match on `trigger`. Repeat the parameter to
             match any of several values.
         trigger_kind (list[TriggerKind] | None | Unset): Match runs by the kind of trigger that
-            fired them, whatever its expression. `manual` means a person started the run.
+            fired them, whatever its expression. A run started through the API carries the trigger it
+            was started with, which may be the job's default trigger; use `triggered_by` to find runs
+            a person started.
         triggered_by (list[UUID] | None | Unset): Exact match on the identity that started the
             run. Repeat the parameter to match any of several values.
         profile (list[str] | None | Unset): Exact match on `profile`. Repeat the parameter to
@@ -506,12 +613,12 @@ def sync(
             given as `min_duration_seconds` and `max_duration_seconds`. Either bound may stand alone.
         max_duration_seconds (float | None | Unset): Inclusive range over `duration_seconds`,
             given as `min_duration_seconds` and `max_duration_seconds`. Either bound may stand alone.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
         sort (list[ListJobRunsSortType0Item] | None | Unset): Keys to sort by, applied in the
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListJobRunsOrderType0Item] | None | Unset): Sort directions, one per `sort`
@@ -540,11 +647,15 @@ def sync(
         limit=limit,
         offset=offset,
         q=q,
+        id=id,
         status=status,
+        attention_reason=attention_reason,
         number=number,
         job_id=job_id,
         previous_job_run_id=previous_job_run_id,
         job_type=job_type,
+        category=category,
+        exclude_category=exclude_category,
         trigger=trigger,
         trigger_kind=trigger_kind,
         triggered_by=triggered_by,
@@ -570,11 +681,15 @@ async def asyncio_detailed(
     limit: int | Unset = 100,
     offset: int | Unset = 0,
     q: None | str | Unset = UNSET,
+    id: list[UUID] | None | Unset = UNSET,
     status: list[RunStatus] | None | Unset = UNSET,
+    attention_reason: list[AttentionReason] | None | Unset = UNSET,
     number: int | None | Unset = UNSET,
     job_id: None | Unset | UUID = UNSET,
     previous_job_run_id: None | Unset | UUID = UNSET,
     job_type: list[JobType] | None | Unset = UNSET,
+    category: list[JobCategory] | None | Unset = UNSET,
+    exclude_category: list[JobCategory] | None | Unset = UNSET,
     trigger: list[str] | None | Unset = UNSET,
     trigger_kind: list[TriggerKind] | None | Unset = UNSET,
     triggered_by: list[UUID] | None | Unset = UNSET,
@@ -595,17 +710,24 @@ async def asyncio_detailed(
 
     Gets the job runs of a workspace as a paginated list, newest first.
 
-    Search with `q` over the job name; filter by status, job, job type, trigger,
-    profile, upstream run (`previous_job_run_id`, giving the runs one run triggered), or a
-    time window; sort with paired `sort` and `order` lists.
+    Search with `q` over the job name and the names of the pipelines a run reported; a number
+    also matches the run number. Filter by run `id`, status, attention reason, run number, job,
+    job type, job category, trigger, trigger kind, who started the run (`triggered_by`), profile,
+    duration, upstream run (`previous_job_run_id`, giving the runs one run triggered), or a
+    `created_at` window; sort with paired `sort` and `order` lists.
+
+    `trigger_kind` matches the kind of trigger a run fired with, which for a run started through
+    the API may be the job's default trigger, e.g. `schedule:`. Use `triggered_by` to find runs a
+    person started.
 
     System runs, such as the dashboard job, are excluded unless `job_id` or
-    `previous_job_run_id` names one, or `include_system_job_runs` is set.
+    `previous_job_run_id` names one, or `include_system_job_runs` is set. Naming a
+    category does not lift the exclusion.
 
     Set `downstream_job_runs_limit` to attach, to each run, the runs its outcome
     triggered.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -614,17 +736,29 @@ async def asyncio_detailed(
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
         q (None | str | Unset): Case-insensitive substring match on the job name and the pipeline
             names the run produced. A numeric value also matches the exact run number.
+        id (list[UUID] | None | Unset): Exact match on `id`. Repeat the parameter to match any of
+            several values.
         status (list[RunStatus] | None | Unset): Exact match on `status`. Repeat the parameter to
             match any of several values.
+        attention_reason (list[AttentionReason] | None | Unset): Match runs an operator has to
+            look at, for any of the given reasons: `failed`, `empty_run` (completed but loaded no
+            rows), `long_running` (completed after more than 5 hours). A run lists every reason that
+            applies in `attention_reasons`.
         number (int | None | Unset): Exact match on `number`.
         job_id (None | Unset | UUID): Exact match on `job_id`.
         previous_job_run_id (None | Unset | UUID): Exact match on `previous_job_run_id`.
         job_type (list[JobType] | None | Unset): Exact match on `job_type`. Repeat the parameter
             to match any of several values.
+        category (list[JobCategory] | None | Unset): Match runs of jobs declaring any of the given
+            `expose.category` values. Most jobs declare none and match nothing here.
+        exclude_category (list[JobCategory] | None | Unset): Drop runs of jobs declaring any of
+            the given `expose.category` values. A run of a job declaring none is kept.
         trigger (list[str] | None | Unset): Exact match on `trigger`. Repeat the parameter to
             match any of several values.
         trigger_kind (list[TriggerKind] | None | Unset): Match runs by the kind of trigger that
-            fired them, whatever its expression. `manual` means a person started the run.
+            fired them, whatever its expression. A run started through the API carries the trigger it
+            was started with, which may be the job's default trigger; use `triggered_by` to find runs
+            a person started.
         triggered_by (list[UUID] | None | Unset): Exact match on the identity that started the
             run. Repeat the parameter to match any of several values.
         profile (list[str] | None | Unset): Exact match on `profile`. Repeat the parameter to
@@ -633,12 +767,12 @@ async def asyncio_detailed(
             given as `min_duration_seconds` and `max_duration_seconds`. Either bound may stand alone.
         max_duration_seconds (float | None | Unset): Inclusive range over `duration_seconds`,
             given as `min_duration_seconds` and `max_duration_seconds`. Either bound may stand alone.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
         sort (list[ListJobRunsSortType0Item] | None | Unset): Keys to sort by, applied in the
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListJobRunsOrderType0Item] | None | Unset): Sort directions, one per `sort`
@@ -666,11 +800,15 @@ async def asyncio_detailed(
         limit=limit,
         offset=offset,
         q=q,
+        id=id,
         status=status,
+        attention_reason=attention_reason,
         number=number,
         job_id=job_id,
         previous_job_run_id=previous_job_run_id,
         job_type=job_type,
+        category=category,
+        exclude_category=exclude_category,
         trigger=trigger,
         trigger_kind=trigger_kind,
         triggered_by=triggered_by,
@@ -700,11 +838,15 @@ async def asyncio(
     limit: int | Unset = 100,
     offset: int | Unset = 0,
     q: None | str | Unset = UNSET,
+    id: list[UUID] | None | Unset = UNSET,
     status: list[RunStatus] | None | Unset = UNSET,
+    attention_reason: list[AttentionReason] | None | Unset = UNSET,
     number: int | None | Unset = UNSET,
     job_id: None | Unset | UUID = UNSET,
     previous_job_run_id: None | Unset | UUID = UNSET,
     job_type: list[JobType] | None | Unset = UNSET,
+    category: list[JobCategory] | None | Unset = UNSET,
+    exclude_category: list[JobCategory] | None | Unset = UNSET,
     trigger: list[str] | None | Unset = UNSET,
     trigger_kind: list[TriggerKind] | None | Unset = UNSET,
     triggered_by: list[UUID] | None | Unset = UNSET,
@@ -725,17 +867,24 @@ async def asyncio(
 
     Gets the job runs of a workspace as a paginated list, newest first.
 
-    Search with `q` over the job name; filter by status, job, job type, trigger,
-    profile, upstream run (`previous_job_run_id`, giving the runs one run triggered), or a
-    time window; sort with paired `sort` and `order` lists.
+    Search with `q` over the job name and the names of the pipelines a run reported; a number
+    also matches the run number. Filter by run `id`, status, attention reason, run number, job,
+    job type, job category, trigger, trigger kind, who started the run (`triggered_by`), profile,
+    duration, upstream run (`previous_job_run_id`, giving the runs one run triggered), or a
+    `created_at` window; sort with paired `sort` and `order` lists.
+
+    `trigger_kind` matches the kind of trigger a run fired with, which for a run started through
+    the API may be the job's default trigger, e.g. `schedule:`. Use `triggered_by` to find runs a
+    person started.
 
     System runs, such as the dashboard job, are excluded unless `job_id` or
-    `previous_job_run_id` names one, or `include_system_job_runs` is set.
+    `previous_job_run_id` names one, or `include_system_job_runs` is set. Naming a
+    category does not lift the exclusion.
 
     Set `downstream_job_runs_limit` to attach, to each run, the runs its outcome
     triggered.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -744,17 +893,29 @@ async def asyncio(
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
         q (None | str | Unset): Case-insensitive substring match on the job name and the pipeline
             names the run produced. A numeric value also matches the exact run number.
+        id (list[UUID] | None | Unset): Exact match on `id`. Repeat the parameter to match any of
+            several values.
         status (list[RunStatus] | None | Unset): Exact match on `status`. Repeat the parameter to
             match any of several values.
+        attention_reason (list[AttentionReason] | None | Unset): Match runs an operator has to
+            look at, for any of the given reasons: `failed`, `empty_run` (completed but loaded no
+            rows), `long_running` (completed after more than 5 hours). A run lists every reason that
+            applies in `attention_reasons`.
         number (int | None | Unset): Exact match on `number`.
         job_id (None | Unset | UUID): Exact match on `job_id`.
         previous_job_run_id (None | Unset | UUID): Exact match on `previous_job_run_id`.
         job_type (list[JobType] | None | Unset): Exact match on `job_type`. Repeat the parameter
             to match any of several values.
+        category (list[JobCategory] | None | Unset): Match runs of jobs declaring any of the given
+            `expose.category` values. Most jobs declare none and match nothing here.
+        exclude_category (list[JobCategory] | None | Unset): Drop runs of jobs declaring any of
+            the given `expose.category` values. A run of a job declaring none is kept.
         trigger (list[str] | None | Unset): Exact match on `trigger`. Repeat the parameter to
             match any of several values.
         trigger_kind (list[TriggerKind] | None | Unset): Match runs by the kind of trigger that
-            fired them, whatever its expression. `manual` means a person started the run.
+            fired them, whatever its expression. A run started through the API carries the trigger it
+            was started with, which may be the job's default trigger; use `triggered_by` to find runs
+            a person started.
         triggered_by (list[UUID] | None | Unset): Exact match on the identity that started the
             run. Repeat the parameter to match any of several values.
         profile (list[str] | None | Unset): Exact match on `profile`. Repeat the parameter to
@@ -763,12 +924,12 @@ async def asyncio(
             given as `min_duration_seconds` and `max_duration_seconds`. Either bound may stand alone.
         max_duration_seconds (float | None | Unset): Inclusive range over `duration_seconds`,
             given as `min_duration_seconds` and `max_duration_seconds`. Either bound may stand alone.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
         sort (list[ListJobRunsSortType0Item] | None | Unset): Keys to sort by, applied in the
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListJobRunsOrderType0Item] | None | Unset): Sort directions, one per `sort`
@@ -798,11 +959,15 @@ async def asyncio(
             limit=limit,
             offset=offset,
             q=q,
+            id=id,
             status=status,
+            attention_reason=attention_reason,
             number=number,
             job_id=job_id,
             previous_job_run_id=previous_job_run_id,
             job_type=job_type,
+            category=category,
+            exclude_category=exclude_category,
             trigger=trigger,
             trigger_kind=trigger_kind,
             triggered_by=triggered_by,

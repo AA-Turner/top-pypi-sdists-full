@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: msoffcrypto-tool
-Version: 6.0.0
+Version: 6.1.0
 Summary: Python tool and library for decrypting and encrypting MS Office files using a password or other keys
 License: MIT
 License-File: LICENSE.txt
 License-File: NOTICE.txt
 Author: nolze
 Author-email: nolze@int3.net
-Requires-Python: >=3.10,<4.0
+Requires-Python: >=3.11,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -242,7 +241,7 @@ poetry run coverage run -m pytest -v
 * [x] Support OOXML encryption
 * [ ] Support other encryption
 * [ ] Isolate parser
-* [ ] Redesign APIs (v6.0.0)
+* [ ] Redesign APIs
 
 ## Resources
 

@@ -16,6 +16,7 @@ import collections.abc
 import math
 import random
 import string
+import types
 from functools import reduce
 
 import RestrictedPython
@@ -483,6 +484,59 @@ def guarded_sum(sequence, start=0):
 
 
 safe_builtins['sum'] = guarded_sum
+
+
+def guarded_sorted(iterable, /, *, key=None, reverse=False):
+    if isinstance(iterable, types.GeneratorType):
+        # A generator is no container the security policy could validate
+        # against. Its items come from an iteration which was guarded
+        # already, so sort them as they are.
+        return sorted(iterable, key=key, reverse=reverse)
+    return sorted(guarded_iter(iterable), key=key, reverse=reverse)
+
+
+safe_builtins['sorted'] = guarded_sorted
+
+
+class _GuardedTypeMeta(type):
+    """Let `isinstance()` and `issubclass()` checks against a guarded type
+    behave like checks against the wrapped type `_type`."""
+
+    def __instancecheck__(cls, instance):
+        return isinstance(instance, cls._type)
+
+    def __subclasscheck__(cls, subclass):
+        return issubclass(subclass, cls._type)
+
+
+class guarded_tuple(metaclass=_GuardedTypeMeta):
+    _type = tuple
+
+    def __new__(cls, iterable=(), /):
+        if isinstance(iterable, types.GeneratorType):
+            # See guarded_sorted for the reasoning.
+            return tuple(iterable)
+        return tuple(guarded_iter(iterable))
+
+
+safe_builtins['tuple'] = guarded_tuple
+
+
+class guarded_bytes(metaclass=_GuardedTypeMeta):
+    _type = bytes
+
+    def __new__(cls, *args, **kw):
+        if len(args) == 1 and not kw:
+            source = args[0]
+            if (isinstance(source, (int, str, bytes, bytearray, memoryview))
+                    or hasattr(type(source), '__bytes__')):
+                # These are converted without iterating them.
+                return bytes(source)
+            return bytes(guarded_iter(source))
+        return bytes(*args, **kw)
+
+
+safe_builtins['bytes'] = guarded_bytes
 
 
 def load_module(module, mname, mnameparts, validate, globals, locals):

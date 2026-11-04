@@ -23,13 +23,13 @@ class MeResponse:
     """
     Attributes:
         email (str): The email of the current user
-        latest_organization (OrganizationResponse): The organization where new workspaces are created by default
-        organization_membership_id (UUID): The ID of the current identity in the current organization.
-        primary_organization (OrganizationResponse): The organization where new workspaces are created by default
+        latest_organization (OrganizationResponse):
+        organization_membership_id (UUID): Your membership id in `latest_organization`.
+        primary_organization (OrganizationResponse):
         user_id (UUID): The ID of the current user
-        latest_workspace (None | Unset | WorkspaceResponse): The most recently accessed workspace; null when the user's
-            current organization has no workspaces
-        name (None | str | Unset): The user's display name (full name), or null if the identity provider supplied none
+        latest_workspace (None | Unset | WorkspaceResponse): The workspace you used last; `null` when none is recorded
+            yet.
+        name (None | str | Unset): The user's display name (full name); `null` if the identity provider supplied none.
         organization_memberships (list[OrganizationMembershipResponse] | Unset): All organizations the user is a member
             of
     """

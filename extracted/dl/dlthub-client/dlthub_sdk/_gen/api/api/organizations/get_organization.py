@@ -84,7 +84,7 @@ def sync_detailed(
 
     Gets information about an organization.
 
-    Requires READ permission on the organization level.
+    Any organization member, including collaborators.
 
     Args:
         organization_id (UUID):
@@ -116,7 +116,7 @@ def sync(
 
     Gets information about an organization.
 
-    Requires READ permission on the organization level.
+    Any organization member, including collaborators.
 
     Args:
         organization_id (UUID):
@@ -143,7 +143,7 @@ async def asyncio_detailed(
 
     Gets information about an organization.
 
-    Requires READ permission on the organization level.
+    Any organization member, including collaborators.
 
     Args:
         organization_id (UUID):
@@ -173,7 +173,7 @@ async def asyncio(
 
     Gets information about an organization.
 
-    Requires READ permission on the organization level.
+    Any organization member, including collaborators.
 
     Args:
         organization_id (UUID):

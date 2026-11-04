@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from functools import cache, partial
 from types import MappingProxyType
 from typing import TYPE_CHECKING
@@ -18,6 +19,7 @@ from djlint.const import (
     HTML_INLINE_ELEMENTS,
     HTML_INLINE_LEVEL_ELEMENTS,
     HTML_VOID_ELEMENTS,
+    TAG_START,
 )
 from djlint.formatter.tokenizer import tokenize_tags
 from djlint.helpers import (
@@ -34,6 +36,7 @@ from djlint.helpers import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from typing import Final
 
     from djlint.formatter.tokenizer import TagToken
@@ -43,6 +46,21 @@ _HTML_TAG_NAME_PATTERN: Final = compile_pattern(r"^</?\s*([a-zA-Z][-\w:.]*)")
 _TRANSPARENT_ELEMENTS: Final = (
     (HTML_INLINE_LEVEL_ELEMENTS | HTML_VOID_ELEMENTS) - HTML_ATOMIC_INLINE_ELEMENTS - {"br", "hr"}
 )
+# One piece of a tag's attributes. A template tag in a quoted value is read
+# whole, so a quote inside it, as in `value="${_("it's")}"`, neither ends the
+# value nor opens another that runs on past the end of the tag.
+_VALUE_TEMPLATE_TAG: Final = r"\$\{[^{}\n]*\}|\{\{(?:(?!\}\}|\{\{).)*+\}\}|\{%(?:(?!%\}|\{%).)*+%\}"
+_QUOTED_PART: Final = rf"\"(?:{_VALUE_TEMPLATE_TAG}|[^\"])*+\"|'(?:{_VALUE_TEMPLATE_TAG}|[^'])*+'"
+# Another tag's start ends an opening tag that was never closed, which would
+# otherwise be read to the end of the file again from every tag after it.
+_ATTRIBUTE_PART: Final = rf"{_QUOTED_PART}|{{(?:(?!{TAG_START})[^}}])*}}|(?!{TAG_START})[^'\">{{}}]"
+# A closing tag runs to its ">", as browsers read it: in `</p` followed by
+# `<p class="a">` on the next line, the "<p" is junk inside the closing tag.
+# Stopping there left the "</p" closing nothing, so each paragraph after it
+# was indented a level deeper. Only quotes count in the junk, so a "{" is a
+# character like any other: looking for its "}" from every closing tag after
+# an unclosed one took quadratic time.
+_CLOSING_TAG_PART: Final = rf"{_QUOTED_PART}|[^'\">]"
 _BREAK_BEFORE_TAG: Final = "\n%s"
 _BREAK_AFTER_TAG: Final = "%s\n"
 _TEMPLATE_TAG_NAME_PATTERN: Final = compile_pattern(r"^\{%[-+]?\s*([^\s%]+)", RE_FLAGS_IX)
@@ -143,12 +161,42 @@ def _past_raw_text_element(html: str, index: int, name: str, *, back: bool) -> i
         index = found + 1
 
 
+def _sub_tags(pattern: str, repl: Callable[[re.Match[str]], str], html: str) -> str:
+    """Substitute the html tags the pattern matches.
+
+    Every tag ends at a ">", so none can start after the last one. A tag
+    start there was still read to the end of the file looking for one, and
+    again from each tag start after it, which for a run of closing tags
+    left open, as in `</p` on line after line, took quadratic time. Those
+    starts are hidden from the pattern, which keeps the length of the html,
+    and the text after the last ">" is put back as it was.
+    """
+    end = html.rfind(">") + 1
+    tail = html[end:]
+    if "<" not in tail:
+        return re.sub(pattern, repl, html, flags=RE_FLAGS_IX)
+
+    substituted = re.sub(pattern, repl, html[:end] + tail.replace("<", "\x00"), flags=RE_FLAGS_IX)
+    return substituted[: len(substituted) - len(tail)] + tail
+
+
 def expand_html(html: str, config: Config) -> str:
     """Split single line html into many lines based on tags."""
 
     @cache
     def html_tokens(value: str) -> tuple[TagToken, ...]:
         return tuple(tokenize_tags(value))
+
+    @cache
+    def tokens_by_name(line: str) -> dict[str, tuple[tuple[int, ...], tuple[TagToken, ...]]]:
+        """The line's tags by name, each with their starts for a bisection."""
+        grouped: dict[str, list[TagToken]] = {}
+        for token in html_tokens(line):
+            grouped.setdefault(token.name.lower(), []).append(token)
+        return {
+            name: (tuple(token.start for token in tokens), tuple(tokens))
+            for name, tokens in grouped.items()
+        }
 
     def without_html_tags(value: str) -> str:
         output: list[str] = []
@@ -257,21 +305,19 @@ def expand_html(html: str, config: Config) -> str:
         match_start = match.start() - line_start
         match_end = match.end() - line_start
 
-        line_tokens = html_tokens(line)
+        # A body holding a tag of the same name is never kept inline, so only
+        # the nearest tag of that name on the side of the body can pair with
+        # this one. Looking it up rather than reading every tag of the line
+        # for each tag made a long line quadratic.
+        starts, same_name = tokens_by_name(line).get(tag_name, ((), ()))
 
         if tag_token.closing:
             if out_format != _BREAK_BEFORE_TAG:
                 return False
-            opening_tokens = tuple(
-                token
-                for token in line_tokens
-                if token.start < match_start
-                and not token.closing
-                and token.name.lower() == tag_name
-            )
-            if not opening_tokens:
+            index = bisect_left(starts, match_start) - 1
+            if index < 0 or same_name[index].closing:
                 return False
-            opening_token = opening_tokens[-1]
+            opening_token = same_name[index]
             opening_tag = line[opening_token.start : opening_token.end]
             if should_break_multiline_opening_tag(opening_tag):
                 return False
@@ -279,17 +325,10 @@ def expand_html(html: str, config: Config) -> str:
         else:
             if out_format != _BREAK_AFTER_TAG:
                 return False
-            closing_token = next(
-                (
-                    token
-                    for token in line_tokens
-                    if token.start >= match_end and token.closing and token.name.lower() == tag_name
-                ),
-                None,
-            )
-            if closing_token is None:
+            index = bisect_left(starts, match_end)
+            if index == len(same_name) or not same_name[index].closing:
                 return False
-            body = line[match_end : closing_token.start]
+            body = line[match_end : same_name[index].start]
 
         body_tags = [token.name.lower() for token in html_tokens(body)]
         if tag_name in body_tags:
@@ -454,18 +493,22 @@ def expand_html(html: str, config: Config) -> str:
 
     break_char = config.break_before
 
-    html = re.sub(
-        rf"{break_char}\K(</?(?:{html_tags})\b(\"[^\"]*\"|'[^']*'|{{[^}}]*}}|[^'\">{{}}])*>)",
-        break_before_html_tag,
-        html,
-        flags=RE_FLAGS_IX,
+    html_tag = (
+        rf"</(?:{html_tags})\b(?:{_CLOSING_TAG_PART})*+>|<(?:{html_tags})\b(?:{_ATTRIBUTE_PART})*+>"
     )
 
-    html = re.sub(
-        rf"(</?(?:{html_tags})\b(\"[^\"]*\"|'[^']*'|{{[^}}]*}}|[^'\">{{}}])*>)(?!\s*?\n)(?=[^\n])",
-        break_after_html_tag,
+    # A tag read whole and not broken is stepped over whole, so that a tag
+    # written inside it, as the "<p" in the closing tag `</p <p x="a">`, is
+    # not broken out of it, nor read again up to the same ">" from each of
+    # the tag starts inside a long one.
+    html = _sub_tags(
+        rf"(?<=\n[ \t]*)(?:{html_tag})(*SKIP)(*FAIL)|{break_char}\K({html_tag})",
+        break_before_html_tag,
         html,
-        flags=RE_FLAGS_IX,
+    )
+
+    html = _sub_tags(
+        rf"({html_tag})(?:(?!\s*?\n)(?=[^\n])|(*SKIP)(*FAIL))", break_after_html_tag, html
     )
 
     def should_i_move_template_tag(out_format: str, match: re.Match[str]) -> str:
@@ -504,15 +547,20 @@ def expand_html(html: str, config: Config) -> str:
     break_before_template_tag = partial(should_i_move_template_tag, _BREAK_BEFORE_TAG)
     break_after_template_tag = partial(should_i_move_template_tag, _BREAK_AFTER_TAG)
 
+    # A tag left open ends at the next opener, or each of a run of unclosed
+    # ones is read to the end of the file.
     html = re.sub(
-        break_char + r"\K((?:{%|{{\#)[ ]*?(?:" + config.break_template_tags + ")[^}]+?[%}]})",
+        break_char
+        + r"\K((?:{%|{{\#)[ ]*?(?:"
+        + config.break_template_tags
+        + r")(?:(?!\{[{%])[^}])+?[%}]})",
         break_before_template_tag,
         html,
         flags=RE_FLAGS_IMX,
     )
 
     html = re.sub(
-        rf"((?:{{%|{{{{\#)[ ]*?(?:{config.break_template_tags})(?>{config.template_tags}|[^}}])+?[%}}]}})(?=[^\n])",
+        rf"((?:{{%|{{{{\#)[ ]*?(?:{config.break_template_tags})(?>{config.template_tags}|(?!\{{[{{%])[^}}])+?[%}}]}})(?=[^\n])",
         break_after_template_tag,
         html,
         flags=RE_FLAGS_IMX,

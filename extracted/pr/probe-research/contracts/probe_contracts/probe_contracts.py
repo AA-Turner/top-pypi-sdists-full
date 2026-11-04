@@ -35,6 +35,7 @@ from .records import (
     RunStatus,
     Span,
 )
+from .settings import SetBy, SettingKey
 from .transcript_switch import SwitchedBy, TranscriptState
 
 
@@ -55,6 +56,8 @@ class Contracts:
     messages: tuple[type, ...] = ()
     #: Whether sessions upload as transcripts, and who turned them off (transcript_switch/).
     transcript_switch: tuple[type[Enum], ...] = ()
+    #: The settings file's keys and writers (settings/).
+    settings: tuple[type[Enum], ...] = ()
 
 
 CONTRACTS = Contracts(
@@ -72,4 +75,5 @@ CONTRACTS = Contracts(
     events=EventCatalog.load(),
     messages=(Severity, Action, Audience, MessageCode, ClientMessage, ClientRefusalBody, ClientMessageList),
     transcript_switch=(TranscriptState, SwitchedBy),
+    settings=(SettingKey, SetBy),
 )

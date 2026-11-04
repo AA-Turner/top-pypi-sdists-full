@@ -1,9 +1,9 @@
 """Resolves managed deploy fields from CLI param -> env var -> options-file profile ->
-SDK built-in default, and logs the resolved value/source for each. See the stateless CLI TDD's
-"Field Resolution" and "End-to-End Deploy Flow" sections.
+`pyproject.toml` package default -> SDK built-in default, and logs the resolved value/source for
+each.
 
-Does not resolve `pyproject.toml` package defaults (step 4 of the TDD's precedence list) -- no
-such mechanism exists in the SDK today; left out of scope for this change.
+Package defaults come from `[tool.package-metadata]` in the project's `pyproject.toml`, and only
+`python_version` and `proxy_host_config_key` can be supplied that way.
 
 Structure:
     `resolve_deploy_options` orchestrates one `_resolve_<field>` function per managed field,
@@ -30,14 +30,15 @@ from fivetran_connector_sdk_cli.connector_helper import (
     get_python_version,
     validate_naming,
 )
-from fivetran_connector_sdk_common.helpers import print_library_log
+from fivetran_connector_sdk_common.helpers import format_naming_for_display, print_library_log
 from fivetran_connector_sdk_common.logger import Logging
 from fivetran_connector_sdk_cli.options_file import (
-    find_options_file, is_options_file_supported, load_options_file, select_profile)
+    find_options_file, is_toml_file_supported, load_options_file, load_package_default, select_profile)
 
 _OPTIONS_FILE_ENV = constants.FIVETRAN_OPTIONS_FILE_ENV
 _SDK_DEFAULT_SOURCE = "SDK built-in default"
 _OPTIONS_FILE_SOURCE_PREFIX = "options file"
+_PACKAGE_DEFAULT_SOURCE = f"{constants.PYPROJECT_TOML}, [tool.package-metadata]"
 
 # A resolved field's (value, source) pair; `source` is None only when `value` is also unresolved.
 _ResolvedField = Tuple[Optional[str], Optional[str]]
@@ -101,7 +102,7 @@ def _select_active_profile(args, deploy_key: str, group_ids: dict,
     options_path = find_options_file(args)
     if not options_path:
         if (profile_name and profile_name != constants.DEFAULT_PROFILE_NAME
-                and is_options_file_supported()):
+                and is_toml_file_supported()):
             select_profile({}, profile_name)
         return {}, profile_name or constants.DEFAULT_PROFILE_NAME, {}, None
 
@@ -194,14 +195,17 @@ def _resolve_required_field(args, attr: str, flag: str, env_var: str, getter, pr
 
 
 def _resolve_python_version(args, prompt_mode, profile: dict, profile_label: str,
-                             treat_as_new: bool) -> Tuple[Optional[str], Optional[str], Optional[_MissingEntry]]:
-    """Resolves python_version via CLI/env/profile. If unresolved, falls back to the SDK
+                             treat_as_new: bool, project_path: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[_MissingEntry]]:
+    """Resolves python_version via CLI/env/profile/package default. If unresolved, falls back to the SDK
     default for a new connection (or the first migration deploy); otherwise reported as missing.
     """
     value = get_python_version(args, prompt_mode)
     source = _source_from_flag_or_env(args, constants.FIELD_PYTHON_VERSION, "--python-version",
                                        constants.FIVETRAN_PYTHON_VERSION_ENV, value)
     value, source = _resolve(constants.FIELD_PYTHON_VERSION, value, source, profile, profile_label)
+    if not value:
+        value = load_package_default(project_path, constants.FIELD_PYTHON_VERSION)
+        source = _PACKAGE_DEFAULT_SOURCE if value else None
     missing_entry = None
     if not value:
         if treat_as_new:
@@ -235,9 +239,9 @@ def _resolve_hd_agent_id(args, prompt_mode, profile: dict, profile_label: str, t
 
 
 def _resolve_proxy_fields(args, profile: dict, profile_label: str,
-                          current_detail: Optional[dict]) -> Tuple[_ResolvedField, _ResolvedField]:
-    """Resolves proxy_id and proxy_host_config_key via CLI/profile (no env var; never
-    required). Warns when proxy_id goes unresolved for a connection currently using a Proxy
+                          current_detail: Optional[dict], project_path: Optional[str]) -> Tuple[_ResolvedField, _ResolvedField]:
+    """Resolves proxy_id via CLI/profile and proxy_host_config_key via CLI/profile/package
+    default (no env var; never required). Warns when proxy_id goes unresolved for a connection currently using a Proxy
     Agent, since it will revert to direct networking.
     """
     proxy_id_cli = get_proxy_id(args)
@@ -253,6 +257,9 @@ def _resolve_proxy_fields(args, profile: dict, profile_label: str,
     phck_source = _source_from_flag(args, constants.FIELD_PROXY_HOST_CONFIG_KEY, "--proxy-host-config-key")
     proxy_host_config_key, phck_source = _resolve(
         constants.FIELD_PROXY_HOST_CONFIG_KEY, phck_cli, phck_source, profile, profile_label)
+    if proxy_id and not proxy_host_config_key:
+        proxy_host_config_key = load_package_default(project_path, constants.FIELD_PROXY_HOST_CONFIG_KEY)
+        phck_source = _PACKAGE_DEFAULT_SOURCE if proxy_host_config_key else None
 
     return (proxy_id, proxy_id_source), (proxy_host_config_key, phck_source)
 
@@ -289,8 +296,13 @@ def _report_missing_and_exit(missing: list, profile_label: str, args, options_da
     was explicitly selected, and exits.
     """
     for flag, env in missing:
-        if is_options_file_supported():
-            sources = f"the {flag} flag, the {env} environment variable, or the options file (profile [{profile_label}])"
+        if is_toml_file_supported():
+            head = f"the {flag} flag, the {env} environment variable"
+            options_file = f"the options file (profile [{profile_label}])"
+            if flag == "--python-version":
+                sources = f"{head}, {options_file}, or the [tool.package-metadata] section of {constants.PYPROJECT_TOML}"
+            else:
+                sources = f"{head}, or {options_file}"
         else:
             sources = f"the {flag} flag or the {env} environment variable"
         reason = " when deploying to an existing connection" if flag == "--python-version" else ""
@@ -333,7 +345,8 @@ def _log_resolved_summary(resolved: dict, options_path: Optional[str]) -> None:
     for field, (value, source) in resolved.items():
         if value:
             phrase = f"using {source}" if source == _SDK_DEFAULT_SOURCE else f"provided via {source}"
-            print_library_log(f"  {field} = {value} ({phrase})", Logging.Level.INFO)
+            shown = format_naming_for_display(value) if field == constants.FIELD_NAMING else value
+            print_library_log(f"  {field} = {shown} ({phrase})", Logging.Level.INFO)
 
 
 def resolve_deploy_options(args, prompt_mode, deploy_key: str, is_first_migration_deploy: bool = False,
@@ -379,13 +392,18 @@ def resolve_deploy_options(args, prompt_mode, deploy_key: str, is_first_migratio
     # the one-time deploy that just created the options file -- see the docstring above.
     treat_as_new = is_new_connection or is_first_migration_deploy
 
-    _record(constants.FIELD_PYTHON_VERSION, *_resolve_python_version(args, prompt_mode, profile, profile_label, treat_as_new))
+    # A deploy that reuses an uploaded package ignores the local project, so its pyproject.toml
+    # must not supply defaults (or fail the deploy) either.
+    package_id = _resolve_package_id(args, profile, profile_label)
+    project_path = None if package_id[0] else getattr(args, "project_path", None)
+
+    _record(constants.FIELD_PYTHON_VERSION, *_resolve_python_version(args, prompt_mode, profile, profile_label, treat_as_new, project_path))
     _record(constants.FIELD_HYBRID_DEPLOYMENT_AGENT_ID, *_resolve_hd_agent_id(
         args, prompt_mode, profile, profile_label, treat_as_new, group_id, current_detail, deploy_key))
 
     resolved[constants.FIELD_PROXY_ID], resolved[constants.FIELD_PROXY_HOST_CONFIG_KEY] = _resolve_proxy_fields(
-        args, profile, profile_label, current_detail)
-    resolved[constants.FIELD_PACKAGE_ID] = _resolve_package_id(args, profile, profile_label)
+        args, profile, profile_label, current_detail, project_path)
+    resolved[constants.FIELD_PACKAGE_ID] = package_id
     resolved[constants.FIELD_NAMING] = _resolve_naming(args, profile, profile_label, is_new_connection)
 
     if missing:

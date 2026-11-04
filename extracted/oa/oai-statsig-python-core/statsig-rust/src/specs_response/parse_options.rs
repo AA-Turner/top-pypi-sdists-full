@@ -18,9 +18,16 @@ impl SpecsResponseParseOptions {
         }
     }
 
+    pub(crate) const fn for_store(preserve_session_update_mode: bool) -> Self {
+        Self {
+            preserve_session_update_mode,
+            skip_unhydrated_dynamic_configs_for_preload: false,
+        }
+    }
+
     /// Only the raw-byte shared preloader may omit remote-backed dynamic
     /// configs. Live SDK decoding still requires their values to be hydrated.
-    pub(crate) const fn for_shared_preload() -> Self {
+    pub(crate) fn for_shared_preload() -> Self {
         Self {
             preserve_session_update_mode: false,
             skip_unhydrated_dynamic_configs_for_preload: true,

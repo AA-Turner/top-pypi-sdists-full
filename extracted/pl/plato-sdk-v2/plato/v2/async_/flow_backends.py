@@ -17,6 +17,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from plato.utils.browser_tooling import AGENT_BROWSER_SOCKET_DIR_EXPORT
 from plato.utils.subprocess import run_ssh
 
 if TYPE_CHECKING:
@@ -64,19 +65,36 @@ class FlowBackend(Protocol):
 
 
 class PlaywrightBackend:
-    """FlowBackend wrapping a Playwright ``Page`` — historical executor behaviour."""
+    """FlowBackend wrapping a Playwright ``Page`` — historical executor behaviour.
 
-    def __init__(self, page: Page) -> None:
+    ``fast_mode`` removes per-action dead time without changing what a flow
+    does: ``navigate`` stops at ``domcontentloaded`` instead of blocking on
+    every image/stylesheet finishing (``load``), and ``click``/``fill`` rely
+    on Playwright's built-in auto-wait instead of issuing a redundant
+    ``wait_for_selector`` round-trip first.
+    """
+
+    def __init__(self, page: Page, *, fast_mode: bool = False) -> None:
         self.page = page
+        self.fast_mode = fast_mode
 
     async def navigate(self, url: str) -> None:
-        await self.page.goto(url)
+        if self.fast_mode:
+            await self.page.goto(url, wait_until="domcontentloaded")
+        else:
+            await self.page.goto(url)
 
     async def click(self, selector: str, timeout_ms: int | None) -> None:
+        if self.fast_mode:
+            await self.page.click(selector, timeout=timeout_ms)
+            return
         await self.page.wait_for_selector(selector, timeout=timeout_ms)
         await self.page.click(selector)
 
     async def fill(self, selector: str, value: str, timeout_ms: int | None) -> None:
+        if self.fast_mode:
+            await self.page.fill(selector, value, timeout=timeout_ms)
+            return
         await self.page.wait_for_selector(selector, timeout=timeout_ms)
         await self.page.fill(selector, value)
 
@@ -217,16 +235,19 @@ def _assert_title(step: VerifyStep, actual_title: str) -> None:
 
 CLAUDE_CODE_SSH_SHELL_PREFIX = (
     'export PATH="$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ | '
-    'head -1)/bin:$HOME/.bun/bin:/usr/local/bin:$PATH"'
+    'head -1)/bin:$HOME/.bun/bin:/usr/local/bin:$PATH"; '
+    f"{AGENT_BROWSER_SOCKET_DIR_EXPORT}"
 )
 """``shell_prefix`` for reaching ``agent-browser`` over non-interactive SSH on
-the claude-code / gemini-cli / codex base images.
+the claude-code / codex base images.
 
 Inside an interactive agent subshell, ``plato.agents.browser_tooling``'s
 ``AGENT_BROWSER_PATH_EXPORT`` is enough because nvm.sh is already sourced.
 Over SSH the non-interactive shell doesn't source nvm, so we hand-roll the
 absolute node bin dir via ``ls | head -1`` in addition to adding
-``$HOME/.bun/bin``. Callers on other images should pass their own
+``$HOME/.bun/bin``. Both paths also export the same daemon socket directory,
+so PAM's SSH-only XDG_RUNTIME_DIR cannot select a different browser session.
+Callers on other images should pass their own
 ``shell_prefix``.
 """
 

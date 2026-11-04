@@ -9,55 +9,19 @@ use statsig_rust::{
 };
 
 #[test]
-fn test_own_bool_comparison() {
-    let left = test_only_make_eval_value!(true);
-    let right = test_only_make_eval_value!(false);
-    assert_eq!(left, left);
-    assert_ne!(left, right);
-}
-
-#[test]
-fn test_own_int_comparison() {
-    let left = test_only_make_eval_value!(1);
-    let right = test_only_make_eval_value!(2);
-    assert_eq!(left, left);
-    assert_ne!(left, right);
-}
-
-#[test]
-fn test_own_float_comparison() {
-    let left = test_only_make_eval_value!(1.0_f64);
-    let right = test_only_make_eval_value!(2.0_f64);
-    assert_eq!(left, left);
-    assert_ne!(left, right);
-}
-
-#[test]
-fn test_own_string_comparison() {
-    let left = test_only_make_eval_value!("apple");
-    let right = test_only_make_eval_value!("banana");
-    assert_eq!(left, left);
-    assert_ne!(left, right);
-}
-
-#[test]
-fn test_own_array_comparison() {
-    let left = test_only_make_eval_value!([1, 2, 3]);
-    let right = test_only_make_eval_value!([4, 5]);
-
-    assert_eq!(left, left);
-    assert_ne!(left, right);
-}
-
-#[test]
-fn test_own_object_comparison() {
-    let left = test_only_make_eval_value!(HashMap::from([("1".to_string(), 2)]));
-    let right = test_only_make_eval_value!(HashMap::from([("3".to_string(), 4)]));
-
-    println!("{right:?}");
-
-    assert_eq!(left, left);
-    assert_ne!(left, right);
+fn owned_evaluator_values_compare_by_value() {
+    for (value, different) in [
+        (json!(true), json!(false)),
+        (json!(1), json!(2)),
+        (json!(1.0), json!(2.0)),
+        (json!("apple"), json!("banana")),
+        (json!([1, 2, 3]), json!([4, 5])),
+        (json!({"1": 2}), json!({"3": 4})),
+    ] {
+        let left = MemoizedEvaluatorValue::from(value.clone());
+        assert_eq!(left, MemoizedEvaluatorValue::from(value));
+        assert_ne!(left, MemoizedEvaluatorValue::from(different));
+    }
 }
 
 #[test]

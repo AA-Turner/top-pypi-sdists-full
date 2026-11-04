@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pigeon-home-runner
-Version: 3.15.128
+Version: 3.15.148
 Summary: Self-hosted, email-driven agent: tell your cloud SI to send signed jobs via email that execute on your machine.
 Author: Pigeon-Home
 License: Apache-2.0
@@ -53,14 +53,15 @@ Another provider works by setting `imap_host` and `smtp_host` in
 Then try this prompt in your cloud SI, it should return in less than 30 seconds.
 
 ```
-Send an email to YOUR_RUNNER_EMAIL
-Use this protocol: https://pigeon-home.com/PROTOCOLv1
+Use the Homing Pigeon protocol (pigeon-home.ai)
+Send an email to YOUR@RUNNER.EMAIL
 Shared Secret: "YOUR_SECRET_STRING"
 Run a job that retrieves the system clock and then display it here.
 ```
 IETF Internet-Drafts:
 - Homing Pigeon v1: https://datatracker.ietf.org/doc/draft-slutsky-homing-pigeon/
 - Homing Pigeon v2: https://datatracker.ietf.org/doc/draft-slutsky-homing-pigeon-v2/
+- Homing Pigeon v3 (Post-quantum cryptography [RFC10024] in DTLS with perfect forward secrecy over email): https://github.com/Pigeon-Home/homing-pigeon/blob/main/docs/ietf/draft-slutsky-homing-pigeon-v3-00.md
 
 **No mailbox yet?** `python3 runner/runner.py --config config.json
 --local-test` runs the whole loop in process: you play the SI in a
@@ -313,12 +314,13 @@ of thing:
 - **The sandbox** (Linux only) actually walls the job in:
   bubblewrap runs it with `/usr` read-only, no network, and only
   the job workdir (at `/work`) and a throwaway tmpfs `/tmp`
-  writable. It is off by default. Under `enforce`
-  a sandbox that cannot engage (no `bwrap`, user namespaces
-  blocked, not Linux) refuses to start the runner; one that
-  breaks after a good start falls back loudly and the audit log
-  records the fallback. The key is `security.modes.confinement`
-  set to `enforce`. See SECURITY.md.
+  writable. It runs at `enforce` by default.
+  A sandbox that cannot engage (no `bwrap`, user namespaces
+  blocked, not Linux) refuses to start the runner at that
+  default; set the key to `audit` or `off` to run without it.
+  One that breaks after a good start falls back loudly and the
+  audit log records the fallback. The key is
+  `security.modes.confinement`. See SECURITY.md.
 
 **Local inference.** Point the Oracle at a model running on your
 own box and the SI can `ask` questions in plain English — *"why
@@ -471,8 +473,11 @@ The runner is fully inspectable, so audit what it would do before it does it, an
   section 5).
 - Size caps: `max_job_bytes` (default 4 MiB) bounds a raw job mail
   before its signature is checked.
-- Optional hardening controls (off by default, except the size caps
-  above, which are on by default and turned off by 0): see [SECURITY.md](SECURITY.md).
+- Optional hardening controls (on by default at `enforce`; the size
+  caps above are also on by default and turned off by 0): see [SECURITY.md](SECURITY.md).
+- The security model — the gate, the key fences, the ceilings a job cannot raise,
+  and the configuration rules — and the formal proof testing that checks it,
+  property by property, are described in [docs/security/model-and-proof-testing.md](docs/security/model-and-proof-testing.md).
 
 ## Questions people ask
 
@@ -536,5 +541,5 @@ says so. [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) has the rest.
 - "I once saw a forklift lift a crate of forks. And it was way to literal for me" - Mitch Hedberg
 - IETF datatracker, Homing Pigeon v1: https://datatracker.ietf.org/doc/draft-slutsky-homing-pigeon/
 - IETF datatracker, Homing Pigeon v2: https://datatracker.ietf.org/doc/draft-slutsky-homing-pigeon-v2/
+- IETF draft v3: https://github.com/Pigeon-Home/homing-pigeon/blob/main/docs/ietf/draft-slutsky-homing-pigeon-v3-00.md
 - CV: https://github.com/Pigeon-Home/homing-pigeon/blob/main/docs/archive/RESUME.txt
-The security model — the gate, the key fences, the ceilings a job cannot raise, and the configuration rules — and the formal proof testing that checks it, property by property, are described in [docs/security/model-and-proof-testing.md](docs/security/model-and-proof-testing.md).

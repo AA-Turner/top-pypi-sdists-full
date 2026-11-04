@@ -32,7 +32,7 @@ class MessageCommandPublication(BaseModel):
 
 
 class UserMessagePublication(BaseModel):
-    """The user message row to publish for a ``send_message`` or a first Turn.
+    """The user message row to publish for a ``send_message``, a ``start_turn`` or a first Turn.
 
     Holds no content and no Turn ID. The row is built from the accepted command, so a message
     carried across Continue-As-New travels once, in the Runtime's pending commands.
@@ -57,15 +57,20 @@ type CommandPublication = Annotated[
 
 
 class MessageReceiptRecord(BaseModel):
-    """What the ``send_message`` Update decided for one command id, so a retry gets the same answer."""
+    """What a message Update decided for one command id, so a retry gets the same answer."""
 
-    digest: str
+    # Only on a send_message receipt: a start or steer replays by command id alone (ADR 0038).
+    digest: str | None
     # Set once the Runtime admitted the message.
     turn_id: str | None = None
+    # Set with turn_id: the message joined the running Turn rather than starting turn_id.
+    steered: bool = False
     # Admitted while the Session stopped, so no Turn runs it and a retry stays refused.
     refused: bool = False
     # Rejected by Harness, which keeps that answer for the command id, so a retry is rejected too.
     rejected: bool = False
+    # A steer committed while its row was not published, so its Turn is unset but the id is taken.
+    committed: bool = False
 
 
 class WorkflowPublicationState(BaseModel):

@@ -654,9 +654,10 @@ def connect_libero(*, client_factory: Callable[..., Any] = ControlPlaneClient,
         from dreamscale.sim.robocasa_runtime import RoboCasaSimEnv, ensure_robocasa_runtime
 
         python = ensure_robocasa_runtime(on_line=on_line)
+        # Its arm control ("eef_delta", or DROID's absolute joints): the model's Sim.env_options.
         env_factory = partial(
             RoboCasaSimEnv, task=str(task_id), seed=task_seed, python=python,
-            control="droid_joint" if model == MODEL_DREAMZERO_DROID else "eef_delta",
+            **_SIMS[model].env_options,
         )
 
     prepared_env = None

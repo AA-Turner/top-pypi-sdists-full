@@ -22,7 +22,7 @@ class ExecutorError(Exception):
 class TimeoutExpired(ExecutorError):
     """Is raised when the timeout expires while starting an executor."""
 
-    def __init__(self, executor: "SimpleExecutor", timeout: int | float) -> None:
+    def __init__(self, executor: "SimpleExecutor", timeout: float) -> None:
         """Exception initialization with an extra ``timeout`` argument.
 
         :param mirakuru.base.SimpleExecutor executor: for which exception
@@ -54,7 +54,7 @@ class AlreadyRunning(ExecutorError):
         :returns: string representation
         :rtype: str
         """
-        port = getattr(self.executor, "port")
+        port = getattr(self.executor, "port", None)
         return (
             f"Executor {self.executor} seems to be already running. "
             f"It looks like the previous executor process hasn't been "

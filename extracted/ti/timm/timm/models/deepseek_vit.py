@@ -2,6 +2,9 @@
 
 Vision encoder of the DeepSeek-V4 / V4.1 multimodal models from DeepSeek-AI.
 
+Papers:
+* `DeepSeek-V4.1-Flash: Pushing the Limits of KV Cache Compression` - https://arxiv.org/abs/2609.19969
+
 A plain pre-norm ViT with RMSNorm, fused QKV with bias, a bias-free SwiGLU MLP and axial 2D RoPE
 (theta 10000, per-axis frequency blocks, 'half' rotation layout) as the only position encoding --
 there is no learned position embedding, so any patch grid works without resampling. Patches are
@@ -216,8 +219,9 @@ class DeepseekVitEncoder(nn.Module):
         """
         super().__init__()
         dd = {'device': device, 'dtype': dtype}
-        assert global_pool in ('', 'avg', 'align')
+        assert global_pool in ('', 'avg', 'align'), 'Only avg or align pooling (or none) is supported.'
         assert embed_dim % num_heads == 0
+        self.in_chans = in_chans
         self.num_classes = 0
         self.global_pool = global_pool
         self.num_features = self.head_hidden_size = self.embed_dim = embed_dim
@@ -281,6 +285,9 @@ class DeepseekVitEncoder(nn.Module):
             if global_pool == 'align'
             else None
         )
+        if self.aligner is not None:
+            # forward() returns the projector tokens, head_hidden_size is their width (num_features is the trunk's)
+            self.head_hidden_size = self.aligner.out_features
 
         self.init_weights(needs_reset=False)
 
@@ -390,6 +397,7 @@ class DeepseekVitEncoder(nn.Module):
             self.aligner = None
             self.global_pool = ''
             self.out_features = 0
+            self.head_hidden_size = self.num_features
         return take_indices
 
     def forward_features(self, x: torch.Tensor) -> torch.Tensor:
@@ -453,8 +461,9 @@ class DeepseekVitClassifier(nn.Module):
     ) -> None:
         super().__init__()
         dd = {'device': device, 'dtype': dtype}
-        assert global_pool in ('', 'avg')
+        assert global_pool in ('', 'avg'), 'Only avg pooling (or none) is supported.'
         assert encoder_pool in ('', 'align')
+        self.in_chans = in_chans
         self.num_classes = num_classes
         self.global_pool = global_pool
         self.encoder_pool = encoder_pool
@@ -519,7 +528,7 @@ class DeepseekVitClassifier(nn.Module):
     def reset_classifier(self, num_classes: int, global_pool: Optional[str] = None) -> None:
         self.num_classes = num_classes
         if global_pool is not None:
-            assert global_pool in ('', 'avg')
+            assert global_pool in ('', 'avg'), 'Only avg pooling (or none) is supported.'
             self.global_pool = global_pool
         dd = get_device_dtype(self)
         self.head = nn.Linear(self.num_features, num_classes, **dd) if num_classes > 0 else nn.Identity()

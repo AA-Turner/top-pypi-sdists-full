@@ -1,7 +1,4 @@
-use std::{borrow::Cow, time::Instant};
-
 use rusty_fork::rusty_fork_test;
-use serde_json::value::RawValue;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{header, method, path},
@@ -45,34 +42,6 @@ fn fetch_mmap_from_mock_specs(sdk_key: &'static str) {
 }
 
 #[test]
-fn test_interned_string_from_str_ref() {
-    let value = String::from_utf8(EVAL_PROJ_JSON.to_vec()).unwrap();
-    let start = Instant::now();
-    for i in 0..1000 {
-        let raw: Cow<'_, RawValue> = serde_json::from_str(&value).unwrap();
-
-        if i == 0 {
-            let owned: serde_json::Value = serde_json::from_str(raw.get()).unwrap();
-            drop(owned);
-        }
-        drop(raw);
-    }
-    let end = Instant::now();
-    println!("Time taken: {:?}", end.duration_since(start));
-
-    let start = Instant::now();
-    for i in 0..1000 {
-        let raw: &RawValue = unsafe { std::mem::transmute::<&str, &RawValue>(value.as_str()) };
-        if i == 0 {
-            let owned: serde_json::Value = serde_json::from_str(raw.get()).unwrap();
-            drop(owned);
-        }
-    }
-    let end = Instant::now();
-    println!("Time taken: {:?}", end.duration_since(start));
-}
-
-#[test]
 fn test_interned_string_non_preloaded() {
     let result = InternedString::from_str_ref("userID");
 
@@ -110,6 +79,7 @@ rusty_fork_test! {
         assert!(InternedStore::preload(EVAL_PROJ_JSON).is_err());
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_preloading_across_forks() {
         assert!(InternedStore::preload(EVAL_PROJ_JSON).is_ok());
@@ -122,13 +92,10 @@ rusty_fork_test! {
             std::process::exit(0);
         }
 
-        unsafe {
-            let mut status: i32 = 0;
-            libc::waitpid(pid, &mut status, 0);
-            assert_eq!(libc::WEXITSTATUS(status), 0);
-        };
+        super::assert_child_exited_successfully(pid);
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_non_preloaded_across_forks() {
         let pid = unsafe { libc::fork() };
@@ -139,11 +106,7 @@ rusty_fork_test! {
             std::process::exit(0);
         }
 
-        unsafe {
-            let mut status: i32 = 0;
-            libc::waitpid(pid, &mut status, 0);
-            assert_eq!(libc::WEXITSTATUS(status), 0);
-        };
+        super::assert_child_exited_successfully(pid);
     }
 
     #[test]
@@ -161,14 +124,14 @@ rusty_fork_test! {
         assert_eq!(InternedStore::get_memoized_len().0, 0);
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_preloading_mmap_across_forks() {
         fetch_mmap_from_mock_specs(MMAP_SDK_KEY);
 
         let pid = unsafe { libc::fork() };
         if pid == 0 {
-            let result = InternedStore::preload_mmap(MMAP_SDK_KEY);
-            assert!(result.is_ok());
+            InternedStore::preload_mmap(&[MMAP_SDK_KEY], &[], &Default::default()).unwrap();
 
             let key = InternedString::from_str_ref("userID");
             assert!(matches!(key.value, InternedStringValue::Static(_)));
@@ -177,11 +140,7 @@ rusty_fork_test! {
             std::process::exit(0);
         }
 
-        unsafe {
-            let mut status: i32 = 0;
-            libc::waitpid(pid, &mut status, 0);
-            assert_eq!(libc::WEXITSTATUS(status), 0);
-        };
+        super::assert_child_exited_successfully(pid);
     }
 
 }

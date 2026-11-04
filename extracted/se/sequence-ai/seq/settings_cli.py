@@ -8,7 +8,7 @@ KEY=VALUE, `check` for a value from Python) → one PATCH /v1/deployments/{name}
 answer says each key before and after and when it takes effect, which this says back; GET says every setting, where its
 value comes from and how far its last change has reached.
 
-    seq.policy_set("kitchen_user", {"min_workers": 1, "timeouts.request": 60, "params.num_steps_user": 8})
+    seq.policy_set("kitchen_user", {"min_workers": 1, "max_wait_for_batch": 1.7, "params.num_steps_user": 8})
 """
 from __future__ import annotations
 

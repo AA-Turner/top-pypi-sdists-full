@@ -51,6 +51,7 @@ from plato._generated.api.v2.sessions import snapshot as sessions_snapshot
 from plato._generated.api.v2.sessions import snapshot_store as sessions_snapshot_store
 from plato._generated.api.v2.sessions import state as sessions_state
 from plato._generated.api.v2.sessions import wait_for_ready as sessions_wait_for_ready
+from plato._generated.errors import NotFoundError
 from plato._generated.models import (
     AddJobRequest,
     AddSSHKeyRequest,
@@ -84,6 +85,7 @@ from plato._generated.models import (
     SetDateResponse,
     WaitForReadyResponse,
 )
+from plato.v2._network import is_production_base_url
 from plato.v2._wait_for_ready import (
     JobTerminalStatusError,
     is_terminal_status,
@@ -101,6 +103,8 @@ from plato.v2.async_.flow_backends import (
     make_ssh_run_cmd,
 )
 from plato.v2.async_.flow_executor import FlowExecutor
+from plato.v2.env_utils import is_proctor_env
+from plato.v2.models import EnvironmentContextWithMesh, context_with_mesh_ips, env_context_mesh_ip
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
 from plato.v2.utils.models import (
     EnvironmentInfo,
@@ -230,6 +234,7 @@ class Session:
         self._heartbeat_task: asyncio.Task | None = None
         self._heartbeat_interval = 30
         self._envs: list[Environment] | None = None
+        self._agent_desktop_job_ids: set[str] = set()
         self._network_requested = False
         self._network_connected = False
         self._network_result: dict[str, Any] | None = None
@@ -253,15 +258,19 @@ class Session:
         timeout: int,
         *,
         wait: bool = True,
+        ready_timeout: int | None = None,
     ) -> Session:
         """Shared session creation: POST /make, check failures, wait for ready, start heartbeat.
 
         All creation paths (from_envs, from_testcase, from_artifacts) funnel through here.
 
         Args:
+            timeout: VM lifetime in seconds, sent to the backend in the /make body.
             wait: If False, return immediately after creation without waiting for ready.
                   The caller must ``await session.wait_until_ready()`` before using envs.
+            ready_timeout: Client-side ``wait_for_ready`` polling budget; defaults to ``timeout``.
         """
+        ready_budget = timeout if ready_timeout is None else ready_timeout
         response = await sessions_make.asyncio(
             client=http_client,
             body=request_body,
@@ -299,10 +308,10 @@ class Session:
                     timeout=per_call,
                     x_api_key=api_key,
                 ),
-                timeout=int(timeout),
+                timeout=int(ready_budget),
             )
             logger.info(f"wait_for_ready returned ready={ready_response.ready}")
-            context = cls._check_ready_response(ready_response, timeout)
+            context = cls._check_ready_response(ready_response, ready_budget)
         except (TimeoutError, RuntimeError):
             try:
                 await sessions_close.asyncio(
@@ -354,6 +363,7 @@ class Session:
         envs: list[EnvFromSimulator | EnvFromArtifact | EnvFromResource],
         *,
         timeout: int = 1800,
+        ready_timeout: int | None = None,
         agent_artifact_id: str | None = None,
         wait: bool = True,
         shutdown_callback_url: str | None = None,
@@ -368,6 +378,10 @@ class Session:
             api_key: API key for authentication.
             envs: List of environment configurations (from Env.simulator() or Env.artifact()).
             timeout: VM timeout in seconds (default: 1800).
+            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
+                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
+                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
+                can be waited for without asking the backend for a long-lived VM.
             agent_artifact_id: Optional agent artifact ID to associate with the session.
             wait: If True (default), wait for all environments to be ready before
                 returning. If False, return immediately after session creation — the
@@ -410,7 +424,9 @@ class Session:
             agent_artifact_id=agent_artifact_id,
             **extra_kwargs,
         )
-        return await cls._make_session(http_client, api_key, request_body, timeout, wait=wait)
+        return await cls._make_session(
+            http_client, api_key, request_body, timeout, wait=wait, ready_timeout=ready_timeout
+        )
 
     @classmethod
     async def from_testcase(
@@ -420,6 +436,7 @@ class Session:
         testcase_id: str,
         *,
         timeout: int = 1800,
+        ready_timeout: int | None = None,
     ) -> Session:
         """Create a new session from a test case.
 
@@ -432,6 +449,10 @@ class Session:
             api_key: API key for authentication.
             testcase_id: Test case public ID.
             timeout: VM timeout in seconds (default: 1800).
+            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
+                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
+                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
+                can be waited for without asking the backend for a long-lived VM.
 
         Returns:
             A new Session with all environments ready and reset.
@@ -445,7 +466,7 @@ class Session:
             timeout=timeout,
             source=RunSessionSource.SDK,
         )
-        session = await cls._make_session(http_client, api_key, request_body, timeout)
+        session = await cls._make_session(http_client, api_key, request_body, timeout, ready_timeout=ready_timeout)
 
         await sessions_reset.asyncio(
             client=http_client,
@@ -464,6 +485,7 @@ class Session:
         artifact_ids: list[str],
         *,
         timeout: int = 1800,
+        ready_timeout: int | None = None,
     ) -> Session:
         """Create a new session from artifact IDs.
 
@@ -476,6 +498,10 @@ class Session:
             api_key: API key for authentication.
             artifact_ids: List of simulator artifact public IDs.
             timeout: VM timeout in seconds (default: 1800).
+            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
+                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
+                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
+                can be waited for without asking the backend for a long-lived VM.
 
         Returns:
             A new Session with all environments ready (not reset).
@@ -485,7 +511,7 @@ class Session:
             TimeoutError: If environments don't become ready within timeout.
         """
         envs = [EnvFromArtifact(artifact_id=aid) for aid in artifact_ids]
-        return await cls.from_envs(http_client, api_key, envs, timeout=timeout)
+        return await cls.from_envs(http_client, api_key, envs, timeout=timeout, ready_timeout=ready_timeout)
 
     @staticmethod
     def _check_ready_response(response: WaitForReadyResponse, timeout: float) -> SessionContext:
@@ -529,7 +555,7 @@ class Session:
         if not response.context:
             raise RuntimeError("Backend did not return session context")
 
-        return response.context
+        return context_with_mesh_ips(response.context, response.results)
 
     async def wait_until_ready(
         self,
@@ -574,7 +600,7 @@ class Session:
                         raise RuntimeError(f"Environment {job_id} failed: {result.error}")
 
             if response.ready and response.context:
-                self._context = response.context
+                self._context = context_with_mesh_ips(response.context, response.results)
                 self._envs = None  # Reset cached envs
                 logger.info(f"All environments in session {self.session_id} are ready")
                 await self._connect_network_if_requested()
@@ -635,7 +661,7 @@ class Session:
                     artifact_id=ctx.artifact_id,
                     simulator=ctx.simulator,
                     status="running",
-                    mesh_ip=ctx.mesh_ip,
+                    mesh_ip=env_context_mesh_ip(ctx),
                     is_desktop=bool(ctx.is_desktop),
                     provider=ctx.provider,
                 )
@@ -659,11 +685,32 @@ class Session:
 
     @property
     def desktop_env(self) -> Environment | None:
-        """The desktop VM environment, or None."""
+        """The desktop VM environment, or None.
+
+        Execution-scoped agent desktops (see ``register_agent_desktop``) are
+        skipped; they belong to an agent run, not to the world's apps.
+        """
         for env in self.envs:
-            if env.is_desktop:
+            if env.is_desktop and not self.is_agent_desktop(env):
                 return env
         return None
+
+    def register_agent_desktop(self, job_id: str) -> None:
+        """Mark ``job_id`` as an SDK-provisioned, execution-scoped agent desktop.
+
+        Ownership is tracked by job id, never inferred from an alias, so an
+        env a user created with any alias is still logged into and still
+        discoverable through ``desktop_env``.
+        """
+        self._agent_desktop_job_ids.add(job_id)
+
+    def unregister_agent_desktop(self, job_id: str) -> None:
+        """Forget ``job_id`` once the owned desktop has been removed."""
+        self._agent_desktop_job_ids.discard(job_id)
+
+    def is_agent_desktop(self, env: Environment) -> bool:
+        """Whether ``env`` is an SDK-owned agent desktop (``register_agent_desktop``)."""
+        return env.job_id in self._agent_desktop_job_ids
 
     async def reset(self, **kwargs) -> ResetSessionResponse:
         """Reset all environments in the session to initial state.
@@ -788,11 +835,14 @@ class Session:
         pass the agent's output as ``value``.
 
         Args:
-            value: Optional output data for OUTPUT scoring. Not needed for
-                   mutation-only test cases.
+            value: Optional agent output data. Used for both OUTPUT scoring and
+                   PEX output-dimension scoring. Not needed for mutation-only
+                   test cases.
 
         Returns:
-            Evaluation results including score and per-SIM results.
+            Evaluation results including score and per-SIM results. For PEX
+            (proctor) test cases, the proctor scoring package is surfaced on
+            ``pex_result``.
         """
         self._check_closed()
 
@@ -991,6 +1041,13 @@ class Session:
             RuntimeError: If session is closed or network connection fails.
         """
         self._check_closed()
+        if not is_production_base_url(str(self._http.base_url)):
+            logger.debug(
+                "Skipping network connection for non-production API base URL %s",
+                self._http.base_url,
+            )
+            return self._skipped_network_result()
+
         self._network_requested = True
         if self._network_connected:
             return self._network_result or self._deferred_network_result()
@@ -1120,7 +1177,7 @@ class Session:
                 )
 
         # provider drives desktop/qemu detection (it gates the SDK client's
-        # _is_qemu, which picks the Windows /browser/start vs ubuntu chrome
+        # _is_qemu, which picks the Windows PowerShell vs ubuntu bash chrome
         # launch path). When the ready response didn't carry it, fall back to
         # the job-info round trip — but only for artifact-backed VMs
         # (resource/runtime envs have no provider).
@@ -1144,7 +1201,7 @@ class Session:
                 )
 
         # Update internal context with the new environment
-        new_env_context = EnvironmentContext(
+        new_env_context = EnvironmentContextWithMesh(
             job_id=job_id,
             alias=env.alias,
             artifact_id=response.env.artifact_id,
@@ -1284,7 +1341,7 @@ class Session:
         Environments and databases are cleaned up in parallel for efficiency.
 
         Requires the 'db-cleanup' optional dependencies:
-            pip install plato-sdk-v2[db-cleanup]
+            pip install 'plato-sdk-v2[db-cleanup]' --index-url "https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"
 
         Args:
             aliases: Optional iterable of env aliases to limit cleanup to. When
@@ -1305,7 +1362,9 @@ class Session:
             from plato.v2.utils.db_cleanup import DatabaseCleaner
         except ImportError as e:
             raise ImportError(
-                "Database cleanup requires optional dependencies. Install them with: pip install plato-sdk-v2[db-cleanup]"
+                "Database cleanup requires optional dependencies. Install them with: "
+                "pip install 'plato-sdk-v2[db-cleanup]' --index-url "
+                '"https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"'
             ) from e
 
         alias_filter = set(aliases) if aliases is not None else None
@@ -1340,6 +1399,7 @@ class Session:
         context: BrowserContext | None = None,
         retries: int = 0,
         retry_delay_ms: int = 0,
+        fast_mode: bool = False,
     ) -> LoginResult:
         """Login to environments and return browser context with pages.
 
@@ -1363,6 +1423,11 @@ class Session:
             retries: Per-env retries on flow-execution failure. Between
                 attempts the page is re-navigated to the public URL.
             retry_delay_ms: Delay between retries in milliseconds.
+            fast_mode: Execute the login flow without its dead time — authored
+                ``wait`` sleeps and the trailing confirmation tail are skipped,
+                navigation stops at ``domcontentloaded``, and actions rely on
+                Playwright auto-wait. Returns as soon as the final action
+                lands; there is no post-login confirmation step.
 
         Returns:
             LoginResult containing the browser context and a dict mapping
@@ -1392,7 +1457,17 @@ class Session:
             context = await browser.new_context()
 
         pages: dict[str, Page] = {}
-        target_envs = [e for e in self.envs if e.alias == env_alias] if env_alias else list(self.envs)
+        if env_alias:
+            target_envs = [e for e in self.envs if e.alias == env_alias]
+        else:
+            target_envs = []
+            for e in self.envs:
+                if self.is_agent_desktop(e):
+                    continue
+                if is_proctor_env(e):
+                    logger.info("Skipping login for %s (proctor service)", e.alias)
+                    continue
+                target_envs.append(e)
         if env_alias and not target_envs:
             if owns_context:
                 await context.close()
@@ -1405,18 +1480,31 @@ class Session:
 
                 public_url = await self._public_url(env, port=port)
                 login_flow = await self._fetch_login_flow(env, flow)
+                if login_flow is None:
+                    # Pre-authenticated sim (no flows defined): nothing to
+                    # execute, but the page must still land on the sim URL —
+                    # that is the same end state a successful login produces.
+                    if fast_mode:
+                        await page.goto(public_url, wait_until="domcontentloaded")
+                    else:
+                        await page.goto(public_url)
+                    continue
 
                 flow_executor = FlowExecutor(
                     page,
                     login_flow,
                     log=logger,
                     screenshots_dir=screenshots_dir,
+                    fast_mode=fast_mode,
                 )
 
                 last_error: Exception | None = None
                 for attempt in range(1 + retries):
                     try:
-                        await page.goto(public_url)
+                        if fast_mode:
+                            await page.goto(public_url, wait_until="domcontentloaded")
+                        else:
+                            await page.goto(public_url)
                         await flow_executor.execute()
                         last_error = None
                         break
@@ -1441,23 +1529,43 @@ class Session:
 
         return LoginResult(context=context, pages=pages)
 
-    async def _fetch_login_flow(self, env: Environment, flow_name: str) -> Flow:
-        """Fetch the flow named ``flow_name`` for ``env``."""
+    async def _fetch_login_flow(self, env: Environment, flow_name: str) -> Flow | None:
+        """Fetch the flow named ``flow_name`` for ``env``.
+
+        Returns ``None`` when the env legitimately has no login flow to run:
+        pre-authenticated sims (the cloned-SaaS family — hubspot, salesforce,
+        amazon, ...) ship baked-in auth cookies, have no login page to drive,
+        and define no flows.yaml, so the server 404s the fetch. Callers skip
+        login for that env and leave its page on the sim URL. Genuine failures
+        (network errors, 5xx) still raise, as does a missing NAMED flow other
+        than "login" — a sim that defines flows but not the requested dataset
+        flow is a config mismatch, and skipping silently would run against the
+        wrong dataset state.
+        """
         try:
             flows_response = await jobs_get_flows.asyncio(
                 client=self._http,
                 job_id=env.job_id,
                 x_api_key=self._api_key,
             )
+        except NotFoundError:
+            logger.info("Skipping login for %s (artifact has no flows; pre-authenticated sim)", env.alias)
+            return None
         except Exception as e:
             raise RuntimeError(f"Failed to get flows for env {env.alias}: {e}") from e
 
         if not flows_response:
-            raise RuntimeError(f"No flows found for env {env.alias}")
+            logger.info("Skipping login for %s (empty flows list)", env.alias)
+            return None
 
         flows_list = [Flow.model_validate(f) for f in flows_response]
         match = next((f for f in flows_list if f.name == flow_name), None)
         if not match:
+            if flow_name == "login":
+                # Sims that define flows but no 'login' flow exist; the CDP
+                # world path has always warned and continued for this case.
+                logger.info("Skipping login for %s (no 'login' flow defined)", env.alias)
+                return None
             raise RuntimeError(f"No flow named '{flow_name}' found for env {env.alias}")
         return match
 
@@ -1513,6 +1621,8 @@ class Session:
         self,
         result: LoginResult,
         log: logging.Logger,
+        *,
+        fast_mode: bool = False,
     ) -> None:
         """Reload login pages at ``networkidle``, close stray tabs, surface login page.
 
@@ -1526,13 +1636,20 @@ class Session:
         steady state; closing leftover ``about:blank`` tabs keeps the
         consumer from picking one as the active page; ``bring_to_front``
         makes the login page the focused tab.
+
+        ``fast_mode`` skips only the settling (the fixed sleeps and the
+        ``networkidle`` reload). The tab hygiene is kept: both callers reuse
+        Chrome's default context, whose launch-time ``about:blank`` tab would
+        otherwise still be around for the consumer to attach to, and it costs
+        milliseconds.
         """
         login_pages = set(result.pages.values())
         for page in list(result.pages.values()):
-            await asyncio.sleep(2)
-            with contextlib.suppress(Exception):
-                await page.reload(wait_until="networkidle", timeout=15000)
-            await asyncio.sleep(1)
+            if not fast_mode:
+                await asyncio.sleep(2)
+                with contextlib.suppress(Exception):
+                    await page.reload(wait_until="networkidle", timeout=15000)
+                await asyncio.sleep(1)
             log.info("Post-login page URL: %s", page.url)
         for tab in list(result.context.pages):
             if tab not in login_pages and tab.url == "about:blank":
@@ -1553,6 +1670,7 @@ class Session:
         env_alias: str | None = None,
         retries: int = 0,
         retry_delay_ms: int = 0,
+        fast_mode: bool = False,
         ready_timeout: float = 60.0,
         log: logging.Logger | None = None,
     ) -> None:
@@ -1567,6 +1685,13 @@ class Session:
 
         For raw login without the post-login cleanup, use
         :meth:`connect_cdp` + :meth:`login` directly.
+
+        ``fast_mode`` forwards to :meth:`login` (skip authored waits and the
+        confirmation tail) and skips the post-login networkidle settling —
+        the consumer takes the browser right after the last action. Stray-tab
+        cleanup and ``bring_to_front`` still run in fast mode, so a consumer
+        attaching to the default context never lands on the launch-time
+        ``about:blank`` tab.
         """
         active_log = log or logger
         async with self.connect_cdp(cdp_url, ready_timeout=ready_timeout) as browser:
@@ -1579,8 +1704,9 @@ class Session:
                 env_alias=env_alias,
                 retries=retries,
                 retry_delay_ms=retry_delay_ms,
+                fast_mode=fast_mode,
             )
-            await self._stabilize_post_login(result, active_log)
+            await self._stabilize_post_login(result, active_log, fast_mode=fast_mode)
 
     async def login_via_agent_browser(
         self,
@@ -1595,6 +1721,7 @@ class Session:
         screenshots_dir: Path | None = None,
         retries: int = 0,
         retry_delay_ms: int = 0,
+        fast_mode: bool = False,
         log: logging.Logger | None = None,
     ) -> list[str]:
         """Log in to envs, then hand each browser to an agent-browser daemon.
@@ -1615,7 +1742,7 @@ class Session:
         ----------
         hostname, ssh_key_path, extra_ssh_opts, shell_prefix:
             Forwarded to :func:`make_ssh_run_cmd`. ``shell_prefix`` defaults
-            to the claude-code/gemini-cli/codex base image layout; override for
+            to the claude-code/codex base image layout; override for
             other images.
         flow:
             Name of the flow to run (default: ``"login"``).
@@ -1657,11 +1784,16 @@ class Session:
 
         logged_in: list[str] = []
         for idx, env in enumerate(self.envs):
+            if env_alias is None and self.is_agent_desktop(env):
+                continue
             if not env.artifact_id:
                 # Resource/compute envs have no login flow — skip cleanly so
                 # callers can pass ``session.envs`` without pre-filtering.
                 continue
             if env_alias is not None and env.alias != env_alias:
+                continue
+            if env_alias is None and is_proctor_env(env):
+                active_log.info("Skipping login for %s (proctor service)", env.alias)
                 continue
 
             cdp_port = CDP_PORT_BASE + idx
@@ -1736,8 +1868,9 @@ class Session:
                                     env_alias=env.alias,
                                     retries=0,
                                     retry_delay_ms=0,
+                                    fast_mode=fast_mode,
                                 )
-                                await self._stabilize_post_login(result, active_log)
+                                await self._stabilize_post_login(result, active_log, fast_mode=fast_mode)
                             finally:
                                 # Disconnect the Playwright client only. The
                                 # remote chromium stays alive and the agent-
@@ -1919,6 +2052,15 @@ class Session:
             "deferred": True,
         }
 
+    def _skipped_network_result(self) -> dict[str, Any]:
+        return {
+            "success": True,
+            "session_id": self.session_id,
+            "subnet": None,
+            "results": {},
+            "skipped": True,
+        }
+
     async def _connect_network_if_requested(self) -> None:
         if self._network_requested and not self._network_connected and self._has_networkable_envs():
             await self.connect_network()
@@ -1995,10 +2137,8 @@ class Session:
             )
 
         # Rebuild context from serialized envs
-        from plato._generated.models import EnvironmentContext
-
         env_contexts = [
-            EnvironmentContext(
+            EnvironmentContextWithMesh(
                 job_id=env.job_id,
                 alias=env.alias,
                 artifact_id=env.artifact_id,

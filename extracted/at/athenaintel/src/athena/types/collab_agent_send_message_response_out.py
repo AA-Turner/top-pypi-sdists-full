@@ -6,6 +6,7 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
+from .collab_agent_pending_action_out import CollabAgentPendingActionOut
 
 
 class CollabAgentSendMessageResponseOut(UniversalBaseModel):
@@ -13,9 +14,23 @@ class CollabAgentSendMessageResponseOut(UniversalBaseModel):
     Response for a programmatic message submission.
     """
 
+    awaiting_input: typing_extensions.Annotated[typing.Optional[bool], FieldMetadata(alias="awaitingInput")] = (
+        pydantic.Field(default=None)
+    )
+    """
+    True when the run paused for human input rather than finishing.
+    """
+
+    pending_actions: typing_extensions.Annotated[
+        typing.Optional[typing.List[CollabAgentPendingActionOut]], FieldMetadata(alias="pendingActions")
+    ] = pydantic.Field(default=None)
+    """
+    Tools and action summaries awaiting approval; empty when unavailable.
+    """
+
     reply: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The agent's final message, verbatim. Null on 202 responses, and null on completed runs where the agent declined to reply (it invoked its dont_respond tool).
+    The agent's final message, or assistant text so far from the current turn when paused. Null on 202 responses.
     """
 
     session_id: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="sessionId")] = pydantic.Field(
@@ -25,14 +40,28 @@ class CollabAgentSendMessageResponseOut(UniversalBaseModel):
     Asset id of the Athena session that handled the submission. Null on 202 responses (the session is resolved asynchronously).
     """
 
+    session_url: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="sessionUrl")] = pydantic.Field(
+        default=None
+    )
+    """
+    Link to the session where the caller can review the pending input.
+    """
+
     status: str = pydantic.Field()
     """
-    'accepted' when the submission was queued (wait=false, HTTP 202); 'completed' when the agent run finished inline (wait=true, HTTP 200).
+    'accepted' when the submission was queued (wait=false, HTTP 202); 'completed' when the inline wait ended (including a pause) (wait=true, HTTP 200).
     """
 
     thread_key: typing_extensions.Annotated[str, FieldMetadata(alias="threadKey")] = pydantic.Field()
     """
     The conversation key this submission was routed under — the clientThreadKey from the request, or 'default'.
+    """
+
+    waiting_for_approval: typing_extensions.Annotated[
+        typing.Optional[bool], FieldMetadata(alias="waitingForApproval")
+    ] = pydantic.Field(default=None)
+    """
+    True when the pending input is a human tool approval.
     """
 
     if IS_PYDANTIC_V2:

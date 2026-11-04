@@ -4,6 +4,65 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from plato._generated.models import EnvironmentContext, SessionContext, WaitForReadyResult
+
+
+class EnvironmentContextWithMesh(EnvironmentContext):
+    """EnvironmentContext plus the SDK-local ``mesh_ip``.
+
+    The backend's canonical EnvironmentContext schema carries no ``mesh_ip`` —
+    the SDK resolves it client-side (from wait-for-ready / job info) and keeps
+    it on the context for SSH-user registration and host resolution. Contexts
+    parsed from server responses stay plain EnvironmentContext (``extra="allow"``
+    preserves any extras); locally built contexts use this subclass so the
+    field is typed instead of smuggled through pydantic extras.
+    """
+
+    mesh_ip: str | None = None
+
+
+def env_context_mesh_ip(ctx: EnvironmentContext) -> str | None:
+    """Read ``mesh_ip`` off any EnvironmentContext variant, or None.
+
+    Locally built contexts are EnvironmentContextWithMesh (typed field);
+    server-parsed contexts are plain EnvironmentContext, where a mesh_ip in the
+    payload survives only as a pydantic extra — and plain attribute access
+    raises AttributeError when it's absent entirely.
+    """
+    if isinstance(ctx, EnvironmentContextWithMesh):
+        return ctx.mesh_ip
+    mesh_ip = (ctx.model_extra or {}).get("mesh_ip")
+    return mesh_ip if isinstance(mesh_ip, str) else None
+
+
+def context_with_mesh_ips(
+    context: SessionContext,
+    results: dict[str, WaitForReadyResult] | None,
+) -> SessionContext:
+    """Fold each job's ``mesh_ip`` from the wait-for-ready results into its env context.
+
+    The backend delivers ``mesh_ip`` on the per-job wait-for-ready result
+    (``WaitForReadyResult.mesh_ip``), never on ``EnvironmentContext``. The
+    ``create`` / ``wait_until_ready`` paths otherwise assign ``response.context``
+    verbatim, leaving envs with no mesh address — unlike ``add_env``, which
+    populates it. This upgrades each env to ``EnvironmentContextWithMesh`` with
+    the resolved ``mesh_ip`` so ``Environment.mesh_ip`` and mesh networking work
+    on every code path.
+    """
+    if not context.envs:
+        return context
+    results = results or {}
+    envs: list[EnvironmentContext] = []
+    for ctx in context.envs:
+        data = ctx.model_dump()
+        result = results.get(ctx.job_id)
+        # Prefer the wait-for-ready mesh_ip; fall back to any server-sent extra.
+        data["mesh_ip"] = (result.mesh_ip if result else None) or data.get("mesh_ip")
+        envs.append(EnvironmentContextWithMesh(**data))
+    context.envs = envs
+    return context
+
+
 # ============================================================================
 # Configuration Models
 # ============================================================================
@@ -66,15 +125,23 @@ class EnvOption(BaseModel):
 
 
 class SandboxState(BaseModel):
-    """Schema for the sandbox state file (.plato/state.yaml).
+    """Schema for one sandbox slot (``.plato/sandboxes/<name>.json``).
 
     All fields that can be persisted in the state file.
     """
+
+    # Slot name within the working directory. Sandboxes are addressed by it
+    # (`--name`, `$PLATO_SANDBOX`, `plato sandbox use`), so several can live in
+    # one working directory instead of clobbering a single state file.
+    name: str | None = None
 
     # Core identifiers
     session_id: str
     job_id: str
     public_url: str | None = None
+    # Browser RDP viewer URL, set when the sandbox was started with
+    # --manual-control (Windows/qemu VMs only).
+    rdp_url: str | None = None
 
     # Mode and service
     mode: str  # "blank", "config", "artifact", "simulator"
@@ -100,9 +167,33 @@ class SandboxState(BaseModel):
     ssh_config_path: str | None = None
     ssh_host: str | None = None
     ssh_command: str | None = None  # Full SSH command for copy-paste
+    ssh_key_path: str | None = None  # Private key, so `stop` can clean it up
 
     # Process management
     heartbeat_pid: int | None = None
 
+    # Lifecycle. expires_at is the idle lease the heartbeat enforces: it exits
+    # (and the backend then reaps the VM) once expires_at passes, and commands
+    # that use the sandbox push it forward by `timeout` — so an actively-used
+    # sandbox stays alive and an abandoned one dies at most `timeout` after
+    # the last touch. stopped_at marks a slot as dead so other commands (and
+    # the heartbeat itself) stop targeting it.
+    created_at: float | None = None
+    expires_at: float | None = None
+    timeout: float | None = None
+    stopped_at: float | None = None
+
     # Network
     network_connected: bool = False
+
+    # Chronos session attachment: when set, this sandbox's job was added to
+    # the Plato session backing an existing Chronos session (via add-job)
+    # instead of a fresh standalone session, so lifecycle commands must stay
+    # job-scoped to avoid touching the shared session's other envs.
+    attached: bool = False
+    chronos_session_id: str | None = None
+    # WireGuard mesh IP of the sandbox VM within the shared session's network.
+    # Present for attached sandboxes (the session always has a mesh and add-job
+    # joins the VM before ready). From VMs in the same session, SSH/tunnels use
+    # this directly — in-VPC, no gateway NAT round-trip.
+    mesh_ip: str | None = None

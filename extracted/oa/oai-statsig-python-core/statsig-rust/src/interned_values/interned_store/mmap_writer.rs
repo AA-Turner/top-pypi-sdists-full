@@ -10,106 +10,238 @@ use ahash::AHashSet;
 use rkyv::ser::{Positional, allocator::Arena, writer::IoWriter};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::Mutex;
 
 use crate::{
-    StatsigErr,
+    StatsigErr, StatsigOptions,
     evaluation::dynamic_string::DynamicString,
     interned_string::InternedString,
     interned_values::{
         mmap_data_v2::{MmapDataV2, MmapEvaluatorValue, MmapSpec},
-        mmap_sync::{MmapResolvedUpdate, MmapSyncCursor, MmapWriteOutcome, resolve_json_response},
+        mmap_sync::{
+            MmapResolvedUpdate, MmapSyncCursor, MmapWriteOutcome, resolve_json_response,
+            resolve_parsed_response,
+        },
     },
     log_d,
     networking::ResponseData,
+    specs_adapter::{
+        SpecsInfo, SpecsSyncTrigger, StatsigHttpSpecsAdapter,
+        remote_config_value_hydrator::{
+            MmapRemoteValueProof, StoreHydrationOptions, VerifiedRemoteValue,
+        },
+    },
     specs_response::{
+        parse_options::{SpecsResponseParseOptions, with_parse_options},
+        proto_compression::is_compressed_protobuf_response,
+        proto_specs::{
+            ProtobufStoreParseBase, ProtobufUpdate, SpecsFieldChecksums,
+            VerifiedRemoteConfigValues, prepare_protobuf_store_update,
+        },
         spec_types::{Condition, SpecsResponseFull},
         specs_hash_map::SpecsHashMap,
     },
+    utils::try_release_unused_heap_memory,
 };
 
 use super::{
-    IMMORTAL_DATA, MutableData, TAG, mmap_manifest::write_mmap_manifest, take_mutable_data,
+    IMMORTAL_DATA, MmapProjectId, MutableData, TAG, mmap_lock_path_for_sdk_key,
+    mmap_manifest::write_mmap_manifest_with_remote_values, mmap_manifest_path_for_sdk_key,
+    mmap_v2_path_for_sdk_key, take_mutable_data,
 };
-#[cfg(test)]
-use super::{try_parse_as_json, try_parse_as_proto};
 
 const MMAP_WRITE_BUFFER_CAPACITY: usize = 1024 * 1024;
 
-static MMAP_WRITE_LOCK: Mutex<()> = Mutex::const_new(());
+// Parsing populates process-global intern tables that graph construction drains.
+// Take this lock before hydration to avoid waiting for the graph while holding
+// hydration admission. Hold it through publication to limit synchronous file
+// work to one async runtime worker.
+static MMAP_GRAPH_WRITE_LOCK: Mutex<()> = Mutex::const_new(());
 
-/// Parsing specs populates process-global intern tables that are drained while
-/// building the mmap graph. Keep those two phases under one async-compatible
-/// lock so a remote-value await cannot let another writer steal the entries.
-pub(super) async fn acquire_mmap_graph_write_lock() -> MutexGuard<'static, ()> {
-    MMAP_WRITE_LOCK.lock().await
-}
-
-pub(super) fn write_mmap_artifacts(
-    write_guard: &MutexGuard<'_, ()>,
-    response_data: &mut ResponseData,
+pub(super) async fn fetch_and_write_mmap(
+    sdk_key: &str,
+    options: Option<&StatsigOptions>,
     previous: Option<&MmapSyncCursor>,
-    v2_path: &Path,
-    manifest_path: &Path,
 ) -> Result<MmapWriteOutcome, StatsigErr> {
-    let Some(resolved) = resolve_json_response(response_data, previous)? else {
-        return Ok(MmapWriteOutcome::NoUpdate);
-    };
+    let result = {
+        // Hold the cross-process per-key lock from fetch through publication so
+        // a delayed response cannot overwrite a newer generation.
+        let _key_lock = acquire_mmap_write_lock(&mmap_lock_path_for_sdk_key(sdk_key)).await?;
+        let adapter = StatsigHttpSpecsAdapter::new(sdk_key, options, None);
+        let mut specs_info = SpecsInfo::empty();
+        if let Some(previous) = previous {
+            specs_info.lcut = Some(previous.lcut);
+            specs_info.checksum = previous.checksum.clone();
+        }
+        let response = adapter
+            .fetch_specs_from_network(specs_info, SpecsSyncTrigger::Manual)
+            .await
+            .map_err(StatsigErr::NetworkError)?;
 
-    write_resolved_mmap_artifacts(write_guard, resolved, v2_path, manifest_path)
+        let project = MmapProjectId::for_sdk_key(sdk_key);
+        let _graph_lock = MMAP_GRAPH_WRITE_LOCK.lock().await;
+        match hydrate_and_resolve_mmap_response(
+            adapter,
+            response.data,
+            &response.request_url,
+            project,
+            previous,
+        )
+        .await?
+        {
+            Some((resolved, verified)) => write_mmap_artifact(resolved, verified, sdk_key, project),
+            None => Ok(MmapWriteOutcome::NoUpdate),
+        }
+    };
+    // Trim only after successful response resolution and after dropping both locks.
+    try_release_unused_heap_memory();
+    result
 }
 
-pub(super) fn write_resolved_mmap_artifacts(
-    _write_guard: &MutexGuard<'_, ()>,
+// Own the source response and adapter so both are dropped before archive construction.
+async fn hydrate_and_resolve_mmap_response(
+    adapter: StatsigHttpSpecsAdapter,
+    mut data: ResponseData,
+    source_url: &str,
+    project: MmapProjectId,
+    previous: Option<&MmapSyncCursor>,
+) -> Result<Option<(MmapResolvedUpdate, VerifiedRemoteConfigValues)>, StatsigErr> {
+    let hydration_options = StoreHydrationOptions::new(source_url, project)
+        .with_sync_trigger(Some(SpecsSyncTrigger::Manual));
+    let (specs, verified) = if is_compressed_protobuf_response(&data) {
+        hydrate_protobuf_mmap_response(&adapter, &mut data, hydration_options).await?
+    } else {
+        let hydrated = adapter
+            .remote_config_value_hydrator()
+            .prepare_json_store_update(
+                &mut data,
+                hydration_options,
+                &VerifiedRemoteConfigValues::new(),
+                None,
+            )
+            .await?;
+        let Some(hydrated) = hydrated else {
+            let parse_options = SpecsResponseParseOptions::for_store(false);
+            return Ok(with_parse_options(parse_options, || {
+                resolve_json_response(&mut data, previous)
+            })?
+            .map(|resolved| (resolved, VerifiedRemoteConfigValues::new())));
+        };
+        (*hydrated.values, hydrated.verified_remote_values)
+    };
+    Ok(resolve_parsed_response(specs, previous)?.map(|resolved| (resolved, verified)))
+}
+
+async fn hydrate_protobuf_mmap_response(
+    adapter: &StatsigHttpSpecsAdapter,
+    data: &mut ResponseData,
+    hydration_options: StoreHydrationOptions<'_>,
+) -> Result<(SpecsResponseFull, VerifiedRemoteConfigValues), StatsigErr> {
+    let current = SpecsResponseFull::default();
+    let mut specs = SpecsResponseFull::default();
+    let hydrated = prepare_protobuf_store_update(
+        adapter.ops_stats(),
+        ProtobufStoreParseBase::new(
+            &current,
+            Default::default(),
+            &SpecsFieldChecksums::from_specs(&current),
+            &VerifiedRemoteConfigValues::new(),
+        ),
+        &mut specs,
+        data,
+        adapter.remote_config_value_hydrator(),
+        hydration_options,
+    )
+    .await?;
+    if !matches!(hydrated.update, ProtobufUpdate::Materialized { .. }) {
+        return Err(StatsigErr::InvalidOperation(
+            "Mmap protobuf fetch did not produce a full snapshot".to_string(),
+        ));
+    }
+    Ok((specs, hydrated.verified_remote_values))
+}
+
+fn write_mmap_artifact(
     MmapResolvedUpdate { specs, cursor }: MmapResolvedUpdate,
-    v2_path: &Path,
-    manifest_path: &Path,
+    verified: VerifiedRemoteConfigValues,
+    sdk_key: &str,
+    project: MmapProjectId,
 ) -> Result<MmapWriteOutcome, StatsigErr> {
+    let proofs = mmap_remote_value_proofs(&specs, verified);
     let mmap_v2 = mutable_to_mmap_data_v2(vec![specs])?;
-    let (v2_file, v2_bytes_written) = publish_mmap_v2_data(mmap_v2, v2_path, |data, file| {
+    let proofs = proofs_referenced_by_archive(proofs, &mmap_v2);
+    let path = mmap_v2_path_for_sdk_key(sdk_key);
+    let (file, bytes_written) = serialize_mmap_to_temp_file(mmap_v2, &path, |data, file| {
         serialize_mmap_v2_data(data, file)
     })?;
-    write_mmap_manifest(manifest_path, None, &v2_file)?;
-
-    log_d!(
-        TAG,
-        "Wrote {v2_bytes_written} bytes to {}",
-        v2_path.display()
-    );
-
+    let file = commit_mmap_temp_file(file, &path)?;
+    write_mmap_manifest_with_remote_values(
+        &mmap_manifest_path_for_sdk_key(sdk_key),
+        &file,
+        project,
+        proofs,
+    )?;
+    log_d!(TAG, "Wrote {bytes_written} bytes to {}", path.display());
     Ok(MmapWriteOutcome::Published(cursor))
 }
 
-#[cfg(test)]
-fn write_mmap_v2_specs(
-    specs_responses: Vec<SpecsResponseFull>,
-    path: &Path,
-) -> Result<(), StatsigErr> {
-    let mmap_data = mutable_to_mmap_data_v2(specs_responses)?;
-    let (_, bytes_written) = publish_mmap_v2_data(mmap_data, path, |data, file| {
-        serialize_mmap_v2_data(data, file)
-    })?;
-
-    log_d!(
-        TAG,
-        "Wrote {} bytes to mmap v2 file {}",
-        bytes_written,
-        path.display()
-    );
-
-    Ok(())
+fn mmap_remote_value_proofs(
+    specs: &SpecsResponseFull,
+    verified: VerifiedRemoteConfigValues,
+) -> HashMap<String, MmapRemoteValueProof> {
+    let mut proofs = HashMap::new();
+    for (name, values) in verified {
+        if values.is_empty() {
+            continue;
+        }
+        let Some(spec) = specs.dynamic_configs.get(&name) else {
+            continue;
+        };
+        let spec = spec.as_spec_ref();
+        // Index each installed backing allocation once, including the variant,
+        // so candidate filtering is linear in the rules plus verified values.
+        let installed = std::iter::once(&spec.default_value)
+            .chain(spec.rules.iter().map(|rule| &rule.return_value))
+            .map(VerifiedRemoteValue::backing_identity)
+            .collect::<AHashSet<_>>();
+        for value in values.values() {
+            // Export only values actually installed in the published config,
+            // never an unreferenced or replaced hydration candidate.
+            if installed.contains(&VerifiedRemoteValue::backing_identity(&value.value)) {
+                if let Some(proof) = value.mmap_proof() {
+                    proofs.insert(proof.sha256.clone(), proof);
+                }
+            }
+        }
+    }
+    proofs
 }
 
-fn publish_mmap_v2_data(
+fn proofs_referenced_by_archive(
+    proofs: HashMap<String, MmapRemoteValueProof>,
+    archive: &MmapDataV2,
+) -> Vec<MmapRemoteValueProof> {
+    if proofs.is_empty() {
+        return Vec::new();
+    }
+    let handles = archive
+        .returnables
+        .iter()
+        .map(|(hash, _)| *hash)
+        .collect::<AHashSet<_>>();
+    proofs
+        .into_values()
+        .filter(|proof| handles.contains(&proof.returnable_hash))
+        .collect()
+}
+
+fn serialize_mmap_to_temp_file(
     mmap_data: MmapDataV2,
     path: &Path,
     serialize: impl FnOnce(&MmapDataV2, &mut File) -> Result<usize, StatsigErr>,
-) -> Result<(File, usize), StatsigErr> {
+) -> Result<(tempfile::NamedTempFile, usize), StatsigErr> {
     let mut file = new_mmap_temp_file(path)?;
     let bytes_written = serialize(&mmap_data, file.as_file_mut())?;
-    drop(mmap_data);
-    sync_mmap_temp_file(&file)?;
-    let file = persist_mmap_temp_file(file, path)?;
     Ok((file, bytes_written))
 }
 
@@ -122,22 +254,19 @@ fn new_mmap_temp_file(path: &Path) -> Result<tempfile::NamedTempFile, StatsigErr
         .map_err(|error| StatsigErr::FileError(error.to_string()))
 }
 
-fn sync_mmap_temp_file(file: &tempfile::NamedTempFile) -> Result<(), StatsigErr> {
+fn commit_mmap_temp_file(file: tempfile::NamedTempFile, path: &Path) -> Result<File, StatsigErr> {
     #[cfg(unix)]
     file.as_file()
         .set_permissions(std::fs::Permissions::from_mode(0o644))
         .map_err(|error| StatsigErr::FileError(error.to_string()))?;
     file.as_file()
         .sync_all()
-        .map_err(|error| StatsigErr::FileError(error.to_string()))
-}
-
-fn persist_mmap_temp_file(file: tempfile::NamedTempFile, path: &Path) -> Result<File, StatsigErr> {
+        .map_err(|error| StatsigErr::FileError(error.to_string()))?;
     file.persist(path)
         .map_err(|error| StatsigErr::FileError(error.error.to_string()))
 }
 
-pub(super) async fn acquire_mmap_write_lock(path: &Path) -> Result<File, StatsigErr> {
+async fn acquire_mmap_write_lock(path: &Path) -> Result<File, StatsigErr> {
     let path = path.to_path_buf();
     tokio::task::spawn_blocking(move || acquire_mmap_write_lock_blocking(&path))
         .await
@@ -158,17 +287,6 @@ fn acquire_mmap_write_lock_blocking(path: &Path) -> Result<File, StatsigErr> {
         .map_err(|error| StatsigErr::FileError(error.to_string()))?;
     fs4::FileExt::lock(&file).map_err(|error| StatsigErr::LockFailure(error.to_string()))?;
     Ok(file)
-}
-
-#[cfg(test)]
-pub(crate) fn acquire_mmap_write_lock_for_test(path: &Path) -> Result<File, StatsigErr> {
-    acquire_mmap_write_lock_blocking(path)
-}
-
-#[cfg(test)]
-pub(crate) fn write_mmap_v2_for_test(data: &[u8], path: &Path) -> Result<(), StatsigErr> {
-    let specs = try_parse_as_json(data).or_else(|_| try_parse_as_proto(data))?;
-    write_mmap_v2_specs(vec![specs], path)
 }
 
 fn serialize_mmap_v2_data<W: Write>(
@@ -447,226 +565,5 @@ fn insert_mmap_specs(source: SpecsHashMap, destination: &mut HashMap<u64, MmapSp
 }
 
 #[cfg(test)]
-mod tests {
-    use memmap2::Mmap;
-
-    use crate::evaluation::{
-        evaluator_value::{EvaluatorValueType, MemoizedEvaluatorValue},
-        rkyv_value::{ArchivedRkyvValue, RkyvValue},
-    };
-
-    use super::*;
-
-    struct FailAfterWriter<W> {
-        inner: W,
-        remaining: usize,
-    }
-
-    impl<W> FailAfterWriter<W> {
-        fn new(inner: W, remaining: usize) -> Self {
-            Self { inner, remaining }
-        }
-    }
-
-    impl<W: Write> Write for FailAfterWriter<W> {
-        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
-            if self.remaining == 0 {
-                return Err(io::Error::other("injected mmap write failure"));
-            }
-
-            let limit = self.remaining.min(buffer.len());
-            let written = self.inner.write(&buffer[..limit])?;
-            self.remaining -= written;
-            Ok(written)
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            self.inner.flush()
-        }
-    }
-
-    struct FailOnFlushWriter<W> {
-        inner: W,
-    }
-
-    struct WriteZeroWriter;
-
-    impl Write for WriteZeroWriter {
-        fn write(&mut self, _buffer: &[u8]) -> io::Result<usize> {
-            Ok(0)
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            Ok(())
-        }
-    }
-
-    impl<W> FailOnFlushWriter<W> {
-        fn new(inner: W) -> Self {
-            Self { inner }
-        }
-    }
-
-    impl<W: Write> Write for FailOnFlushWriter<W> {
-        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
-            self.inner.write(buffer)
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            Err(io::Error::other("injected mmap flush failure"))
-        }
-    }
-
-    fn arc_backed_v2_source() -> MmapDataV2 {
-        let returnable = HashMap::from([("enabled".to_string(), RkyvValue::Bool(true))]);
-        MmapDataV2 {
-            strings: vec![(7, Arc::new("v2-string".to_string()))],
-            returnables: vec![(11, Arc::new(returnable))],
-            ..MmapDataV2::default()
-        }
-    }
-
-    #[test]
-    fn conversion_keeps_shared_arc_allocations() {
-        let string = Arc::new("shared string".to_string());
-        let other_string_owner = Arc::clone(&string);
-        let returnable = Arc::new(HashMap::from([(
-            "enabled".to_string(),
-            RkyvValue::Bool(true),
-        )]));
-        let other_returnable_owner = Arc::clone(&returnable);
-        let mutable_data = MutableData {
-            strings: vec![(7, string)],
-            returnables: vec![(11, returnable)],
-            evaluator_values: Vec::new(),
-        };
-
-        let mmap_data = detached_mutable_to_mmap_data_v2(mutable_data, Vec::new()).unwrap();
-
-        assert!(Arc::ptr_eq(
-            &mmap_data
-                .strings
-                .iter()
-                .find(|(hash, _)| *hash == 7)
-                .unwrap()
-                .1,
-            &other_string_owner
-        ));
-        assert!(Arc::ptr_eq(
-            &mmap_data
-                .returnables
-                .iter()
-                .find(|(hash, _)| *hash == 11)
-                .unwrap()
-                .1,
-            &other_returnable_owner
-        ));
-    }
-
-    #[test]
-    fn conversion_releases_evaluator_cache_before_returning_archive_input() {
-        let evaluator = Arc::new(MemoizedEvaluatorValue::new(EvaluatorValueType::Null));
-        let evaluator_weak = Arc::downgrade(&evaluator);
-        let mutable_data = MutableData {
-            strings: Vec::new(),
-            returnables: Vec::new(),
-            evaluator_values: vec![(13, evaluator)],
-        };
-
-        let _mmap_data = detached_mutable_to_mmap_data_v2(mutable_data, Vec::new()).unwrap();
-
-        assert!(evaluator_weak.upgrade().is_none());
-    }
-
-    #[test]
-    fn v2_archive_is_streamed_to_file() {
-        let mut file = tempfile::NamedTempFile::new().unwrap();
-
-        let archived_len =
-            serialize_mmap_v2_data(&arc_backed_v2_source(), file.as_file_mut()).unwrap();
-
-        assert_eq!(
-            archived_len,
-            file.as_file().metadata().unwrap().len() as usize
-        );
-        let mmap = unsafe { Mmap::map(file.as_file()).unwrap() };
-        let archived = rkyv::access::<
-            crate::interned_values::mmap_data_v2::ArchivedMmapDataV2,
-            rkyv::rancor::Error,
-        >(&mmap)
-        .unwrap();
-
-        assert_eq!(
-            archived.format_version.to_native(),
-            MmapDataV2::FORMAT_VERSION
-        );
-        assert_eq!(
-            archived
-                .strings
-                .get(&rkyv::primitive::ArchivedU64::from_native(7))
-                .map(|value| value.as_str()),
-            Some("v2-string")
-        );
-        assert!(matches!(
-            archived
-                .returnables
-                .get(&rkyv::primitive::ArchivedU64::from_native(11))
-                .and_then(|returnable| returnable.get("enabled")),
-            Some(ArchivedRkyvValue::Bool(true))
-        ));
-    }
-
-    #[test]
-    fn write_failure_is_file_error_and_preserves_published_artifact() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("published.mmap");
-        std::fs::write(&path, b"previous artifact").unwrap();
-        let mmap_data = MmapDataV2 {
-            strings: vec![(1, Arc::new("x".repeat(MMAP_WRITE_BUFFER_CAPACITY * 2)))],
-            ..MmapDataV2::default()
-        };
-
-        let result = publish_mmap_v2_data(mmap_data, &path, |data, file| {
-            serialize_mmap_v2_data(data, FailAfterWriter::new(file, 4096))
-        });
-
-        assert!(matches!(
-            result,
-            Err(StatsigErr::FileError(message))
-                if message.contains("injected mmap write failure")
-        ));
-        assert_eq!(std::fs::read(&path).unwrap(), b"previous artifact");
-        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
-    }
-
-    #[test]
-    fn flush_failure_is_file_error_and_preserves_published_artifact() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("published.mmap");
-        std::fs::write(&path, b"previous artifact").unwrap();
-
-        let result = publish_mmap_v2_data(MmapDataV2::default(), &path, |data, file| {
-            serialize_mmap_v2_data(data, FailOnFlushWriter::new(file))
-        });
-
-        assert!(matches!(
-            result,
-            Err(StatsigErr::FileError(message))
-                if message.contains("injected mmap flush failure")
-        ));
-        assert_eq!(std::fs::read(&path).unwrap(), b"previous artifact");
-        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
-    }
-
-    #[test]
-    fn write_zero_during_serialization_is_a_file_error() {
-        let mmap_data = MmapDataV2 {
-            strings: vec![(1, Arc::new("x".repeat(MMAP_WRITE_BUFFER_CAPACITY * 2)))],
-            ..MmapDataV2::default()
-        };
-
-        let result = serialize_mmap_v2_data(&mmap_data, WriteZeroWriter);
-
-        assert!(matches!(result, Err(StatsigErr::FileError(_))));
-    }
-}
+#[path = "mmap_writer_tests.rs"]
+pub(super) mod tests;

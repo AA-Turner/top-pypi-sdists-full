@@ -18,20 +18,24 @@ T = TypeVar("T", bound="PipelineStatsResponse")
 class PipelineStatsResponse:
     """
     Attributes:
-        pipeline_name (str):
-        succeeded_pipeline_run_count (int):
-        success_ratio (float):
-        total_bytes_loaded (int):
-        total_pipeline_run_count (int):
-        total_rows_extracted (int):
-        total_rows_loaded (int):
-        average_duration_ms (int | None | Unset):
-        latest_dataset_name (None | str | Unset):
-        latest_destination_name (None | str | Unset):
-        latest_pipeline_run_at (datetime.datetime | None | Unset):
-        latest_source_names (list[str] | None | Unset):
-        latest_status (None | PipelineRunStatus | str | Unset):
-        total_duration_ms (int | Unset):  Default: 0.
+        pipeline_name (str): Name of the dlt pipeline.
+        succeeded_pipeline_run_count (int): Pipeline runs in the range with status `succeeded`.
+        success_ratio (float): Succeeded ÷ total, from 0 to 1.
+        total_bytes_loaded (int): Sum of normalized bytes (size of the normalized files) over succeeded runs in the time
+            range.
+        total_pipeline_run_count (int): Pipeline runs in the range.
+        total_rows_extracted (int): Sum of extracted rows over all runs in the range.
+        total_rows_loaded (int): Sum of normalized rows over succeeded runs in the time range.
+        average_duration_ms (int | None | Unset): Mean `duration_ms` in the range, rounded; `null` when no run has a
+            duration.
+        latest_dataset_name (None | str | Unset): Dataset of the most recent pipeline run in the time range.
+        latest_destination_name (None | str | Unset): Destination of the most recent pipeline run in the time range.
+        latest_pipeline_run_at (datetime.datetime | None | Unset): When the most recent pipeline run in the time range
+            started.
+        latest_source_names (list[str] | None | Unset): Sources read by the most recent pipeline run in the time range.
+        latest_status (None | PipelineRunStatus | str | Unset): Status of the most recent pipeline run in the time
+            range.
+        total_duration_ms (int | Unset): Sum of `duration_ms` over the runs in the range. Default: 0.
     """
 
     pipeline_name: str

@@ -4,12 +4,11 @@ from typing import NewType
 
 import pytest
 import wireup
+from typing_extensions import Self
 from wireup import Injected, inject_from_container
 from wireup._annotations import injectable
 from wireup.errors import ContainerCloseError, WireupError
 from wireup.ioc.types import InjectableLifetime
-
-from test.conftest import Container
 
 
 class AsyncContextManagerResource:
@@ -18,7 +17,7 @@ class AsyncContextManagerResource:
         self.entered = False
         self.exited = False
 
-    async def __aenter__(self) -> "AsyncContextManagerResource":
+    async def __aenter__(self) -> Self:
         self.entered = True
         return self
 
@@ -27,7 +26,7 @@ class AsyncContextManagerResource:
         self.cleanup_events.append("resource")
 
 
-def test_cleans_up_on_exit(container: Container) -> None:
+def test_cleans_up_on_exit() -> None:
     _cleanup_performed = False
     Something = NewType("Something", str)
 

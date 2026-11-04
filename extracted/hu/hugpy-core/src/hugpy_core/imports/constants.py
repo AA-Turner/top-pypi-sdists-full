@@ -73,7 +73,7 @@ PAIR_SETTING_DEFAULTS = {
 # exactly these keys (explicit value, else the default above, else None = Auto).
 PAIR_KNOB_KEYS = (
     "alloc_mode", "moe", "kv_cache_type",
-    "attention_gpu_layers", "experts_cpu_layers", "explicit_spill", "layer_gpus",
+    "spill", "attention_gpu_layers", "experts_cpu_layers", "explicit_spill", "layer_gpus",
     "gpu_model_pct", "leniency_pct", "priority_device",
     "ctx_pct", "ctx_min_pct", "ctx_range_enabled", "ctx_yield", "ctx_restore",
     "auto_goal", "tolerance", "disk_mmap", "disk_mmap_cache_gib", "min_decode_tok_s", "quality_alternatives", "cpu_floor_cores", "max_wait_s",

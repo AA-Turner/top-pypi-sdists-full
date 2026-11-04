@@ -17,11 +17,10 @@ from mistralai.vibe.harness.app_server.session import (
     ImageContentBlock,
     ResourceLinkContentBlock,
     TextContentBlock,
-    UnsupportedSessionProcedureError,
+    UnknownContentBlock,
 )
 from mistralai.vibe.harness.app_server.session.local_record import LocalSessionProcedureError
 from mistralai.vibe.harness.runtime.capabilities import (
-    MistralConnectorNotFoundError,
     PostAgentTurnHookAccept,
     PostLlmCallHookAccept,
     PostLlmCallHookReject,
@@ -71,6 +70,8 @@ from mistralai.vibe_agents.sdk.authoring.errors import (
     AuthenticationError,
     ClientToolAnswerError,
     InternalServerError,
+    LegacySessionError,
+    MistralConnectorNotFoundError,
     ObservationLost,
     OutcomeUnknownError,
     PermissionDeniedError,
@@ -79,12 +80,14 @@ from mistralai.vibe_agents.sdk.authoring.errors import (
     SdkError,
     SessionBusyError,
     SessionConfigMismatchError,
+    SessionIdempotencyConflictError,
     SessionInUseError,
     SessionNotFoundError,
     SessionStartupTimeoutError,
     SessionTerminatedError,
     TurnNotFoundError,
     UnsupportedAgentFeatureError,
+    UnsupportedSessionProcedureError,
 )
 from mistralai.vibe_agents.sdk.authoring.experimental import ExperimentalWarning
 from mistralai.vibe_agents.sdk.authoring.hooks import HookDecision, PostToolCall, PreToolCall, reject, retry, skip
@@ -92,6 +95,7 @@ from mistralai.vibe_agents.sdk.authoring.permissions import PermissionPolicy, Pe
 from mistralai.vibe_agents.sdk.authoring.sandbox_policy import (
     GitHubBinding,
     HeaderBinding,
+    MistralApiBinding,
     Network,
     WorkspaceHeaderBindings,
 )
@@ -132,8 +136,10 @@ from mistralai.vibe_agents.sdk.client.events import (
     CallbackOpened,
     CallbackResolved,
     Event,
+    SessionUpdated,
     TurnEnded,
     TurnStarted,
+    TurnUpdated,
     UnknownEvent,
 )
 from mistralai.vibe_agents.sdk.client.handles import Session, Turn
@@ -143,23 +149,31 @@ from mistralai.vibe_agents.sdk.client.records import (
     Answered,
     Blocked,
     Busy,
+    CancelledTermination,
     Completed,
+    CompletedTermination,
     Failed,
+    FailedTermination,
     Interrupted,
     InvalidOutput,
     NotFound,
     OpenApproval,
     OpenCallback,
     OpenClientToolCall,
+    OpenSignIn,
     ProtocolError,
     Running,
     SessionInfo,
+    SignInRequest,
     Termination,
     TurnConflict,
     TurnState,
     UnknownOpenCallback,
+    UnknownOutcome,
+    UnknownTermination,
 )
-from mistralai.vibe_agents.sdk.transport.client_tools import ClientToolCall
+from mistralai.vibe_agents.sdk.client.sign_ins import SignInAnswer
+from mistralai.vibe_agents.sdk.transport.client_tools import ClientToolAnswers, ClientToolCall
 from mistralai.vibe_agents.sdk.transport.remote import RemoteSessionConflictError
 from mistralai.vibe_agents.sdk.transport.results import ToolCall
 from mistralai.vibe_agents.sdk.transport.session_journal import JsonFileSessionJournal as _JsonFileSessionJournal
@@ -168,6 +182,7 @@ from mistralai.workflows.plugins.mistralai.connectors import decorator as connec
 
 CallbackContext = assemble.CallbackContext
 CallbackSession = assemble.CallbackSession
+KeepCallbackOpen = assemble.KeepCallbackOpen
 Hook = assemble.Hook
 
 
@@ -190,7 +205,7 @@ class ParentSandbox(NoSandbox):
 
 
 class hook:
-    """Protocol-native Hook results, for a Hook that rewrites what continues.
+    """Result models for a Hook that changes what continues.
 
     A Hook that only continues returns ``None``; one that stops returns ``agents.skip``,
     ``agents.retry`` or ``agents.reject``.
@@ -280,6 +295,11 @@ _DEPRECATED_HARNESS: dict[str, type[_Harness]] = {
 }
 
 
+# 1.1.0rc12 name of a Python tool, kept working with a warning until a later release removes it.
+# `mistralai.agents` serves it too.
+_TOOL_WARNING = "agents.Tool is deprecated: use agents.PythonTool"
+
+
 # 1.1.0 pre-release name of a client tool's declaration, handler= included, kept working with a warning until a
 # later release removes it. `mistralai.agents` serves it too.
 _CLIENT_TOOL_DEFINITION_WARNING = (
@@ -311,7 +331,7 @@ def _harness_warning(name: str) -> str:
             "(tools=, connectors=, mcps=, skills=, hooks=, sandbox_access=) on agents.Subagent"
         )
     return (
-        f"agents.{name} is deprecated: pass its fields (tools=, sandbox=, connectors=, mcps=, skills=, "
+        f"agents.{name} is deprecated: pass its fields (tools=, sandbox= as environment=, connectors=, mcps=, skills=, "
         "hooks=, guardrails=, secrets=) to agents.Agent"
     )
 
@@ -319,7 +339,7 @@ def _harness_warning(name: str) -> str:
 def __getattr__(name: str) -> object:
     # 1.0.x and rc12 code builds Python tools as agents.Tool(handler=...): keep that name working, with a warning.
     if name == "Tool":
-        warnings.warn("agents.Tool is deprecated: use agents.PythonTool", DeprecationWarning, stacklevel=2)
+        warnings.warn(_TOOL_WARNING, DeprecationWarning, stacklevel=2)
         return PythonTool
     if name in _RENAMED:
         warnings.warn(_renamed_warning(name), DeprecationWarning, stacklevel=2)
@@ -361,10 +381,12 @@ __all__ = [
     "Busy",
     "CallbackContext",
     "CallbackSession",
+    "KeepCallbackOpen",
     "Client",
     "ClientTool",
     "ClientToolAnswer",
     "ClientToolAnswerError",
+    "ClientToolAnswers",
     "ClientToolCall",
     "Completed",
     "Connector",
@@ -383,6 +405,7 @@ __all__ = [
     "HookCallbackContext",
     "HookDecision",
     "InternalServerError",
+    "LegacySessionError",
     "ImageContentBlock",
     "Interrupted",
     "InvalidOutput",
@@ -391,6 +414,7 @@ __all__ = [
     "LocalSessionProcedureError",
     "LocalSkillBundle",
     "LocalSkillFile",
+    "MistralApiBinding",
     "MistralConnectorNotFoundError",
     "MistralSandbox",
     "MistralSecret",
@@ -401,6 +425,7 @@ __all__ = [
     "OpenApproval",
     "OpenCallback",
     "OpenClientToolCall",
+    "OpenSignIn",
     "OutcomeUnknownError",
     "ParentSandbox",
     "PermissionDeniedError",
@@ -428,16 +453,25 @@ __all__ = [
     "Session",
     "SessionBusyError",
     "SessionConfigMismatchError",
+    "SessionIdempotencyConflictError",
     "SessionInUseError",
     "SessionInfo",
     "SessionInput",
     "SessionNotFoundError",
     "SessionStartupTimeoutError",
     "SessionTerminatedError",
+    "SessionUpdated",
+    "SignInAnswer",
+    "SignInRequest",
     "State",
     "Subagent",
     "SubagentPolicy",
     "Termination",
+    "CompletedTermination",
+    "CancelledTermination",
+    "FailedTermination",
+    "UnknownOutcome",
+    "UnknownTermination",
     "TextContentBlock",
     "ToolAnnotations",
     "ToolCall",
@@ -454,6 +488,8 @@ __all__ = [
     "TurnNotFoundError",
     "TurnStarted",
     "TurnState",
+    "TurnUpdated",
+    "UnknownContentBlock",
     "UnknownEntry",
     "UnknownEvent",
     "UnknownOpenCallback",

@@ -44,7 +44,10 @@ def sync(
 
     Associates the session with a test case so that evaluate can be called
     on it. Useful for Chronos-created sessions that need testcase-driven
-    scoring without creating a separate SDK session."""
+    scoring without creating a separate SDK session.
+
+    Plato-internal only: linking rewires what a session is scored against, so
+    it is restricted to the admin org (Chronos worlds / internal tooling)."""
 
     request_args = _build_request_args(
         session_id=session_id,
@@ -69,7 +72,10 @@ async def asyncio(
 
     Associates the session with a test case so that evaluate can be called
     on it. Useful for Chronos-created sessions that need testcase-driven
-    scoring without creating a separate SDK session."""
+    scoring without creating a separate SDK session.
+
+    Plato-internal only: linking rewires what a session is scored against, so
+    it is restricted to the admin org (Chronos worlds / internal tooling)."""
 
     request_args = _build_request_args(
         session_id=session_id,

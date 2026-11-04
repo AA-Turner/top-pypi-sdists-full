@@ -2,9 +2,11 @@
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
 import logging
+import time
 from collections.abc import Iterator
 
 import pyarrow as pa
+import pytest
 
 import geneva.apply as apply_mod
 from geneva.apply import CheckpointingApplier
@@ -14,6 +16,7 @@ from geneva.apply.adaptive import (
     BatchSizeTracker,
 )
 from geneva.apply.applier import BatchApplier
+from geneva.apply.simple import SimpleApplier
 from geneva.apply.task import (
     DEFAULT_CHECKPOINT_ROWS,
     BackfillUDFTask,
@@ -78,9 +81,26 @@ def _double(a: int) -> int:
     return a * 2
 
 
+_SLOW_UDF_SECONDS_PER_ROW = 0.05
+
+
+@udf(data_type=pa.int32())
+def _slow_scalar(a: int) -> int:
+    time.sleep(_SLOW_UDF_SECONDS_PER_ROW)
+    return a * 2
+
+
+@udf(data_type=pa.int32())
+def _slow_record_batch(batch: pa.RecordBatch) -> pa.Array:
+    time.sleep(_SLOW_UDF_SECONDS_PER_ROW * batch.num_rows)
+    return pa.array([v * 2 for v in batch["a"].to_pylist()], type=pa.int32())
+
+
 def test_adaptive_checkpoint_sizer_clamps_size() -> None:
-    sizer = AdaptiveCheckpointSizer(max_size=100, min_size=1, target_seconds=10.0)
-    assert sizer.current_size == 1
+    sizer = AdaptiveCheckpointSizer(
+        max_size=100, min_size=1, initial_size=60, target_seconds=10.0
+    )
+    assert sizer.current_size == 60
 
     sizer.record(duration_seconds=20.0, rows=100)
     assert sizer.current_size == 50
@@ -90,6 +110,36 @@ def test_adaptive_checkpoint_sizer_clamps_size() -> None:
 
     sizer.record(duration_seconds=1000.0, rows=1)
     assert sizer.current_size == 1
+
+
+def test_adaptive_checkpoint_sizer_caps_growth_per_measurement(caplog) -> None:
+    """One fast-looking batch may only double the size; shrinking is immediate.
+
+    A batch whose UDF ran on few of its rows measures far faster than the next
+    batch may be. Jumping straight to the maximum on that evidence can hand a
+    slow UDF a batch many times its target duration.
+    """
+    caplog.set_level(logging.INFO, logger="geneva.apply.adaptive")
+    sizer = AdaptiveCheckpointSizer(max_size=256, min_size=16, target_seconds=10.0)
+    assert sizer.current_size == 16
+
+    sizes = []
+    for _ in range(5):
+        rows = sizer.current_size
+        sizer.record(duration_seconds=0.001, rows=rows)
+        sizes.append(sizer.current_size)
+    assert sizes == [32, 64, 128, 256, 256]
+
+    sizer.record(duration_seconds=1000.0, rows=256)
+    assert sizer.current_size == 16
+
+    messages = [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "geneva.apply.adaptive"
+    ]
+    assert "clamped_by=growth" in messages[0]
+    assert "clamped_by=max" in messages[3]
 
 
 def test_unconfigured_backfill_sizer_starts_above_floor() -> None:
@@ -365,21 +415,90 @@ def test_adaptive_read_task_slices_and_tracks_sizes() -> None:
     it = adaptive.to_batches(batch_size=4)
     first = next(it)
     assert first.num_rows == 1
+    # Measures 10 rows' worth; growth is limited to double the current size.
     sizer.record(duration_seconds=1.0, rows=1)
 
     second = next(it)
-    assert second.num_rows == 4
-    sizer.record(duration_seconds=20.0, rows=4)
-
-    third = next(it)
-    assert third.num_rows == 2
+    assert second.num_rows == 2
     sizer.record(duration_seconds=1.0, rows=2)
 
+    third = next(it)
+    assert third.num_rows == 4
+    sizer.record(duration_seconds=20.0, rows=4)
+
     fourth = next(it)
-    assert fourth.num_rows == 3
+    assert fourth.num_rows == 2
 
     sizes = [tracker.pop() for _ in range(4)]
-    assert sizes == [1, 4, 2, 3]
+    assert sizes == [1, 2, 4, 2]
+
+
+def _sparse_input(as_rows: bool) -> pa.RecordBatch | list[dict]:
+    """12 rows with every fourth selected (rows 0, 4 and 8)."""
+    selected = [True, False, False, False] * 3
+    if as_rows:
+        return [
+            {"a": i, BACKFILL_SELECTED: sel, "_rowaddr": i}
+            for i, sel in enumerate(selected)
+        ]
+    return pa.record_batch(
+        [
+            pa.array(range(12)),
+            pa.array(selected),
+            pa.array(range(12), type=pa.uint64()),
+        ],
+        names=["a", BACKFILL_SELECTED, "_rowaddr"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("max_size", "expected"),
+    [(8, [5, 7]), (4, [4, 4, 4])],
+    ids=["by_selected_rows", "capped_by_max_size"],
+)
+def test_adaptive_read_task_slices_by_selected_rows(
+    max_size: int, expected: list[int]
+) -> None:
+    """A slice holds ``current_size`` selected rows, within ``max_size`` rows."""
+    sizer = AdaptiveCheckpointSizer(max_size=max_size, min_size=2, initial_size=2)
+    tracker = BatchSizeTracker()
+    adaptive = AdaptiveReadTask(
+        _DummyReadTask([_sparse_input(as_rows=False)]),  # type: ignore[list-item]
+        sizer=sizer,
+        size_tracker=tracker,
+    )
+
+    slices = list(adaptive.to_batches(batch_size=max_size))
+
+    assert [len(s) for s in slices] == expected
+    assert [tracker.pop() for _ in slices] == expected
+
+
+def test_adaptive_read_task_cuts_list_batches_by_total_rows() -> None:
+    """List-of-dict batches reach the UDF unfiltered, so selected rows don't
+    stretch their slices."""
+    sizer = AdaptiveCheckpointSizer(max_size=8, min_size=2, initial_size=2)
+    adaptive = AdaptiveReadTask(
+        _DummyReadTask([_sparse_input(as_rows=True)]),  # type: ignore[list-item]
+        sizer=sizer,
+    )
+
+    assert [len(s) for s in adaptive.to_batches(batch_size=8)] == [2] * 6
+
+
+def test_adaptive_read_task_treats_null_selection_as_unselected() -> None:
+    batch = pa.record_batch(
+        [
+            pa.array(range(4)),
+            pa.array([True, None, True, None], type=pa.bool_()),
+            pa.array(range(4), type=pa.uint64()),
+        ],
+        names=["a", BACKFILL_SELECTED, "_rowaddr"],
+    )
+    sizer = AdaptiveCheckpointSizer(max_size=4, min_size=2, initial_size=2)
+    adaptive = AdaptiveReadTask(_DummyReadTask([batch]), sizer=sizer)
+
+    assert [s.num_rows for s in adaptive.to_batches(batch_size=4)] == [3, 1]
 
 
 def test_checkpointing_applier_adapts_batch_sizes(monkeypatch) -> None:
@@ -418,6 +537,99 @@ def test_checkpointing_applier_adapts_batch_sizes(monkeypatch) -> None:
         applier.checkpoint_store[checkpoint.checkpoint_key].num_rows
         for checkpoint in checkpoints
     ] == [3, 3, 2]
+
+
+@pytest.mark.parametrize(
+    "slow_udf", [_slow_scalar, _slow_record_batch], ids=["scalar", "record_batch"]
+)
+def test_unselected_slice_does_not_resize_next_slice(monkeypatch, slow_udf) -> None:
+    """A slice the UDF never ran on must not size the next slice.
+
+    The UDF does no work on a slice with no selected rows, so its measured time
+    is ~0. Recording it once sized the next slice at max_checkpoint_size, which
+    for a slow UDF on fully selected rows means a long run with no checkpoint.
+    """
+    # Dense 2-row slices take ~0.1 s of UDF time, so this target sizes them at
+    # the 2-row floor.
+    monkeypatch.setattr(apply_mod, "DEFAULT_CHECKPOINT_INTERVAL_SECONDS", 0.1)
+    map_task = BackfillUDFTask(
+        udfs={"b": slow_udf},
+        override_batch_size=2,
+        explicit_checkpoint_size=True,
+        min_checkpoint_size=2,
+        max_checkpoint_size=8,
+    )
+
+    selected = [True, True, False, False] + [True] * 8
+    batch = pa.record_batch(
+        [
+            pa.array(range(len(selected)), type=pa.int64()),
+            pa.array(selected),
+            pa.array(range(len(selected)), type=pa.uint64()),
+        ],
+        names=["a", BACKFILL_SELECTED, "_rowaddr"],
+    )
+
+    applier = CheckpointingApplier(
+        checkpoint_uri="memory",
+        map_task=map_task,
+        batch_applier=SimpleApplier(),
+        batch_checkpoint_flush_interval_seconds=0,
+    )
+    checkpoints, direct_result, udf_rows = applier.run(_DummyReadTask([batch]))
+
+    assert direct_result is None
+    assert udf_rows == sum(selected)
+    # The two unselected rows ride along with the next two selected ones; no
+    # dense slice reaches the 8-row maximum.
+    assert [checkpoint.udf_rows for checkpoint in checkpoints] == [2] * 5
+    assert [checkpoint.span for checkpoint in checkpoints] == [2, 4, 2, 2, 2]
+
+
+@pytest.mark.parametrize(
+    "slow_udf", [_slow_scalar, _slow_record_batch], ids=["scalar", "record_batch"]
+)
+def test_sparse_slices_do_not_grow_the_next_dense_slice(monkeypatch, slow_udf) -> None:
+    """Slices with few selected rows must not size a dense slice past the target.
+
+    The UDF runs only on selected rows, so a sparse slice finishes fast. Sizing
+    by all of its rows grew the size over a few sparse slices, and the dense
+    slice after them ran several times the target with no checkpoint.
+    """
+    # 2 selected rows take ~0.1 s of UDF time, so this target allows 2 per slice.
+    monkeypatch.setattr(apply_mod, "DEFAULT_CHECKPOINT_INTERVAL_SECONDS", 0.1)
+    map_task = BackfillUDFTask(
+        udfs={"b": slow_udf},
+        override_batch_size=2,
+        explicit_checkpoint_size=True,
+        min_checkpoint_size=2,
+        max_checkpoint_size=8,
+    )
+
+    selected = [True, False, False, False] * 4 + [True] * 8
+    batch = pa.record_batch(
+        [
+            pa.array(range(len(selected)), type=pa.int64()),
+            pa.array(selected),
+            pa.array(range(len(selected)), type=pa.uint64()),
+        ],
+        names=["a", BACKFILL_SELECTED, "_rowaddr"],
+    )
+
+    applier = CheckpointingApplier(
+        checkpoint_uri="memory",
+        map_task=map_task,
+        batch_applier=SimpleApplier(),
+        batch_checkpoint_flush_interval_seconds=0,
+    )
+    checkpoints, direct_result, udf_rows = applier.run(_DummyReadTask([batch]))
+
+    assert direct_result is None
+    assert udf_rows == sum(selected)
+    # Every slice holds the 2 selected rows the target allows; unselected rows
+    # ride along, up to max_checkpoint_size rows in total.
+    assert [checkpoint.udf_rows for checkpoint in checkpoints] == [2] * 6
+    assert [checkpoint.span for checkpoint in checkpoints] == [5, 8, 5, 2, 2, 2]
 
 
 def test_table_backfill_exercises_adaptive_checkpoint_sizes(

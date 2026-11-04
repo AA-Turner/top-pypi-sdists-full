@@ -90,20 +90,18 @@ def sync_detailed(
 ) -> Response[ErrorResponse | JobResponse]:
     """PauseJob
 
-    Pauses a job's scheduled runs. The scheduler stops starting it, both on its own schedule
-    and through a freshness cascade, which is the same tick deferred until an upstream is fresh.
-    Everything a user or another job drives still runs: manual runs, ``trigger``, and
-    ``job.success:`` / ``job.fail:`` chains.
+    Pauses a job's scheduled runs. The scheduler stops starting it, including a scheduled run
+    that was waiting for its upstream jobs. Manual runs, `trigger_jobs` and runs started by
+    another job's success or failure still run.
 
-    Only a job with a scheduled run can be paused — pausing anything else would claim to stop
-    runs that were never automatic. Requests for a job without ``next_scheduled_run_at``, or for
-    an archived job, are rejected with 400.
+    Only a job with `next_scheduled_run_at` can be paused; an archived job or one without a
+    schedule answers 400.
 
-    The scheduler keeps advancing ``next_scheduled_run_at`` while paused, so resuming produces one
-    run covering the whole period. A deploy that removes the schedule also removes the pause;
-    otherwise a deploy leaves it alone. The public URL is untouched. This operation is idempotent.
+    `next_scheduled_run_at` keeps advancing while the job is paused, so resuming produces one run
+    covering the whole period. A deploy that removes the schedule also removes the pause;
+    otherwise a deploy leaves it alone. The public URL is untouched. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -136,20 +134,18 @@ def sync(
 ) -> ErrorResponse | JobResponse | None:
     """PauseJob
 
-    Pauses a job's scheduled runs. The scheduler stops starting it, both on its own schedule
-    and through a freshness cascade, which is the same tick deferred until an upstream is fresh.
-    Everything a user or another job drives still runs: manual runs, ``trigger``, and
-    ``job.success:`` / ``job.fail:`` chains.
+    Pauses a job's scheduled runs. The scheduler stops starting it, including a scheduled run
+    that was waiting for its upstream jobs. Manual runs, `trigger_jobs` and runs started by
+    another job's success or failure still run.
 
-    Only a job with a scheduled run can be paused — pausing anything else would claim to stop
-    runs that were never automatic. Requests for a job without ``next_scheduled_run_at``, or for
-    an archived job, are rejected with 400.
+    Only a job with `next_scheduled_run_at` can be paused; an archived job or one without a
+    schedule answers 400.
 
-    The scheduler keeps advancing ``next_scheduled_run_at`` while paused, so resuming produces one
-    run covering the whole period. A deploy that removes the schedule also removes the pause;
-    otherwise a deploy leaves it alone. The public URL is untouched. This operation is idempotent.
+    `next_scheduled_run_at` keeps advancing while the job is paused, so resuming produces one run
+    covering the whole period. A deploy that removes the schedule also removes the pause;
+    otherwise a deploy leaves it alone. The public URL is untouched. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -177,20 +173,18 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | JobResponse]:
     """PauseJob
 
-    Pauses a job's scheduled runs. The scheduler stops starting it, both on its own schedule
-    and through a freshness cascade, which is the same tick deferred until an upstream is fresh.
-    Everything a user or another job drives still runs: manual runs, ``trigger``, and
-    ``job.success:`` / ``job.fail:`` chains.
+    Pauses a job's scheduled runs. The scheduler stops starting it, including a scheduled run
+    that was waiting for its upstream jobs. Manual runs, `trigger_jobs` and runs started by
+    another job's success or failure still run.
 
-    Only a job with a scheduled run can be paused — pausing anything else would claim to stop
-    runs that were never automatic. Requests for a job without ``next_scheduled_run_at``, or for
-    an archived job, are rejected with 400.
+    Only a job with `next_scheduled_run_at` can be paused; an archived job or one without a
+    schedule answers 400.
 
-    The scheduler keeps advancing ``next_scheduled_run_at`` while paused, so resuming produces one
-    run covering the whole period. A deploy that removes the schedule also removes the pause;
-    otherwise a deploy leaves it alone. The public URL is untouched. This operation is idempotent.
+    `next_scheduled_run_at` keeps advancing while the job is paused, so resuming produces one run
+    covering the whole period. A deploy that removes the schedule also removes the pause;
+    otherwise a deploy leaves it alone. The public URL is untouched. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -221,20 +215,18 @@ async def asyncio(
 ) -> ErrorResponse | JobResponse | None:
     """PauseJob
 
-    Pauses a job's scheduled runs. The scheduler stops starting it, both on its own schedule
-    and through a freshness cascade, which is the same tick deferred until an upstream is fresh.
-    Everything a user or another job drives still runs: manual runs, ``trigger``, and
-    ``job.success:`` / ``job.fail:`` chains.
+    Pauses a job's scheduled runs. The scheduler stops starting it, including a scheduled run
+    that was waiting for its upstream jobs. Manual runs, `trigger_jobs` and runs started by
+    another job's success or failure still run.
 
-    Only a job with a scheduled run can be paused — pausing anything else would claim to stop
-    runs that were never automatic. Requests for a job without ``next_scheduled_run_at``, or for
-    an archived job, are rejected with 400.
+    Only a job with `next_scheduled_run_at` can be paused; an archived job or one without a
+    schedule answers 400.
 
-    The scheduler keeps advancing ``next_scheduled_run_at`` while paused, so resuming produces one
-    run covering the whole period. A deploy that removes the schedule also removes the pause;
-    otherwise a deploy leaves it alone. The public URL is untouched. This operation is idempotent.
+    `next_scheduled_run_at` keeps advancing while the job is paused, so resuming produces one run
+    covering the whole period. A deploy that removes the schedule also removes the pause;
+    otherwise a deploy leaves it alone. The public URL is untouched. Idempotent.
 
-    Requires WRITE permission on the workspace level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

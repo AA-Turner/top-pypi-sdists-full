@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: kaldifst
-Version: 1.8.3
+Version: 1.9.0
 Home-page: https://github.com/k2-fsa/kaldifst
 Author: Next-gen Kaldi development team
 Author-email: csukuangfj@gmail.com
@@ -11,6 +11,15 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
 
 ## Introduction
 

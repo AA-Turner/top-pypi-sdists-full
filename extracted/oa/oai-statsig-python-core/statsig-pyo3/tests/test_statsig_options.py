@@ -9,6 +9,16 @@ def test_default_statsig_options():
     assert options.runtime_thread_start_callback is None
     assert options.evaluation_cache is None
     assert options.prefer_http2 is None
+    assert options.shared_id_lists_dir is None
+
+
+def test_shared_id_lists_directory_option():
+    options = StatsigOptions(shared_id_lists_dir="/tmp/statsig-id-lists")
+    assert options.shared_id_lists_dir == "/tmp/statsig-id-lists"
+    options.shared_id_lists_dir = "/tmp/other-id-lists"
+    assert options.shared_id_lists_dir == "/tmp/other-id-lists"
+    options.shared_id_lists_dir = None
+    assert options.shared_id_lists_dir is None
 
 
 def test_prefer_http2_supported_option():

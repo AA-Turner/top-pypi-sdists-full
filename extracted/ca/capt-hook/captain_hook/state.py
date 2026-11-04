@@ -55,15 +55,19 @@ if TYPE_CHECKING:
     from captain_hook.types import Signals
 
 
+UNUSED_SPACY_PIPES = ("ner",)
+"""Pipeline stages no signal reads, left out to keep each worker's model smaller and parses faster."""
+
+
 def load_spacy() -> spacy.language.Language:
     import spacy
 
     from captain_hook.util.model_cache import MODEL_NAME, cached_pipeline
 
     if spacy.util.is_package(MODEL_NAME):
-        return spacy.load(MODEL_NAME)
+        return spacy.load(MODEL_NAME, exclude=UNUSED_SPACY_PIPES)
     if cached := cached_pipeline():
-        return spacy.load(cached)
+        return spacy.load(cached, exclude=UNUSED_SPACY_PIPES)
     raise RuntimeError(
         f"spaCy model {MODEL_NAME!r} is not installed. "
         "Run `uvx capt-hook init` to provision NLP resources, or install the model "
@@ -120,9 +124,9 @@ RESOURCES = NlpResources()
 
 
 class HookState(BaseModel):
-    """Per-hook persistent state tracked across events in a session (``fire_count`` for ``max_fires``)."""
+    """How many times each ``max_fires`` hook fired in a session, keyed by state key and agent."""
 
-    fire_count: int = 0
+    fires: dict[str, int] = Field(default_factory=dict)
 
 
 # ECHO_WINDOW: number of subsequent transcript messages after a nudge fires during which we
@@ -146,11 +150,14 @@ ECHO_VERBATIM_CAP = 40
 ECHO_VERBATIM_MIN_CHARS = 20
 
 
+NLP_TEXT_CHARS = 20_000
+
+
 @lru_cache(maxsize=128)
 def cached_content_lemmas(text: str) -> frozenset[str]:
     return frozenset(
         tok.lemma_.lower()
-        for tok in RESOURCES.spacy(text, disable=("ner",))
+        for tok in RESOURCES.spacy(text[-NLP_TEXT_CHARS:], disable=("ner",))
         if tok.pos_ in {"NOUN", "VERB", "ADJ"} and not tok.is_stop and len(tok.lemma_) > 2
     )
 

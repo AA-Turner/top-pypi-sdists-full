@@ -3,16 +3,17 @@ from __future__ import annotations
 import datetime
 import types
 from dataclasses import dataclass
-from typing import List, Dict, Union, Mapping, Optional, Set
+from typing import Callable, List, Dict, Union, Mapping, Optional, Set, Tuple
 
 import pandas as pd
 
 from seeq import spy
 from seeq.base.seeq_names import SeeqNames
 from seeq.sdk import *
-from seeq.spy import _common, _login, _metadata, _swap, _version
+from seeq.spy import _common, _compatibility, _item_finder, _login, _metadata, _swap, _version
 from seeq.spy._context import WorkbookContext
 from seeq.spy._errors import *
+from seeq.spy._item_finder import ItemFinderPager, ItemFinderQueryBuilder
 from seeq.spy._redaction import safely, request_safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
@@ -21,15 +22,27 @@ RESERVED_SEARCH_COLUMN_NAMES = ['Path', 'Asset', 'Type', 'Depth', 'Estimated Sam
                                 'Datasource Name']
 
 VALID_ITEM_TYPES_FOR_SEARCH = [
-    'StoredSignal', 'CalculatedSignal',
-    'StoredCondition', 'CalculatedCondition',
-    'LiteralScalar', 'CalculatedScalar',
-    'Datasource',
-    'ThresholdMetric', 'Chart', 'Asset',
-    'Workbook', 'Worksheet',
-    'Display', 'DisplayTemplate',
-    'TableDefinition'
+    SeeqNames.Types.stored_signal, SeeqNames.Types.calculated_signal,
+    SeeqNames.Types.stored_condition, SeeqNames.Types.calculated_condition,
+    SeeqNames.Types.literal_scalar, SeeqNames.Types.calculated_scalar,
+    SeeqNames.Types.datasource,
+    SeeqNames.Types.threshold_metric, SeeqNames.Types.chart, SeeqNames.Types.asset,
+    SeeqNames.Types.workbook, SeeqNames.Types.worksheet,
+    SeeqNames.Types.display, SeeqNames.Types.display_template,
+    SeeqNames.Types.table_definition
 ]
+
+# The searchable types that live in their own extracted table. A superset of _item_finder.RESTRICTED_EXTRACTED_TYPES,
+# which is only those that cannot share a search with another type.
+EXTRACTED_ITEM_TYPES_FOR_SEARCH = [SeeqNames.Types.datasource, SeeqNames.Types.table_definition]
+
+# Clauses that identify a datasource rather than the item itself. When resolving an asset path, these apply only to
+# the root of the tree, matching what the legacy tree walk did.
+DATASOURCE_CLAUSE_NAMES = (SeeqNames.Properties.datasource_class, SeeqNames.Properties.datasource_id)
+
+# An ItemFinder property search must name its types, so a query with no Type gets this list.
+DEFAULT_ITEM_TYPES_FOR_ITEM_FINDER = [t for t in VALID_ITEM_TYPES_FOR_SEARCH
+                                      if t not in EXTRACTED_ITEM_TYPES_FOR_SEARCH]
 
 ALL_PROPERTIES = ['@allProperties']
 
@@ -46,6 +59,24 @@ PROPERTIES_ALWAYS_TRANSFORM_TO_BOOLEAN = [SeeqNames.Properties.archived,
                                           'Reference']
 
 USE_DEFAULT_LIMIT = -1
+
+
+@dataclass
+class ItemSearchDefinition:
+    """
+    One query row reduced to the parts that decide what gets matched, independent of which endpoint runs it.
+
+    _process_query() builds this alongside the legacy search_items kwargs. The legacy path keeps reading the
+    kwargs; the ItemFinder path renders this instead, so neither has to parse the other's filter strings.
+    """
+    # Property name -> (comparison, matcher), where comparison is the legacy grammar's '==' or '~='.
+    clauses: Dict[str, tuple]
+    # Concrete item types, already expanded from the user's Type (so 'Signal' is StoredSignal + CalculatedSignal).
+    # Empty means the user did not ask for a type.
+    types: List[str]
+    include_archived: bool
+    # True when the query named a 'Scoped To', which the legacy path expressed as '@excludeGloballyScoped'.
+    exclude_globally_scoped: bool = False
 
 
 @dataclass
@@ -76,9 +107,12 @@ class SearchContext:
     pd_end: Optional[pd.Timestamp]
     use_search_items_api_for_this_query: bool
     used_search_items_api_at_least_once: bool
+    use_item_finder: bool
+    search_definition: Optional[ItemSearchDefinition]
     timer: datetime.datetime
 
     items_api: ItemsApi
+    workbooks_api: WorkbooksApi
     trees_api: TreesApi
     formulas_api: FormulasApi
     displays_api: DisplaysApi
@@ -98,14 +132,18 @@ class SearchContext:
         self.dupe_count = 0
         self.sample_periods = dict()
 
+        self.use_item_finder = _compatibility.is_item_finder_search_available(session)
+        self.search_definition = None
+
         self.items_api = ItemsApi(session.client)
+        self.workbooks_api = WorkbooksApi(session.client)
         self.trees_api = TreesApi(session.client)
         self.formulas_api = FormulasApi(session.client)
         self.displays_api = DisplaysApi(session.client)
         self.display_templates_api = DisplayTemplatesApi(session.client)
 
 
-# This chosen to not run afoul of Cloudflare's 414 (Request-URI Too Long) error
+# This chosen to not run afoul of Cloudflare's 414 (Request-URI Too Long) error for GET requests
 search_by_id_helper_page_size = 500
 
 
@@ -125,35 +163,78 @@ class SearchByIDHelper:
 
     def get_by_index(self, index: int) -> ItemSearchPreviewV1:
         if index > self.current_index:
-            self._get_next_page_via_search_items()
+            if self.context.use_item_finder:
+                self._get_next_page_via_item_finder()
+            else:
+                self._get_next_page_via_search_items()
 
         return self.page[index]
 
-    def _get_next_page_via_search_items(self):
-        filters = ['@includeUnsearchable']
+    def _next_page_of_ids(self, page_size: int) -> Tuple[List[str], int]:
+        """
+        Walk forward through the queries, collecting up to a page of IDs. Returns the index the page ends at.
+        """
+        ids = list()
         new_current_index = self.current_index
         while new_current_index < len(self.queries) - 1:
             new_current_index += 1
             if not _common.present(self.queries[new_current_index], 'ID'):
                 continue
 
-            filters.append(f"ID=={self.queries[new_current_index]['ID']}")
+            ids.append(self.queries[new_current_index]['ID'])
 
-            if len(filters) > self.page_size:
+            if len(ids) >= page_size:
                 break
 
+        return ids, new_current_index
+
+    def _include_properties(self) -> Optional[List[str]]:
         if self.context.session.options.wants_compatibility_with(188):
-            include_properties = ALL_PROPERTIES
-        else:
-            include_properties = self.context.include_properties
+            return ALL_PROPERTIES
+
+        return self.context.include_properties
+
+    def _get_next_page_via_item_finder(self) -> None:
+        # search_by_id_helper_page_size exists only to keep a long filter string out of a GET URL, which a POST
+        # body does not need.
+        page_size = self.context.session.options.search_page_size
+        ids, new_current_index = self._next_page_of_ids(page_size)
+
+        include_properties = self._include_properties()
+        builder = ItemFinderQueryBuilder(
+            limit=page_size,
+            include_properties=None if include_properties == ALL_PROPERTIES else (include_properties or None),
+            include_all_properties=include_properties == ALL_PROPERTIES)
+        # An ID predicate rather than a FixedListSearch. FixedListSearch currently errors if any of the items are not
+        # readable. ID predicate is also slightly faster due to lacking that assertion.
+        # Archived and Unsearchable only hide an item from searches by name and properties, so a lookup by ID opts out
+        # of both defaults, as the legacy lookup below does with '@includeUnsearchable'. Leaving either one out makes
+        # _add_properties_smartly() fetch each such item with its own request.
+        # TODO CRAB-66331 ID predicates work fine, but a FixedListSearch is the more correct way of achieving this. It
+        #  reads the listed IDs directly with neither default filter, so include_archived and include_unsearchable go
+        #  away along with the ID predicate.
+        builder.add_item_search(types=DEFAULT_ITEM_TYPES_FOR_ITEM_FINDER,
+                                predicates=[_item_finder.predicate(SeeqNames.Properties.id,
+                                                                   _item_finder.Operator.WITHIN, *ids)],
+                                include_archived=True,
+                                include_unsearchable=True)
+
+        items = {item.id: item for item in ItemFinderPager(self.context.session, builder)}
+        self._cache_page(items, new_current_index)
+
+    def _get_next_page_via_search_items(self) -> None:
+        ids, new_current_index = self._next_page_of_ids(self.page_size)
+        filters = ['@includeUnsearchable'] + [f'ID=={item_id}' for item_id in ids]
 
         search_results = self.context.items_api.search_items(
             filters=filters,
-            include_properties=include_properties,
+            include_properties=self._include_properties(),
             limit=self.page_size
         )
 
-        items = {item.id: item for item in search_results.items}
+        self._cache_page({item.id: item for item in search_results.items}, new_current_index)
+
+    def _cache_page(self, items: dict, new_current_index: int) -> None:
         self.page = dict()
         while self.current_index < new_current_index:
             self.current_index += 1
@@ -497,6 +578,8 @@ def search(
     if context.workbook and not all_queries_have_id:
         if _common.is_guid(context.workbook):
             context.workbook_id = _common.sanitize_guid(context.workbook)
+            if context.use_item_finder:
+                _validate_scope_workbook_id(context, context.workbook_id)
         else:
             search_query, _ = WorkbookContext.create_analysis_search_query(context.workbook)
             search_df = spy.workbooks.search(search_query,
@@ -515,10 +598,18 @@ def search(
             context.status_index = status_index
             _process_query(context, queries[status_index])
     except StopIteration:
-        status.warn(f'Search results limited to {context.limit}. Supply increased "limit" parameter to return more.')
+        limit_warning = f'Search results limited to {context.limit}. Supply increased "limit" parameter to return more.'
+        tiebreak_field = _item_finder_unsupported_tiebreak_field(context)
+        if tiebreak_field is not None:
+            limit_warning += (f' Items with the same "{context.order_by[0]}" may be returned based on sorting their ID '
+                              f'rather than their "{tiebreak_field}". Only the first order_by field is applied within '
+                              f'the {context.limit} limit.')
+        status.warn(limit_warning)
 
     if context.dupe_count > 0:
-        if context.used_search_items_api_at_least_once:
+        if context.used_search_items_api_at_least_once and not context.use_item_finder:
+            # The order_by advice below only applies to offset pagination, where an unsorted result set can shift
+            # between pages. ItemFinder pages with a keyset cursor and always has a deterministic sort.
             arg_to_use = context.order_by if context.order_by is not None else list()
             if 'ID' in arg_to_use:
                 context.status.warn(
@@ -564,7 +655,24 @@ def search(
     return output_df
 
 
-def _process_query(context: SearchContext, current_query):
+def _validate_scope_workbook_id(context: SearchContext, workbook_id: str) -> None:
+    """
+    Ensure a workbook given as a UUID exists and is readable by the user. search_items() validated its scope
+    argument server-side, but ItemFinders state scope as an ordinary Scoped To predicate and predicates do not
+    validate their values, so an unreadable or unknown ID would quietly return just the globally scoped items.
+    """
+    if workbook_id == _common.GLOBALS_ONLY:
+        return
+    workbook_output = None
+    if _common.is_guid(workbook_id):
+        workbook_output = safely(lambda: context.workbooks_api.get_workbook(id=workbook_id),
+                                 action_description=f'find the workbook {workbook_id} to scope the search to',
+                                 ignore_errors=[400, 403, 404])
+    if workbook_output is None:
+        raise SPyRuntimeError(f'Workbook "{workbook_id}" not found, or is not accessible by you')
+
+
+def _process_query(context: SearchContext, current_query: dict) -> None:
     """
     Called for each query "row" in the list of queries
     """
@@ -590,9 +698,14 @@ def _process_query(context: SearchContext, current_query):
     context.used_search_items_api_at_least_once = (context.used_search_items_api_at_least_once or
                                                    context.use_search_items_api_for_this_query)
 
-    if not context.use_search_items_api_for_this_query and context.include_archived:
-        # As you can see in the code below, the TreesApi.get_tree() API doesn't have the ability to request
-        # archived items
+    # ItemFinders replace the tree walk for a non-recursive Path. (Except empty path, which uses the Trees API)
+    uses_trees_api = not context.use_search_items_api_for_this_query and (
+            not context.use_item_finder or
+            (len(current_query['Path'].strip()) == 0 and not _common.present(current_query, 'Asset')))
+
+    if uses_trees_api and context.include_archived:
+        # The TreesApi.get_tree() API doesn't have the ability to request archived items. Disallow that combination
+        # if we have to use those endpoints.
         raise SPyValueError('include_archived=True can only be used with recursive searches or searches that do '
                             'not involve a Path parameter')
 
@@ -732,9 +845,17 @@ def _process_query(context: SearchContext, current_query):
         elif context.workbook != _common.DEFAULT_WORKBOOK_PATH:
             raise SPyRuntimeError(f'Workbook "{context.workbook}" not found, or is not accessible by you')
 
+    context.search_definition = ItemSearchDefinition(clauses=clauses, types=item_types,
+                                                     include_archived=context.include_archived)
+
     if _common.present(current_query, 'Scoped To'):
+        if context.use_item_finder:
+            scoped_to = current_query['Scoped To']
+            for workbook_id in scoped_to if isinstance(scoped_to, list) else [scoped_to]:
+                _validate_scope_workbook_id(context, workbook_id)
         kwargs['scope'] = current_query['Scoped To']
         kwargs['filters'].append('@excludeGloballyScoped')
+        context.search_definition.exclude_globally_scoped = True
 
     if _common.present(current_query, 'Asset'):
         if _common.is_guid(_common.get(current_query, 'Asset')):
@@ -755,6 +876,8 @@ def _process_query(context: SearchContext, current_query):
 
         if len(path_to_query) == 0:
             _gather_results(context, current_query, kwargs, list())
+        elif context.use_item_finder:
+            _process_query_path_string_via_item_finder(context, current_query, kwargs, path_to_query, clauses)
         else:
             _process_query_path_string(context, current_query, kwargs, path_to_query, list(), clauses)
     else:
@@ -764,22 +887,236 @@ def _process_query(context: SearchContext, current_query):
     context.status.df.at[context.status_index, 'Result'] = 'Success'
 
 
-def _gather_results(context: SearchContext, current_query, kwargs, actual_path_list=None):
+def _gather_results(context: SearchContext, current_query: dict, kwargs: dict,
+                    actual_path_list: Optional[List[str]] = None) -> None:
     """
     Once we're at the appropriate depth in the tree, we can gather the results. If we're not doing a tree-based
     query, then we just search at the top level.
     """
     if context.use_search_items_api_for_this_query:
-        _iterate_over_output(context, _do_search, 'items', _gather_results_via_item_search, current_query,
-                             kwargs, actual_path_list)
+        if context.use_item_finder:
+            _iterate_over_item_finder(context, current_query, kwargs, actual_path_list)
+        else:
+            _iterate_over_output(context, _do_search, 'items', _gather_results_via_item_search, current_query,
+                                 kwargs, actual_path_list)
     else:
         _iterate_over_output(context, _do_search, 'children', _gather_results_via_get_tree, current_query,
                              kwargs, actual_path_list)
 
 
+def _build_item_finder_query(context: SearchContext, kwargs: dict,
+                             clause_predicates: Optional[List[PropertyFilterInputV1]] = None) -> ItemFinderQueryBuilder:
+    """
+    Render context.search_definition as an ItemFinder query. The ancestor and scope arguments are read from kwargs
+    rather than the definition because the Path walk rewrites kwargs['asset'] for each asset it resolves.
+    clause_predicates replaces the definition's clauses, rendered in the legacy filter grammar by default.
+    """
+    definition = context.search_definition
+
+    predicates = (_item_finder.legacy_filter_predicates(definition.clauses) if clause_predicates is None
+                  else list(clause_predicates))
+
+    # The legacy path sends '@includeUnsearchable' whenever include_archived is set, so an archived search also
+    # picks up unsearchable items. ItemFinder needs that stated as a predicate.
+    unsearchable = _item_finder.unsearchable_predicate(definition.include_archived)
+    if unsearchable is not None:
+        predicates.append(unsearchable)
+
+    predicates.extend(_scope_predicates(context, kwargs))
+
+    builder = ItemFinderQueryBuilder(limit=kwargs.get('limit'),
+                                     include_properties=_item_finder_include_properties(context),
+                                     include_all_properties=context.include_properties == ALL_PROPERTIES)
+
+    # TODO CRAB-66070 Delete this note once add_item_search() can use a single property search for every type. Until
+    #  then it adds one per restricted extracted type group, and the server pages through them one after another
+    #  rather than merging them by sort field. So when a finite limit truncates the results, an order_by search can
+    #  keep a late row from the first search and drop an early row from a later one, which the final DataFrame sort
+    #  cannot recover.
+    builder.add_item_search(types=definition.types if definition.types else DEFAULT_ITEM_TYPES_FOR_ITEM_FINDER,
+                            predicates=predicates,
+                            ancestor_id=kwargs.get('asset'),
+                            sort_field=_item_finder_sort_field(context),
+                            include_archived=definition.include_archived)
+
+    return builder
+
+
+def _scope_predicates(context: SearchContext, kwargs: dict, *, include_globally_scoped: bool = False) -> List:
+    scope = kwargs.get('scope')
+    if scope is None:
+        return list()
+
+    scope_ids = scope if isinstance(scope, list) else [scope]
+    if context.search_definition.exclude_globally_scoped and not include_globally_scoped:
+        return [_item_finder.predicate(SeeqNames.Properties.scoped_to, _item_finder.Operator.WITHIN, *scope_ids)]
+
+    # Legacy search's scope arg meant global OR workbook-scoped items. ItemFinders use explicit WITHIN [ID,null].
+    return [_item_finder.predicate(SeeqNames.Properties.scoped_to, _item_finder.Operator.WITHIN, *scope_ids, None)]
+
+
+def _item_finder_include_properties(context: SearchContext) -> Optional[List[str]]:
+    if not context.include_properties or context.include_properties == ALL_PROPERTIES:
+        return None
+
+    return context.include_properties
+
+
+def _item_finder_sort_field(context: SearchContext) -> Optional[str]:
+    """
+    ItemFinder sorts on one field, while order_by accepts several, so only the first one goes to the server. The
+    rest are applied when spy.search sorts the assembled DataFrame at the end, which happens whichever endpoint
+    produced it. Sorting on the first field still matters when `limit` truncates the results, because it decides
+    which rows survive, so sorting on it is closer to what the legacy endpoint returned than sorting on ID.
+
+    Returning None here does not mean "unsorted". ItemFinderQueryBuilder substitutes a sort by ID, because an
+    unsorted ItemFinder search cannot paginate at all.
+
+    Ties on the first field are broken by ID rather than by the next order_by field. That is a known gap and doesn't
+    seem likely to be super useful to add to ItemFinders, see _item_finder_unsupported_tiebreak_field().
+    """
+    if not context.order_by:
+        return None
+
+    sort_field = context.order_by[0]
+    return sort_field if sort_field in _item_finder.SORTABLE_PROPERTIES else None
+
+
+def _item_finder_unsupported_tiebreak_field(context: SearchContext) -> Optional[str]:
+    """
+    The order_by field that would have broken ties on the first one, when ItemFinder's ID tiebreaker differs from it,
+    otherwise None. order_by accepts only ID, Name and Description, so this is just a Name and Description pair: an
+    ID first is unique, and an ID next is what ItemFinder breaks ties with anyway. It only changes which rows survive
+    a limit that truncates the results, because the final DataFrame sort applies every field to the rows that remain.
+    """
+    if not context.use_item_finder or not context.order_by:
+        return None
+
+    first_field = context.order_by[0]
+    tiebreak_fields = [field for field in context.order_by[1:] if field != first_field]
+    if first_field == SeeqNames.Properties.id or not tiebreak_fields:
+        return None
+
+    return tiebreak_fields[0] if tiebreak_fields[0] != SeeqNames.Properties.id else None
+
+
+def _resolve_path_to_assets(context: SearchContext, kwargs: dict, path_to_query: str,
+                            clauses: dict) -> List[ItemSearchPreviewV1]:
+    """
+    Find every asset matching an asset path in one ItemFinder query.
+
+    Each leading segment becomes an ancestor predicate pinned to its depth, and `ancestor_id` plus `level` anchors
+    the whole path to the TreeDefinition, so the depth of the path costs nothing.
+    """
+    segments = _common.path_string_to_list(path_to_query)
+
+    predicates = [_item_finder.query_fragment_predicate(SeeqNames.Properties.name, segments[-1], contains=False)]
+
+    # The legacy walk only applied the datasource filter at the root of the tree, "in case the tree is mixed", so
+    # it belongs on the outermost segment rather than on every one.
+    datasource_filters = _item_finder.legacy_filter_predicates(
+        {prop_name: clause for prop_name, clause in clauses.items() if prop_name in DATASOURCE_CLAUSE_NAMES})
+
+    if len(segments) == 1:
+        # A one-segment path makes the root and the target the same asset.
+        predicates.extend(datasource_filters)
+        ancestor_predicates = None
+    else:
+        ancestor_predicates = _item_finder.path_ancestor_predicates(
+            segments[:-1], root_predicates=[_item_finder.to_table_predicate(f) for f in datasource_filters])
+
+    # The legacy walk never asked TreesApi to exclude globally scoped assets, even for a Scoped To query, so a
+    # workbook-scoped item beneath a global asset is still found. Scoped To narrows only the item query.
+    predicates.extend(_scope_predicates(context, kwargs, include_globally_scoped=True))
+
+    builder = ItemFinderQueryBuilder(limit=kwargs.get('limit'), include_all_properties=True)
+    builder.add_item_search(types=[SeeqNames.Types.asset],
+                            predicates=predicates,
+                            ancestor_id=_common.EMPTY_GUID,
+                            level=len(segments),
+                            ancestor_predicates=ancestor_predicates,
+                            include_archived=context.search_definition.include_archived)
+
+    return list(ItemFinderPager(context.session, builder, status=context.status,
+                                status_index=context.status_index, timer=context.timer))
+
+
+def _process_query_path_string_via_item_finder(context: SearchContext, current_query: dict, kwargs: dict,
+                                               path_to_query: str, clauses: dict) -> None:
+    """
+    The ItemFinder replacement for _process_query_path_string(). Two queries regardless of how deep or wide the
+    path is: one to resolve the path to assets, one to collect the items beneath them.
+    """
+    assets = _resolve_path_to_assets(context, kwargs, path_to_query, clauses)
+
+    if not context.session.options.wants_compatibility_with(191):
+        # The matched assets themselves belong in the results. See CRAB-41197.
+        for asset in assets:
+            _add_asset_to_metadata_from_preview(context, asset, current_query)
+
+    if not assets:
+        return
+
+    clause_predicates = None if context.recursive else _tree_children_predicates(context)
+    builder = _build_item_finder_query(context, kwargs, clause_predicates)
+    # recursive=True wants everything beneath the assets, so the ancestor predicate carries no level.
+    # recursive=False wants only their direct children, which is level 1 above the item.
+    level = None if context.recursive else 1
+    for property_search in builder.property_searches:
+        property_search.ancestor_predicates = [_item_finder.ancestors_within([a.id for a in assets], level=level)]
+        # The resolved assets already say where to look, and the legacy walk likewise discarded any Asset GUID
+        # the caller passed alongside a Path. Leaving ancestor_id set would AND a second constraint on top.
+        property_search.ancestor_id = None
+
+    pager = ItemFinderPager(context.session, builder, status=context.status,
+                            status_index=context.status_index, timer=context.timer)
+    for item in pager:
+        _gather_results_via_item_search(context, current_query, None, item)
+
+
+def _tree_children_predicates(context: SearchContext) -> List[PropertyFilterInputV1]:
+    """
+    The clause predicates for a non-recursive Path search. A recursive one used search_items() and so the legacy
+    filter grammar, but the legacy non-recursive walk listed children with TreesApi.get_tree() and filtered only
+    their Name and Description, through _common.does_query_fragment_match() in _gather_results_via_get_tree().
+    Datasource and Data ID clauses applied to the root of the path alone, so a mixed tree keeps its children.
+    """
+    return [_item_finder.query_fragment_predicate(prop_name, matcher, contains=context.comparison == '~=')
+            for prop_name, (_, matcher) in context.search_definition.clauses.items()
+            if prop_name in (SeeqNames.Properties.name, SeeqNames.Properties.description)]
+
+
+def _add_asset_to_metadata_from_preview(context: SearchContext, asset: ItemSearchPreviewV1,
+                                        current_query: dict) -> None:
+    """
+    _add_asset_to_metadata() for an asset we already hold, so it costs no extra lookup. The walk tracked the path
+    above each asset as it descended; here the asset's own ancestors say the same thing.
+    """
+    actual_path_list = [ancestor.name for ancestor in (asset.ancestors or [])]
+    if not _asset_matches_query(actual_path_list, asset.name, asset.type, current_query):
+        return
+
+    _add_to_metadata(context, _create_prop_dict(context, asset))
+
+
+def _iterate_over_item_finder(context: SearchContext, current_query: dict, kwargs: dict,
+                              actual_path_list: Optional[List[str]]) -> None:
+    """
+    The ItemFinder equivalent of _iterate_over_output(). Walks continuation tokens instead of offsets, which is
+    why it does not need the page-size bookkeeping the offset loop does.
+    """
+    builder = _build_item_finder_query(context, kwargs)
+    pager = ItemFinderPager(context.session, builder, status=context.status,
+                            status_index=context.status_index, timer=context.timer)
+
+    for item in pager:
+        _gather_results_via_item_search(context, current_query, actual_path_list, item)
+
+
 # noinspection PyUnusedLocal
-def _iterate_over_output(context: SearchContext, _output_func, _collection_name, _action_func, current_query,
-                         kwargs, _actual_path_list):
+def _iterate_over_output(context: SearchContext, _output_func: Callable, _collection_name: str,
+                         _action_func: Callable, current_query: dict, kwargs: dict,
+                         _actual_path_list: Optional[List[str]]) -> None:
     """
     Handles pagination for the various ways that we need to churn through results.
     """
@@ -804,7 +1141,7 @@ def _iterate_over_output(context: SearchContext, _output_func, _collection_name,
         offset += output.limit
 
 
-def _do_search(context: SearchContext, kwargs: dict, offset):
+def _do_search(context: SearchContext, kwargs: dict, offset: int):
     """
     Executes an actual search. Sometimes this uses the SearchItems API, sometimes it uses the GetTree API.
     """
@@ -854,7 +1191,8 @@ def _gather_results_via_item_search(context: SearchContext, current_query, actua
     _add_to_metadata(context, prop_dict)
 
 
-def _gather_results_via_get_tree(context: SearchContext, current_query, actual_path_list, result):
+def _gather_results_via_get_tree(context: SearchContext, current_query: dict, actual_path_list: List[str],
+                                 result: TreeItemOutputV1) -> None:
     tree_item_output: TreeItemOutputV1 = result
 
     for prop, _attr in [('Name', 'name'), ('Description', 'description')]:
@@ -1226,8 +1564,9 @@ def _retrieve_ancestors_and_swap_info(context: SearchContext, item_id: str, prop
     return prop_dict
 
 
-def _process_query_path_string(context: SearchContext, current_query, kwargs, remaining_query_path_string,
-                               actual_path_list, clauses: dict, asset_id=None):
+def _process_query_path_string(context: SearchContext, current_query: dict, kwargs: dict,
+                               remaining_query_path_string: str, actual_path_list: List[str], clauses: dict,
+                               asset_id: Optional[str] = None) -> None:
     """
     Walks down an asset path and processes each level, including wildcards and regexes.
     """
@@ -1297,21 +1636,31 @@ def _process_query_path_string(context: SearchContext, current_query, kwargs, re
         tree_kwargs['offset'] += tree_kwargs['limit']
 
 
-def _add_asset_to_metadata(context: SearchContext, actual_path_list, child, current_query):
-    matches = _common.does_query_fragment_match(_common.get(current_query, 'Name', child.name),
-                                                child.name, contains=False)
-    current_query_type = _common.get(current_query, 'Type', child.type)
+def _asset_matches_query(actual_path_list: List[str], name: str, item_type: str, current_query: dict) -> bool:
+    """
+    Whether an asset that a Path query walked through should itself appear in the results. See CRAB-41197.
+
+    `actual_path_list` is the path above the asset, not including it, so a query whose Path names the asset does
+    not match: the criteria and the names have to line up segment for segment.
+    """
+    matches = _common.does_query_fragment_match(_common.get(current_query, 'Name', name), name, contains=False)
+    current_query_type = _common.get(current_query, 'Type', item_type)
     if isinstance(current_query_type, list):
         found = False
         for _type in current_query_type:
-            found |= _common.does_query_fragment_match(_type, child.type, contains=False)
+            found |= _common.does_query_fragment_match(_type, item_type, contains=False)
         matches &= found
     else:
-        matches &= _common.does_query_fragment_match(current_query_type, child.type, contains=False)
+        matches &= _common.does_query_fragment_match(current_query_type, item_type, contains=False)
     path = _common.path_list_to_string(actual_path_list)
     if _common.present(current_query, 'Path'):
         matches &= _common.do_paths_match_criteria(_common.get(current_query, 'Path'), path)
-    if not matches:
+    return matches
+
+
+def _add_asset_to_metadata(context: SearchContext, actual_path_list: List[str], child: TreeItemOutputV1,
+                           current_query: dict) -> None:
+    if not _asset_matches_query(actual_path_list, child.name, child.type, current_query):
         return
 
     if _version.is_sdk_module_version_at_least(62):

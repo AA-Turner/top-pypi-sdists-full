@@ -12,12 +12,20 @@ import re
 import shlex
 from pathlib import Path
 
+from plato.utils.pypi_index import redact_pypi_token_credential
+
 logger = logging.getLogger(__name__)
+
+#: Tool dirs prepended to PATH on VMs: the pre-baked venv and common install
+#: locations. Single source of truth — the SSH export below, the daemon
+#: bootstrap command, and the daemon's spawn env all derive from it (a
+#: hand-copied variant once shipped without /usr/local/bin).
+VM_PATH_PREFIX = "/opt/plato-venv/bin:/root/.local/bin:/usr/local/bin"
 
 #: Shell snippet that sets PATH to include the pre-baked venv and common install
 #: locations.  Use in any SSH command that needs to find SDK entry-points
 #: (plato-agent-runner, plato-world-runner, plato-git-ops-server, etc.).
-VM_PATH_EXPORT = 'export PATH="/opt/plato-venv/bin:/root/.local/bin:/usr/local/bin:$PATH"'
+VM_PATH_EXPORT = f'export PATH="{VM_PATH_PREFIX}:$PATH"'
 
 #: Canonical Python interpreter inside Plato world/agent VM images.
 VM_VENV_PYTHON = "/opt/plato-venv/bin/python"
@@ -100,8 +108,10 @@ _ENV_ASSIGNMENT_PATTERN = re.compile(
 )
 
 
-def _sanitize_command_for_logs(command: str) -> str:
-    """Redact sensitive env values before logging SSH commands."""
+def redact_env_assignments(text: str) -> str:
+    """Redact the value of every ``KEY=value`` assignment whose key looks
+    sensitive (token/secret/password/...) — for SSH command lines and for
+    agent output that echoes its environment before surfacing it."""
 
     def _replace(match: re.Match[str]) -> str:
         prefix = match.group("prefix") or ""
@@ -111,7 +121,12 @@ def _sanitize_command_for_logs(command: str) -> str:
             return f"{prefix}{key}=<redacted>"
         return f"{prefix}{key}={value}"
 
-    return _ENV_ASSIGNMENT_PATTERN.sub(_replace, command)
+    return _ENV_ASSIGNMENT_PATTERN.sub(_replace, text)
+
+
+def _sanitize_command_for_logs(command: str) -> str:
+    """Redact sensitive env values and index-URL tokens before logging SSH commands."""
+    return redact_pypi_token_credential(redact_env_assignments(command))
 
 
 async def run_local(command: str, timeout: int = 60) -> tuple[int, str, str]:
@@ -191,8 +206,6 @@ async def run_ssh(
             logger.warning(f"SSH stdout: {stdout_str}")
         if stderr_str:
             logger.warning(f"SSH stderr: {stderr_str}")
-    else:
-        logger.debug("SSH command finished on %s: exit_code=%s", hostname, exit_code)
 
     return exit_code, stdout_str, stderr_str
 
@@ -221,12 +234,25 @@ async def run_ssh_streaming(
         *ssh_cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
+        limit=2**24,
     )
 
     output_lines: list[str] = []
     if process.stdout:
         while True:
-            line = await process.stdout.readline()
+            try:
+                line = await process.stdout.readline()
+            except ValueError:
+                # Line exceeded the StreamReader limit (readline buffers the
+                # oversized chunk and raises). Drain and continue — this
+                # helper streams agent tool-execution spools whose single
+                # JSONL records can exceed any fixed limit; a crash here
+                # took down a live experiment's world step.
+                chunk = await process.stdout.read(2**16)
+                if not chunk:
+                    break
+                output_lines.append(chunk.decode("utf-8", errors="replace").rstrip())
+                continue
             if not line:
                 break
             decoded_line = line.decode("utf-8", errors="replace").rstrip()

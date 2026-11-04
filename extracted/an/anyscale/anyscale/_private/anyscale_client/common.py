@@ -7,8 +7,11 @@ from anyscale.client.openapi_client.models import (
     AdminCreatedUser,
     AdminCreateUser,
     AnyscaleServiceAccount,
+    ApplyPolicyResult,
     ApplyProductionServiceMultiVersionV2Model,
     Cloud,
+    ClusterDashboardNode,
+    ClusterdashboardnodeListResponse,
     ClusteroperationResponse,
     CollaboratorType,
     ComputeTemplateConfig,
@@ -28,6 +31,7 @@ from anyscale.client.openapi_client.models import (
     GpuDetail,
     InternalProductionJob,
     JobQueueSortDirective,
+    LogItemBatch,
     NodeGpusResponse,
     OrganizationCollaborator,
     OrganizationcollaboratorListResponse,
@@ -39,6 +43,8 @@ from anyscale.client.openapi_client.models import (
     ResourcepolicyitemListResponse,
     ResourceQuota,
     ResourceTagResourceType,
+    RoleBindingPolicy,
+    RoleMetadata,
     ServerSessionToken,
     SessionState,
     SkillsManifestResponse,
@@ -1078,6 +1084,27 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def query_logs(  # noqa: PLR0913
+        self,
+        *,
+        logql_query: str,
+        resource: Dict[str, str],
+        start_ns: int,
+        end_ns: int,
+        source_type: str,
+        limit: int,
+        reverse_sort: bool,
+    ) -> LogItemBatch:
+        """LogQL log query over one resource's logs within [start_ns, end_ns].
+
+        `resource` holds exactly one of cluster_id / workspace_id / ha_job_id /
+        service_id; the backend pins the query's stream selector to it. `source_type`
+        is "application" or "system". Returns the batch: at most `limit` lines plus
+        `last_timestamp`, the newest line's time in nanoseconds.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def get_node_gpus(
         self,
         *,
@@ -1103,6 +1130,48 @@ class AnyscaleClientInterface(ABC):
         """One GPU of a cluster by UUID, as of `time` (Unix seconds; now when None).
 
         Raises on a UUID the cluster never reported in the look-back window.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_cluster_node(
+        self,
+        *,
+        cluster_id: str,
+        node_id: str,
+        session_name: Optional[str] = None,
+    ) -> ClusterDashboardNode:
+        """One node of a cluster by Ray node id, from the cluster dashboard.
+
+        `session_name` picks a Ray session; None means the newest recent session that
+        has the node. Raises on an unknown node, or on a cluster that is not ready yet.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_cluster_nodes(  # noqa: PLR0913
+        self,
+        *,
+        cluster_id: str,
+        session_name: Optional[str] = None,
+        text_filter: Optional[str] = None,
+        states_filter: Optional[List[str]] = None,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> ClusterdashboardnodeListResponse:
+        """One page of a cluster's nodes from the cluster dashboard, plus the total.
+
+        Only the filters that are set are sent. A cluster that is not ready yet answers
+        with an empty list and a total of 0.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_job_cluster_id(self, job_id: str) -> Optional[str]:
+        """ID of the cluster the job's latest run is on; None when it has none yet.
+
+        Takes the ID of any job, including the jobs a service version runs on. Raises on
+        an unknown job.
         """
         raise NotImplementedError
 
@@ -1342,6 +1411,42 @@ class AnyscaleClientInterface(ABC):
         resource_type: str,
     ) -> "ResourcepolicyitemListResponse":
         """List permission policies for all resources of a specific type."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_roles(
+        self,
+        *,
+        name: Optional[str] = None,
+        ids: Optional[List[str]] = None,
+        include_archived: bool = False,
+        max_items: Optional[int] = None,
+    ) -> List["RoleMetadata"]:
+        """Every role the caller's organization may assign, the platform's included.
+
+        Naming ids also fills in each role's permissions, which a listing
+        leaves out. max_items caps how many are read, None reads every page.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def generate_role_binding_policy(
+        self,
+        resource_type: str,
+        resource_id: str,
+    ) -> "RoleBindingPolicy":
+        """The role bindings a resource holds, in the shape an apply accepts."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def apply_role_binding_policy(
+        self,
+        resource_type: str,
+        resource_id: str,
+        policy: "RoleBindingPolicy",
+        dry_run: bool,
+    ) -> "ApplyPolicyResult":
+        """Make a resource hold the role bindings a policy states, and only those."""
         raise NotImplementedError
 
     @abstractmethod

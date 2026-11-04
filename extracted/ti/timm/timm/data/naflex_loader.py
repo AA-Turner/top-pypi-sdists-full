@@ -101,6 +101,7 @@ class NaFlexPrefetchLoader:
             Tuple of (input_dict, targets) with normalized patches.
         """
         first = True
+        input_dict = target = None  # previous batch, yielded once the next one is prefetched
 
         device_mod = None
         if self.is_cuda:
@@ -266,6 +267,7 @@ def create_naflex_loader(
         interpolation: str = 'bilinear',
         mean: Tuple[float, ...] = IMAGENET_DEFAULT_MEAN,
         std: Tuple[float, ...] = IMAGENET_DEFAULT_STD,
+        channels: int = 3,
         crop_pct: Optional[float] = None,
         crop_mode: Optional[str] = None,
         crop_border_pixels: Optional[int] = None,
@@ -316,6 +318,7 @@ def create_naflex_loader(
         interpolation: Interpolation method.
         mean: Normalization mean values.
         std: Normalization standard deviation values.
+        channels: Number of image channels, used for per-channel normalization in the prefetcher.
         crop_pct: Crop percentage for validation.
         crop_mode: Crop mode.
         crop_border_pixels: Crop border pixels.
@@ -413,9 +416,10 @@ def create_naflex_loader(
                 loader,
                 mean=mean,
                 std=std,
+                channels=channels,
                 img_dtype=img_dtype,
                 device=device,
-                re_prob=re_prob,
+                re_prob=re_prob if not no_aug else 0.,
                 re_mode=re_mode,
                 re_count=re_count,
                 patchify_channels_last=patchify_channels_last,
@@ -423,6 +427,9 @@ def create_naflex_loader(
 
     else:
         # For validation, use fixed sequence length (unchanged)
+        if patch_size is None:
+            # same default as the training dataset wrapper
+            patch_size = 16
         dataset.transform = create_transform(
             is_training=False,
             interpolation=interpolation,
@@ -464,6 +471,7 @@ def create_naflex_loader(
                 loader,
                 mean=mean,
                 std=std,
+                channels=channels,
                 img_dtype=img_dtype,
                 device=device,
                 patchify_channels_last=patchify_channels_last,

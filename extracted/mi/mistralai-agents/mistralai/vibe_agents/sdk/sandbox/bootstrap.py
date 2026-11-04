@@ -24,6 +24,7 @@ from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
 from .proxy_integrations import (
     GitHubProxyConfig,
+    MistralApiProxyConfig,
     SandboxProxyIntegration,
     SecretInjectionProxyConfig,
 )
@@ -185,6 +186,9 @@ def _bootstrap_request(integration: SandboxProxyIntegration) -> tuple[str, dict[
                 "ttl_seconds": integration.ttl_seconds,
             },
         )
+    if isinstance(integration, MistralApiProxyConfig):
+        # The public route takes the principals from the authenticated caller, never from the body.
+        return "/bootstrap/mistral-api", {"scope": {}, "ttl_seconds": integration.ttl_seconds}
     if isinstance(integration, SecretInjectionProxyConfig):
         return "/bootstrap/secret-injection", {}
     raise SandboxBootstrapError(f"Unsupported Sandbox Proxy integration: {integration.type!r}")

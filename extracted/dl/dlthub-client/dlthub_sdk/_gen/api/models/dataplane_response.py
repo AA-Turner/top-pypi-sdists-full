@@ -15,10 +15,10 @@ T = TypeVar("T", bound="DataplaneResponse")
 class DataplaneResponse:
     """
     Attributes:
-        id (str): Plane id; matches the public subdomain.
-        name (str): Human-readable plane name.
-        region (str): Short region code (e.g. eu-central-1).
-        description (None | str | Unset): Optional note shown in the picker.
+        id (str): Data plane id, e.g. `eu1`; also the subdomain of its URL.
+        name (str): Human-readable data plane name.
+        region (str): Cloud region the data plane runs in, e.g. `europe-west4`.
+        description (None | str | Unset): Optional note about the data plane; `null` when there is none.
     """
 
     id: str

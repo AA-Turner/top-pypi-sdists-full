@@ -1,17 +1,20 @@
 use std::collections::{HashMap, VecDeque};
 use std::io::{BufReader, Seek, SeekFrom, Write};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use parking_lot::Mutex;
+use sha2::{Digest, Sha256};
 
 use crate::log_d;
 use crate::{
     StatsigErr, log_e, log_w,
     networking::{
         NetworkProvider, get_source_service_and_request_path,
-        http_types::{HttpMethod, RequestArgs, Response, ResponseData, ResponseLimitOutcome},
+        http_types::{
+            HttpMethod, NetworkRequest, RequestArgs, Response, ResponseData, ResponseLimitOutcome,
+        },
         url_path_has_suffix,
     },
 };
@@ -22,7 +25,7 @@ use reqwest::{Method, redirect::Policy};
 const TAG: &str = "NetworkProviderReqwest";
 const LOG_EVENT_REUSE_PATH: &[&str] = &["v1", "log_event"];
 const SDK_EXCEPTION_REUSE_PATH: &[&str] = &["v1", "sdk_exception"];
-const MAX_RESPONSE_LIMIT_CLIENTS: usize = 16;
+const MAX_CACHED_CLIENTS: usize = 16;
 const MAX_HTTP2_ORIGINS: usize = 64;
 const HTTP2_CAPABILITY_TTL: Duration = Duration::from_secs(300);
 const HTTP2_PROBE_BUDGET: Duration = Duration::from_millis(250);
@@ -107,12 +110,12 @@ impl std::fmt::Display for ResponseDataReadError {
 
 #[derive(Clone, Eq, Hash, PartialEq)]
 struct ResponseLimitClientKey {
+    runtime: Option<tokio::runtime::Id>,
     proxy_host: Option<String>,
     proxy_port: Option<u16>,
     proxy_auth: Option<String>,
     proxy_protocol: Option<String>,
     ca_cert_pem: Option<Vec<u8>>,
-    disable_redirects: bool,
 }
 
 impl ResponseLimitClientKey {
@@ -133,35 +136,99 @@ impl ResponseLimitClientKey {
             };
 
         Self {
+            runtime: None,
             proxy_host,
             proxy_port,
             proxy_auth,
             proxy_protocol,
             ca_cert_pem: request_args.ca_cert_pem.clone(),
-            disable_redirects: true,
+        }
+    }
+
+    fn for_http2(args: &RequestArgs) -> Option<Self> {
+        args.log_event_connection_reuse
+            .then(|| Self::from_request_args(args))
+    }
+
+    fn for_event_http2(args: &RequestArgs) -> Option<Self> {
+        let mut key = Self::for_http2(args)?;
+        key.runtime = Some(tokio::runtime::Handle::try_current().ok()?.id());
+        Some(key)
+    }
+}
+
+#[derive(Clone, Eq, Hash, PartialEq)]
+struct EventUploadClientKey {
+    runtime: tokio::runtime::Id,
+    proxy_url: Option<[u8; 32]>,
+    proxy_auth: Option<[u8; 32]>,
+    ca_cert_pem: Option<[u8; 32]>,
+}
+
+impl EventUploadClientKey {
+    fn from_request_args(args: &RequestArgs) -> Option<Self> {
+        let proxy_url = args
+            .proxy_config
+            .as_ref()
+            .and_then(ReqwestTransport::proxy_url);
+        if args.proxy_config.as_ref().is_some_and(|proxy| {
+            (proxy_url.is_none() && !ReqwestTransport::proxy_unset(proxy))
+                || configured_ca_missing(args, proxy)
+        }) {
+            return None;
+        }
+        Some(Self {
+            runtime: tokio::runtime::Handle::try_current().ok()?.id(),
+            proxy_url: proxy_url.as_deref().map(|url| fingerprint(url.as_bytes())),
+            proxy_auth: args
+                .proxy_config
+                .as_ref()
+                .and_then(|proxy| proxy.proxy_auth.as_deref())
+                .map(|auth| fingerprint(auth.as_bytes())),
+            ca_cert_pem: args.ca_cert_pem.as_deref().map(fingerprint),
+        })
+    }
+}
+
+fn fingerprint(bytes: &[u8]) -> [u8; 32] {
+    Sha256::digest(bytes).into()
+}
+
+fn configured_ca_missing(args: &RequestArgs, proxy: &ProxyConfig) -> bool {
+    args.ca_cert_pem.is_none()
+        && proxy
+            .ca_cert_path
+            .as_deref()
+            .is_some_and(|path| !path.is_empty())
+}
+
+struct ClientCache<K> {
+    entries: HashMap<K, reqwest::Client>,
+    lru: VecDeque<K>,
+}
+
+impl<K> Default for ClientCache<K> {
+    fn default() -> Self {
+        Self {
+            entries: HashMap::new(),
+            lru: VecDeque::new(),
         }
     }
 }
 
-#[derive(Default)]
-struct ResponseLimitClientCache {
-    entries: HashMap<ResponseLimitClientKey, reqwest::Client>,
-    lru: VecDeque<ResponseLimitClientKey>,
-}
-
-impl ResponseLimitClientCache {
-    fn get(&mut self, key: &ResponseLimitClientKey) -> Option<reqwest::Client> {
+impl<K: Clone + Eq + std::hash::Hash> ClientCache<K> {
+    fn get(&mut self, key: &K) -> Option<reqwest::Client> {
         let client = self.entries.get(key)?.clone();
         self.touch(key);
         Some(client)
     }
 
-    fn insert(&mut self, key: ResponseLimitClientKey, client: reqwest::Client) {
+    fn insert(&mut self, key: K, client: reqwest::Client) {
         if self.entries.remove(&key).is_some() {
             self.lru.retain(|entry| entry != &key);
         }
 
-        while self.entries.len() >= MAX_RESPONSE_LIMIT_CLIENTS {
+        while self.entries.len() >= MAX_CACHED_CLIENTS {
             let Some(oldest) = self.lru.pop_front() else {
                 break;
             };
@@ -172,28 +239,91 @@ impl ResponseLimitClientCache {
         self.entries.insert(key, client);
     }
 
-    fn touch(&mut self, key: &ResponseLimitClientKey) {
+    fn touch(&mut self, key: &K) {
         self.lru.retain(|entry| entry != key);
         self.lru.push_back(key.clone());
     }
 }
 
 pub struct NetworkProviderReqwest {
-    has_file_write_access: bool,
+    transport: ReqwestTransport,
     shared_client: reqwest::Client,
-    http2_clients: Mutex<ResponseLimitClientCache>,
+}
+
+pub(crate) struct EventUploadTransport {
+    transport: ReqwestTransport,
+    clients: Mutex<ClientCache<EventUploadClientKey>>,
+}
+
+struct ReqwestTransport {
+    has_file_write_access: OnceLock<bool>,
+    http2_clients: Mutex<ClientCache<ResponseLimitClientKey>>,
     http2_origins: Mutex<HashMap<String, (Instant, Arc<tokio::sync::OnceCell<bool>>)>>,
-    response_limit_clients: Mutex<ResponseLimitClientCache>,
+    response_limit_clients: Mutex<ClientCache<ResponseLimitClientKey>>,
 }
 
 impl NetworkProviderReqwest {
     pub fn new() -> Self {
         Self {
-            has_file_write_access: tempfile::tempfile().is_ok(),
+            transport: ReqwestTransport::new(OnceLock::from(tempfile::tempfile().is_ok())),
             shared_client: reqwest::Client::new(),
-            http2_clients: Mutex::new(ResponseLimitClientCache::default()),
+        }
+    }
+}
+
+impl EventUploadTransport {
+    pub(super) fn new() -> Self {
+        Self {
+            transport: ReqwestTransport::new(OnceLock::new()),
+            clients: Mutex::new(ClientCache::default()),
+        }
+    }
+
+    pub(crate) async fn send(&self, request: NetworkRequest<'_>) -> ResponseLimitOutcome {
+        self.transport
+            .send(
+                request,
+                || self.client(request),
+                || {
+                    self.transport.get_http2_client(
+                        request.args,
+                        ResponseLimitClientKey::for_event_http2(request.args),
+                    )
+                },
+            )
+            .await
+    }
+
+    fn client(&self, request: NetworkRequest<'_>) -> reqwest::Client {
+        if request.redirects_disabled() {
+            return self.transport.get_response_limited_client(request.args);
+        }
+        let args = request.args;
+        if !args.log_event_connection_reuse {
+            return ReqwestTransport::build_client(args, false);
+        }
+        let Some(key) = EventUploadClientKey::from_request_args(args) else {
+            return ReqwestTransport::build_client(args, false);
+        };
+        let mut clients = self.clients.lock();
+        if let Some(client) = clients.get(&key) {
+            return client;
+        }
+        let (client, cacheable) = ReqwestTransport::build_client_with_cache_status(args, false);
+        if cacheable {
+            clients.insert(key, client.clone());
+        }
+        client
+    }
+}
+
+impl ReqwestTransport {
+    fn new(has_file_write_access: OnceLock<bool>) -> Self {
+        Self {
+            has_file_write_access,
+            http2_clients: Mutex::new(ClientCache::default()),
             http2_origins: Mutex::new(HashMap::new()),
-            response_limit_clients: Mutex::new(ResponseLimitClientCache::default()),
+            response_limit_clients: Mutex::new(ClientCache::default()),
         }
     }
 }
@@ -207,11 +337,20 @@ impl Default for NetworkProviderReqwest {
 #[async_trait]
 impl NetworkProvider for NetworkProviderReqwest {
     async fn send(&self, method: &HttpMethod, args: &RequestArgs) -> Response {
-        self.send_impl(method, args, false).await
+        self.send_default(NetworkRequest::new(method, args))
+            .await
+            .into_parts()
+            .0
     }
 
     async fn send_without_redirects(&self, method: &HttpMethod, args: &RequestArgs) -> Response {
-        self.send_impl(method, args, true).await
+        self.send_default(NetworkRequest {
+            disable_redirects: true,
+            ..NetworkRequest::new(method, args)
+        })
+        .await
+        .into_parts()
+        .0
     }
 
     async fn send_http2_preferred(
@@ -221,6 +360,91 @@ impl NetworkProvider for NetworkProviderReqwest {
         max_response_bytes: Option<u64>,
         disable_redirects: bool,
     ) -> ResponseLimitOutcome {
+        self.send_default(NetworkRequest {
+            method,
+            args,
+            prefer_http2: true,
+            max_response_bytes,
+            disable_redirects,
+        })
+        .await
+    }
+
+    async fn send_with_response_limit(
+        &self,
+        method: &HttpMethod,
+        args: &RequestArgs,
+        max_response_bytes: u64,
+    ) -> ResponseLimitOutcome {
+        self.send_default(NetworkRequest {
+            max_response_bytes: Some(max_response_bytes),
+            disable_redirects: true,
+            ..NetworkRequest::new(method, args)
+        })
+        .await
+    }
+}
+
+impl NetworkProviderReqwest {
+    fn should_use_shared_client(&self, request_args: &RequestArgs) -> bool {
+        if request_args.proxy_config.is_some() || request_args.ca_cert_pem.is_some() {
+            return false;
+        }
+
+        (request_args.log_event_connection_reuse
+            && (is_log_event_endpoint(&request_args.url)
+                || is_config_sync_endpoint(&request_args.url)))
+            || is_sdk_exception_endpoint(&request_args.url)
+    }
+
+    fn get_client(&self, args: &RequestArgs, disable_redirects: bool) -> reqwest::Client {
+        if disable_redirects {
+            return self.transport.get_response_limited_client(args);
+        }
+        if self.should_use_shared_client(args) {
+            self.shared_client.clone()
+        } else {
+            ReqwestTransport::build_client(args, false)
+        }
+    }
+
+    fn http2_client(&self, args: &RequestArgs) -> Result<reqwest::Client, String> {
+        self.transport
+            .get_http2_client(args, ResponseLimitClientKey::for_http2(args))
+    }
+
+    async fn send_default(&self, request: NetworkRequest<'_>) -> ResponseLimitOutcome {
+        self.transport
+            .send(
+                request,
+                || self.get_client(request.args, request.redirects_disabled()),
+                || self.http2_client(request.args),
+            )
+            .await
+    }
+
+    pub(crate) async fn send_fresh_event_upload(
+        &self,
+        request: NetworkRequest<'_>,
+    ) -> ResponseLimitOutcome {
+        self.transport
+            .send(
+                request,
+                || ReqwestTransport::build_client(request.args, request.redirects_disabled()),
+                || self.transport.get_http2_client(request.args, None),
+            )
+            .await
+    }
+}
+
+impl ReqwestTransport {
+    async fn send(
+        &self,
+        request: NetworkRequest<'_>,
+        select_client: impl FnOnce() -> reqwest::Client,
+        select_http2_client: impl FnOnce() -> Result<reqwest::Client, String>,
+    ) -> ResponseLimitOutcome {
+        let args = request.args;
         if args
             .is_shutdown
             .as_ref()
@@ -230,12 +454,17 @@ impl NetworkProvider for NetworkProviderReqwest {
                 "Request was shutdown",
             ));
         }
+        let mut received_status = None;
+        if !request.prefer_http2 {
+            return self
+                .send_with_client(request, select_client(), false, &mut received_status)
+                .await;
+        }
         let budget = Duration::from_millis(if args.timeout_ms == 0 {
             10_000
         } else {
             args.timeout_ms
         });
-        let mut received_status = None;
         tokio::time::timeout(budget, async {
             let use_http2 = self.plaintext_http2_available(args, budget).await;
             if args
@@ -248,7 +477,7 @@ impl NetworkProvider for NetworkProviderReqwest {
                 ));
             }
             let client = if use_http2 {
-                match self.get_http2_client(args, true) {
+                match select_http2_client() {
                     Ok(client) => client,
                     Err(error) => {
                         return ResponseLimitOutcome::Unsupported(request_configuration_error(
@@ -259,24 +488,10 @@ impl NetworkProvider for NetworkProviderReqwest {
             } else {
                 // HTTPS already negotiates h2/http1.1 with ALPN. Unknown or proxied
                 // cleartext receivers use the existing transport before any payload is sent.
-                self.get_client(args, max_response_bytes.is_some() || disable_redirects)
+                select_client()
             };
-            let request = Self::build_request_with_client(&client, method, args);
-            let response = if use_http2 && max_response_bytes.is_none() {
-                self.send_http2_with_redirects(args, request, disable_redirects)
-                    .await
-            } else {
-                request.send().await
-            };
-            // Keep the final status if the total attempt budget expires while reading
-            // the body, so a terminal response cannot become a retryable timeout.
-            received_status = response.as_ref().ok().map(|value| value.status().as_u16());
-            match max_response_bytes {
-                Some(limit) => self.read_limited_response(args, response, limit).await,
-                None => ResponseLimitOutcome::Response(
-                    self.read_unlimited_response(args, response).await,
-                ),
-            }
+            self.send_with_client(request, client, use_http2, &mut received_status)
+                .await
         })
         .await
         .unwrap_or_else(|_| {
@@ -288,18 +503,33 @@ impl NetworkProvider for NetworkProviderReqwest {
         })
     }
 
-    async fn send_with_response_limit(
+    async fn send_with_client(
         &self,
-        method: &HttpMethod,
-        args: &RequestArgs,
-        max_response_bytes: u64,
+        request: NetworkRequest<'_>,
+        client: reqwest::Client,
+        use_http2: bool,
+        received_status: &mut Option<u16>,
     ) -> ResponseLimitOutcome {
-        self.send_with_response_limit_impl(method, args, max_response_bytes)
-            .await
+        let builder = Self::build_request_with_client(&client, request.method, request.args);
+        let response = if use_http2 && request.max_response_bytes.is_none() {
+            self.send_http2_with_redirects(request.args, builder, request.disable_redirects)
+                .await
+        } else {
+            builder.send().await
+        };
+        // Preserve the status if a total HTTP/2 attempt deadline expires while reading the body.
+        *received_status = response.as_ref().ok().map(|value| value.status().as_u16());
+        match request.max_response_bytes {
+            Some(limit) => {
+                self.read_limited_response(request.args, response, limit)
+                    .await
+            }
+            None => ResponseLimitOutcome::Response(
+                self.read_unlimited_response(request.args, response).await,
+            ),
+        }
     }
-}
 
-impl NetworkProviderReqwest {
     async fn plaintext_http2_available(
         &self,
         args: &RequestArgs,
@@ -432,31 +662,6 @@ impl NetworkProviderReqwest {
         client.execute(redirected).await
     }
 
-    async fn send_impl(
-        &self,
-        method: &HttpMethod,
-        args: &RequestArgs,
-        disable_redirects: bool,
-    ) -> Response {
-        if let Some(is_shutdown) = &args.is_shutdown {
-            if is_shutdown.load(std::sync::atomic::Ordering::SeqCst) {
-                return Response {
-                    status_code: None,
-                    data: None,
-                    error: Some("Request was shutdown".to_string()),
-                };
-            }
-        }
-
-        let request = self.build_request(method, args, disable_redirects);
-        self.send_request(args, request).await
-    }
-
-    async fn send_request(&self, args: &RequestArgs, request: reqwest::RequestBuilder) -> Response {
-        self.read_unlimited_response(args, request.send().await)
-            .await
-    }
-
     async fn read_unlimited_response(
         &self,
         args: &RequestArgs,
@@ -470,12 +675,11 @@ impl NetworkProviderReqwest {
             Ok(response) => {
                 status_code = Some(response.status().as_u16());
 
-                let data_result =
-                    if !self.has_file_write_access || args.disable_file_streaming == Some(true) {
-                        Self::write_unlimited_response_to_in_memory_buffer(response).await
-                    } else {
-                        Self::write_unlimited_response_to_temp_file(response).await
-                    };
+                let data_result = if self.can_stream_to_file(args) {
+                    Self::write_unlimited_response_to_temp_file(response).await
+                } else {
+                    Self::write_unlimited_response_to_in_memory_buffer(response).await
+                };
 
                 match data_result {
                     Ok(response_data) => data = Some(response_data),
@@ -496,37 +700,6 @@ impl NetworkProviderReqwest {
             error,
         }
     }
-    async fn send_with_response_limit_impl(
-        &self,
-        method: &HttpMethod,
-        args: &RequestArgs,
-        max_response_bytes: u64,
-    ) -> ResponseLimitOutcome {
-        if let Some(is_shutdown) = &args.is_shutdown {
-            if is_shutdown.load(std::sync::atomic::Ordering::SeqCst) {
-                return ResponseLimitOutcome::Response(Response {
-                    status_code: None,
-                    data: None,
-                    error: Some("Request was shutdown".to_string()),
-                });
-            }
-        }
-
-        let request = self.build_request(method, args, true);
-        self.send_limited_request(args, request, max_response_bytes)
-            .await
-    }
-
-    async fn send_limited_request(
-        &self,
-        args: &RequestArgs,
-        request: reqwest::RequestBuilder,
-        max_response_bytes: u64,
-    ) -> ResponseLimitOutcome {
-        self.read_limited_response(args, request.send().await, max_response_bytes)
-            .await
-    }
-
     async fn read_limited_response(
         &self,
         args: &RequestArgs,
@@ -542,13 +715,12 @@ impl NetworkProviderReqwest {
             Ok(response) => {
                 status_code = Some(response.status().as_u16());
 
-                let data_result =
-                    if !self.has_file_write_access || args.disable_file_streaming == Some(true) {
-                        Self::write_response_to_in_memory_buffer(response, Some(max_response_bytes))
-                            .await
-                    } else {
-                        Self::write_response_to_temp_file(response, Some(max_response_bytes)).await
-                    };
+                let data_result = if self.can_stream_to_file(args) {
+                    Self::write_response_to_temp_file(response, Some(max_response_bytes)).await
+                } else {
+                    Self::write_response_to_in_memory_buffer(response, Some(max_response_bytes))
+                        .await
+                };
 
                 match data_result {
                     Ok(response_data) => data = Some(response_data),
@@ -576,14 +748,11 @@ impl NetworkProviderReqwest {
         }
     }
 
-    fn build_request(
-        &self,
-        method: &HttpMethod,
-        request_args: &RequestArgs,
-        disable_redirects: bool,
-    ) -> reqwest::RequestBuilder {
-        let client = self.get_client(request_args, disable_redirects);
-        Self::build_request_with_client(&client, method, request_args)
+    fn can_stream_to_file(&self, args: &RequestArgs) -> bool {
+        args.disable_file_streaming != Some(true)
+            && *self
+                .has_file_write_access
+                .get_or_init(|| tempfile::tempfile().is_ok())
     }
 
     fn build_request_with_client(
@@ -629,19 +798,6 @@ impl NetworkProviderReqwest {
         request
     }
 
-    fn get_client(&self, request_args: &RequestArgs, disable_redirects: bool) -> reqwest::Client {
-        if disable_redirects {
-            // Reuse the redirect-disabled clients already used by response-limited requests.
-            return self.get_response_limited_client(request_args);
-        }
-
-        if !self.should_use_shared_client(request_args) {
-            return Self::build_client(request_args, false);
-        }
-
-        self.shared_client.clone()
-    }
-
     fn get_response_limited_client(&self, request_args: &RequestArgs) -> reqwest::Client {
         let key = ResponseLimitClientKey::from_request_args(request_args);
         let mut clients = self.response_limit_clients.lock();
@@ -657,23 +813,21 @@ impl NetworkProviderReqwest {
     fn get_http2_client(
         &self,
         args: &RequestArgs,
-        disable_redirects: bool,
+        key: Option<ResponseLimitClientKey>,
     ) -> Result<reqwest::Client, String> {
-        let mut key = ResponseLimitClientKey::from_request_args(args);
-        key.disable_redirects = disable_redirects;
         let mut clients = self.http2_clients.lock();
-        if args.log_event_connection_reuse {
-            if let Some(client) = clients.get(&key) {
+        if let Some(key) = &key {
+            if let Some(client) = clients.get(key) {
                 return Ok(client);
             }
         }
 
-        let mut builder = reqwest::Client::builder().http2_prior_knowledge();
-        if disable_redirects {
-            builder = builder.redirect(Policy::none());
-        }
+        // The HTTP/2 send path handles redirects explicitly so it can preserve method and header rules.
+        let mut builder = reqwest::Client::builder()
+            .http2_prior_knowledge()
+            .redirect(Policy::none());
         if let Some(proxy) = &args.proxy_config {
-            builder = Self::configure_proxy(builder, proxy);
+            builder = Self::configure_proxy(builder, proxy).0;
         }
         if let Some(pem) = &args.ca_cert_pem {
             let certs = reqwest::Certificate::from_pem_bundle(pem)
@@ -688,32 +842,30 @@ impl NetworkProviderReqwest {
         let client = builder
             .build()
             .map_err(|error| format!("Failed to build HTTP/2 client: {error}"))?;
-        if args.log_event_connection_reuse {
+        if let Some(key) = key {
             clients.insert(key, client.clone());
         }
         Ok(client)
     }
-
-    fn should_use_shared_client(&self, request_args: &RequestArgs) -> bool {
-        if request_args.proxy_config.is_some() || request_args.ca_cert_pem.is_some() {
-            return false;
-        }
-
-        (request_args.log_event_connection_reuse
-            && (is_log_event_endpoint(&request_args.url)
-                || is_config_sync_endpoint(&request_args.url)))
-            || is_sdk_exception_endpoint(&request_args.url)
+    fn build_client(request_args: &RequestArgs, disable_redirects: bool) -> reqwest::Client {
+        Self::build_client_with_cache_status(request_args, disable_redirects).0
     }
 
-    fn build_client(request_args: &RequestArgs, disable_redirects: bool) -> reqwest::Client {
+    fn build_client_with_cache_status(
+        request_args: &RequestArgs,
+        disable_redirects: bool,
+    ) -> (reqwest::Client, bool) {
         let mut client_builder = reqwest::Client::builder();
+        let mut cacheable = true;
         if disable_redirects {
             client_builder = client_builder.redirect(Policy::none());
         }
 
         // configure proxy if available
         if let Some(proxy_config) = request_args.proxy_config.as_ref() {
-            client_builder = Self::configure_proxy(client_builder, proxy_config);
+            let (configured, proxy_valid) = Self::configure_proxy(client_builder, proxy_config);
+            client_builder = configured;
+            cacheable = proxy_valid && !configured_ca_missing(request_args, proxy_config);
         }
 
         if let Some(ca_cert_pem) = &request_args.ca_cert_pem {
@@ -723,14 +875,22 @@ impl NetworkProviderReqwest {
                 }
                 Err(e) => {
                     log_e!(TAG, "Failed to parse network CA cert PEM: {}", e);
+                    cacheable = false;
                 }
             }
         }
 
-        client_builder.build().unwrap_or_else(|e| {
-            log_e!(TAG, "Failed to build reqwest client with proxy config: {}. Falling back to default client.", e);
-            Self::build_default_client(disable_redirects)
-        })
+        match client_builder.build() {
+            Ok(client) => (client, cacheable),
+            Err(e) => {
+                log_e!(
+                    TAG,
+                    "Failed to build reqwest client with proxy config: {}. Falling back to default client.",
+                    e
+                );
+                (Self::build_default_client(disable_redirects), false)
+            }
+        }
     }
 
     fn build_default_client(disable_redirects: bool) -> reqwest::Client {
@@ -747,25 +907,18 @@ impl NetworkProviderReqwest {
     fn configure_proxy(
         client_builder: reqwest::ClientBuilder,
         proxy_config: &ProxyConfig,
-    ) -> reqwest::ClientBuilder {
-        let (Some(host), Some(port)) = (&proxy_config.proxy_host, &proxy_config.proxy_port) else {
-            return client_builder;
+    ) -> (reqwest::ClientBuilder, bool) {
+        let Some(proxy_url) = Self::proxy_url(proxy_config) else {
+            return (client_builder, Self::proxy_unset(proxy_config));
         };
-
-        let proxy_url = format!(
-            "{}://{}:{}",
-            proxy_config.proxy_protocol.as_deref().unwrap_or("http"),
-            host,
-            port
-        );
 
         let Ok(proxy) = reqwest::Proxy::all(&proxy_url) else {
             log_w!(TAG, "Failed to create proxy for URL: {}", proxy_url);
-            return client_builder;
+            return (client_builder, false);
         };
 
         let Some(auth) = &proxy_config.proxy_auth else {
-            return client_builder.proxy(proxy);
+            return (client_builder.proxy(proxy), true);
         };
 
         let Some((username, password)) = auth.split_once(':') else {
@@ -773,12 +926,33 @@ impl NetworkProviderReqwest {
                 TAG,
                 "Invalid proxy auth format. Expected 'username:password'"
             );
-            return client_builder.proxy(proxy);
+            return (client_builder.proxy(proxy), false);
         };
 
-        client_builder.proxy(proxy.basic_auth(username, password))
+        (
+            client_builder.proxy(proxy.basic_auth(username, password)),
+            true,
+        )
     }
 
+    fn proxy_url(proxy_config: &ProxyConfig) -> Option<String> {
+        Some(format!(
+            "{}://{}:{}",
+            proxy_config.proxy_protocol.as_deref().unwrap_or("http"),
+            proxy_config.proxy_host.as_ref()?,
+            proxy_config.proxy_port?,
+        ))
+    }
+
+    fn proxy_unset(proxy_config: &ProxyConfig) -> bool {
+        proxy_config.proxy_host.is_none()
+            && proxy_config.proxy_port.is_none()
+            && proxy_config.proxy_auth.is_none()
+            && proxy_config.proxy_protocol.is_none()
+    }
+}
+
+impl ReqwestTransport {
     async fn write_unlimited_response_to_temp_file(
         response: reqwest::Response,
     ) -> Result<ResponseData, StatsigErr> {
@@ -981,6 +1155,10 @@ fn get_response_headers(response: &reqwest::Response) -> Option<HashMap<String, 
 mod http2_tests;
 
 #[cfg(test)]
+#[path = "../__tests__/net_provider_reqwest_event_upload_tests.rs"]
+mod event_upload_tests;
+
+#[cfg(test)]
 #[path = "../__tests__/net_provider_reqwest_shared_bytes_tests.rs"]
 mod shared_bytes_tests;
 
@@ -1079,7 +1257,15 @@ mod tests {
 
         let _ = provider.get_client(&request_args, true);
         let _ = provider.get_client(&request_args, true);
-        assert_eq!(provider.response_limit_clients.lock().entries.len(), 1);
+        assert_eq!(
+            provider
+                .transport
+                .response_limit_clients
+                .lock()
+                .entries
+                .len(),
+            1
+        );
 
         let mut proxied_args = request_args.clone();
         proxied_args.proxy_config = Some(ProxyConfig {
@@ -1090,7 +1276,15 @@ mod tests {
             ca_cert_path: None,
         });
         let _ = provider.get_client(&proxied_args, true);
-        assert_eq!(provider.response_limit_clients.lock().entries.len(), 2);
+        assert_eq!(
+            provider
+                .transport
+                .response_limit_clients
+                .lock()
+                .entries
+                .len(),
+            2
+        );
     }
 
     #[tokio::test]

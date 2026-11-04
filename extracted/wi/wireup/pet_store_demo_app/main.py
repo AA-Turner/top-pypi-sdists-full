@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Hashable, Mapping, Sequence
+
 import wireup
 import wireup.integration.fastapi as wireup_fastapi
 from fastapi import FastAPI
 from wireup._annotations import Injected
 from wireup._decorators import inject_from_container
-from wireup.renderer.full_page import GraphOptions
 from wireup.integration.fastapi import setup
+from wireup.renderer.full_page import GraphOptions
 
 from pet_store_demo_app import factories, fastapi_services, services
 from pet_store_demo_app.cbr import DemoClassBasedHandler
 from pet_store_demo_app.fastapi_services import AuthService
 from pet_store_demo_app.services.adoption import AdoptionService
+from pet_store_demo_app.services.audit import AuditService
 from pet_store_demo_app.services.owners import OwnerService
 from pet_store_demo_app.services.pets import PetCatalogService
 from pet_store_demo_app.services.session import SQLAlchemySession
@@ -22,7 +25,10 @@ app = FastAPI(title="Wireup Pet Store Demo")
 @app.get("/")
 async def index() -> dict[str, str]:
     return {
-        "message": "Visit /pets, /pets/{pet_id}, /pets/{pet_id}/adopt, /owners/{owner_id}, /db-session, /whoami, or /_wireup",
+        "message": (
+            "Visit /pets, /pets/{pet_id}, /pets/{pet_id}/adopt, /owners/{owner_id}, /db-session, /whoami, "
+            "/service-collections, or /_wireup"
+        ),
     }
 
 
@@ -54,6 +60,20 @@ async def transaction_snapshot(service: wireup.Injected[SQLAlchemySession]) -> d
 @app.get("/whoami")
 async def whoami(service: wireup.Injected[AuthService]) -> dict[str, str]:
     return service.describe()
+
+
+@app.get("/service-collections")
+async def service_collections(
+    audit_services: wireup.Injected[Sequence[AuditService]],
+    audit_services_by_qualifier: wireup.Injected[Mapping[Hashable, AuditService]],
+) -> dict[str, object]:
+    return {
+        "sequence": [service.describe() for service in audit_services],
+        "mapping": {
+            "default" if qualifier is None else str(qualifier): service.describe()
+            for qualifier, service in audit_services_by_qualifier.items()
+        },
+    }
 
 
 container = wireup.create_async_container(

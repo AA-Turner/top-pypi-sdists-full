@@ -98,13 +98,14 @@ def sync_detailed(
 ) -> Response[CancelJobRunsResponse | ErrorResponse]:
     """CancelJobRuns
 
-    Cancel the given runs in a single transaction.
+    Requests cancellation of the given runs in a single transaction. Each run moves to
+    `cancelling` and then to `cancelled` once stopped.
 
-    Answers a receipt: `succeeded` runs were cancelled, `skipped` runs were already in a terminal
-    state, `failed` lists ids that name no run in the workspace. Use `dry_run=true` to preview
-    without cancelling.
+    Answers a receipt: `succeeded` runs were moved to `cancelling`, `skipped` runs were already
+    finished or already being cancelled, and `failed` lists ids that name no run in the
+    workspace. Use `dry_run=true` to preview without cancelling.
 
-    Requires WRITE permission on the workspace.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -137,13 +138,14 @@ def sync(
 ) -> CancelJobRunsResponse | ErrorResponse | None:
     """CancelJobRuns
 
-    Cancel the given runs in a single transaction.
+    Requests cancellation of the given runs in a single transaction. Each run moves to
+    `cancelling` and then to `cancelled` once stopped.
 
-    Answers a receipt: `succeeded` runs were cancelled, `skipped` runs were already in a terminal
-    state, `failed` lists ids that name no run in the workspace. Use `dry_run=true` to preview
-    without cancelling.
+    Answers a receipt: `succeeded` runs were moved to `cancelling`, `skipped` runs were already
+    finished or already being cancelled, and `failed` lists ids that name no run in the
+    workspace. Use `dry_run=true` to preview without cancelling.
 
-    Requires WRITE permission on the workspace.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -171,13 +173,14 @@ async def asyncio_detailed(
 ) -> Response[CancelJobRunsResponse | ErrorResponse]:
     """CancelJobRuns
 
-    Cancel the given runs in a single transaction.
+    Requests cancellation of the given runs in a single transaction. Each run moves to
+    `cancelling` and then to `cancelled` once stopped.
 
-    Answers a receipt: `succeeded` runs were cancelled, `skipped` runs were already in a terminal
-    state, `failed` lists ids that name no run in the workspace. Use `dry_run=true` to preview
-    without cancelling.
+    Answers a receipt: `succeeded` runs were moved to `cancelling`, `skipped` runs were already
+    finished or already being cancelled, and `failed` lists ids that name no run in the
+    workspace. Use `dry_run=true` to preview without cancelling.
 
-    Requires WRITE permission on the workspace.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -208,13 +211,14 @@ async def asyncio(
 ) -> CancelJobRunsResponse | ErrorResponse | None:
     """CancelJobRuns
 
-    Cancel the given runs in a single transaction.
+    Requests cancellation of the given runs in a single transaction. Each run moves to
+    `cancelling` and then to `cancelled` once stopped.
 
-    Answers a receipt: `succeeded` runs were cancelled, `skipped` runs were already in a terminal
-    state, `failed` lists ids that name no run in the workspace. Use `dry_run=true` to preview
-    without cancelling.
+    Answers a receipt: `succeeded` runs were moved to `cancelling`, `skipped` runs were already
+    finished or already being cancelled, and `failed` lists ids that name no run in the
+    workspace. Use `dry_run=true` to preview without cancelling.
 
-    Requires WRITE permission on the workspace.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

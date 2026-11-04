@@ -55,6 +55,7 @@ from cmdstanpy.utils import (
     do_command,
     get_logger,
 )
+from cmdstanpy.utils.deprecation import deprecate_positional_args
 from cmdstanpy.utils.filesystem import (
     temp_inits,
     temp_metrics,
@@ -468,9 +469,11 @@ class CmdStanModel:
             user_header=self._compiler_options.user_header,
         )
 
+    @deprecate_positional_args(last_deprecated="jacobian")
     def optimize(
         self,
         data: Union[Mapping[str, Any], str, os.PathLike, None] = None,
+        *,
         seed: Optional[int] = None,
         inits: Union[Mapping[str, Any], float, str, os.PathLike, None] = None,
         output_dir: OptionalPath = None,
@@ -492,7 +495,6 @@ class CmdStanModel:
         time_fmt: str = "%Y%m%d%H%M%S",
         timeout: Optional[float] = None,
         jacobian: bool = False,
-        # would be nice to move this further up, but that's a breaking change
     ) -> CmdStanMLE:
         """
         Run the specified CmdStan optimize algorithm to produce a
@@ -660,9 +662,11 @@ class CmdStanModel:
         return mle
 
     # pylint: disable=too-many-arguments
+    @deprecate_positional_args(last_deprecated="timeout")
     def sample(
         self,
         data: Union[Mapping[str, Any], str, os.PathLike, None] = None,
+        *,
         chains: Optional[int] = None,
         parallel_chains: Optional[int] = None,
         threads_per_chain: Optional[int] = None,
@@ -693,14 +697,13 @@ class CmdStanModel:
         fixed_param: bool = False,
         output_dir: OptionalPath = None,
         sig_figs: Optional[int] = None,
-        save_latent_dynamics: bool = False,
+        save_diagnostics: bool = False,
         save_profile: bool = False,
         show_progress: bool = True,
         show_console: bool = False,
         refresh: Optional[int] = None,
         time_fmt: str = "%Y%m%d%H%M%S",
         timeout: Optional[float] = None,
-        *,
         force_one_process_per_chain: Optional[bool] = None,
         inv_metric: Union[
             str,
@@ -709,6 +712,7 @@ class CmdStanModel:
             list[Union[str, np.ndarray, Mapping[str, Any]]],
             None,
         ] = None,
+        save_latent_dynamics: Optional[bool] = None,
     ) -> CmdStanMCMC:
         """
         Run or more chains of the NUTS-HMC sampler to produce a set of draws
@@ -907,6 +911,13 @@ class CmdStanModel:
         if fixed_param is None:
             fixed_param = self._fixed_param
 
+        if save_latent_dynamics is not None:
+            get_logger().warning(
+                "Argument name `save_latent_dynamics` is deprecated, please "
+                "rename to `save_diagnostics`."
+            )
+            save_diagnostics = save_latent_dynamics  # type: ignore
+
         if chains is None:
             chains = 4
         if chains < 1:
@@ -1092,7 +1103,7 @@ class CmdStanModel:
                 inits=cmdstan_inits,
                 output_dir=output_dir,
                 sig_figs=sig_figs,
-                save_latent_dynamics=save_latent_dynamics,
+                save_latent_dynamics=save_diagnostics,
                 save_profile=save_profile,
                 method_args=sampler_args,
                 refresh=refresh,
@@ -1190,10 +1201,12 @@ class CmdStanModel:
             mcmc = CmdStanMCMC(runset)
         return mcmc
 
+    @deprecate_positional_args(last_deprecated="timeout")
     def generate_quantities(
         self,
         data: Union[Mapping[str, Any], str, os.PathLike, None] = None,
         previous_fit: Union[Fit, list[str], None] = None,
+        *,
         seed: Optional[int] = None,
         gq_output_dir: OptionalPath = None,
         sig_figs: Optional[int] = None,
@@ -1201,7 +1214,6 @@ class CmdStanModel:
         refresh: Optional[int] = None,
         time_fmt: str = "%Y%m%d%H%M%S",
         timeout: Optional[float] = None,
-        *,
         mcmc_sample: Union[CmdStanMCMC, list[str], None] = None,
     ) -> CmdStanGQ[Fit]:
         """
@@ -1383,14 +1395,16 @@ class CmdStanModel:
             quantities = CmdStanGQ(runset=runset, previous_fit=fit_object)
         return quantities
 
+    @deprecate_positional_args(last_deprecated="timeout")
     def variational(
         self,
         data: Union[Mapping[str, Any], str, os.PathLike, None] = None,
+        *,
         seed: Optional[int] = None,
         inits: Optional[float] = None,
         output_dir: OptionalPath = None,
         sig_figs: Optional[int] = None,
-        save_latent_dynamics: bool = False,
+        save_diagnostics: bool = False,
         save_profile: bool = False,
         algorithm: Optional[str] = None,
         iter: Optional[int] = None,
@@ -1407,8 +1421,8 @@ class CmdStanModel:
         refresh: Optional[int] = None,
         time_fmt: str = "%Y%m%d%H%M%S",
         timeout: Optional[float] = None,
-        *,
         output_samples: Optional[int] = None,
+        save_latent_dynamics: Optional[bool] = None,
     ) -> CmdStanVB:
         """
         Run CmdStan's variational inference algorithm to approximate
@@ -1520,6 +1534,13 @@ class CmdStanModel:
 
             draws = output_samples
 
+        if save_latent_dynamics is not None:
+            get_logger().warning(
+                "Argument name `save_latent_dynamics` is deprecated, please "
+                "rename to `save_diagnostics`."
+            )
+            save_diagnostics = save_latent_dynamics  # type: ignore
+
         variational_args = VariationalArgs(
             algorithm=algorithm,
             iter=iter,
@@ -1546,7 +1567,7 @@ class CmdStanModel:
                 inits=_inits,
                 output_dir=output_dir,
                 sig_figs=sig_figs,
-                save_latent_dynamics=save_latent_dynamics,
+                save_latent_dynamics=save_diagnostics,
                 save_profile=save_profile,
                 method_args=variational_args,
                 refresh=refresh,

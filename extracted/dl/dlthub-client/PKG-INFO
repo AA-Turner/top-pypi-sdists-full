@@ -1,26 +1,30 @@
 Metadata-Version: 2.5
 Name: dlthub-client
-Version: 0.28.7
-Summary: CLI tool for accessing dltHub runtime
+Version: 0.28.8
+Summary: dltHub Runtime client: the dlthub CLI commands, MCP tools and the dlthub_sdk Python SDK
+Project-URL: Homepage, https://dlthub.com
+Project-URL: Documentation, https://dlthub.com/docs/hub/introduction
+Project-URL: CLI reference, https://dlthub.com/docs/hub/command-line-interface
+Project-URL: SDK reference, https://dlthub.com/docs/hub/reference/python-sdk
+Project-URL: API reference, https://dlthub.com/docs/hub/reference/api
 Author-email: "dltHub Inc." <services@dlthub.com>
-Maintainer-email: Marcin Rudolf <marcin@dlthub.com>, David Sharf <dave@dlthub.com>
+Maintainer-email: Marcin Rudolf <marcin@dlthub.com>, David Scharf <david@dlthub.com>
 License-Expression: Apache-2.0
 License-File: LICENSE.txt
-Keywords: etl
-Classifier: Development Status :: 5 - Production/Stable
+Keywords: cli,data-pipelines,dlt,dlthub,etl,mcp,sdk
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.15,>=3.11
 Requires-Dist: attrs>=23.2.0
 Requires-Dist: cron-descriptor>=1.2.32
 Requires-Dist: croniter>=6.0.0
@@ -51,20 +55,101 @@ Description-Content-Type: text/markdown
   </a>
 </div>
 
-`dlthub-client` is an extension to the open source data load tool ([dlt]((https://dlthub.com/docs/))) that implements
-**dltHub Runtime** API Client and extends the `dlt` command line with `dlt runtime` command. Overall it enables `dlt` users
-to quickly deploy and run their pipelines, datasets, notebooks and mcp servers.
+`dlthub-client` connects the open source data load tool ([dlt](https://dlthub.com/docs/)) to the **dltHub Runtime**,
+where you deploy, run and monitor pipelines, notebooks and apps. It contains:
 
+- **`dlthub` CLI commands**: `login`, `deploy`, `run`, `serve`, `job`, `workspace`, `variable`, `dashboard` and more,
+  added to the `dlthub` command as a plugin.
+- **MCP tools** that let a coding agent inspect jobs, runs, logs, configuration and pipeline telemetry, served by
+  `dlthub ai mcp`.
+- **`dlthub_sdk`**, a typed Python SDK, blocking and `asyncio`, for scripts, CI and services that call the platform.
+
+> **Note:** The Python SDK is in public preview. Its interface is stable and will only be extended, but its packaging
+> may still change: it can move to another PyPI package and another top-level package name than `dlthub_sdk`.
 
 ## Installation
 
-`dlthub-client` supports Python 3.10 and above and is a plugin (based on [pluggy](https://github.com/pytest-dev/pluggy)) Use `hub` extra on `dlt` to pick the matching plugin version:
+`dlthub-client` supports Python 3.11 and above.
+
+For the CLI and the MCP tools, install `dlt` with the `hub` extra. It brings the `dlthub` command and a matching
+`dlthub-client`:
 
 ```sh
 pip install "dlt[hub]"
 ```
 
+For the SDK alone, `dlthub-client` is enough. The SDK does not depend on `dlt`:
+
+```sh
+pip install dlthub-client
+```
+
+## CLI
+
+The Runtime commands appear inside a dlthub workspace. Create one, log in and deploy:
+
+```sh
+dlthub init
+dlthub login
+dlthub deploy
+```
+
+`dlthub run <script>` deploys and runs a batch job, `dlthub serve <notebook>` serves an interactive one, and
+`dlthub job` and `dlthub workspace` manage what is deployed. Every command is listed in the
+[CLI reference](https://dlthub.com/docs/hub/command-line-interface).
+
+## MCP tools
+
+The tools are opt-in features of the dlthub MCP server, which a workspace created with `dlthub init` comes with.
+Run it with the features you need:
+
+```sh
+dlthub ai mcp run --features=+dlthub.jobs,+dlthub.logs
+```
+
+The features are `dlthub.jobs`, `dlthub.logs`, `dlthub.config`, `dlthub.telemetry` and `dlthub.restore_pipeline`.
+`dlthub ai mcp install --agent claude` (or `cursor`, `codex`) writes the server into your agent's configuration.
+
+## Python SDK
+
+Create an API key in the [dltHub web app](https://app.dlthub.com): a personal key (`dlt_u_`) in your account settings,
+or a workspace key (`dlt_sa_`) in the workspace settings. Connect with it, then navigate from the runtime to the objects you need:
+
+```py
+import dlthub_sdk
+
+runtime = dlthub_sdk.connect(token="dlt_u_...")
+ws = runtime.workspaces.get(id="...")
+
+for job in ws.jobs.list():
+    print(job.job_ref, job.is_paused)
+
+for result in ws.jobs.trigger(refs=["jobs.my_pipeline"]):
+    if result.started:
+        run = ws.job_runs.get(id=result.job_run_id).wait()
+        print(run.status)
+```
+
+`connect_async` returns the same surface for `asyncio`: calls to the platform are awaited and listings are async
+iterables.
+
+```py
+runtime = dlthub_sdk.connect_async(token="dlt_u_...")
+ws = await runtime.workspaces.get(id="...")
+async for job in ws.jobs.list():
+    print(job.job_ref)
+```
+
+Every failure raises a subclass of `dlthub_sdk.DlthubError` (`NotAuthenticated`, `NotFound`, `NotAuthorized`,
+`Conflict`, `ServerError`, ...). When the platform sends a stable `code`, branch on it rather than on the message. For a token that rotates, pass `credentials=` instead of
+`token=`. The SDK reads it before each request and renews it once if the platform rejects it.
+
+The package is fully typed (`py.typed`). See the [Python SDK reference](https://dlthub.com/docs/hub/reference/python-sdk)
+for every object and method.
 
 ## Documentation
 
-Learn more in the [dltHub docs](https://dlthub.com/docs/hub/introduction).
+- [CLI reference](https://dlthub.com/docs/hub/command-line-interface): every `dlthub` command and its options.
+- [Python SDK reference](https://dlthub.com/docs/hub/reference/python-sdk): the public `dlthub_sdk` API.
+- [REST API reference](https://dlthub.com/docs/hub/reference/api): the HTTP API the CLI and SDK are built on.
+- [dltHub docs](https://dlthub.com/docs/hub/introduction): concepts and guides for the platform.

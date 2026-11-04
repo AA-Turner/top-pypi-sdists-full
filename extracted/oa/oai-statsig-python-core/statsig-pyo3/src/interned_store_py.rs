@@ -85,26 +85,23 @@ pub struct InternedStorePy;
 #[pymethods]
 impl InternedStorePy {
     #[classmethod]
-    pub fn preload(_cls: &Bound<'_, PyType>, data: &Bound<'_, PyBytes>) -> PyResult<()> {
-        let bytes: &[u8] = data.as_bytes();
-
-        if let Err(e) = InternedStore::preload(bytes) {
-            log_e!(TAG, "Failed to preload interned store: {}", e);
-            return Err(PyRuntimeError::new_err(e.to_string()));
-        }
-
-        Ok(())
-    }
-
-    #[classmethod]
-    pub fn preload_multi(_cls: &Bound<'_, PyType>, data: Vec<Bound<'_, PyBytes>>) -> PyResult<()> {
-        let bytes: Vec<&[u8]> = data.iter().map(|data| data.as_bytes()).collect();
-
+    pub fn preload(
+        _cls: &Bound<'_, PyType>,
+        #[gen_stub(override_type(
+            type_repr = "typing.Union[builtins.bytes, typing.List[builtins.bytes]]"
+        ))]
+        data: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let payloads = if let Ok(single) = data.cast::<PyBytes>() {
+            vec![single.clone()]
+        } else {
+            data.extract::<Vec<Bound<'_, PyBytes>>>()?
+        };
+        let bytes: Vec<&[u8]> = payloads.iter().map(|data| data.as_bytes()).collect();
         if let Err(e) = InternedStore::preload_multi(&bytes) {
             log_e!(TAG, "Failed to preload interned store: {}", e);
             return Err(PyRuntimeError::new_err(e.to_string()));
         }
-
         Ok(())
     }
 
@@ -153,23 +150,6 @@ impl InternedStorePy {
     }
 
     #[classmethod]
-    #[pyo3(signature = (sdk_key, *, precompute_returnable_stable_hashes=false))]
-    pub fn preload_mmap(
-        cls: &Bound<'_, PyType>,
-        sdk_key: &str,
-        precompute_returnable_stable_hashes: bool,
-    ) -> PyResult<()> {
-        let options = MmapPreloadOptions {
-            precompute_returnable_stable_hashes,
-        };
-        if let Err(e) = InternedStore::preload_mmap_with_options(sdk_key, &options) {
-            log_e!(TAG, "Failed to load mmap data: {}", e);
-            return Err(to_python_error(cls.py(), &e));
-        }
-
-        Ok(())
-    }
-    #[classmethod]
     pub fn mmap_reader_memory_snapshot(
         _cls: &Bound<'_, PyType>,
         py: Python<'_>,
@@ -185,33 +165,44 @@ impl InternedStorePy {
     }
 
     #[classmethod]
-    #[pyo3(signature = (required_sdk_keys, optional_sdk_keys=None, *, precompute_returnable_stable_hashes=false))]
-    pub fn preload_mmap_multi(
+    #[pyo3(signature = (required=None, *, optional=None, precompute_returnable_stable_hashes=false))]
+    pub fn preload_mmap(
         cls: &Bound<'_, PyType>,
-        required_sdk_keys: Vec<String>,
-        optional_sdk_keys: Option<Vec<String>>,
+        #[gen_stub(override_type(
+            type_repr = "typing.Optional[typing.Union[builtins.str, typing.List[builtins.str]]]"
+        ))]
+        required: Option<&Bound<'_, PyAny>>,
+        #[gen_stub(override_type(
+            type_repr = "typing.Optional[typing.Union[builtins.str, typing.List[builtins.str]]]"
+        ))]
+        optional: Option<&Bound<'_, PyAny>>,
         precompute_returnable_stable_hashes: bool,
     ) -> PyResult<MmapPreloadReportPy> {
-        let optional_sdk_keys = optional_sdk_keys.unwrap_or_default();
-        let required = required_sdk_keys
-            .iter()
-            .map(String::as_str)
-            .collect::<Vec<_>>();
-        let optional = optional_sdk_keys
-            .iter()
-            .map(String::as_str)
-            .collect::<Vec<_>>();
+        let required_keys = extract_sdk_keys(required)?;
+        let optional_keys = extract_sdk_keys(optional)?;
+        let required = required_keys.iter().map(String::as_str).collect::<Vec<_>>();
+        let optional = optional_keys.iter().map(String::as_str).collect::<Vec<_>>();
 
         let options = MmapPreloadOptions {
             precompute_returnable_stable_hashes,
         };
-        match InternedStore::preload_mmap_multi_with_options(&required, &optional, &options) {
+        match InternedStore::preload_mmap(&required, &optional, &options) {
             Ok(report) => Ok(report.into()),
             Err(error) => {
                 log_e!(TAG, "Failed to load mmap data: {}", error);
                 Err(to_python_error(cls.py(), &error))
             }
         }
+    }
+}
+
+fn extract_sdk_keys(value: Option<&Bound<'_, PyAny>>) -> PyResult<Vec<String>> {
+    match value {
+        None => Ok(Vec::new()),
+        Some(value) => match value.extract::<String>() {
+            Ok(key) => Ok(vec![key]),
+            Err(_) => value.extract::<Vec<String>>(),
+        },
     }
 }
 

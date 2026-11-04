@@ -41,6 +41,7 @@ AdapterWindows::AdapterWindows(std::string device_id)
     auto device_information = async_get(
         Devices::Enumeration::DeviceInformation::CreateFromIdAsync(winrt::to_hstring(device_id)));
     identifier_ = winrt::to_string(device_information.Name());
+    address_ = _mac_address_to_str(adapter_.BluetoothAddress());
 
     // Configure the scanner object
     scanner_ = Advertisement::BluetoothLEAdvertisementWatcher();
@@ -53,6 +54,7 @@ AdapterWindows::AdapterWindows(std::string device_id)
     // Register member functions directly as callback handlers
     if (radio_) {
         radio_state_changed_token_ = radio_.StateChanged({this, &AdapterWindows::on_power_state_changed});
+        powered_ = radio_.State() == RadioState::On;
     }
     scanner_stopped_token_ = scanner_.Stopped({this, &AdapterWindows::_on_scanner_stopped});
     scanner_received_token_ = scanner_.Received({this, &AdapterWindows::_on_scanner_received});
@@ -85,25 +87,28 @@ void* AdapterWindows::underlying() const { return reinterpret_cast<void*>(const_
 
 std::string AdapterWindows::identifier() { return identifier_; }
 
-BluetoothAddress AdapterWindows::address() {
-    return MtaManager::get().execute_sync<BluetoothAddress>([this]() {
-        return _mac_address_to_str(adapter_.BluetoothAddress());
-    });
-}
+BluetoothAddress AdapterWindows::address() { return address_; }
 
 void AdapterWindows::power_on() {
     if (!radio_) throw Exception::OperationNotSupported();
-    MtaManager::get().execute_sync([this]() { async_get(radio_.SetStateAsync(RadioState::On)); });
+    MtaManager::get().execute_sync([this]() {
+        async_get(radio_.SetStateAsync(RadioState::On));
+        powered_ = radio_.State() == RadioState::On;
+    });
 }
 
 void AdapterWindows::power_off() {
     if (!radio_) throw Exception::OperationNotSupported();
-    MtaManager::get().execute_sync([this]() { async_get(radio_.SetStateAsync(RadioState::Off)); });
+    MtaManager::get().execute_sync([this]() {
+        async_get(radio_.SetStateAsync(RadioState::Off));
+        powered_ = radio_.State() == RadioState::On;
+    });
 }
 
 bool AdapterWindows::is_powered() {
     if (!radio_) throw Exception::OperationNotSupported();
-    return MtaManager::get().execute_sync<bool>([this]() { return radio_.State() == RadioState::On; });
+    // NOTE: The radio's StateChanged handler keeps this up to date, so it never waits for the MTA thread.
+    return powered_;
 }
 
 void AdapterWindows::scan_start() {
@@ -114,11 +119,14 @@ void AdapterWindows::scan_start() {
 
         while (std::chrono::steady_clock::now() - start_time < max_wait) {
             bool any_pending = false;
-            for (const auto& [address, peripheral] : peripherals_) {
-                if (auto win_peripheral = std::dynamic_pointer_cast<PeripheralWindows>(peripheral)) {
-                    if (win_peripheral->is_disconnect_pending()) {
-                        any_pending = true;
-                        break;
+            {
+                std::lock_guard<std::mutex> lock(peripherals_mutex_);
+                for (const auto& [address, peripheral] : peripherals_) {
+                    if (auto win_peripheral = std::dynamic_pointer_cast<PeripheralWindows>(peripheral)) {
+                        if (win_peripheral->is_disconnect_pending()) {
+                            any_pending = true;
+                            break;
+                        }
                     }
                 }
             }
@@ -129,7 +137,10 @@ void AdapterWindows::scan_start() {
         }
     }
 
-    this->seen_peripherals_.clear();
+    {
+        std::lock_guard<std::mutex> lock(peripherals_mutex_);
+        this->seen_peripherals_.clear();
+    }
 
     MtaManager::get().execute_sync([this]() {
         scanner_.ScanningMode(Advertisement::BluetoothLEScanningMode::Active);
@@ -162,7 +173,10 @@ void AdapterWindows::scan_for(int timeout_ms) {
 
 bool AdapterWindows::scan_is_active() { return scan_is_active_; }
 
-SharedPtrVector<PeripheralBase> AdapterWindows::scan_get_results() { return Util::values(seen_peripherals_); }
+SharedPtrVector<PeripheralBase> AdapterWindows::scan_get_results() {
+    std::lock_guard<std::mutex> lock(peripherals_mutex_);
+    return Util::values(seen_peripherals_);
+}
 
 SharedPtrVector<PeripheralBase> AdapterWindows::get_paired_peripherals() {
     const winrt::hstring aqs_filter = BluetoothLEDevice::GetDeviceSelectorFromPairingState(true);
@@ -200,6 +214,7 @@ SharedPtrVector<PeripheralBase> AdapterWindows::_get_peripherals_from_selector(c
                 continue;
             }
 
+            std::lock_guard<std::mutex> lock(peripherals_mutex_);
             if (this->peripherals_.count(address) == 0) {
                 advertising_data_t advertising_data{};
                 advertising_data.identifier = winrt::to_string(dev_info.Name());
@@ -230,24 +245,33 @@ void AdapterWindows::_scan_stopped_callback() {
 }
 
 void AdapterWindows::_scan_received_callback(advertising_data_t data) {
-    if (this->peripherals_.count(data.mac_address) == 0) {
-        // If the incoming peripheral has never been seen before, create and save a reference to it.
-        auto base_peripheral = std::make_shared<PeripheralWindows>(data);
-        this->peripherals_.insert(std::make_pair(data.mac_address, base_peripheral));
-    } else {
-        // Update the received advertising data.
-        this->peripherals_.at(data.mac_address)->update_advertising_data(data);
-    }
+    std::shared_ptr<PeripheralWindows> base_peripheral;
+    bool is_new_peripheral = false;
 
-    auto base_peripheral = this->peripherals_.at(data.mac_address);
+    {
+        std::lock_guard<std::mutex> lock(peripherals_mutex_);
+        if (this->peripherals_.count(data.mac_address) == 0) {
+            // If the incoming peripheral has never been seen before, create and save a reference to it.
+            base_peripheral = std::make_shared<PeripheralWindows>(data);
+            this->peripherals_.insert(std::make_pair(data.mac_address, base_peripheral));
+        } else {
+            // Update the received advertising data.
+            base_peripheral = this->peripherals_.at(data.mac_address);
+            base_peripheral->update_advertising_data(data);
+        }
+
+        // Check if the device has been seen before, to forward the correct call to the user.
+        is_new_peripheral = this->seen_peripherals_.count(data.mac_address) == 0;
+        if (is_new_peripheral) {
+            // Store it in our table of seen peripherals
+            this->seen_peripherals_.insert(std::make_pair(data.mac_address, base_peripheral));
+        }
+    }
 
     // Convert the base object into an external-facing Peripheral object
     Peripheral peripheral = Factory::build(base_peripheral);
 
-    // Check if the device has been seen before, to forward the correct call to the user.
-    if (this->seen_peripherals_.count(data.mac_address) == 0) {
-        // Store it in our table of seen peripherals
-        this->seen_peripherals_.insert(std::make_pair(data.mac_address, base_peripheral));
+    if (is_new_peripheral) {
         SAFE_CALLBACK_CALL(this->_callback_on_scan_found, peripheral);
     } else {
         SAFE_CALLBACK_CALL(this->_callback_on_scan_updated, peripheral);
@@ -256,6 +280,7 @@ void AdapterWindows::_scan_received_callback(advertising_data_t data) {
 
 void AdapterWindows::on_power_state_changed(Radio const& sender, Foundation::IInspectable const&) {
     auto state = sender.State();
+    powered_ = state == RadioState::On;
     if (state == RadioState::On) {
         SAFE_CALLBACK_CALL(this->_callback_on_power_on);
     } else if (state == RadioState::Off) {

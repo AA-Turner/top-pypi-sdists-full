@@ -17,6 +17,14 @@ refreshing: ContextVar[bool] = ContextVar("refreshing", default=False)
 due: ContextVar[bool] = ContextVar("due", default=False)
 
 
+async def cancel(tasks: list[asyncio.Task]) -> None:
+    """Cancels the tasks and waits until they have stopped: a task cancelled but left running
+    could still hold a database connection when the app closes it, and stop the app there."""
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+
 @dataclass(frozen=True)
 class Cached:
     """A cached value, when it was fetched, and the error of the last refresh, if it failed."""
@@ -96,6 +104,10 @@ class Cache:
         entry = Cached(value, self._clock())
         self._entries[key] = entry
         return entry
+
+    async def close(self) -> None:
+        """Stops the refreshes still running, before the database they may use is closed."""
+        await cancel(list(self._fetches.values()))
 
     def invalidate(self, prefix: str) -> None:
         for key in [key for key in self._entries if key.startswith(prefix)]:

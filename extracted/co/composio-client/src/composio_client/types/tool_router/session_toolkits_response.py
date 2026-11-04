@@ -1,85 +1,85 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.tool_router.session_toolkits_response."""
 
-from typing import List, Optional
-from datetime import datetime
+from __future__ import annotations
 
-from ..._models import BaseModel
+import datetime
+from typing import Optional
 
-__all__ = ["SessionToolkitsResponse", "Item", "ItemConnectedAccount", "ItemConnectedAccountAuthConfig", "ItemMeta"]
+from pydantic import ConfigDict, Field
+from ..._base_model import BaseModel
 
 
 class ItemConnectedAccountAuthConfig(BaseModel):
-    """Auth config details"""
+    "Auth config details"
 
-    id: str
-    """Auth config identifier"""
-
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     auth_scheme: str
-    """Authentication scheme type"""
-
+    "Authentication scheme type"
+    id: str
+    "Auth config identifier"
     is_composio_managed: bool
-    """Whether this is a Composio-managed auth config"""
+    "Whether this is a Composio-managed auth config"
 
 
 class ItemConnectedAccount(BaseModel):
-    """Connected account if available"""
+    "Connected account if available"
 
-    id: str
-    """Connected account identifier"""
-
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     auth_config: ItemConnectedAccountAuthConfig
-    """Auth config details"""
-
-    created_at: datetime
-    """Creation timestamp"""
-
+    "Auth config details"
+    created_at: datetime.datetime
+    "Creation timestamp"
+    id: str
+    "Connected account identifier"
     status: str
-    """Connection status"""
-
+    "Connection status"
     user_id: str
-    """User identifier"""
+    "User identifier"
 
 
 class ItemMeta(BaseModel):
-    """Toolkit metadata"""
+    "Toolkit metadata"
 
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     description: str
-    """Description of the toolkit"""
-
+    "Description of the toolkit"
     logo: str
-    """URL to the toolkit logo"""
+    "URL to the toolkit logo"
+    is_no_auth: bool | None = Field(default=None, alias="isNoAuth")
 
 
 class Item(BaseModel):
-    composio_managed_auth_schemes: List[str]
-    """Available Composio-managed auth schemes"""
-
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    composio_managed_auth_schemes: list[str]
+    "Available Composio-managed auth schemes"
     connected_account: Optional[ItemConnectedAccount] = None
-    """Connected account if available"""
-
+    "Connected account if available"
     enabled: bool
-    """Whether the toolkit is enabled"""
-
+    "Whether the toolkit is enabled"
     is_no_auth: bool
-    """Whether the toolkit is no-auth"""
-
+    "Whether the toolkit is no-auth"
     meta: ItemMeta
-    """Toolkit metadata"""
-
+    "Toolkit metadata"
     name: str
-    """Display name of the toolkit"""
-
+    "Display name of the toolkit"
     slug: str
-    """Unique slug identifier"""
+    "Unique slug identifier"
 
 
 class SessionToolkitsResponse(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     current_page: float
-
-    items: List[Item]
-
+    items: list[Item]
+    next_cursor: Optional[str] = None
     total_items: float
-
     total_pages: float
 
-    next_cursor: Optional[str] = None
+
+__all__ = [
+    "SessionToolkitsResponse",
+    "Item",
+    "ItemConnectedAccount",
+    "ItemConnectedAccountAuthConfig",
+    "ItemMeta",
+]

@@ -89,13 +89,13 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
     ) -> Option<UserValueRef<'_>> {
         match self.user_ref {
             InternalUserRef::Public(user) => user
-                .get_unit_id_by_name(id_type.value(), id_type.lowercased_value())
+                .get_unit_id_by_name(id_type.value(), &id_type.lowercased_value())
                 .map(UserValueRef::Dynamic),
             InternalUserRef::Fast(user) => user
-                .get_unit_id_by_name(id_type.value(), id_type.lowercased_value())
+                .get_unit_id_by_name(id_type.value(), &id_type.lowercased_value())
                 .map(UserValueRef::User),
             InternalUserRef::Prepared(user) => user
-                .get_unit_id_by_name(id_type.value(), id_type.lowercased_value())
+                .get_unit_id_by_name(id_type.value(), &id_type.lowercased_value())
                 .map(UserValueRef::User),
         }
     }

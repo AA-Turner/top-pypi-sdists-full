@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lap
-Version: 0.5.13
+Version: 0.5.14
 Summary: Linear Assignment Problem solver (LAPJV/LAPMOD).
 Home-page: https://github.com/gatagat/lap
 Author: gatagat, rathaROG, and co.
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Education
 Classifier: Topic :: Education :: Testing
 Classifier: Topic :: Scientific/Engineering

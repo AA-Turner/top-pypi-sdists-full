@@ -6,6 +6,7 @@ import ast
 import io
 import sys
 import tokenize
+from bisect import bisect_right
 from functools import cache, lru_cache, partial
 from typing import TYPE_CHECKING, cast, final
 
@@ -23,7 +24,11 @@ from djlint.const import (
     TEMPLATE_TAGS_WITH_QUOTED_CONDITIONS,
 )
 from djlint.formatter.attributes import format_attributes
-from djlint.formatter.class_attributes import VERBATIM_ATTRIBUTE_NEWLINE
+from djlint.formatter.class_attributes import (
+    VERBATIM_ATTRIBUTE_NEWLINE,
+    multiline_template_tag_spans,
+    restore_template_string_newlines,
+)
 from djlint.formatter.tokenizer import tokenize_tags
 from djlint.helpers import (
     RE_FLAGS_IMSX,
@@ -55,11 +60,17 @@ if TYPE_CHECKING:
 _QUOTE_STYLES: Final = {"double": QuoteStyle.PREFER_DOUBLE, "single": QuoteStyle.PREFER_SINGLE}
 _QUOTE_CHARACTERS: Final = {"double": '"', "single": "'"}
 _ESCAPE: Final = "\\"
+# The raw text elements whose bodies --format-js and --format-css lay out.
+_RAW_TEXT_OPENINGS_SPREAD: Final = frozenset(("script", "style"))
 
+# A tag left open ends at the next opener, as for the multiline patterns below,
+# so a run of unclosed ones is read once rather than each to the end of the
+# file; a pattern starting with indentation reads each run of it from its
+# start only.
 _QUOTED_ARGUMENT_TAG_PATTERN: Final = compile_pattern(
     rf"\{{%[-+]?[ \t]*(?:{TEMPLATE_TAGS_WITH_QUOTED_ARGUMENTS}"
     rf"|{TEMPLATE_TAGS_WITH_QUOTED_CONDITIONS})\b"
-    r"(?:(?!%\}).)*?[-+]?%\}",
+    r"(?:(?![-+]?%\}|\{%).)*+[-+]?%\}",
     RE_FLAGS_IS,
 )
 _TAG_STRING_PATTERN: Final = compile_pattern(r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'")
@@ -92,25 +103,34 @@ _LEADING_CLOSE_BRACKET_PATTERN: Final = compile_pattern(r"[ ]*[)\]}]")
 _MULTILINE_TAG_OPEN_PAREN_PATTERN: Final = compile_pattern(r"\((?=[^()]*$)")
 _MULTILINE_TAG_CLOSE_PAREN_PATTERN: Final = compile_pattern(r"^[ ]*\)")
 _TEXTAREA_CLOSE_PATTERN: Final = compile_pattern(r"^\s*</textarea\b", RE_FLAGS_IX)
+_LINE_TEMPLATE_TAG_PATTERN: Final = compile_pattern(
+    r"\{\{(?:(?!\}\}|\{\{).)*\}\}|\{%(?:(?!%\}|\{%).)*%\}|\$\{[^{}]*\}"
+)
+_TRIMMED_TRANS_OPEN_PATTERN: Final = compile_pattern(
+    r"\{%[-+]?\s*blocktrans(?:late)?\b(?:(?!%\}).)*?\btrimmed\b(?:(?!%\}).)*?%\}", RE_FLAGS_IS
+)
+_TRANS_CLOSE_PATTERN: Final = compile_pattern(
+    r"\{%[-+]?\s*endblocktrans(?:late)?\b(?:(?!%\}).)*?%\}", RE_FLAGS_IS
+)
 _SET_CONTENT_PATTERN: Final = compile_pattern(
     r"""
-    ([ ]*)                # 1: leading indentation
+    (?<![ ])([ ]*+)       # 1: leading indentation, read from its start
     ({%[-+]?)                # 2: tag open
     [ ]*(set)[ ]+?        # 3: the set keyword
-    ((?:(?!%}).)*?)       # 4: assignment contents
+    ((?:(?![-+]?%}|{%).)*+)  # 4: assignment contents
     ([-+]?%})                # 5: tag close
     """,
     RE_FLAGS_IMSX,
 )
 _FUNCTION_CONTENT_PATTERN: Final = compile_pattern(
     r"""
-    (?P<indent>[ ]*)
+    (?<![ ])(?P<indent>[ ]*+)
     (?P<open>{{-?\+?)
     [ ]*?
     (?P<name>(?:(?!}}|{{).)*?\w)
     (?P<paren>
       \(
-      (?:\"[^\"]*+\"|'[^']*+'|[^()]++|(?&paren))*+
+      (?:\"(?:(?!{{)[^\"])*+\"|'(?:(?!{{)[^'])*+'|(?:(?!{{)[^()])++|(?&paren))*+
       \)
     )
     (?P<index>(?:\[[^\]]*?\]|\.[^\s]+))?
@@ -119,6 +139,24 @@ _FUNCTION_CONTENT_PATTERN: Final = compile_pattern(
     """,
     RE_FLAGS_IMSX,
 )
+
+
+def _blank_quotes(match: re.Match[str]) -> str:
+    return match.group().replace('"', "_").replace("'", "_")
+
+
+def _without_template_quotes(line: str) -> str:
+    """The line with the quotes inside its template tags blanked out.
+
+    The pattern for a tag on one line reads an attribute value as quote to
+    quote, so the value of `value="{{ _("it's") }}"` ended at the quote
+    inside the tag, and the apostrophe opened another that never closed.
+    """
+    if ("{{" not in line and "{%" not in line and "${" not in line) or (
+        '"' not in line and "'" not in line
+    ):
+        return line
+    return _LINE_TEMPLATE_TAG_PATTERN.sub(_blank_quotes, line)
 
 
 def _attribute_quote_at(html: str, start: int) -> str | None:
@@ -389,7 +427,12 @@ def indent_html(rawcode: str, config: Config) -> str:
                 content = _EXTRA_TAG_WHITESPACE_PATTERN.sub(
                     lambda m: m.group(1) or " ", content
                 ).strip()
-            return f"{match.group(1)} {content} {match.group(3)}"
+            # The indentation of a line the tag closes on, after a preserved
+            # line break, is held whole like that of any other such line.
+            closing_gap = " "
+            if content.endswith(VERBATIM_ATTRIBUTE_NEWLINE):
+                closing_gap = html[match.end(2) : match.start(3)]
+            return f"{match.group(1)} {content}{closing_gap}{match.group(3)}"
 
         rawcode = _TAG_SPACING_PATTERN.sub(partial(fix_tag_spacing, rawcode), rawcode)
 
@@ -446,6 +489,25 @@ def indent_html(rawcode: str, config: Config) -> str:
 
     rawcode_flat_list = rawcode.split("\n")
 
+    # A line inside a template tag written across lines holds template code,
+    # where `"<a href='x'>"` is a string: spreading its attributes put line
+    # breaks into the string, a syntax error in mako. The markup may still
+    # render, as with `{{ "<b>"|safe }}` or mako's `HTML()`, so its tags are
+    # still counted for indentation. Each such line maps to where markup may
+    # start on it, -1 for none, as on a line the tag covers.
+    markup_starts: dict[int, int] = {}
+    tag_spans = multiline_template_tag_spans(rawcode)
+    if tag_spans:
+        line_starts = [0]
+        for line in rawcode_flat_list[:-1]:
+            line_starts.append(line_starts[-1] + len(line) + 1)
+        for span_start, span_end in tag_spans:
+            first = bisect_right(line_starts, span_start) - 1
+            last = bisect_right(line_starts, span_end - 1) - 1
+            for line_index in range(first + 1, last):
+                markup_starts[line_index] = -1
+            markup_starts[last] = span_end - line_starts[last]
+
     indent = config.indent
 
     beautified_lines: list[str] = []
@@ -464,8 +526,14 @@ def indent_html(rawcode: str, config: Config) -> str:
     is_block_raw = False
 
     ignored_level = 0
+    # Trimmed blocktrans blocks opened inside the current ignored block.
+    open_trimmed_trans = 0
 
     template_block_stack: list[tuple[int, int | None, bool]] = []
+    # How many template blocks are open. The tags inside an ignored block
+    # are not counted, but the ones that open and close it are, as a pair.
+    # At zero an end tag closes nothing.
+    open_template_blocks = 0
 
     open_html_indents: list[bool] = []
 
@@ -509,6 +577,27 @@ def indent_html(rawcode: str, config: Config) -> str:
             previous_end = token.end
         output.append(value[previous_end:])
         return "".join(output)
+
+    def format_raw_text_opening(line: str, start: int) -> str:
+        """Spread the attributes of a raw text element opening at start.
+
+        Its body is left as written, but its opening tag is markup like any
+        other. Left alone, a long one stayed on one line while its body was
+        written on lines of its own, and was spread once the body was
+        joined to it, so formatting the script a second time changed it.
+        """
+        for token in tokenize_tags(line):
+            if token.start >= start:
+                break
+        else:
+            return line
+        if (
+            token.start != start
+            or token.closing
+            or token.name.lower() not in _RAW_TEXT_OPENINGS_SPREAD
+        ):
+            return line
+        return format_html_attributes(line[: token.end]) + line[token.end :]
 
     @cache
     def starts_unclosed_html_tag(item: str) -> bool:
@@ -576,7 +665,9 @@ def indent_html(rawcode: str, config: Config) -> str:
                 unclosed_closes += 1
         return opened, unclosed_closes
 
-    for item in rawcode_flat_list:
+    for line_index, item in enumerate(rawcode_flat_list):
+        markup_start = markup_starts.get(line_index, 0)
+        no_template_block_open = open_template_blocks == 0
         is_safe_closing_tag_ = is_safe_closing_tag(config, item)
         ignored_block_opening_start_ = ignored_block_opening_start(config, item)
         is_ignored_block_opening_ = ignored_block_opening_start_ >= 0
@@ -642,7 +733,7 @@ def indent_html(rawcode: str, config: Config) -> str:
 
         if (not is_block_raw and ignored_inline_start_pattern.search(item)) or (
             not is_block_raw
-            and single_line_tag_pattern.search(item.lstrip())
+            and single_line_tag_pattern.search(_without_template_quotes(item.lstrip()))
             and not starts_unclosed_html_tag(item)
             and not template_unindent_pattern.match(item.lstrip())
             and not tag_unindent_line_pattern.match(item.lstrip())
@@ -763,7 +854,14 @@ def indent_html(rawcode: str, config: Config) -> str:
                     for _ in range(max(glued_openers, 0)):
                         template_block_stack.append((indent_level, None, True))
                         indent_level += 1
-            elif closes_nothing_indented:
+            elif closes_nothing_indented or (
+                no_template_block_open
+                and not unclosed_closes
+                and template_unindent_pattern.match(item.lstrip())
+            ):
+                # An end tag with no block open to close, as an unknown
+                # `{% endtoc %}` or a stray `{% endif %}`, closes nothing, so
+                # it stays at the level of what it is written in.
                 tmp = (indent * indent_level) + formatted_item(item) + "\n"
 
             else:
@@ -833,6 +931,16 @@ def indent_html(rawcode: str, config: Config) -> str:
             indent_level += 1
 
         elif is_raw_first_line or (is_safe_closing_tag_ and not is_block_raw):
+            if is_raw_first_line and "<" in item:
+                # A tag closed before the block opens, as in
+                # `</noscript><script>`, closes what it closes as on any other
+                # line. Left open, it indented the rest of the file a level
+                # deeper once the script was written over several lines.
+                _, closes = scan_html_tags(item[:ignored_block_opening_start_])
+                popped = min(closes, len(open_html_indents))
+                indented_closes = sum(open_html_indents.pop() for _ in range(popped))
+                floor = template_block_stack[-1][0] + 1 if template_block_stack else 0
+                indent_level = max(indent_level - indented_closes, min(floor, indent_level))
             tmp = (indent * indent_level) + formatted_item(item) + "\n"
 
         elif is_block_raw or not item.strip():
@@ -880,6 +988,12 @@ def indent_html(rawcode: str, config: Config) -> str:
             indent_level = max(indent_level - dedent_after, 0)
 
         if is_ignored_block_opening_:
+            opening_tail = item[ignored_block_opening_start_:] + "\n"
+            # As for any other tag, one inside a template tag written across
+            # lines is part of its text, and spreading it would change that.
+            in_template_text = markup_start < 0 or "<" in item[:markup_start]
+            if is_raw_first_line and not in_template_text and tmp.endswith(opening_tail):
+                tmp = format_raw_text_opening(tmp, len(tmp) - len(opening_tail))
             is_block_raw = True
             is_raw_first_line = False
             if "<" in item:
@@ -889,17 +1003,33 @@ def indent_html(rawcode: str, config: Config) -> str:
                     open_html_indents.append(True)
                     open_html_indents.extend([False] * (opened - 1))
 
-        elif not is_block_raw:
+        elif not is_block_raw and (
+            markup_start == 0 or (markup_start > 0 and "<" not in item[:markup_start])
+        ):
             tmp = format_html_attributes(tmp)
+
+        # A trimmed blocktrans is formatted rather than left alone, so it
+        # opens no ignored block, but its endblocktrans looks like the close
+        # of one: inside a `{% filter %}` it ended the filter early. Each one
+        # opened in an ignored block claims the next endblocktrans there.
+        closing_item = item
+        if is_block_raw:
+            trimmed_trans_opens = len(_TRIMMED_TRANS_OPEN_PATTERN.findall(item))
+            trans_closes = len(_TRANS_CLOSE_PATTERN.findall(item))
+            claimed = min(trans_closes, open_trimmed_trans + trimmed_trans_opens)
+            open_trimmed_trans += trimmed_trans_opens - claimed
+            if claimed:
+                closing_item = _TRANS_CLOSE_PATTERN.sub("", item, count=claimed)
 
         if (
             not in_raw_text_tag or is_raw_text_block_closing(config, item)
-        ) and is_ignored_block_closing(config, item):
+        ) and is_ignored_block_closing(config, closing_item):
             in_raw_text_tag = False
             if not is_safe_closing_tag_:
                 ignored_level = max(ignored_level - 1, 0)
             if ignored_level == 0:
                 is_block_raw = False
+                open_trimmed_trans = 0
                 if was_block_raw and "<" in item:
                     tail = ""
                     for close in config.ignored_block_closing_pattern.finditer(item):
@@ -911,9 +1041,16 @@ def indent_html(rawcode: str, config: Config) -> str:
                         del open_html_indents[kept:]
                     open_html_indents.extend([False] * opened)
 
+        if "{" in item and not (was_block_raw and is_block_raw):
+            opened = 0 if was_block_raw else len(template_indent_pattern.findall(item))
+            closed = len(template_unindent_pattern.findall(item))
+            open_template_blocks = max(open_template_blocks + opened - closed, 0)
+
         beautified_lines.append(tmp)
 
-    beautified_code = "".join(beautified_lines)
+    # The strings are whole again before sets and calls are laid out, which
+    # read their values as data.
+    beautified_code = restore_template_string_newlines("".join(beautified_lines))
 
     def format_data(
         config: Config,
@@ -956,18 +1093,26 @@ def indent_html(rawcode: str, config: Config) -> str:
 
         except Exception:
             try:
-                evaluated = str(ast.literal_eval(contents))
-                added_parentheses = contents[:1] != "(" and evaluated[:1] == "("
-                contents = evaluated[1:-1] if added_parentheses else evaluated
+                literal = ast.literal_eval(contents)
+                # A string json cannot read, as `"a" "b"`, is left as written
+                # too: str() would drop its quotes and leave a name.
+                evaluated = None if isinstance(literal, str) else str(literal)
             except Exception:
+                evaluated = None
+            if evaluated is None:
                 if "\n" in contents:
                     return contents.strip(" \t")
                 contents = contents.strip()
+            else:
+                added_parentheses = contents[:1] != "(" and evaluated[:1] == "("
+                contents = evaluated[1:-1] if added_parentheses else evaluated
 
             if normalize_string_quotes:
                 contents = _format_string_tokens(contents, quote_style)
 
-        return joiner.join(contents.splitlines())
+        # split on "\n" alone: str.splitlines() also breaks on U+2028, U+0085
+        # and form feed, which are content, as in a string argument
+        return joiner.join(contents.removesuffix("\n").split("\n"))
 
     def format_set(config: Config, html: str, match: re.Match[str]) -> str:
         if inside_ignored_block(config, html, match):
@@ -999,9 +1144,19 @@ def indent_html(rawcode: str, config: Config) -> str:
         if inside_ignored_block(config, html, match):
             return match.group()
 
-        leading_space = match["indent"]
+        indent = leading_space = match["indent"]
         open_bracket = match["open"]
-        tag = match["name"].strip()
+        name = match["name"]
+        tag = name.strip()
+        # A call written on a line of its own after the "{{" stays there, as
+        # the closing "}}" does: its lines were indented for that layout, and
+        # lifting the call onto the "{{" line left them a level too deep
+        # until the next run. They are laid out from the call's own line.
+        opening_gap = " "
+        name_gap = name[: len(name) - len(name.lstrip())]
+        if "\n" in name_gap:
+            opening_gap = name_gap[name_gap.find("\n") :]
+            leading_space = opening_gap[opening_gap.rfind("\n") + 1 :]
         index = match["index"] or ""
         close_bracket = match["close"]
         quote_style = _QUOTE_STYLES[config.quote_style]
@@ -1031,7 +1186,7 @@ def indent_html(rawcode: str, config: Config) -> str:
         separator = " " if close_bracket.lstrip("-+").startswith("}}") else match["gap"]
         closing_space = leading_space if contents.endswith("\n") else ""
         return (
-            f"{leading_space}{open_bracket} {tag}({contents}{closing_space})"
+            f"{indent}{open_bracket}{opening_gap}{tag}({contents}{closing_space})"
             f"{index}{separator}{close_bracket}"
         )
 

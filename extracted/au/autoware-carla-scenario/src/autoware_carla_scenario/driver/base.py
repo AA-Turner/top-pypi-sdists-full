@@ -307,9 +307,9 @@ class DriverClientConfig:
 
     alpasim places the rig origin at the rear-axle centre projected to the ground while
     CARLA places the actor origin at the vehicle centre.  ``None`` derives the offset
-    from the vehicle's wheel physics; set it explicitly (e.g. ``-1.4``) if the derived
-    value looks wrong, which is a known CARLA 0.9.x quirk where wheel positions are
-    reported in world coordinates and centimetres.
+    from the vehicle's wheels, else its bounding box; set it explicitly (e.g.
+    ``-1.4``) if the derived value looks wrong, which is a known CARLA 0.9.x quirk
+    where wheel positions are reported in world coordinates and centimetres.
     """
 
     send_ground_truth: bool = False
@@ -324,7 +324,7 @@ class DriverClientConfig:
     send_renderer_data: bool = True
     """Whether to send CARLA ground truth in ``DriveRequest.renderer_data``.
 
-    The alpasim contract carries no traffic lights and no other vehicles, so a
+    The alpasim contract carries no traffic lights and no other road users, so a
     policy that reasons about either reads them from this extension payload.
     Policies that ignore it are unaffected; policies that read it treat an absent
     payload as "no light applies, no traffic present" **without erroring**, which
@@ -332,7 +332,11 @@ class DriverClientConfig:
     """
 
     send_actor_ground_truth: bool = True
-    """Whether the payload includes the other vehicles' poses and velocities."""
+    """Whether the payload includes the other road users' poses and velocities.
+
+    Vehicles, pedestrians and props (``vehicle.*``, ``walker.*``,
+    ``static.prop.*``), within :attr:`actor_horizon_m`.
+    """
 
     traffic_light_sight_distance_m: float = 60.0
     """How far down its own lane the ego looks for the light governing it.
@@ -343,7 +347,8 @@ class DriverClientConfig:
     """
 
     actor_horizon_m: float = 150.0
-    """Radius within which other vehicles are reported to the policy."""
+    """Radius within which other vehicles, pedestrians and props are reported to
+    the policy (``renderer_data.actors``), measured in 3D from the ego."""
 
     random_seed: Optional[int] = None
     """Seed handed to the policy in ``start_session``; ``None`` hands it the run's
@@ -700,7 +705,7 @@ class BaseEgoDriverClient(ABC):
             time_now_us: Planning time; the plan is anchored to the pose at this instant.
             time_query_us: The instant the runtime will next advance to.
             renderer_data: Serialized ``carla_driver.v0.CarlaRendererData`` giving
-                the policy CARLA ground truth (traffic light, other vehicles,
+                the policy CARLA ground truth (traffic light, other road users,
                 speed limit).  Empty means "no ground truth available".
 
         Returns:

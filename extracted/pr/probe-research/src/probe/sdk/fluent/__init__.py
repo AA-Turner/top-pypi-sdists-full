@@ -95,8 +95,6 @@ _HOMES = {
     "_EXPORTED_RUN_ID": "probe.sdk.fluent.attach",
     "_adopt_run_token": "probe.sdk.fluent.attach",
     "_attach_from_env": "probe.sdk.fluent.attach",
-    "_GLOBAL_RANK_VARS": "probe.sdk.fluent.attach",
-    "_int_env": "probe.sdk.fluent.attach",
     "_nonzero_global_rank": "probe.sdk.fluent.attach",
     # probe.sdk.fluent.reinit
     "time": "probe.sdk.fluent.reinit",

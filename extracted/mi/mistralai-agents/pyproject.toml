@@ -29,7 +29,7 @@ dependencies = [
     # `agents serve` refuses to start without payload compression. Compatible with both 2.x and 3.x.
     "mistralai[workflow-payload-compression]>=2.8.0,<4",
     "mistralai-otel-observability>=0.5.0",
-    "mistralai-vibe-harness[workflows,observability]==0.1.14",
+    "mistralai-vibe-harness[workflows,observability]==0.1.15",
     "mistralai-vibe-sdk>=0.14.0,<0.15",
     # 3.16.0 ships the public OTLP exporter factory.
     "mistralai-workflows>=3.16.0,<4",
@@ -56,7 +56,7 @@ bashkit = [
 ]
 sessions-client = [
     "httpx>=0.28.1",
-    "mistralai-vibe-harness==0.1.14",
+    "mistralai-vibe-harness==0.1.15",
 ]
 koyeb = [
     "koyeb-sdk>=1.5.5,<2"
@@ -74,8 +74,10 @@ dev = [
     "typer>=0.15",
     "rich>=13",
     "types-PyYAML>=6.0",
+    # scripts/api_reference.py reads the public API's signatures and docstrings with it.
+    "griffe>=1.15",
     "cachetools>=7.1.6,<8",
-    "hypothesis>=6.156.1",
+    "hypothesis>=6.170.1",
     "ovide",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
@@ -99,7 +101,14 @@ ovide = { path = "../../workflow_sdk/ovide", editable = true }
 [tool.uv]
 exclude-newer = "2 days"
 index-strategy = "first-index"
-# `mistralai-workflows` requires `mistralai>=2.4.9` and `nuage_v2` pins a
+# Enforce the security floors this changelog documents at the project level, so a
+# later lock refresh cannot drift back onto the vulnerable lines (joserfc GHSA
+# CVE-2026-1181, msgpack GHSA CVE-2026-1220).
+constraint-dependencies = [
+    "joserfc>=1.7.6",
+    "msgpack>=1.2.3",
+]
+# `mistralai-workflows` requires `mistralai>=2.9.3` and `nuage_v2` pins a
 # freshly-published `koyeb-sdk`; allow both past the rolling cutoff so this
 # project's dev lock can resolve them.
 exclude-newer-package = { mistralai = false, koyeb-sdk = false, mistralai-vibe-sdk = false, mistralai-otel-observability = false }
@@ -107,8 +116,9 @@ exclude-newer-package = { mistralai = false, koyeb-sdk = false, mistralai-vibe-s
 # affected by an open advisory. Override the transitive cap up to the patched line; the cryptography
 # API mistralai uses is stable across this range (same override already ships in jarvis/worker).
 # The mistralai entry stays below 3 because an override replaces every mistralai requirement in this
-# lock, including the `<3` caps of mistralai-workflows and its Mistral plugin; lift it once those
-# support 3.x.
+# lock, including the `<3` cap of the dev-only nuage_v2 plugin (agents_controller/nuage_v2). The
+# published wheel allows mistralai <4, and mistralai-workflows and its Mistral plugin allow 3.x, so
+# this dev lock tests 2.x only; lift the entry once nuage_v2 leaves the dev group or supports 3.x.
 override-dependencies = [
     "mistralai[agents,workflow-payload-encryption,workflow-payload-compression]>=2.7.2,<3",
     "cryptography>=50.0.0",

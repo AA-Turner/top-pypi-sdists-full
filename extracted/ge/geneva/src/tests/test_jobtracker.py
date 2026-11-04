@@ -450,9 +450,7 @@ async def test_ray_actor_restart_rehydrates_metrics_and_status(
     table_ref = TableReference(
         table_id=["test_table"], version=None, db_uri=str(temp_db_path)
     )
-    tracker = job_tracker_options(max_restarts=1, max_task_retries=0).remote(
-        job_id, table_ref
-    )
+    tracker = job_tracker_options(max_task_retries=0).remote(job_id, table_ref)
     actor_id = tracker._actor_id.hex()
 
     try:

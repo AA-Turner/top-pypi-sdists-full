@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import threading
 from pathlib import Path
@@ -9,12 +10,14 @@ from pathlib import Path
 from git import Actor, Git, Repo
 from git.exc import GitCommandError
 
-from plato.git_ops.models import GitOpResult
+from plato.git_ops.models import GitOpErrorKind, GitOpResult
 
 PLATO_ACTOR = Actor("Plato", "plato@plato.dev")
 AGENT_ACTOR = Actor("Plato Agent", "agent@plato.dev")
 _TRUSTED_DIRECTORIES: set[str] = set()
 _TRUSTED_DIRECTORIES_LOCK = threading.Lock()
+# ssh's own stderr when the world-git ConnectTimeout or ServerAlive limits end the link.
+_WORLD_GIT_SSH_TIMEOUT_RE = re.compile(r"Connection timed out|Timeout, server \S+ not responding")
 
 
 def trust_git_directory(path: str | Path) -> None:
@@ -26,14 +29,26 @@ def trust_git_directory(path: str | Path) -> None:
     with _TRUSTED_DIRECTORIES_LOCK:
         if resolved_path in _TRUSTED_DIRECTORIES:
             return
-        Git().config("--global", "--add", "safe.directory", resolved_path)
+        try:
+            Git().config("--global", "--add", "safe.directory", resolved_path)
+        except GitCommandError as exc:
+            # The in-process lock above only serializes THIS process. Separate
+            # processes (e.g. pytest-xdist workers, concurrent agent VMs) all
+            # write the same ~/.gitconfig and collide on git's own config lock
+            # ("could not lock config file ...: File exists"). A concurrent
+            # writer setting the same safe.directory is harmless, so treat a
+            # lock collision as success rather than propagating it.
+            if "could not lock config file" not in str(exc).lower():
+                raise
         _TRUSTED_DIRECTORIES.add(resolved_path)
 
 
 def checkout_main_from_bare(*, bare_repo_path: str, worktree_path: str) -> None:
     """Refresh the repo/ working tree from the bare repo's main branch.
 
-    If worktree_path is a git clone (has .git), fetches from the bare repo
+    If worktree_path is a git clone (a ``.git`` directory, or a ``.git``
+    gitfile pointing at an off-FUSE git dir — see
+    ``GitTransport._setup_worktree_git_off_fuse``), fetches from the bare repo
     and resets to match main. Otherwise falls back to bare checkout.
     """
     from pathlib import Path
@@ -42,7 +57,7 @@ def checkout_main_from_bare(*, bare_repo_path: str, worktree_path: str) -> None:
     trust_git_directory(worktree_path)
 
     git_dir = Path(worktree_path) / ".git"
-    if git_dir.is_dir():
+    if git_dir.exists():
         repo = Repo(worktree_path)
         repo.git.config("core.logAllRefUpdates", "false")
         try:
@@ -139,13 +154,24 @@ def _refresh_existing_clone(target: Path, origin_url: str) -> Repo | None:
         repo = Repo(target)
         if repo.remotes.origin.url != origin_url:
             return None
+        # Defensively (re)assert origin's fetch refspec BEFORE fetching. A reused
+        # warm-pool clone can end up with `origin` lacking a fetch refspec, and then
+        # `git fetch` aborts with "Remote 'origin' has no refspec set" — which GitPython
+        # raises as a type NOT in the narrow except below, so it escaped and crashed VM
+        # setup (the per-cycle checkout). The failure rate scaled with concurrency
+        # (4-wide: 0, 8-wide: 1/8, 16-wide: 9/36) — exactly warm-VM reuse frequency.
+        # Setting the standard refspec is the precise remedy git's own error prescribes.
+        repo.git.config("--replace-all", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
         repo.remote("origin").fetch(prune=True)
         # Drop dirty/untracked leftovers from a crashed prior turn. No -x:
         # keeping ignored files is the point of reusing the clone.
         repo.git.reset("--hard")
         repo.git.clean("-fd")
         return repo
-    except (GitCommandError, ValueError, OSError):
+    except Exception:
+        # ANY refresh failure (incl. the no-refspec git error, which is not a
+        # GitCommandError/ValueError/OSError) must fall back to a fresh clone, never
+        # escape and crash VM setup. A fresh clone is the safe, intended fallback.
         return None
 
 
@@ -164,7 +190,12 @@ def clone_setup(
     repo = _refresh_existing_clone(target, origin_url) if checkout_ref is not None else None
     if repo is None:
         shutil.rmtree(target, ignore_errors=True)
-        repo = Repo.clone_from(origin_url, target)
+        try:
+            repo = Repo.clone_from(origin_url, target)
+        except GitCommandError as exc:
+            if _WORLD_GIT_SSH_TIMEOUT_RE.search(str(exc.stderr)) is None:
+                raise
+            return _error_result(exc).model_copy(update={"error_kind": GitOpErrorKind.WORLD_GIT_SSH_TIMEOUT})
         trust_git_directory(target)
     with repo.config_writer() as config:
         config.set_value("user", "email", AGENT_ACTOR.email)

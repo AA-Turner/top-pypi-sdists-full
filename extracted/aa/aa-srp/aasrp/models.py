@@ -328,6 +328,13 @@ class SrpRequest(models.Model):
     killboard_link = models.CharField(
         max_length=254, default="", verbose_name=_("Killboard link")
     )
+    killmail_id = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+        default=None,
+        unique=True,
+        verbose_name=_("Kill mail ID"),
+    )
     additional_info = models.TextField(
         blank=True, default="", verbose_name=_("Additional information")
     )
@@ -543,6 +550,20 @@ class UserSetting(models.Model):
 
     disable_notifications = models.BooleanField(
         default=False, verbose_name=_("Disable notifications")
+    )
+
+    ui_character = models.ForeignKey(
+        to=EveCharacter,
+        related_name="+",
+        null=True,
+        blank=True,
+        default=None,
+        on_delete=models.SET_NULL,
+        verbose_name=_("In-game UI character"),
+        help_text=_(
+            "Character used to open information windows in your EVE client "
+            "from the SRP requests view"
+        ),
     )
 
     class Meta:  # pylint: disable=too-few-public-methods

@@ -18,7 +18,8 @@ class ListRecentRunsResponse200ItemsItemRunsItem:
     """
     Attributes:
         id (str):
-        status (ListRecentRunsResponse200ItemsItemRunsItemStatus):
+        status (ListRecentRunsResponse200ItemsItemRunsItemStatus): a failure someone or something marked as handled is
+            `resolved`, not `failure`
         ran_at (datetime.datetime): when the run started, or was created for one that has not reported a start
         duration_ms (Union[Unset, int]):
     """

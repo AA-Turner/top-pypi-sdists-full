@@ -30,7 +30,10 @@ use crate::{
     scoped_evaluation_request::ScopedEvaluationRequest,
     scoped_snapshot_registry::EvaluationEngine,
     sdk_event_emitter::{SdkEvent, SdkEventEmitter},
-    specs_response::{spec_types::SpecsResponseFull, statsig_config_specs as pb},
+    specs_response::{
+        spec_types::{ConditionOperator, SpecsResponseFull},
+        statsig_config_specs as pb,
+    },
     statsig_options::SnapshotEvaluationSessionInitOptions,
 };
 
@@ -1470,6 +1473,56 @@ rusty_fork_test! {
                     // The fixture has no clock dependencies: true proves preparation was skipped.
                     assert_eq!(store.load_data().may_have_time_dependent_evaluations, !enabled);
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn cron_window_conditions_compile_by_default_across_refreshes() {
+        let payload = || serde_json::to_vec(&serde_json::json!({
+            "condition_map": {
+                "cron": {
+                    "type": "current_time",
+                    "operator": "in_cron_window",
+                    "targetValue": "* * * * *|60",
+                    "field": null,
+                    "additionalValues": {},
+                    "idType": "userID"
+                }
+            },
+            "feature_gates": {},
+            "dynamic_configs": {},
+            "layer_configs": {},
+            "experiment_to_layer": {},
+            "has_updates": true,
+            "time": 1
+        })).unwrap();
+
+        crate::interned_values::interned_store::InternedStore::preload(&payload()).unwrap();
+        for options in [None, Some(StatsigOptions::default())] {
+            let store = SpecStore::new(
+                "cron-window-default",
+                "cron-window-default".into(),
+                StatsigRuntime::get_runtime(),
+                Arc::new(SdkEventEmitter::default()),
+                options.as_ref(),
+            );
+            for time in [1, 2] {
+                let mut specs: serde_json::Value = serde_json::from_slice(&payload()).unwrap();
+                specs["time"] = serde_json::json!(time);
+                store
+                    .set_values(SpecsUpdate {
+                        data: ResponseData::from_bytes(serde_json::to_vec(&specs).unwrap()),
+                        source: SpecsSource::Network,
+                        received_at: time,
+                        source_api: None,
+                        has_updates: None,
+                    })
+                    .unwrap();
+                let data = store.load_data();
+                let condition = data.snapshot.condition_map.values().next().unwrap();
+                assert_eq!(condition.compiled_operator, ConditionOperator::InCronWindow);
+                assert!(condition.compiled_cron_window.is_some());
             }
         }
     }

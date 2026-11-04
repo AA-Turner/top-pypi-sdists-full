@@ -58,20 +58,16 @@ def _injected_dataplane_url() -> str | None:
 
 @dataclass(frozen=True)
 class WorkspaceMember:
-    """One person with access to a workspace.
-
-    Attributes:
-        email: Their email, which is how the platform identifies a person.
-        user_id: Their user uuid.
-        role: What they may do in this workspace.
-        name: Display name, or ``None`` when the identity provider supplied
-            none.
-    """
+    """One member of a workspace: a person or a service account (workspace API key)."""
 
     email: str
+    """The email of the user."""
     user_id: str
+    """The ID of the user."""
     role: str
+    """The role of the user in the workspace."""
     name: str | None
+    """Display name; `None` when the user has no name set."""
 
     @staticmethod
     def _from_payload(
@@ -87,23 +83,20 @@ class WorkspaceMember:
 
 @dataclass(frozen=True)
 class WorkspaceCaller:
-    """Who the token belongs to, and what they may do in one workspace.
-
-    Attributes:
-        email: The caller's email.
-        user_id: The caller's user uuid.
-        organization_membership_id: The caller's member uuid in the owning organization.
-        organization_id: The owning organization's uuid.
-        organization_role: The caller's role in that organization.
-        workspace_role: The caller's role in this workspace.
-    """
+    """Who the token belongs to, and what they may do in one workspace."""
 
     email: str
+    """The email of the current user."""
     user_id: str
+    """The ID of the current user."""
     organization_membership_id: str
+    """The ID of the organization member in the parent organization."""
     organization_id: str
+    """Unique ID (a UUID)."""
     organization_role: str
+    """The role of the user in the parent organization."""
     workspace_role: str
+    """The role of the user in this workspace."""
 
     @staticmethod
     def _from_payload(_ctx: _Ctx[Any], payload: WorkspaceMeResponse) -> WorkspaceCaller:
@@ -119,32 +112,36 @@ class WorkspaceCaller:
 
 @dataclass(frozen=True, repr=False)
 class Workspace(Entity[M]):
-    """A workspace: the unit a job is deployed into.
-
-    Attributes:
-        id: The workspace's uuid.
-        name: Workspace name, which need not be unique.
-        description: Free-text description, or ``None``.
-        organization_id: Owning organization's uuid.
-        dataplane_id: Data plane the workspace is assigned to.
-        is_playground: Whether this is the caller's auto-created personal
-            workspace. A playground is single-member and cannot be renamed.
-        predefined_profiles: Profile names the platform offers for this workspace,
-            keyed by access level. Empty when it declares none.
-        created_at: When the workspace was created.
-        archived_at: When the workspace was archived, or ``None`` while it is
-            live. An archived workspace runs nothing and refuses changes.
-    """
+    """A workspace: the unit a job is deployed into."""
 
     id: str
+    """Unique ID (a UUID)."""
     name: str
+    """The name of the workspace."""
     description: str | None
+    """Free-text description of the workspace; `None` when none is set."""
     organization_id: str
+    """The ID of the parent organization."""
     dataplane_id: str
+    """Identifier of the data plane that holds this workspace's user data. Matches the
+    subdomain of the plane's public entrypoint.
+    """
     is_playground: bool
+    """Whether this is the user's auto-created personal playground workspace. A
+    playground has a single member and cannot be updated, archived, shared, or given
+    API keys.
+    """
     predefined_profiles: Mapping[str, str]
+    """Profile names the platform offers for this workspace, keyed by access level.
+    Empty when it declares none.
+    """
     created_at: datetime
+    """When it was created."""
     archived_at: datetime | None
+    """When the workspace was archived; `None` when live. An archived workspace rejects
+    all changes except unarchiving, though owners can still manage its workspace
+    variables.
+    """
 
     _identity = ("id", "name")
     _kind = EntityKind.WORKSPACE
@@ -179,9 +176,12 @@ class Workspace(Entity[M]):
             A fresh snapshot; awaitable in async mode.
 
         Raises:
-            BadRequest: The workspace is a playground (see :attr:`is_playground`),
-                which cannot be updated.
-            NotAuthorized: The caller may not manage this workspace.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             NotFound: The workspace no longer exists.
         """
         workspace_id = self.id
@@ -205,11 +205,12 @@ class Workspace(Entity[M]):
             A fresh snapshot with ``archived_at`` set; awaitable in async mode.
 
         Raises:
-            BadRequest: The workspace is a playground (see :attr:`is_playground`),
-                which cannot be archived.
-            Conflict: The workspace is already archived, or a run in it has
-                not finished yet.
-            NotAuthorized: The caller may not manage this workspace.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             NotFound: The workspace no longer exists.
         """
         workspace_id = self.id
@@ -231,8 +232,10 @@ class Workspace(Entity[M]):
             A fresh snapshot with ``archived_at`` cleared; awaitable in async mode.
 
         Raises:
-            Conflict: The workspace is not archived.
-            NotAuthorized: The caller may not manage this workspace.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             NotFound: The workspace no longer exists.
         """
         workspace_id = self.id
@@ -265,7 +268,8 @@ class Workspace(Entity[M]):
             An iterable of members; async-iterable in async mode.
 
         Raises:
-            NotAuthorized: The caller may not list this workspace's members.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             ValueError: A negative ``limit`` or ``offset``.
         """
         workspace_id = self.id
@@ -288,13 +292,16 @@ class Workspace(Entity[M]):
     def me(self) -> WorkspaceCaller | Awaitable[WorkspaceCaller]:
         """Who the caller is here, and what they may do.
 
-        One call, and it answers for an API key as well as a user token.
+        One call, and it answers for an API key as well as a user token. Also
+        records this workspace as the caller's most recent one, so
+        :meth:`Runtime.me` then reports its organization as `latest_organization`.
 
         Returns:
             The caller's identity and roles; awaitable in async mode.
 
         Raises:
-            NotAuthorized: The caller has no access to this workspace.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             NotFound: The workspace no longer exists.
         """
         workspace_id = self.id
@@ -454,10 +461,13 @@ class Workspaces(Collection[M]):
             async mode.
 
         Raises:
-            BadRequest: The organization has no data plane set yet, so it cannot
-                hold workspaces (set one with ``Organization.set_dataplane``), or
-                the organization in scope is not a uuid.
-            NotAuthorized: The caller may not create workspaces here.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
+            NotFound: No such organization.
             ScopeMissing: No organization in scope and none passed.
         """
         org_id = organization_id or self._ctx.require_organization()
@@ -484,8 +494,11 @@ class Workspaces(Collection[M]):
             The workspace; awaitable in async mode.
 
         Raises:
-            BadRequest: ``id`` is not a uuid.
-            NotFound: No such workspace, or it is not visible to this caller.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
+            NotFound: No such workspace.
         """
         return self._ctx.run(
             lambda t: t.get_workspace(workspace_id=id), Workspace._from_payload
@@ -500,7 +513,10 @@ class Workspaces(Collection[M]):
     ) -> Awaitable[int]: ...
 
     def count(self, *, organization_id: str | None = None) -> int | Awaitable[int]:
-        """Return how many workspaces the organization has, without fetching them.
+        """Count the workspaces of one organization, without fetching them.
+
+        Counts the live (unarchived) workspaces of the organization that the
+        caller can see.
 
         Args:
             organization_id: Overrides the organization in scope. Required when
@@ -510,7 +526,11 @@ class Workspaces(Collection[M]):
             The workspace count; awaitable in async mode. Saturates at 10,001.
 
         Raises:
-            BadRequest: The organization in scope is not a uuid.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
+            NotFound: No such organization.
             ScopeMissing: No organization in scope and none passed.
         """
         return self._ctx.count(self._listing(organization_id))
@@ -542,6 +562,10 @@ class Workspaces(Collection[M]):
     ) -> Iterable[Workspace[Any]] | AsyncIterable[Workspace[Any]]:
         """Yield the workspaces of one organization, paging lazily.
 
+        Yields the live (unarchived) workspaces of the organization that the
+        caller can see. Errors from the platform are raised when iteration
+        begins.
+
         Args:
             organization_id: Overrides the organization in scope. Required when
                 the context carries none.
@@ -553,9 +577,13 @@ class Workspaces(Collection[M]):
             An iterable of workspaces; async-iterable in async mode.
 
         Raises:
-            BadRequest: The organization in scope is not a uuid.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
+            NotFound: No such organization.
             ScopeMissing: No organization in scope and none passed.
-            ValueError: A negative ``limit`` or ``offset``.
+            ValueError: A negative `limit` or `offset`.
         """
         return self._ctx.page(
             self._listing(organization_id),

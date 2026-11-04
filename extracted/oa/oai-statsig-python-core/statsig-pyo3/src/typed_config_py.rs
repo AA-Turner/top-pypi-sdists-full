@@ -36,7 +36,7 @@ pub(crate) fn typed_config_to_py_dict(
     revisions: &[(String, Option<u32>, Option<String>)],
 ) -> PyResult<Py<PyDict>> {
     let usable = is_usable(raw, source);
-    let result = raw_dynamic_config_to_py_dict(py, raw, None, None)?;
+    let result = raw_dynamic_config_to_py_dict(py, raw, None, None, None)?;
     let dict = result.bind(py);
     dict.set_item("__typed_usable", usable)?;
     dict.set_item(

@@ -5,17 +5,20 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+import weakref
 from collections.abc import Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext, suppress
 from typing import TYPE_CHECKING
 
 from plato.agents.mounts import AgentWorkspaceMount, GitCheckoutPolicy, GitSyncPolicy
-from plato.agents.warmpool import WarmPool
+from plato.agents.vm_setup import AgentExitError, make_agent_pool_prefix
+from plato.agents.warmpool import AgentVMBudget, RuntimeLease, WarmPool
 from plato.git_ops.merge import delete_remote_ref, merge_ref_to_main
 from plato.git_ops.repo import trust_git_directory
+from plato.rpc.errors import RetryableInfraError
 from plato.runtimes.base import Runtime, RuntimeInfo
 from plato.runtimes.config import VMRuntimeConfig
-from plato.transports.git import GitPublishedRef, GitTransport
+from plato.transports.git import GitPublishedRef, GitSetupTimeoutError, GitTransport
 from plato.worlds.workspace import Workspace
 
 if TYPE_CHECKING:
@@ -25,9 +28,29 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _WARM_POOL_RUN_ATTEMPTS = 2
+# Bound on the best-effort salvage git-over-SSH work when unwinding under
+# cancellation (timeout/hard-cancel), so a wedged salvage cannot delay the
+# VM teardown that must follow it.
+_SALVAGE_TIMEOUT_S = 60
 
 
 def _is_retryable_warm_pool_run_error(exc: BaseException) -> bool:
+    # RPC path: typed infrastructure failures (unreachable VM, rejected token,
+    # VM reclaimed mid-run, daemon lost the job's outcome) are exactly the
+    # "retry on a fresh VM" class the SSH substrings below approximate. Without
+    # this, RPC-path infra failures fail the run outright instead of retrying.
+    if isinstance(exc, RetryableInfraError):
+        return True
+    # The setup clone timed out before the agent started, so a fresh VM loses no work.
+    if isinstance(exc, GitSetupTimeoutError):
+        return True
+    # The daemon reported a real exit status: the agent ran and quit. Its
+    # message carries the process's own output tail, which can quote the
+    # substrings below (an agent that ran ssh/scp itself), so never classify
+    # it by text.
+    if isinstance(exc, AgentExitError):
+        return False
+    # SSH path: the same conditions are only visible as stderr text.
     message = str(exc)
     return "Permission denied (publickey)" in message or "lost connection" in message
 
@@ -41,28 +64,35 @@ class AgentExecutionManager:
         agent_config: AgentConfig,
         runtime_factory: Callable[[], Runtime],
         world_runtime_info: RuntimeInfo | None = None,
-        checkpoint: Callable[[str], Awaitable[None]] | None = None,
+        request_checkpoint: Callable[[str], None] | None = None,
         primary_workspace: Workspace | None = None,
         primary_mount: AgentWorkspaceMount | None = None,
         total_agents: int | None = None,
         min_warmpool_timeout: int = 43200,
+        vm_budget: AgentVMBudget | None = None,
+        warmpool_idle_timeout: float | None = None,
     ) -> None:
         if agent_config.max_parallel is None:
             raise ValueError("AgentExecutionManager requires agent_config.max_parallel")
 
         self._agent_config = agent_config
         self._world_runtime_info = world_runtime_info
-        self._checkpoint = checkpoint
+        self._request_checkpoint = request_checkpoint
         self._primary_workspace = primary_workspace
         self._primary_mount = primary_mount
         self._min_warmpool_timeout = min_warmpool_timeout
 
         vm_timeout: int | None = None
         if isinstance(agent_config.runtime, VMRuntimeConfig):
-            if total_agents is not None:
-                vm_timeout = agent_config.runtime.vm.timeout * total_agents
-            vm_timeout = max(vm_timeout or 0, min_warmpool_timeout) if min_warmpool_timeout > 0 else vm_timeout
+            # min_warmpool_timeout is a floor on the config's own timeout, never
+            # a replacement: without total_agents the configured runtime.vm.timeout
+            # must still be honored (a serve-mode orchestrator configured for 24h
+            # must not be silently clamped to the 12h pool minimum).
+            vm_timeout = agent_config.runtime.vm.timeout * (total_agents or 1)
+            if min_warmpool_timeout > 0:
+                vm_timeout = max(vm_timeout, min_warmpool_timeout)
 
+        self._salvage_timeout = _SALVAGE_TIMEOUT_S
         self._warm_pool = WarmPool(
             runtime_factory=runtime_factory,
             image=agent_config.image,
@@ -72,8 +102,16 @@ class AgentExecutionManager:
             health_check_attempts=agent_config.ssh_probe_retries,
             reset_attempts=agent_config.ssh_probe_retries,
             vm_timeout=vm_timeout,
+            vm_budget=vm_budget,
+            alias_prefix=make_agent_pool_prefix(agent_config.package, agent_config.image, agent_config.config),
+            idle_timeout=warmpool_idle_timeout,
         )
         self._integration_lock = asyncio.Lock()
+        # Per-task runtime leases (runtime_idle_release_seconds): the manager
+        # is shared by every lane with this config, so bindings are keyed by
+        # the AgentTask itself. Weak keys: a dropped task cannot alias a new
+        # one, and its lease timer still fires to return the VM.
+        self._leases: weakref.WeakKeyDictionary[AgentTask, RuntimeLease] = weakref.WeakKeyDictionary()
 
     def update_vm_timeout(self, total_agents: int) -> None:
         """Recompute the pool's VM sandbox timeout for a (possibly larger) agent count."""
@@ -87,13 +125,75 @@ class AgentExecutionManager:
             self._warm_pool._vm_timeout = new_timeout
 
     async def shutdown(self) -> None:
+        leases = list(self._leases.values())
+        self._leases.clear()
+        for lease in leases:
+            with suppress(Exception):
+                await lease.release()
         await self._warm_pool.shutdown()
+
+    def _lease_for(self, task: AgentTask, idle_seconds: float) -> RuntimeLease:
+        lease = self._leases.get(task)
+        if lease is None:
+            lease = RuntimeLease(self._warm_pool, idle_seconds)
+            self._leases[task] = lease
+        return lease
+
+    async def warm(self, task: AgentTask) -> bool:
+        """Prepare ``task``'s VM ahead of its next ``run``: acquire, install the
+        agent, and bind the lease with the setup fingerprint, so the run checks
+        the VM out and takes its skip-setup path (the follow-up-turn latency
+        instead of a cold start). No model turn runs.
+
+        Returns True when a VM is now leased and prepared — freshly, or an
+        already-bound healthy one whose idle clock was restarted. Returns
+        False when the agent config has no ``runtime_idle_release_seconds``:
+        without a lease there is nowhere to hold the VM between now and the
+        run. Raises when the acquire or the install fails; the VM is destroyed
+        first, so a failed warm never pins a pool slot.
+        """
+        idle_seconds = self._agent_config.runtime_idle_release_seconds
+        if idle_seconds is None:
+            return False
+        return await task._warm_leased(self._warm_pool, self._lease_for(task, idle_seconds))
+
+    async def release(self, task: AgentTask) -> None:
+        """End ``task``'s runtime lease now, destroying its bound idle VM.
+
+        For a task that will not run again (a closed chat lane): the idle
+        timer would reclaim the VM eventually, but until then it counts
+        against the world's VM budget. Waits for an in-flight warm or run on
+        the task to finish first, so the VM it produced is destroyed rather
+        than orphaned — cancel a run you do not want to wait for.
+        """
+        lease = self._leases.pop(task, None)
+        if lease is not None:
+            # Under the turn lock: an in-flight warm binds its VM onto this
+            # lease object before we destroy, instead of orphaning it.
+            async with lease.turn_lock:
+                await lease.release()
 
     async def run(
         self,
         task: AgentTask,
         instruction: str,
         display_name: str | None = None,
+    ) -> str:
+        # Runtime lease: reuse the task's bound VM from the previous run when
+        # configured. The turn lock serializes this run against a warm() or
+        # release() on the same task: a run arriving during a warm waits for
+        # the prepared VM instead of racing it for the pool slot.
+        idle_seconds = self._agent_config.runtime_idle_release_seconds
+        lease = self._lease_for(task, idle_seconds) if idle_seconds is not None else None
+        async with lease.turn_lock if lease is not None else nullcontext():
+            return await self._run_turn(task, instruction, display_name, lease)
+
+    async def _run_turn(
+        self,
+        task: AgentTask,
+        instruction: str,
+        display_name: str | None,
+        lease: RuntimeLease | None,
     ) -> str:
         run_mounts = [mount.clone_for_run() for mount in task._all_mounts()]
         task_name = _task_slug(display_name or task._display_name or "agent-task")
@@ -111,8 +211,22 @@ class AgentExecutionManager:
         agent_id: str | None = None
         successful_runtime = None
         last_error: Exception | None = None
+
+        # A stale/unhealthy binding is destroyed and the run falls through to
+        # a fresh acquire; retry attempts always acquire fresh.
+        leased_runtime = None
+        if lease is not None:
+            leased_runtime = await lease.checkout_healthy([mount.agent_path for mount in run_mounts])
+
         for attempt in range(1, _WARM_POOL_RUN_ATTEMPTS + 1):
-            pooled_runtime = await self._warm_pool.acquire()
+            if leased_runtime is not None:
+                pooled_runtime, leased_runtime = leased_runtime, None
+                # Reuse of an already-prepared VM: skip agent install/env setup
+                # when the lease's recorded setup identity still matches.
+                skip_vm_setup = lease is not None and lease.last_fingerprint == task._setup_fingerprint()
+            else:
+                pooled_runtime = await self._warm_pool.acquire()
+                skip_vm_setup = False
             published_transport: GitTransport | None = None
             try:
                 published_transport = await self._prepare_git_mount(run_mounts, task_name)
@@ -123,17 +237,40 @@ class AgentExecutionManager:
                     instruction,
                     display_name=display_name,
                     mounts=run_mounts,
+                    skip_vm_setup=skip_vm_setup,
                 )
                 successful_runtime = pooled_runtime
                 break
             except Exception as exc:
-                await self._warm_pool.release(
-                    pooled_runtime,
-                    workspace_paths=[mount.agent_path for mount in run_mounts],
-                    destroy=True,
-                )
+                giving_up = attempt >= _WARM_POOL_RUN_ATTEMPTS or not _is_retryable_warm_pool_run_error(exc)
+                # Salvage the failed agent's git state (committed + dirty +
+                # untracked) to a hidden ref BEFORE the VM is destroyed — but
+                # only when we are actually giving up, not between retries of a
+                # transient SSH error (the agent has not produced work yet).
+                # Time-bounded, and teardown is guaranteed by the ``finally``:
+                # a CancelledError raised while awaiting salvage inside this
+                # handler CANNOT be caught by the sibling BaseException handler
+                # below, so without the finally it would skip the release and
+                # leave the pool slot stuck in ``_in_use``.
+                try:
+                    if giving_up:
+                        with suppress(Exception):
+                            await asyncio.wait_for(
+                                self._salvage_failed_agent(
+                                    task, published_transport, run_mounts, pooled_runtime.runtime_info
+                                ),
+                                timeout=self._salvage_timeout,
+                            )
+                finally:
+                    await asyncio.shield(
+                        self._warm_pool.release(
+                            pooled_runtime,
+                            workspace_paths=[mount.agent_path for mount in run_mounts],
+                            destroy=True,
+                        )
+                    )
                 last_error = exc
-                if attempt >= _WARM_POOL_RUN_ATTEMPTS or not _is_retryable_warm_pool_run_error(exc):
+                if giving_up:
                     raise
                 logger.warning(
                     "Warm-pooled agent run failed with transient SSH error on %s "
@@ -143,6 +280,36 @@ class AgentExecutionManager:
                     _WARM_POOL_RUN_ATTEMPTS,
                 )
                 continue
+            except BaseException:
+                # CancelledError (asyncio.wait_for timeout on runner.run, or a
+                # workflow/task cancel) is NOT an Exception: without this
+                # handler the checked-out VM would stay in ``_in_use`` forever
+                # while its agent keeps running. Salvage the git state (shielded
+                # + time-bounded, since we are unwinding under cancellation),
+                # then destroy it; shield the teardown so a second cancellation
+                # cannot abandon it mid-release. The finally guarantees the
+                # release even if that second cancellation lands during salvage
+                # (CancelledError is not suppressed by suppress(Exception)).
+                try:
+                    with suppress(Exception):
+                        await asyncio.wait_for(
+                            asyncio.shield(
+                                self._salvage_failed_agent(
+                                    task, published_transport, run_mounts, pooled_runtime.runtime_info
+                                )
+                            ),
+                            timeout=self._salvage_timeout,
+                        )
+                finally:
+                    with suppress(Exception):
+                        await asyncio.shield(
+                            self._warm_pool.release(
+                                pooled_runtime,
+                                workspace_paths=[mount.agent_path for mount in run_mounts],
+                                destroy=True,
+                            )
+                        )
+                raise
         else:
             if last_error is not None:
                 raise last_error
@@ -151,10 +318,27 @@ class AgentExecutionManager:
         if agent_id is None or successful_runtime is None:
             raise RuntimeError(f"Agent task {task_name} did not produce a result")
 
-        await self._warm_pool.release(
-            successful_runtime,
-            workspace_paths=[mount.agent_path for mount in run_mounts],
-        )
+        if lease is not None:
+            # Keep the VM bound to this task; the lease's idle timer destroys
+            # it if no follow-up run arrives in time. Shielded: a cancellation
+            # mid-bind must not leave the VM neither bound nor released.
+            await asyncio.shield(
+                lease.bind(
+                    successful_runtime,
+                    [mount.agent_path for mount in run_mounts],
+                    fingerprint=task._setup_fingerprint(),
+                )
+            )
+        else:
+            # Shielded: a cancellation landing exactly during the success-path
+            # release must not abandon the VM half-returned (neither idle nor
+            # destroyed).
+            await asyncio.shield(
+                self._warm_pool.release(
+                    successful_runtime,
+                    workspace_paths=[mount.agent_path for mount in run_mounts],
+                )
+            )
 
         # Only auto-merge if no review gate handled it AND the mount opts in.
         # A task that publishes a route/feature branch purely to produce side
@@ -170,10 +354,10 @@ class AgentExecutionManager:
             and published_transport.published_ref is not None
         ):
             await self._integrate_published_ref(
+                task=task,
                 task_name=task_name,
                 published_ref=published_transport.published_ref,
             )
-            task.merged = True
         return agent_id
 
     def _attach_review_gate(
@@ -208,18 +392,15 @@ class AgentExecutionManager:
                 if not result.merged:
                     return ReviewGateMergeResult(merged=False, conflict_files=result.unmerged_files)
 
-                await primary_transport._refresh_local_workspace_from_main()
-
-                # Checkpoint tracked workspace
-                workspace = self._primary_workspace
-                if workspace is not None and workspace.tracked and self._checkpoint is not None:
-                    step_name = f"parallel_agents.{task_name}.{result.commit_sha[:12]}"
-                    await workspace.ensure_fuse_mount()
-                    await workspace.materialize_current_tree_into_overlay()
-                    await self._checkpoint(step_name)
-
-                await delete_remote_ref(primary_transport.bare_repo_path, pub_ref.ref)
+                # Mark the merge as soon as main has it: a call timeout during
+                # the steps below must still report the merge that landed.
                 task.merged = True
+                task.merged_commit = result.commit_sha or None
+                try:
+                    await primary_transport._refresh_local_workspace_from_main()
+                    await delete_remote_ref(primary_transport.bare_repo_path, pub_ref.ref)
+                finally:
+                    self._request_tracked_checkpoint(f"parallel_agents.{task_name}.{result.commit_sha[:12]}")
                 return ReviewGateMergeResult(merged=True)
 
         result_dir = self._primary_mount.world_path if self._primary_mount else None
@@ -233,6 +414,10 @@ class AgentExecutionManager:
                 published_transport.published_ref.commit_sha if published_transport.published_ref is not None else None
             ),
             max_continuations=task._max_review_continuations,
+            # Bounds the zero-cost merge-conflict resolution loop AND (post-review
+            # exhaustion) the merge-only loop. Defaults to max_continuations when
+            # the caller did not set _max_review_zero_cost_continuations.
+            max_zero_cost_continuations=getattr(task, "_max_review_zero_cost_continuations", None),
             compaction_instruction=task._review_compaction_instruction,
             result_dir=result_dir,
             exhaustion_policy=getattr(task, "_review_exhaustion_policy", "fail"),
@@ -269,13 +454,40 @@ class AgentExecutionManager:
         )
         return _git_transport_from_mount(mounts[0])
 
+    async def _salvage_failed_agent(
+        self,
+        task: AgentTask,
+        transport: GitTransport | None,
+        run_mounts: list[AgentWorkspaceMount],
+        runtime_info: RuntimeInfo,
+    ) -> None:
+        """Best-effort capture of a failed agent's git state before VM teardown.
+
+        Records the resulting salvage ref/SHA on ``task`` (read back by the
+        workflow backend). NEVER raises: a salvage failure must not mask the
+        original agent error the caller is about to re-raise.
+        """
+        if transport is None or not run_mounts:
+            return
+        try:
+            salvaged = await transport.salvage_sync(runtime_info.hostname, run_mounts[0])
+        except Exception:
+            logger.warning("Salvage attempt raised for %s (best-effort)", runtime_info.runtime_id, exc_info=True)
+            return
+        if salvaged is not None:
+            task.salvage_ref = salvaged.ref
+            task.salvage_commit = salvaged.commit_sha
+
     async def _integrate_published_ref(
         self,
         *,
+        task: AgentTask,
         task_name: str,
         published_ref: GitPublishedRef,
     ) -> None:
+        """Squash-merge ``published_ref`` into main; sets ``task.merged`` and ``task.merged_commit``."""
         if self._primary_mount is None or self._primary_mount.transport_kind != "git":
+            task.merged = True
             return
 
         transport = _git_transport_from_mount(self._primary_mount)
@@ -290,18 +502,21 @@ class AgentExecutionManager:
             if not result.merged:
                 raise RuntimeError(f"Merge conflict integrating task {task_name}")
 
-            await transport._refresh_local_workspace_from_main()
-            await self._checkpoint_tracked_workspace(task_name, published_ref)
-            await delete_remote_ref(transport.bare_repo_path, published_ref.ref)
+            task.merged = True
+            task.merged_commit = result.commit_sha or None
+            try:
+                await transport._refresh_local_workspace_from_main()
+                await delete_remote_ref(transport.bare_repo_path, published_ref.ref)
+            finally:
+                self._request_tracked_checkpoint(f"parallel_agents.{task_name}.{published_ref.commit_sha[:12]}")
 
-    async def _checkpoint_tracked_workspace(self, task_name: str, published_ref: GitPublishedRef) -> None:
+    def _request_tracked_checkpoint(self, step_name: str) -> None:
+        """Ask the world to checkpoint the merged tree after the locks are released; the world coalesces a burst."""
         workspace = self._primary_workspace
-        if workspace is None or not workspace.tracked or self._checkpoint is None:
+        if workspace is None or not workspace.tracked or self._request_checkpoint is None:
             return
-        step_name = f"parallel_agents.{task_name}.{published_ref.commit_sha[:12]}"
-        await workspace.ensure_fuse_mount()
-        await workspace.materialize_current_tree_into_overlay()
-        await self._checkpoint(step_name)
+        workspace.mark_tree_changed()
+        self._request_checkpoint(step_name)
 
 
 @asynccontextmanager

@@ -1,10 +1,10 @@
 [build-system]
-requires      = ["flit_core>=3.11,<4"]
+requires      = ["flit_core>=3.11,<5"]
 build-backend = "flit_core.buildapi"
 
 [project]
 name        = "mypy_extensions"
-version     = "1.1.0"
+version     = "1.2.0"
 description = "Type system extensions for programs checked with the mypy type checker."
 readme      = "README.md"
 authors     = [
@@ -16,15 +16,15 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 
 [project.urls]
 Homepage = "https://github.com/python/mypy_extensions"

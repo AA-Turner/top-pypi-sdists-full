@@ -108,7 +108,10 @@ type OnFileFn = dyn Fn(&str) -> std::result::Result<Vec<Row>, BoxError> + Send +
 type RowSink<'a> = dyn FnMut(Vec<infer::JsonRow>) + Send + 'a;
 /// The paths a per-table hook runs over, yielded as the scan finds them.
 type PathFeed<'a> = dyn Iterator<Item = PathBuf> + Send + 'a;
-type OnFilesFn = dyn Fn(&mut PathFeed<'_>, &mut RowSink<'_>) -> std::result::Result<(), BoxError>
+/// What a per-table hook may call once its last chunk is out, before it knows
+/// whether it succeeded, so its rows can be staged while it finishes.
+type OutputEnd<'a> = dyn FnMut() + 'a;
+type OnFilesFn = dyn Fn(&mut PathFeed<'_>, &mut RowSink<'_>, &mut OutputEnd<'_>) -> std::result::Result<(), BoxError>
     + Send
     + Sync
     + 'static;
@@ -378,11 +381,16 @@ impl Table {
             + Sync
             + 'static,
     {
-        Self::per_table_streaming(name, ddl, glob, move |feed, sink: &mut RowSink<'_>| {
-            let paths: Vec<PathBuf> = feed.collect();
-            sink(on_files(&paths)?);
-            Ok(())
-        })
+        Self::per_table_streaming(
+            name,
+            ddl,
+            glob,
+            move |feed, sink: &mut RowSink<'_>, _: &mut OutputEnd<'_>| {
+                let paths: Vec<PathBuf> = feed.collect();
+                sink(on_files(&paths)?);
+                Ok(())
+            },
+        )
     }
 
     /// [`per_table`](Self::per_table) for a hook that hands its rows over in
@@ -394,7 +402,11 @@ impl Table {
         on_files: F,
     ) -> Self
     where
-        F: Fn(&mut PathFeed<'_>, &mut RowSink<'_>) -> std::result::Result<(), BoxError>
+        F: Fn(
+                &mut PathFeed<'_>,
+                &mut RowSink<'_>,
+                &mut OutputEnd<'_>,
+            ) -> std::result::Result<(), BoxError>
             + Send
             + Sync
             + 'static,
@@ -1031,27 +1043,31 @@ impl DirSQL {
                 .unwrap_or_default(),
             Err(e) => return vec![error_event(Some(table), trigger, e.to_string())],
         };
-        let raw_rows = match collect_table_rows(hook.as_ref(), &abs_paths) {
-            Ok(rows) => rows,
-            Err(e) => return vec![error_event(Some(table), trigger, e.to_string())],
-        };
         let strict = *self.inner.strict_map.get(table).unwrap_or(&false);
-
-        let changes = {
-            let db = match self.inner.db.lock() {
-                Ok(g) => g,
-                Err(e) => return vec![error_event(Some(table), trigger, e.to_string())],
-            };
-            let new_rows = match shape_rows(&db, table, raw_rows, strict) {
-                Ok(rows) => rows,
-                Err(message) => return vec![error_event(Some(table), trigger, message)],
-            };
-            match foreign_key::atomically(db.conn(), || {
-                db.reconcile_batch_rows(table, BATCH_OWNER, &new_rows)
-            }) {
-                Ok(changes) => changes,
-                Err(e) => return vec![error_event(Some(table), trigger, e.to_string())],
+        let rows = Mutex::new(Vec::new());
+        let take_rows = || std::mem::take(&mut *rows.lock().expect("hook rows lock"));
+        let mut staged = None;
+        let produced = hook(
+            &mut abs_paths.into_iter(),
+            &mut |chunk| rows.lock().expect("hook rows lock").extend(chunk),
+            &mut || staged = Some(self.stage_table_rows(table, take_rows(), strict)),
+        );
+        let staged = match (produced, staged) {
+            (Err(e), staged) => {
+                if let Some(Ok(staged)) = staged {
+                    let _ = foreign_key::discard(staged.db.conn());
+                }
+                return vec![error_event(Some(table), trigger, e.to_string())];
             }
+            (Ok(()), Some(staged)) => staged,
+            (Ok(()), None) => self.stage_table_rows(table, take_rows(), strict),
+        };
+        let changes = match staged {
+            Ok(Staged { db, changes }) => match foreign_key::keep(db.conn()) {
+                Ok(()) => changes,
+                Err(e) => return vec![error_event(Some(table), trigger, e.to_string())],
+            },
+            Err(message) => return vec![error_event(Some(table), trigger, message)],
         };
 
         if changes.keyed {
@@ -1065,6 +1081,23 @@ impl DirSQL {
         } else {
             differ::diff_unordered(table, &changes.removed, &changes.added, trigger)
         }
+    }
+
+    /// Shape a per-table hook's rows and write them as `table`'s, held open
+    /// under the database lock until the hook's exit keeps or discards them.
+    fn stage_table_rows(
+        &self,
+        table: &str,
+        raw_rows: Vec<infer::JsonRow>,
+        strict: bool,
+    ) -> std::result::Result<Staged<'_>, String> {
+        let db = self.inner.db.lock().map_err(|e| e.to_string())?;
+        let rows = shape_rows(&db, table, raw_rows, strict)?;
+        let changes = foreign_key::stage(db.conn(), || {
+            db.reconcile_batch_rows(table, BATCH_OWNER, &rows)
+        })
+        .map_err(|e| e.to_string())?;
+        Ok(Staged { db, changes })
     }
 
     /// Record in the table's file set whether `abs_path` is, now, one of the
@@ -1312,10 +1345,10 @@ impl DirSQL {
     }
 
     /// Split-phase construction — part 1. Performs all I/O that is safe to run
-    /// off the host's main thread: validates DDL, compiles the matcher, walks
-    /// the directory, opens the persistent cache (when enabled) and decides
-    /// which files need re-parsing. Does **not** read file contents and does
-    /// **not** invoke `on_file`.
+    /// off the host's main thread: compiles the matcher, walks the directory,
+    /// opens the database, creates transient tables when possible, and decides
+    /// which files need re-parsing. Does **not** read file contents or invoke
+    /// `on_file`.
     ///
     /// Pair with [`finish_build`](Self::finish_build) to complete construction
     /// on a thread where the `on_file` callback can safely execute (e.g. the
@@ -1326,6 +1359,30 @@ impl DirSQL {
     }
 
     fn prepare_resolved_with(resolved: ResolvedBuild, scan: ScanFn<'_>) -> Result<PreparedBuild> {
+        Self::prepare_resolved_with_db(resolved, scan, Db::new)
+    }
+
+    fn prepare_resolved_with_db<F>(
+        resolved: ResolvedBuild,
+        scan: ScanFn<'_>,
+        new_db: F,
+    ) -> Result<PreparedBuild>
+    where
+        F: FnOnce() -> db::Result<Db> + Send,
+    {
+        Self::prepare_resolved_with_setup(resolved, scan, new_db, run_table_ddl)
+    }
+
+    fn prepare_resolved_with_setup<F, D>(
+        resolved: ResolvedBuild,
+        scan: ScanFn<'_>,
+        new_db: F,
+        ddl: D,
+    ) -> Result<PreparedBuild>
+    where
+        F: FnOnce() -> db::Result<Db> + Send,
+        D: FnOnce(&Db, &[Table]) -> Result<Vec<String>> + Send,
+    {
         let ResolvedBuild {
             root,
             tables,
@@ -1371,23 +1428,62 @@ impl DirSQL {
         } else {
             (HashMap::new(), Vec::new())
         };
-        let scanned = if table_names.is_empty() {
-            Vec::new()
+        let (scanned, fresh_db) = if table_names.is_empty() {
+            let fresh_db = if persist_ctx.is_none() {
+                let mut db = new_db().map_err(map_db_error)?;
+                configure_db_paths(
+                    &mut db,
+                    &root,
+                    &ignore,
+                    hint_legacy_files_table,
+                    path_table_parser.as_deref(),
+                    no_ignore,
+                );
+                Some((db, true, Vec::new()))
+            } else {
+                None
+            };
+            (Vec::new(), fresh_db)
         } else {
-            // The walk reports a running count rather than a fraction: it does
-            // not know how many files there are until it has found them all.
-            let mut progress = Progress::scanning();
-            let (scanned, seen) = scan_groups(&groups, scan, &mut progress, &mut |path, table| {
-                if let Some(feed) = feeds.get(table) {
-                    let _ = feed.send(path.to_path_buf());
+            std::thread::scope(|scope| {
+                let db_task = persist_ctx.is_none().then(|| {
+                    scope.spawn(|| {
+                        let mut db = new_db().map_err(map_db_error)?;
+                        configure_db_paths(
+                            &mut db,
+                            &root,
+                            &ignore,
+                            hint_legacy_files_table,
+                            path_table_parser.as_deref(),
+                            no_ignore,
+                        );
+                        let ddl_ready = extensions.is_empty() && functions.is_empty();
+                        if ddl_ready {
+                            let warnings = ddl(&db, &tables)?;
+                            return Ok::<_, DirSqlError>((db, true, warnings));
+                        }
+                        Ok::<_, DirSqlError>((db, false, Vec::new()))
+                    })
+                });
+                // The walk reports a running count rather than a fraction: it does
+                // not know how many files there are until it has found them all.
+                let mut progress = Progress::scanning();
+                let (scanned, seen) =
+                    scan_groups(&groups, scan, &mut progress, &mut |path, table| {
+                        if let Some(feed) = feeds.get(table) {
+                            let _ = feed.send(path.to_path_buf());
+                        }
+                    });
+                drop(feeds);
+                progress.finish(seen);
+                for warning in empty_table_warnings(&tables, &anchors, &scanned) {
+                    eprintln!("{warning}");
                 }
-            });
-            drop(feeds);
-            progress.finish(seen);
-            for warning in empty_table_warnings(&tables, &anchors, &scanned) {
-                eprintln!("{warning}");
-            }
-            scanned
+                let fresh_db = db_task
+                    .map(|task| task.join().expect("database creation panicked"))
+                    .transpose()?;
+                Ok::<_, DirSqlError>((scanned, fresh_db))
+            })?
         };
 
         // When persist is enabled, files whose stat tuple matches the cache
@@ -1410,6 +1506,7 @@ impl DirSQL {
             anchors,
             ignore,
             scanned_files,
+            fresh_db,
             early,
             hint_legacy_files_table,
             persist: persist_ctx.map(|ctx| PreparedPersist {
@@ -1438,10 +1535,9 @@ impl DirSQL {
     }
 
     /// Split-phase construction — part 2. Consumes the intermediate state from
-    /// [`prepare_resolved`](Self::prepare_resolved): creates the SQLite
-    /// database (or wires up the persistent on-disk one), runs each table's
-    /// DDL, invokes each file's `on_file` callback, and inserts the
-    /// resulting rows.
+    /// [`prepare_resolved`](Self::prepare_resolved): configures the prepared
+    /// database, completes any deferred DDL, invokes each file's `on_file`
+    /// callback, and inserts the resulting rows.
     ///
     /// Must be invoked on a thread where the `on_file` closures can safely
     /// run. For the napi-rs binding that is the JS main thread.
@@ -1468,6 +1564,7 @@ impl DirSQL {
             anchors,
             ignore,
             scanned_files,
+            fresh_db,
             early,
             persist,
             poll_interval,
@@ -1476,20 +1573,28 @@ impl DirSQL {
             no_ignore,
         } = prepared;
 
-        let (mut db, persist_ready, needs_sweep) = match persist {
+        let (mut db, fresh_ddl, ddl_warnings, persist_ready, needs_sweep) = match persist {
             Some(p) => (
                 p.db,
+                false,
+                Vec::new(),
                 Some((p.deleted, p.meta, p.meta_current)),
                 p.needs_sweep,
             ),
-            None => (Db::new()?, None, false),
+            None => {
+                let (db, ddl_ready, warnings) = fresh_db.expect("prepare opened the database");
+                (db, ddl_ready, warnings, None, false)
+            }
         };
-        db.set_path_table_root(root.clone());
-        db.set_hint_legacy_files_table(hint_legacy_files_table);
-        db.add_path_table_ignore(ignore);
-        db.set_path_table_gitignore(!no_ignore);
-        if let Some(command) = path_table_parser {
-            db.set_path_table_parser(command);
+        if persist_ready.is_some() {
+            configure_db_paths(
+                &mut db,
+                &root,
+                &ignore,
+                hint_legacy_files_table,
+                path_table_parser.as_deref(),
+                no_ignore,
+            );
         }
 
         // Load extensions before any CREATE TABLE so a table's DDL and later
@@ -1525,32 +1630,16 @@ impl DirSQL {
         let mut ddl_map: HashMap<String, String> = HashMap::new();
         let declared: Vec<String> = tables.iter().map(|table| table.name.clone()).collect();
 
+        let ddl_warnings = if fresh_ddl {
+            ddl_warnings
+        } else {
+            run_table_ddl(&db, &tables)?
+        };
+        for warning in ddl_warnings {
+            eprintln!("{warning}");
+        }
         for table in tables {
             let table_name = table.name.clone();
-            // A real table under this name is the cache already holding it
-            // from a prior run: skip the batch, since the schema is preserved
-            // verbatim across runs (the glob_config_hash captures the whole
-            // `ddl`). Anything else under the name is not a warm cache — run
-            // the batch and let SQLite object to the collision itself.
-            let warm = catalog_entry(&db, &table_name)?.is_some_and(|entry| entry.kind == "table");
-            if !warm {
-                let before = db::user_table_names(db.conn()).map_err(DirSqlError::sqlite)?;
-                db.create_table(&table_name, &table.ddl).map_err(|source| {
-                    DirSqlError::TableDdl {
-                        name: table_name.clone(),
-                        source,
-                    }
-                })?;
-                let created = db::user_table_names(db.conn())
-                    .map_err(DirSqlError::sqlite)?
-                    .into_iter()
-                    .filter(|name| !before.contains(name))
-                    .collect();
-                let entry = catalog_entry(&db, &table_name)?;
-                if let Some(warning) = classify_declared_table(&table_name, entry, created)? {
-                    eprintln!("{warning}");
-                }
-            }
             on_file_map.insert(table_name.clone(), table.hook);
             strict_map.insert(table_name.clone(), table.strict);
             ddl_map.insert(table_name, table.ddl);
@@ -2163,6 +2252,9 @@ pub struct PreparedBuild {
     /// the same ones declared tables do.
     ignore: Vec<String>,
     scanned_files: Scanned,
+    /// The transient database opened during the scan, whether its tables'
+    /// DDL already ran, and that DDL's warnings. `None` when persisting.
+    fresh_db: Option<(Db, bool, Vec<String>)>,
     /// Per-table hooks already running over the paths the scan found, by table.
     early: Vec<(String, Production)>,
     persist: Option<PreparedPersist>,
@@ -2205,6 +2297,49 @@ struct PersistContext {
 }
 
 type GroupDraft = (PathBuf, Vec<String>, Vec<(String, String)>, Vec<String>);
+
+fn configure_db_paths(
+    db: &mut Db,
+    root: &Path,
+    ignore: &[String],
+    hint_legacy_files_table: bool,
+    path_table_parser: Option<&str>,
+    no_ignore: bool,
+) {
+    db.set_path_table_root(root.to_path_buf());
+    db.set_hint_legacy_files_table(hint_legacy_files_table);
+    db.add_path_table_ignore(ignore.to_vec());
+    db.set_path_table_gitignore(!no_ignore);
+    if let Some(command) = path_table_parser {
+        db.set_path_table_parser(command.to_owned());
+    }
+}
+
+fn run_table_ddl(db: &Db, tables: &[Table]) -> Result<Vec<String>> {
+    let mut warnings = Vec::new();
+    for table in tables {
+        let table_name = &table.name;
+        let warm = catalog_entry(db, table_name)?.is_some_and(|entry| entry.kind == "table");
+        if !warm {
+            let before = db::user_table_names(db.conn()).map_err(DirSqlError::sqlite)?;
+            db.create_table(table_name, &table.ddl)
+                .map_err(|source| DirSqlError::TableDdl {
+                    name: table_name.clone(),
+                    source,
+                })?;
+            let created = db::user_table_names(db.conn())
+                .map_err(DirSqlError::sqlite)?
+                .into_iter()
+                .filter(|name| !before.contains(name))
+                .collect();
+            let entry = catalog_entry(db, table_name)?;
+            if let Some(warning) = classify_declared_table(table_name, entry, created)? {
+                warnings.push(warning);
+            }
+        }
+    }
+    Ok(warnings)
+}
 
 /// Walk every group's anchor in turn, reporting one running count across all of
 /// them. Returns the matches and the total count.
@@ -2567,16 +2702,6 @@ fn shape_rows(
         .map_err(|e| e.to_string())
 }
 
-/// Every row a per-table hook produces over `paths`, gathered into one list.
-fn collect_table_rows(
-    hook: &OnFilesFn,
-    paths: &[PathBuf],
-) -> std::result::Result<Vec<infer::JsonRow>, BoxError> {
-    let mut rows = Vec::new();
-    hook(&mut paths.iter().cloned(), &mut |chunk| rows.extend(chunk))?;
-    Ok(rows)
-}
-
 /// Replace a per-table hook's rows under [`BATCH_OWNER`], storing each chunk
 /// the hook emits while the hook, on its own thread, goes on producing the
 /// next. Chunks are shaped on a thread of their own, in order, so shaping one
@@ -2660,6 +2785,12 @@ fn refill_table_rows(
     Ok(outcome)
 }
 
+/// A per-table hook's rows written but not yet kept.
+struct Staged<'a> {
+    db: std::sync::MutexGuard<'a, Db>,
+    changes: db::RowChanges,
+}
+
 /// A per-table hook running on its own thread, its rows arriving as chunks.
 struct Production {
     chunks: std::sync::mpsc::Receiver<Vec<infer::JsonRow>>,
@@ -2689,9 +2820,13 @@ fn start_hook(
         if paths.peek().is_none() {
             return Ok(());
         }
-        hook(&mut paths, &mut |chunk| {
-            let _ = sender.send(chunk);
-        })
+        hook(
+            &mut paths,
+            &mut |chunk| {
+                let _ = sender.send(chunk);
+            },
+            &mut || {},
+        )
         .map_err(|e| e.to_string())
     });
     Production { chunks, handle }
@@ -2964,8 +3099,8 @@ fn build_tables_from_config(cfg: &config::Config, config_dir: &Path) -> Result<V
             table_cfg.name.clone(),
             table_cfg.ddl.clone(),
             glob,
-            move |paths: &mut PathFeed<'_>, sink: &mut RowSink<'_>| {
-                run_on_files(&command, paths, &hook_cwd, &hook_root, sink)
+            move |paths: &mut PathFeed<'_>, sink: &mut RowSink<'_>, end: &mut OutputEnd<'_>| {
+                run_on_files(&command, paths, &hook_cwd, &hook_root, sink, end)
             },
         )
         .anchored(anchor)
@@ -2992,9 +3127,10 @@ fn run_on_files(
     config_dir: &Path,
     root: &Path,
     sink: &mut RowSink<'_>,
+    end: &mut OutputEnd<'_>,
 ) -> std::result::Result<(), BoxError> {
     Ok(on_file::run_streaming(
-        command, config_dir, root, paths, sink,
+        command, config_dir, root, paths, sink, end,
     )?)
 }
 
@@ -3416,6 +3552,173 @@ mod internal_tests {
         )
     }
 
+    #[test]
+    fn prepare_opens_the_database_while_the_scan_is_active() {
+        use std::sync::mpsc;
+
+        let dir = TempDir::new().unwrap();
+        let (scan_started, wait_for_scan) = mpsc::channel();
+        let (db_opened, wait_for_db) = mpsc::channel();
+        let scan =
+            |_: &Path, _: &TableMatcher, _: &mut dyn FnMut(u64), _: &mut dyn FnMut(&Path, &str)| {
+                scan_started.send(()).unwrap();
+                assert!(
+                    wait_for_db.recv_timeout(Duration::from_secs(5)).is_ok(),
+                    "database creation must finish before the scan completes"
+                );
+                Vec::new()
+            };
+        let new_db = move || {
+            wait_for_scan.recv_timeout(Duration::from_secs(5)).unwrap();
+            let db = Db::new()?;
+            db_opened.send(()).unwrap();
+            Ok(db)
+        };
+
+        let prepared = DirSQL::prepare_resolved_with_db(
+            resolved_over(dir.path(), vec![txt_table()], false),
+            &scan,
+            new_db,
+        )
+        .unwrap();
+        assert!(prepared.scanned_files.into_files().is_empty());
+    }
+
+    #[test]
+    fn prepare_creates_the_table_while_the_scan_is_active() {
+        use std::sync::mpsc;
+
+        let dir = TempDir::new().unwrap();
+        let (scan_started, wait_for_scan) = mpsc::channel();
+        let (ddl_done, wait_for_ddl) = mpsc::channel();
+        let scan =
+            |_: &Path, _: &TableMatcher, _: &mut dyn FnMut(u64), _: &mut dyn FnMut(&Path, &str)| {
+                scan_started.send(()).unwrap();
+                assert!(
+                    wait_for_ddl.recv_timeout(Duration::from_secs(5)).is_ok(),
+                    "table DDL must finish before the scan completes"
+                );
+                Vec::new()
+            };
+        let ddl = move |db: &Db, tables: &[Table]| {
+            wait_for_scan.recv_timeout(Duration::from_secs(5)).unwrap();
+            let warnings = run_table_ddl(db, tables)?;
+            assert!(catalog_entry(db, "items")?.is_some());
+            ddl_done.send(()).unwrap();
+            Ok(warnings)
+        };
+
+        let prepared = DirSQL::prepare_resolved_with_setup(
+            resolved_over(dir.path(), vec![txt_table()], false),
+            &scan,
+            Db::new,
+            ddl,
+        )
+        .unwrap();
+        assert!(prepared.scanned_files.into_files().is_empty());
+    }
+
+    #[test]
+    fn prepare_defers_ddl_until_after_extensions_load() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let dir = TempDir::new().unwrap();
+        let mut resolved = resolved_over(dir.path(), vec![txt_table()], false);
+        resolved.extensions.push(Extension {
+            path: dir.path().join("missing-extension.so"),
+            entrypoint: None,
+        });
+        let ddl_called = Arc::new(AtomicBool::new(false));
+        let called = Arc::clone(&ddl_called);
+        let prepared = DirSQL::prepare_resolved_with_setup(
+            resolved,
+            &|_, _, _, _| Vec::new(),
+            Db::new,
+            move |_, _| {
+                called.store(true, Ordering::SeqCst);
+                Ok(Vec::new())
+            },
+        )
+        .unwrap();
+
+        assert!(!ddl_called.load(Ordering::SeqCst));
+        assert!(!prepared.fresh_db.as_ref().unwrap().1);
+        assert!(matches!(
+            DirSQL::finish_build(prepared),
+            Err(DirSqlError::Extension { .. })
+        ));
+    }
+
+    #[test]
+    fn configure_db_paths_honors_gitignore_unless_told_not_to() {
+        for no_ignore in [false, true] {
+            let mut db = Db::new().unwrap();
+            configure_db_paths(&mut db, Path::new("/r"), &[], false, None, no_ignore);
+            assert_eq!(db.path_table_gitignore, !no_ignore);
+        }
+    }
+
+    #[test]
+    fn run_table_ddl_creates_a_missing_table_and_keeps_a_present_one() {
+        let db = Db::new().unwrap();
+        let tables = [txt_table()];
+        assert!(run_table_ddl(&db, &tables).unwrap().is_empty());
+        assert!(catalog_entry(&db, "items").unwrap().is_some());
+        assert!(run_table_ddl(&db, &tables).unwrap().is_empty());
+    }
+
+    #[test]
+    fn run_table_ddl_names_only_the_tables_its_batch_created() {
+        let db = Db::new().unwrap();
+        db.conn()
+            .execute_batch("CREATE TABLE earlier (y TEXT)")
+            .unwrap();
+        let tables = [Table::new(
+            "items",
+            "CREATE TABLE made (x TEXT)",
+            "*.txt",
+            |_| Vec::new(),
+        )];
+        let err = run_table_ddl(&db, &tables).unwrap_err();
+        assert!(
+            matches!(&err, DirSqlError::TableNotCreated { created, .. } if created == &["made"]),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn prepare_defers_ddl_until_after_functions_register() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let dir = TempDir::new().unwrap();
+        let mut resolved = resolved_over(dir.path(), vec![txt_table()], false);
+        resolved.functions.push(ResolvedFunction {
+            name: "custom_value".into(),
+            args: vec![0],
+            command: "true".into(),
+            deterministic: true,
+            timeout: Duration::from_secs(1),
+            batch: None,
+            cwd: dir.path().to_path_buf(),
+        });
+        let ddl_called = Arc::new(AtomicBool::new(false));
+        let called = Arc::clone(&ddl_called);
+        let prepared = DirSQL::prepare_resolved_with_setup(
+            resolved,
+            &|_, _, _, _| Vec::new(),
+            Db::new,
+            move |_, _| {
+                called.store(true, Ordering::SeqCst);
+                Ok(Vec::new())
+            },
+        )
+        .unwrap();
+
+        assert!(!ddl_called.load(Ordering::SeqCst));
+        assert!(!prepared.fresh_db.as_ref().unwrap().1);
+        assert!(DirSQL::finish_build(prepared).is_ok());
+    }
+
     /// Configless startup declares zero tables, so nothing the walk could
     /// visit can match: the walk must not run at all.
     #[test]
@@ -3478,7 +3781,7 @@ mod internal_tests {
             "items",
             "CREATE TABLE items (name TEXT)",
             "**/*.txt",
-            move |paths: &mut PathFeed<'_>, _: &mut RowSink<'_>| {
+            move |paths: &mut PathFeed<'_>, _: &mut RowSink<'_>, _: &mut OutputEnd<'_>| {
                 for path in paths {
                     let _ = got.lock().unwrap().send(path);
                 }
@@ -3587,6 +3890,7 @@ mod internal_tests {
                 stat: None,
                 trusted: false,
             }]),
+            fresh_db: Some((Db::new().unwrap(), false, Vec::new())),
             early: Vec::new(),
             poll_interval: DEFAULT_POLL_INTERVAL,
             persist: None,
@@ -4794,7 +5098,7 @@ mod internal_tests {
         chunks: Vec<Vec<infer::JsonRow>>,
         outcome: std::result::Result<(), String>,
     ) -> Production {
-        let hook: Arc<OnFilesFn> = Arc::new(move |_paths, sink| {
+        let hook: Arc<OnFilesFn> = Arc::new(move |_paths, sink, _end| {
             for chunk in chunks.clone() {
                 sink(chunk);
             }
@@ -5399,12 +5703,14 @@ mod internal_tests {
         let Hook::PerTable(on_files) = &tables[0].hook else {
             panic!("a configured on-file command runs once per table");
         };
-        assert_eq!(
-            collect_table_rows(on_files.as_ref(), &[dir.path().join("f.a")])
-                .unwrap()
-                .len(),
-            1
-        );
+        let mut rows = Vec::new();
+        on_files(
+            &mut std::iter::once(dir.path().join("f.a")),
+            &mut |chunk| rows.extend(chunk),
+            &mut || {},
+        )
+        .unwrap();
+        assert_eq!(rows.len(), 1);
         assert!(tables[1].strict, "on-file table preserves strict flag");
     }
 
@@ -5574,6 +5880,7 @@ mod internal_tests {
             config_dir,
             root,
             &mut |chunk| rows.extend(chunk),
+            &mut || {},
         )?;
         Ok(rows)
     }
@@ -5605,6 +5912,7 @@ mod internal_tests {
             dir.path(),
             dir.path(),
             &mut |chunk| chunks.push(chunk),
+            &mut || {},
         )
         .expect("a well-formed payload parses");
         assert!(chunks.len() > 1, "{} invocation(s)", chunks.len());
@@ -5817,6 +6125,9 @@ mod internal_tests {
                 })
                 .collect(),
         );
+        let fresh_db = persist
+            .is_none()
+            .then(|| (Db::new().unwrap(), false, Vec::new()));
         PreparedBuild {
             ignore: Vec::new(),
             root: root.to_path_buf(),
@@ -5826,6 +6137,7 @@ mod internal_tests {
             groups: Vec::new(),
             anchors: TableAnchors::at_root(root),
             scanned_files,
+            fresh_db,
             early: Vec::new(),
             poll_interval: DEFAULT_POLL_INTERVAL,
             persist,
@@ -5991,7 +6303,7 @@ mod internal_tests {
             "items",
             "CREATE TABLE items (name TEXT)",
             "*.txt",
-            move |_: &mut PathFeed<'_>, sink: &mut RowSink<'_>| hook(sink),
+            move |_: &mut PathFeed<'_>, sink: &mut RowSink<'_>, _: &mut OutputEnd<'_>| hook(sink),
         )
     }
 
@@ -6419,6 +6731,69 @@ mod internal_tests {
             *calls.lock().unwrap(),
             vec![vec![a.clone(), b.clone()], vec![a, b.clone()], vec![b]]
         );
+    }
+
+    /// A per-table hook that answers `answer`'s name, ends its output, and
+    /// then fails when `answer` says so.
+    fn ending_per_table(answer: Arc<Mutex<(String, bool)>>) -> Table {
+        Table::per_table_streaming(
+            "items",
+            "CREATE TABLE items (name TEXT)",
+            "**/*.txt",
+            move |_: &mut PathFeed<'_>, sink: &mut RowSink<'_>, end: &mut OutputEnd<'_>| {
+                let (name, fails) = answer.lock().unwrap().clone();
+                sink(vec![name_json_row(&name)]);
+                end();
+                if fails {
+                    return Err("exited 1".into());
+                }
+                Ok(())
+            },
+        )
+    }
+
+    fn ending_hook_db(answer: &Arc<Mutex<(String, bool)>>) -> (TempDir, DirSQL, PathBuf) {
+        let dir = TempDir::new().unwrap();
+        let root = dir.path().to_path_buf();
+        let a = root.join("a.txt");
+        let fake = Arc::new(
+            FakeFs::default().with_subtree(root.clone(), vec![(a.clone(), "items".into())]),
+        );
+        let items = ending_per_table(Arc::clone(answer));
+        let db =
+            DirSQL::with_ignore_and_fs(&root, vec![items], Vec::<String>::new(), fake).unwrap();
+        db.apply_file_events(vec![FileEvent::Created(a.clone())]);
+        (dir, db, a)
+    }
+
+    #[test]
+    fn a_per_table_hook_that_fails_after_ending_its_output_writes_nothing() {
+        let answer = Arc::new(Mutex::new(("old".to_string(), false)));
+        let (_dir, db, a) = ending_hook_db(&answer);
+        *answer.lock().unwrap() = ("new".to_string(), true);
+
+        let events = db.apply_file_events(vec![FileEvent::Modified(a)]);
+
+        assert!(
+            matches!(&events[..], [RowEvent::Error { error, .. }] if error.contains("exited 1")),
+            "{events:?}"
+        );
+        assert_eq!(row_names(&db), vec!["old"]);
+    }
+
+    #[test]
+    fn a_per_table_hook_that_succeeds_after_ending_its_output_keeps_its_rows() {
+        let answer = Arc::new(Mutex::new(("old".to_string(), false)));
+        let (_dir, db, a) = ending_hook_db(&answer);
+        *answer.lock().unwrap() = ("new".to_string(), false);
+
+        let events = db.apply_file_events(vec![FileEvent::Modified(a)]);
+
+        assert!(
+            matches!(&events[..], [RowEvent::Update { .. }]),
+            "{events:?}"
+        );
+        assert_eq!(row_names(&db), vec!["new"]);
     }
 
     #[test]

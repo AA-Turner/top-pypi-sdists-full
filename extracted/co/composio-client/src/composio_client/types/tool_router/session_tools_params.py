@@ -1,20 +1,18 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.tool_router.session_tools_params."""
 
 from __future__ import annotations
 
 from typing_extensions import TypedDict
 
-__all__ = ["SessionToolsParams"]
-
 
 class SessionToolsParams(TypedDict, total=False):
-    cursor: str
-    """Cursor for pagination.
-
-    The cursor is a base64 encoded string of the page and limit. The page is the
-    page number and the limit is the number of items per page. The cursor is used to
-    paginate through the items. The cursor is not required for the first page.
-    """
-
     limit: int
-    """Number of items per page, max allowed is 500"""
+    "Number of items per page, max allowed is 500"
+    cursor: str
+    "Cursor for pagination.\n\nThe cursor is a base64 encoded string of the page and limit. The page is the\npage number and the limit is the number of items per page. The cursor is used to\npaginate through the items. The cursor is not required for the first page."
+
+
+__all__ = [
+    "SessionToolsParams",
+]

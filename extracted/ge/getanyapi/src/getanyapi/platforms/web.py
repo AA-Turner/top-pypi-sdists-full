@@ -312,7 +312,7 @@ class WebScreenshotItem(BaseModel):
         description="Link to the captured screenshot image. Populated whenever the provider has data for the entity. Present whenever the upstream returns this record.",
     )
     url: str = Field(
-        description="The final page URL that was captured. Populated whenever the provider has data for the entity."
+        description="The captured page's final URL after redirects when the source reports it, otherwise the URL you requested. Populated whenever the provider has data for the entity."
     )
 
 

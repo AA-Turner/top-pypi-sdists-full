@@ -13,16 +13,29 @@
 # limitations under the License.
 import importlib.metadata
 import importlib.util
+import os
+import sys
 import warnings
+
+# gRPC C-core logs fork-handler noise at INFO; default it to ERROR. gRPC reads
+# the variable once, when it is first imported, so this only applies when this
+# package is imported before grpc; an explicit GRPC_VERBOSITY always wins.
+if "grpc" not in sys.modules:
+    os.environ.setdefault("GRPC_VERBOSITY", "ERROR")
+
+from . import _logging
+
+_logging.configure_package_logger()
 
 
 def _in_ipython() -> bool:
     # Not environment.is_interactive(), which is also true in a plain
     # `python -i` REPL, where the [interactive] extras do nothing.
+    ip_mod = sys.modules.get("IPython")
+    if ip_mod is None:
+        return False
     try:
-        from IPython import get_ipython
-
-        return get_ipython() is not None
+        return ip_mod.get_ipython() is not None
     except Exception:
         return False
 
@@ -90,15 +103,17 @@ for old_package_name in old_package_names:
         warnings.warn(
             f"Package '{old_package_name}' is already installed in your environment. "
             f"This might cause conflicts with '{current_package_name}'. "
-            f"Consider uninstalling '{old_package_name}' and only install '{current_package_name}'."
+            f"Consider uninstalling '{old_package_name}' and only install '{current_package_name}'.",
+            stacklevel=2,
         )
     except Exception:
         pass
 
 # traitlets, like every other dependency of the interactive extras, only comes
 # with the [interactive] extra. IPython depends on it, so without it there can
-# be no shell and nothing to initialize.
-if importlib.util.find_spec("traitlets") is not None:
+# be no shell and nothing to initialize. Skip importing `_ipython` when not
+# running inside an active IPython shell.
+if _in_ipython() and importlib.util.find_spec("traitlets") is not None:
     # Only _init_extras: the ManagedSparkConnect configurable is looked up by
     # class name (`c.ManagedSparkConnect...`), so it need not be importable
     # from here, and would otherwise exist only when traitlets is installed.

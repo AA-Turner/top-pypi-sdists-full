@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: substrait
-Version: 0.37.0
+Version: 0.37.1
 Summary: A python package for Substrait.
 Author-email: Substrait contributors <substrait@googlegroups.com>
 License: Apache-2.0
 Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: protobuf<7,>=5
+Requires-Dist: protobuf<8,>=5
 Requires-Dist: substrait-protobuf==0.106.0
 Requires-Dist: substrait-extensions==0.106.0
 Provides-Extra: extensions
@@ -90,7 +90,7 @@ The examples below construct plans with the raw `substrait.proto` and
 The ``substrait.proto`` module provides access to the classes
 that represent a substrait Plan, thus allowing to create new plans.
 
-Here is an example plan equivalent to ``SELECT first_name FROM person``
+Here is an example plan equivalent to ``SELECT first_name FROM people``
 where ``people`` table has ``first_name`` and ``surname`` columns of type ``String``
 
 ```

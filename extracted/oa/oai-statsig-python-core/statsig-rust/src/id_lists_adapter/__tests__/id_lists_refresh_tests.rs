@@ -155,6 +155,13 @@ fn metadata(name: &str, size: u64, generation: i64) -> IdListMetadata {
     }
 }
 fn setup(names: &[&str]) -> (Arc<Provider>, Arc<StatsigHttpIdListsAdapter>, Arc<Listener>) {
+    setup_with_options(names, StatsigOptions::default())
+}
+
+fn setup_with_options(
+    names: &[&str],
+    options: StatsigOptions,
+) -> (Arc<Provider>, Arc<StatsigHttpIdListsAdapter>, Arc<Listener>) {
     let provider = Arc::new(Provider {
         manifest: Mutex::new(
             names
@@ -176,7 +183,7 @@ fn setup(names: &[&str]) -> (Arc<Provider>, Arc<StatsigHttpIdListsAdapter>, Arc<
         "secret-tests",
         &StatsigOptions {
             id_lists_url: Some("https://manifest.test/lists".into()),
-            ..StatsigOptions::default()
+            ..options
         },
     );
     adapter
@@ -269,6 +276,126 @@ async fn exhausted_refresh_discards_successful_bodies_before_the_next_refresh() 
     let publications = listener.publications.lock();
     assert_eq!(publications.len(), 1);
     assert_eq!(publications[0]["a"].raw_changeset.as_deref(), Some("+z\n"));
+}
+
+#[tokio::test]
+#[serial]
+async fn partial_eager_refresh_removes_by_name_and_recovers_only_missing_bytes() {
+    use crate::{
+        observability::ops_stats::OpsStatsEvent, sdk_event_emitter::SdkEventEmitter,
+        spec_store::SpecStore,
+    };
+    for compact in [false, true] {
+        let options = StatsigOptions {
+            enable_id_list_elias_fano: Some(compact),
+            experimental_flags: Some(["partial_id_list_refresh".to_string()].into()),
+            ..Default::default()
+        };
+        let (provider, adapter, _) = setup_with_options(&["a", "b", "removed"], options.clone());
+        let store = Arc::new(SpecStore::new(
+            "partial",
+            "partial".into(),
+            StatsigRuntime::get_runtime(),
+            Arc::new(SdkEventEmitter::default()),
+            Some(&options),
+        ));
+        adapter.set_listener(store.clone());
+        adapter.sync_id_lists().await.unwrap();
+        {
+            let mut manifest = provider.manifest.lock();
+            manifest.remove("removed");
+            manifest.insert(
+                "a".into(),
+                IdListMetadata {
+                    name: "b".into(),
+                    ..metadata("a", 6, 1)
+                },
+            );
+            manifest.insert("b".into(), metadata("b", 3, 2));
+            manifest.insert(
+                "cold".into(),
+                IdListMetadata {
+                    name: "removed".into(), // The embedded name must not keep this list alive.
+                    ..metadata("cold", 3, 1)
+                },
+            );
+        }
+        provider.set("a", vec![Outcome::Body(b"+a\n+z\n".to_vec())]);
+        provider.set("b", vec![Outcome::Status(403)]);
+        provider.set("cold", vec![Outcome::Status(403)]);
+        let mut events = adapter.ops_stats.subscribe_for_test();
+        assert!(adapter.sync_id_lists().await.is_err());
+        assert!(std::iter::from_fn(|| events.try_recv().ok()).any(|event| matches!(event,
+            OpsStatsEvent::Observability(m) if m.metric_name == "id_list_manifest_name_mismatch" && m.value == 2.0
+        )));
+        let partial = store.load_data();
+        assert_eq!(partial.id_lists.len(), 2);
+        assert!(partial.id_lists["a"].ids.contains("z"));
+        assert_eq!(partial.id_lists["a"].metadata.size, 6);
+        assert!(partial.id_lists["b"].ids.contains("a"));
+        assert_eq!(
+            partial.id_lists["b"].metadata.file_id,
+            metadata("b", 3, 1).file_id
+        );
+        provider.set("b", vec![Outcome::Body(b"+y\n".to_vec())]);
+        provider.set("cold", vec![Outcome::Body(b"+c\n".to_vec())]);
+        adapter.sync_id_lists().await.unwrap();
+        let recovered = store.load_data();
+        assert_eq!(provider.attempts("a"), 2); // initial body and one append
+        assert!(recovered.id_lists["b"].ids.contains("y"));
+        assert!(!recovered.id_lists["b"].ids.contains("a"));
+        assert!(recovered.id_lists["cold"].ids.contains("c"));
+        assert_eq!(recovered.id_lists["cold"].metadata.name, "cold");
+        assert!(!recovered.id_lists.contains_key("removed"));
+        assert!(partial.id_lists["b"].ids.contains("a")); // old snapshot stays valid
+        assert!(
+            provider
+                .requests
+                .lock()
+                .iter()
+                .filter(|r| r.url.ends_with("/b"))
+                .all(|r| r.headers.as_ref().unwrap()["Range"] == "bytes=0-")
+        );
+        provider.manifest.lock().clear();
+        adapter.sync_id_lists().await.unwrap();
+        assert!(store.load_data().id_lists.is_empty());
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn default_refresh_preserves_embedded_names_without_counting_mismatches() {
+    use crate::observability::ops_stats::OpsStatsEvent;
+    let (provider, adapter, listener) = setup(&["a"]);
+    provider.manifest.lock().get_mut("a").unwrap().name = "b".into();
+    let mut events = adapter.ops_stats.subscribe_for_test();
+
+    adapter.sync_id_lists().await.unwrap();
+    assert_eq!(listener.metadata.lock()["a"].name, "b");
+    assert!(
+        !std::iter::from_fn(|| events.try_recv().ok()).any(|event| matches!(event,
+            OpsStatsEvent::Observability(m) if m.metric_name == "id_list_manifest_name_mismatch"
+        ))
+    );
+}
+
+#[tokio::test]
+async fn partial_refresh_does_not_merge_failed_lazy_loads() {
+    let (provider, adapter, listener) = setup_with_options(
+        &["a"],
+        StatsigOptions {
+            lazy_load_id_lists: Some(true),
+            experimental_flags: Some(["partial_id_list_refresh".to_owned()].into()),
+            ..Default::default()
+        },
+    );
+    adapter.sync_id_lists().await.unwrap();
+    assert_eq!(provider.attempts("a"), 0);
+    provider.set("a", vec![Outcome::Status(403)]);
+    let before = listener.publications.lock().len();
+    assert!(adapter.process_id_list("a").await.is_err());
+    assert_eq!(listener.publications.lock().len(), before);
+    assert!(!listener.metadata.lock().contains_key("a"));
 }
 
 #[tokio::test]
@@ -634,4 +761,518 @@ async fn manifest_and_file_failure_diagnostics_preserve_region_and_transport_err
             }
         }
     }
+}
+
+#[tokio::test]
+#[serial]
+async fn overlapping_refresh_reads_the_new_manifest_and_committed_cursor() {
+    let (provider, adapter, _) = setup(&["a"]);
+    let gate = provider.gate("https://files.test/a");
+    let runtime = StatsigRuntime::get_runtime();
+    let store = Arc::new(crate::SpecStore::new(
+        "cursor-test",
+        "cursor-test".into(),
+        runtime.clone(),
+        Arc::new(crate::sdk_event_emitter::SdkEventEmitter::default()),
+        None,
+    ));
+    let first = adapter.clone().start(&runtime, store.clone());
+    let next = adapter.refresh(RefreshTrigger::Background);
+    tokio::pin!(first, next);
+    assert!(futures::poll!(&mut first).is_pending());
+    assert!(futures::poll!(&mut next).is_pending());
+    assert_eq!(provider.manifest_attempts(), 1);
+    provider
+        .manifest
+        .lock()
+        .insert("b".into(), metadata("b", 3, 1));
+    provider.set("b", vec![Outcome::Body(b"+b\n".to_vec())]);
+    gate.add_permits(2);
+    let (first, next) = tokio::join!(first, next);
+    first.unwrap();
+    next.unwrap();
+    assert_eq!(provider.manifest_attempts(), 2);
+    assert_eq!((provider.attempts("a"), provider.attempts("b")), (1, 1));
+    let committed = store.get_current_id_list_metadata();
+    assert_eq!((committed["a"].size, committed["b"].size), (3, 3));
+}
+
+#[tokio::test]
+#[serial]
+async fn serialized_starts_cannot_replace_another_refresh_listener() {
+    let (provider, adapter, first_listener) = setup(&["a"]);
+    let second_listener = Arc::new(Listener::default());
+    let manifest = provider.gate("https://manifest.test/lists");
+    let runtime = StatsigRuntime::get_runtime();
+    let first = adapter.clone().start(&runtime, first_listener.clone());
+    let second = adapter.clone().start(&runtime, second_listener.clone());
+    tokio::pin!(first, second);
+    assert!(futures::poll!(&mut first).is_pending());
+    assert!(futures::poll!(&mut second).is_pending());
+    assert_eq!(provider.manifest_attempts(), 1);
+    manifest.add_permits(2);
+    let (first, second) = tokio::join!(first, second);
+    first.unwrap();
+    second.unwrap();
+    assert_eq!(first_listener.publications.lock().len(), 1);
+    assert_eq!(second_listener.publications.lock().len(), 1);
+}
+
+#[tokio::test]
+#[serial]
+async fn cancelled_downloads_close_diagnostics_and_shutdown_rejects_queued_work() {
+    use crate::observability::ops_stats::OpsStatsEvent;
+    for url in ["https://manifest.test/lists", "https://files.test/a"] {
+        for shutdown in [false, true] {
+            let (provider, adapter, listener) = setup(&["a"]);
+            let mut events = adapter.ops_stats.subscribe_for_test();
+            provider.gate(url);
+            let task = start(adapter.clone());
+            until(|| provider.requests.lock().iter().any(|r| r.url == url)).await;
+            if shutdown {
+                let queued = adapter.sync_id_lists();
+                tokio::pin!(queued);
+                assert!(futures::poll!(&mut queued).is_pending());
+                let (drained, queued) =
+                    tokio::join!(adapter.shutdown(Duration::from_secs(2)), queued);
+                drained.unwrap();
+                assert!(queued.is_err());
+                assert!(task.await.unwrap().is_err());
+                assert!(adapter.sync_id_lists().await.is_err());
+            } else {
+                task.abort();
+                assert!(task.await.unwrap_err().is_cancelled());
+            }
+            assert_eq!(provider.manifest_attempts(), 1);
+            assert_eq!(provider.active.load(Ordering::SeqCst), 0);
+            assert!(listener.publications.lock().is_empty());
+            let mut balance = HashMap::<String, i32>::new();
+            let mut failed_requests = 0;
+            let mut failed_syncs = 0;
+            while let Ok(event) = events.try_recv() {
+                match event {
+                    OpsStatsEvent::Diagnostics(event) => {
+                        if let Some(marker) = event.marker {
+                            let marker = serde_json::to_value(marker).unwrap();
+                            let key =
+                                format!("{}:{}:{}", marker["key"], marker["step"], marker["url"]);
+                            *balance.entry(key).or_default() +=
+                                if marker["action"] == "start" { 1 } else { -1 };
+                            if marker["url"] == url
+                                && marker["step"] == "network_request"
+                                && marker["action"] == "end"
+                            {
+                                assert_eq!(marker["success"], false);
+                                assert_eq!(marker["attempt"], 0);
+                                failed_requests += 1;
+                            }
+                        }
+                    }
+                    OpsStatsEvent::Observability(event)
+                        if event.metric_name == ID_LISTS_SYNC_OVERALL_LATENCY_METRIC =>
+                    {
+                        assert_eq!(
+                            event.tags.as_ref().unwrap()["id_lists_sync_success"],
+                            "false"
+                        );
+                        failed_syncs += 1;
+                    }
+                    _ => {}
+                }
+            }
+            assert_eq!((failed_requests, failed_syncs), (1, 1));
+            assert!(balance.values().all(|v| *v == 0), "{balance:?}");
+        }
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn serialized_background_schedules_stop_active_and_future_downloads() {
+    let (provider, mut adapter, listener) = setup(&["a"]);
+    let config = Arc::get_mut(&mut adapter).unwrap();
+    config.sync_interval_duration = Duration::from_millis(1);
+    provider.gate("https://files.test/a");
+    let runtime = StatsigRuntime::get_runtime();
+    for _ in 0..2 {
+        adapter
+            .clone()
+            .schedule_background_sync(&runtime)
+            .await
+            .unwrap();
+    }
+    until(|| provider.attempts("a") == 1).await;
+    adapter.force_shutdown();
+    until(|| runtime.get_num_active_tasks() == 0).await;
+    adapter
+        .clone()
+        .schedule_background_sync(&runtime)
+        .await
+        .unwrap();
+    until(|| runtime.get_num_active_tasks() == 0).await;
+    assert_eq!(provider.active.load(Ordering::SeqCst), 0);
+    assert_eq!(provider.manifest_attempts(), 1);
+    assert!(listener.publications.lock().is_empty());
+
+    let (_, adapter, _) = setup(&["a"]);
+    let weak = Arc::downgrade(&adapter);
+    adapter.schedule_background_sync(&runtime).await.unwrap();
+    assert!(weak.upgrade().is_none());
+    until(|| runtime.get_num_active_tasks() == 0).await;
+}
+
+#[tokio::test]
+#[serial]
+async fn serialized_shutdown_bounds_an_entered_blocking_callback() {
+    let (provider, adapter, _) = setup(&[]);
+    let (release, rx) = std::sync::mpsc::channel();
+    let entered = Arc::new(Notify::new());
+    let listener = Arc::new(CallbackListener {
+        blocking: true,
+        callback: {
+            let entered = entered.clone();
+            let rx = Mutex::new(rx);
+            move || {
+                entered.notify_one();
+                rx.lock().recv_timeout(Duration::from_secs(3)).unwrap();
+            }
+        },
+    });
+    let runtime = StatsigRuntime::get_runtime();
+    tokio::select! {
+        result = adapter.clone().start(&runtime, listener.clone()) => panic!("publication finished early: {result:?}"),
+        () = entered.notified() => {}
+    }
+    let queued = adapter.sync_id_lists();
+    tokio::pin!(queued);
+    assert!(futures::poll!(&mut queued).is_pending());
+    assert!(matches!(
+        adapter.shutdown(Duration::ZERO).await,
+        Err(StatsigErr::ShutdownFailure(_))
+    ));
+    assert!(queued.await.is_err());
+    assert_eq!(provider.manifest_attempts(), 1);
+    release.send(()).unwrap();
+    adapter.shutdown(Duration::from_secs(2)).await.unwrap();
+}
+
+#[tokio::test]
+#[serial]
+async fn same_listener_start_fetches_the_manifest_during_a_cold_compact_download() {
+    let (provider, adapter, _) = setup_with_options(
+        &["cold"],
+        StatsigOptions {
+            lazy_load_id_lists: Some(true),
+            ..Default::default()
+        },
+    );
+    let runtime = StatsigRuntime::get_runtime();
+    let listener = Arc::new(CallbackListener {
+        blocking: true,
+        callback: || {},
+    });
+    adapter
+        .clone()
+        .start(&runtime, listener.clone())
+        .await
+        .unwrap();
+    let gate = provider.gate("https://files.test/cold");
+    let cold = {
+        let adapter = adapter.clone();
+        tokio::spawn(async move { adapter.process_id_list("cold").await })
+    };
+    until(|| provider.attempts("cold") == 1).await;
+    let start = adapter.clone().start(&runtime, listener);
+    tokio::pin!(start);
+    tokio::select! {
+        result = &mut start => panic!("refresh finished while compact storage was busy: {result:?}"),
+        () = until(|| provider.manifest_attempts() == 2) => {}
+    }
+    gate.add_permits(1);
+    cold.await.unwrap().unwrap();
+    start.await.unwrap();
+}
+
+#[tokio::test]
+#[serial]
+async fn shutdown_releases_start_waiting_for_a_detached_cold_publication() {
+    let (provider, adapter, _) = setup_with_options(
+        &["cold"],
+        StatsigOptions {
+            lazy_load_id_lists: Some(true),
+            ..Default::default()
+        },
+    );
+    let (release, rx) = std::sync::mpsc::channel();
+    let entered = Arc::new(Notify::new());
+    let runtime = StatsigRuntime::get_runtime();
+    let listener = Arc::new(CallbackListener {
+        blocking: true,
+        callback: {
+            let entered = entered.clone();
+            let rx = Mutex::new(rx);
+            let initial = std::sync::atomic::AtomicBool::new(true);
+            move || {
+                if !initial.swap(false, Ordering::SeqCst) {
+                    entered.notify_one();
+                    rx.lock().recv_timeout(Duration::from_secs(3)).unwrap();
+                }
+            }
+        },
+    });
+    adapter.clone().start(&runtime, listener).await.unwrap();
+    tokio::select! {
+        result = adapter.process_id_list("cold") => panic!("cold publication finished early: {result:?}"),
+        () = entered.notified() => {}
+    }
+    let start = adapter
+        .clone()
+        .start(&runtime, Arc::new(Listener::default()));
+    tokio::pin!(start);
+    assert!(futures::poll!(&mut start).is_pending());
+    adapter.force_shutdown();
+    assert!(matches!(
+        tokio::time::timeout(Duration::from_secs(1), start)
+            .await
+            .unwrap(),
+        Err(StatsigErr::ShutdownFailure(_))
+    ));
+    assert_eq!(provider.manifest_attempts(), 1);
+    assert!(adapter.shutdown(Duration::ZERO).await.is_err());
+    release.send(()).unwrap();
+    adapter.shutdown(Duration::from_secs(2)).await.unwrap();
+}
+
+struct CallbackListener<F> {
+    blocking: bool,
+    callback: F,
+}
+
+impl<F: Fn() + Send + Sync> IdListsUpdateListener for CallbackListener<F> {
+    fn requires_blocking_id_list_publication(&self) -> bool {
+        self.blocking
+    }
+    fn get_current_id_list_metadata(&self) -> IdListsResponse {
+        HashMap::new()
+    }
+    fn did_receive_id_list_updates(&self, _: HashMap<String, IdListUpdate>) {
+        (self.callback)();
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn forced_stop_fences_inline_publication_and_is_reentrant() {
+    let (_provider, adapter, _) = setup(&[]);
+    let (release, rx) = std::sync::mpsc::channel();
+    let (entered, started) = tokio::sync::oneshot::channel();
+    let listener = Arc::new(CallbackListener {
+        blocking: false,
+        callback: {
+            let entered = Mutex::new(Some(entered));
+            let rx = Mutex::new(rx);
+            let weak = Arc::downgrade(&adapter);
+            move || {
+                entered.lock().take().unwrap().send(()).unwrap();
+                rx.lock().recv_timeout(Duration::from_secs(3)).unwrap();
+                weak.upgrade().unwrap().force_shutdown();
+            }
+        },
+    });
+    let (done, callback_done) = tokio::sync::oneshot::channel();
+    std::thread::spawn({
+        let adapter = adapter.clone();
+        move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            let result = rt.block_on(async {
+                adapter
+                    .start(&StatsigRuntime::get_runtime(), listener)
+                    .await
+            });
+            done.send(result).unwrap();
+        }
+    });
+    tokio::time::timeout(Duration::from_secs(3), started)
+        .await
+        .unwrap()
+        .unwrap();
+    let (stopped, mut force_done) = tokio::sync::oneshot::channel();
+    std::thread::spawn({
+        let adapter = adapter.clone();
+        move || {
+            adapter.force_shutdown();
+            stopped.send(()).unwrap();
+        }
+    });
+    until(|| adapter.network.shutdown_flag().load(Ordering::SeqCst)).await;
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), &mut force_done)
+            .await
+            .is_err()
+    );
+    assert!(matches!(
+        adapter.shutdown(Duration::ZERO).await,
+        Err(StatsigErr::ShutdownFailure(_))
+    ));
+    release.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(3), callback_done)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(3), force_done)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(adapter.sync_id_lists().await.is_err());
+}
+
+#[test]
+#[serial]
+fn serialized_refresh_keeps_context_until_background_enqueue() {
+    use crate::observability::ops_stats::OpsStatsEvent;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .max_blocking_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
+    rt.block_on(async {
+        let (provider, adapter, _) = setup(&[]);
+        let (release, rx) = std::sync::mpsc::channel();
+        let rx = Mutex::new(rx);
+        adapter.set_listener(Arc::new(CallbackListener {
+            blocking: true,
+            callback: move || {
+                rx.lock().recv_timeout(Duration::from_secs(3)).unwrap();
+            },
+        }));
+        let mut events = adapter.ops_stats.subscribe_for_test();
+        let background = adapter.refresh(RefreshTrigger::Background);
+        tokio::pin!(background);
+        assert!(futures::poll!(&mut background).is_pending());
+        release.send(()).unwrap();
+        // The single blocking worker finished publication. Leave its caller unpolled.
+        tokio::task::spawn_blocking(|| ()).await.unwrap();
+        let runtime = StatsigRuntime::get_runtime();
+        let init = adapter
+            .clone()
+            .start(&runtime, Arc::new(Listener::default()));
+        tokio::pin!(init);
+        assert!(futures::poll!(&mut init).is_pending());
+        assert_eq!(provider.manifest_attempts(), 1);
+        background.await.unwrap();
+        init.await.unwrap();
+        let mut contexts = vec![];
+        while let Ok(event) = events.try_recv() {
+            if let OpsStatsEvent::Diagnostics(event) = event {
+                if let Some(context) = event.context {
+                    contexts.push((context, event.should_enqueue));
+                }
+            }
+        }
+        assert_eq!(
+            contexts,
+            [
+                (ContextType::ConfigSync, false),
+                (ContextType::ConfigSync, true),
+                (ContextType::Initialize, false)
+            ]
+        );
+    });
+}
+
+#[tokio::test]
+#[serial]
+async fn aborted_partial_batch_reports_completed_files_and_only_id_list_cancellation() {
+    use crate::observability::ops_stats::OpsStatsEvent;
+    let (provider, adapter, listener) = setup(&["a", "b"]);
+    let mut events = adapter.ops_stats.subscribe_for_test();
+    let pending_url = "https://files.test/b";
+    provider.gate(pending_url);
+    let refresh = start(adapter.clone());
+    until(|| {
+        provider.attempts("b") == 1
+            && provider.attempts("a") == 1
+            && provider.active.load(Ordering::SeqCst) == 1
+    })
+    .await;
+    refresh.abort();
+    assert!(refresh.await.unwrap_err().is_cancelled());
+    assert!(listener.publications.lock().is_empty());
+    {
+        let request = adapter.network.request_once(
+            HttpMethod::GET,
+            RequestArgs {
+                url: pending_url.to_owned(),
+                diagnostics_key: Some(KeyType::DownloadConfigSpecs),
+                ..RequestArgs::new()
+            },
+            None,
+            false,
+            true,
+            0,
+        );
+        tokio::pin!(request);
+        assert!(futures::poll!(&mut request).is_pending());
+    }
+    let mut id_ends = 0;
+    let mut dcs_starts = 0;
+    let mut process_ends = 0;
+    let mut summaries = 0;
+    while let Ok(event) = events.try_recv() {
+        match event {
+            OpsStatsEvent::Diagnostics(event) => {
+                if let Some(marker) = event.marker {
+                    let marker = serde_json::to_value(marker).unwrap();
+                    if marker["url"] == pending_url && marker["step"] == "network_request" {
+                        if marker["key"] == "download_config_specs" {
+                            assert_eq!(marker["action"], "start");
+                            dcs_starts += 1;
+                        } else if marker["action"] == "end" {
+                            assert_eq!(marker["success"], false);
+                            id_ends += 1;
+                        }
+                    }
+                    if marker["key"] == "get_id_list_sources"
+                        && marker["step"] == "process"
+                        && marker["action"] == "end"
+                    {
+                        assert_eq!(marker["success"], false);
+                        process_ends += 1;
+                    }
+                }
+            }
+            OpsStatsEvent::Observability(event)
+                if event.metric_name == ID_LISTS_SYNC_OVERALL_LATENCY_METRIC =>
+            {
+                let tags = event.tags.as_ref().unwrap();
+                assert_eq!(tags["succeed_single_id_list_number"], "1");
+                assert_eq!(tags["id_lists_sync_success"], "false");
+                summaries += 1;
+            }
+            _ => {}
+        }
+    }
+    assert_eq!((id_ends, process_ends, summaries, dcs_starts), (1, 1, 1, 1));
+}
+
+#[tokio::test(start_paused = true)]
+#[serial]
+async fn serialized_shutdown_during_file_backoff_does_not_retry() {
+    let (provider, adapter, listener) = setup(&["a"]);
+    provider.set("a", vec![Outcome::Timeout]);
+    let refresh = adapter.sync_id_lists();
+    tokio::pin!(refresh);
+    assert!(futures::poll!(&mut refresh).is_pending());
+    assert_eq!(provider.attempts("a"), 1);
+    assert_eq!(provider.active.load(Ordering::SeqCst), 0);
+    adapter.force_shutdown();
+    tokio::time::advance(Duration::from_secs(2)).await;
+    assert!(refresh.await.is_err());
+    assert_eq!(provider.attempts("a"), 1);
+    assert!(listener.publications.lock().is_empty());
 }

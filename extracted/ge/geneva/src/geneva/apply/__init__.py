@@ -299,12 +299,16 @@ class _PendingBatchCheckpoint:
     offset domain used by `MapBatchCheckpoint.offset/span`. They are not row
     indexes within `batch`; they describe the coverage window that this batch
     contributes toward the task's checkpointed progress.
+
+    `finished_at` is the `time.perf_counter()` value when the producer finished
+    the batch; the flusher times its writes from it.
     """
 
     batch: pa.RecordBatch
     start: int
     end: int
     udf_rows: int
+    finished_at: float
 
 
 def _concat_record_batches(batches: list[pa.RecordBatch]) -> pa.RecordBatch:
@@ -356,6 +360,15 @@ class _CheckpointFlushConsumer:
     submission order natively. Each flush concatenates ``self.pending``
     and emits one checkpoint covering the full ``[first.start, last.end)``
     range (logical offset domain, matching ``MapBatchCheckpoint.span``).
+
+    Pending batches are written ``flush_interval`` after the first of them
+    finished, so batches finishing within that window share one write. A
+    batch that itself took at least ``flush_interval`` is written as soon as
+    it arrives: no later batch could share its write in time, so waiting
+    would only leave finished work unwritten. A batch's time runs from the
+    previous batch's finish, so the task's first batch, whose time includes
+    setup, always waits. Both decisions use the producer's finish times, so
+    a busy writer thread does not change which batches share a write.
     """
 
     owner: "CheckpointingApplier"
@@ -375,7 +388,12 @@ class _CheckpointFlushConsumer:
     pending_bytes: int = attrs.field(default=0, init=False)
     flush_interval: float = attrs.field(init=False)
     pending_bytes_target: int = attrs.field(default=0, init=False)
+    # Finish time of the previous batch received. None until the first batch
+    # arrives: that batch's time includes the task's setup (such as a UDF
+    # loading its model on first call), so it is never treated as slow.
+    previous_finished_at: float | None = attrs.field(default=None, init=False)
     next_flush_deadline: float | None = attrs.field(default=None, init=False)
+    task_end: int | None = attrs.field(init=False)
     flushed_batch_checkpoints: bool = attrs.field(default=False, init=False)
 
     def __attrs_post_init__(self) -> None:
@@ -384,6 +402,23 @@ class _CheckpointFlushConsumer:
         )
         self.pending_bytes_target = max(
             0, int(self.owner.checkpoint_pending_bytes_target)
+        )
+        task_rows = int(self.task.num_rows())
+        self.task_end = (
+            int(self.task.dest_offset()) + task_rows if task_rows > 0 else None
+        )
+
+    def _holds_task_end(self) -> bool:
+        """True once the task's last batch is pending.
+
+        The producer sends the sentinel right after it, so the final flush
+        writes it; an earlier flush would only forfeit the direct
+        fragment-write path.
+        """
+        return (
+            self.task_end is not None
+            and bool(self.pending)
+            and self.pending[-1].item.end >= self.task_end
         )
 
     def _pending_items(self) -> list[_PendingBatchCheckpoint]:
@@ -475,16 +510,18 @@ class _CheckpointFlushConsumer:
             self.flushed_batch_checkpoints = True
         finally:
             self._release_pending()
+            self.next_flush_deadline = None
 
     def run(self) -> None:
         """Consume checkpoint batches and flush them on time or task end.
 
         Each iteration either appends the next ``_PendingBatchCheckpoint`` to
         ``self.pending`` (merged into one checkpoint at flush time, see
-        ``_flush_pending``) or triggers a flush — when the queue goes idle
-        long enough to hit ``flush_interval``, when a freshly-arrived item
-        crosses the deadline, or when the producer sends the terminal
-        sentinel.
+        ``_flush_pending``) or triggers a flush — when ``next_flush_deadline``
+        passes (by a timed wait, or because the arriving batch finished after
+        it), when the arriving batch alone took ``flush_interval``, when the
+        pending bytes exceed their target, or when the producer sends the
+        terminal sentinel. The task's last batch is left for the final flush.
 
         The producer is required to enqueue items in input order
         (``BatchApplier.run`` contract); ``_flush_pending``
@@ -495,8 +532,8 @@ class _CheckpointFlushConsumer:
                 timeout: float | None = None
                 if (
                     self.pending
-                    and self.flush_interval > 0
                     and self.next_flush_deadline is not None
+                    and not self._holds_task_end()
                 ):
                     timeout = max(0.0, self.next_flush_deadline - time.perf_counter())
                 try:
@@ -507,7 +544,6 @@ class _CheckpointFlushConsumer:
                     )
                 except queue.Empty:
                     self._flush_pending()
-                    self.next_flush_deadline = None
                     continue
 
                 item = lease.item
@@ -523,11 +559,23 @@ class _CheckpointFlushConsumer:
                 pending_lease = cast(
                     "_ByteBudgetedQueueItem[_PendingBatchCheckpoint]", lease
                 )
+                batch_seconds = (
+                    item.finished_at - self.previous_finished_at
+                    if self.previous_finished_at is not None
+                    else None
+                )
+                self.previous_finished_at = item.finished_at
+                if (
+                    self.next_flush_deadline is not None
+                    and item.finished_at > self.next_flush_deadline
+                ):
+                    # The deadline passed before this batch finished: write
+                    # what was pending then, as the timed wait would have.
+                    self._flush_pending()
                 self.pending.append(pending_lease)
                 self.pending_bytes += int(pending_lease.size_bytes)
                 if self.flush_interval <= 0:
                     self._flush_pending()
-                    self.next_flush_deadline = None
                     continue
 
                 if (
@@ -542,14 +590,14 @@ class _CheckpointFlushConsumer:
                         sum(p.item.batch.num_rows for p in self.pending),
                     )
                     self._flush_pending()
-                    self.next_flush_deadline = None
                     continue
 
-                if self.next_flush_deadline is None:
-                    self.next_flush_deadline = time.perf_counter() + self.flush_interval
-                elif time.perf_counter() >= self.next_flush_deadline:
+                if self._holds_task_end():
+                    continue
+                if batch_seconds is not None and batch_seconds >= self.flush_interval:
                     self._flush_pending()
-                    self.next_flush_deadline = None
+                elif self.next_flush_deadline is None:
+                    self.next_flush_deadline = item.finished_at + self.flush_interval
 
             self._flush_pending(final=True)
         except Exception as exc:
@@ -1062,7 +1110,11 @@ class CheckpointingApplier:
         )
         udf_rows_val = int(udf_rows) if udf_rows is not None else _count_udf_rows(batch)
         return _PendingBatchCheckpoint(
-            batch=batch, start=int(start), end=int(end), udf_rows=int(udf_rows_val)
+            batch=batch,
+            start=int(start),
+            end=int(end),
+            udf_rows=int(udf_rows_val),
+            finished_at=time.perf_counter(),
         )
 
     def _checkpoint_single_batch(
@@ -1409,7 +1461,16 @@ class CheckpointingApplier:
                 num_rows = (
                     batch.num_rows if isinstance(batch, pa.RecordBatch) else len(batch)
                 )
-                sizer.record(duration_seconds=udf_elapsed, rows=num_rows)
+                # The sizer measures selected rows, which AdaptiveReadTask cuts
+                # RecordBatches by. List-of-dict batches are cut by total rows,
+                # so measuring them by selected rows can only undersize the
+                # next slice. A slice with none says nothing about UDF cost;
+                # its ~0 s timing would size the next slice at the maximum.
+                if udf_rows != 0:
+                    sizer.record(
+                        duration_seconds=udf_elapsed,
+                        rows=num_rows if udf_rows is None else udf_rows,
+                    )
         finally:
             checkpoint_queue.put_unmetered(_CHECKPOINT_FLUSH_SENTINEL)
             checkpoint_writer.join()

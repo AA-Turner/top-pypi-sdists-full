@@ -34,7 +34,7 @@ from .analysis_commands import (
 from .batch_commands import register_catalog_batches, run_post_ingestion_enrichment_batches
 from .analysis_profiles import analysis_profiles, validate_analysis_profiles
 from .assignments import apply_assignment_action
-from .story_commands import stories_link_reference, stories_note, stories_save_version, stories_show, stories_versions
+from .story_commands import stories_link_reference, stories_next, stories_note, stories_save_version, stories_show, stories_versions
 from .assignments_commands import (
     assignments_apply_reporting_packet,
     assignments_apply_research_packet,
@@ -135,6 +135,7 @@ from .references_commands import (
     references_backfill_feed_keys,
     references_backfill_reviewed_feed_key,
     references_create_doi_backfill_assignment,
+    references_duplicates,
     references_create_identifier_backfill_assignment,
     references_curate_recent,
     references_discover_citation_led,
@@ -178,6 +179,7 @@ from .corpora import (
     run_or_print_corpus_sync_plan,
 )
 from .env import PAPYRUS_ROOT, graphql_endpoint, load_dotenv, storage_bucket_from_amplify_outputs
+from .site_selection import install as install_site_selection, uninstall as uninstall_site_selection, unsupported_command
 from .graphql_authoring import create_authoring_client
 from .ids import knowledge_corpus_id
 from .newsroom_commands import (
@@ -314,14 +316,18 @@ PORTED_COMMANDS = frozenset(
         "references:prove-priming-cross-validated",
         "references:prove-site-sections",
         "references:backfill-reviewed-feed-key",
+        "references:duplicates",
         "references:backfill-monitor-deliveries",
         "references:backfill-feed-keys",
+        "references:retire-citation-stubs",
         "references:backfill-corpus-storage-paths",
         "assignments:list",
         "assignments:create-research",
         "assignments:create-reporting",
         "assignments:run-research",
         "assignments:research-multi",
+        "assignments:context-pack",
+        "assignments:fact-check",
         "assignments:run-tavily-deep-research",
         "assignments:poll-tavily-deep-research",
         "assignments:run-reporting",
@@ -338,10 +344,15 @@ PORTED_COMMANDS = frozenset(
         "stories:versions",
         "stories:link-reference",
         "stories:note",
+        "stories:agent-note",
         "stories:show",
+        "stories:next",
+        "stories:outline",
+        "stories:draft",
         "stories:create",
         "stories:move",
         "stories:fire-triggers",
+        "stories:assign-research",
         "stories:repair-versions",
         "stories:set-slug",
         "assignments:backfill-content-items",
@@ -426,6 +437,7 @@ PORTED_COMMANDS = frozenset(
         "ideas:monitor-stories",
         "ideas:migrate-proposals",
         "ideas:labels",
+        "ideas:select",
         "proposals:create",
         "proposals:list",
         "proposals:show",
@@ -506,13 +518,17 @@ def main(argv: list[str] | None = None) -> int:
         dispatch(group, command, rest)
         return 0
 
-    return run_with_operator_error_handling(run_dispatch)
+    install_site_selection()
+    try:
+        return run_with_operator_error_handling(run_dispatch)
+    finally:
+        uninstall_site_selection()
 
 
 def dispatch(group: str, command: str, flags: list[str]) -> None:
     route = f"{group}:{command}"
     if not is_ported_command(group, command):
-        raise ValueError(f"Unsupported papyrus command: {group} {command}")
+        raise unsupported_command(f"command: {group} {command}")
     if route == "content:inspect":
         content_inspect(flags)
     elif route == "content:schema-check":
@@ -706,8 +722,13 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
         references_backfill_monitor_deliveries(flags)
     elif route == "references:backfill-reviewed-feed-key":
         references_backfill_reviewed_feed_key(flags)
+    elif route == "references:duplicates":
+        references_duplicates(flags)
     elif route == "references:backfill-feed-keys":
         references_backfill_feed_keys(flags)
+    elif route == "references:retire-citation-stubs":
+        from .references_commands import references_retire_citation_stubs
+        references_retire_citation_stubs(flags)
     elif route == "references:backfill-corpus-storage-paths":
         references_backfill_corpus_storage_paths(flags)
     elif route == "assignments:list":
@@ -720,6 +741,14 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
         assignments_run_research(flags)
     elif route == "assignments:research-multi":
         assignments_research_multi(flags)
+    elif route == "assignments:fact-check":
+        from .multi_search_research import fact_check_command
+
+        fact_check_command(flags)
+    elif route == "assignments:context-pack":
+        from .newsroom_context_pack import context_pack_command
+
+        context_pack_command(flags)
     elif route == "assignments:run-tavily-deep-research":
         assignments_run_tavily_deep_research(flags)
     elif route == "assignments:poll-tavily-deep-research":
@@ -754,8 +783,22 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
         stories_link_reference(flags)
     elif route == "stories:note":
         stories_note(flags)
+    elif route == "stories:agent-note":
+        from .story_commands import stories_agent_note
+
+        stories_agent_note(flags)
     elif route == "stories:show":
         stories_show(flags)
+    elif route == "stories:next":
+        stories_next(flags)
+    elif route == "stories:outline":
+        from .story_writing import stories_outline
+
+        stories_outline(flags)
+    elif route == "stories:draft":
+        from .story_writing import stories_draft
+
+        stories_draft(flags)
     elif route == "stories:set-slug":
         from .story_commands import stories_set_slug
 
@@ -772,6 +815,10 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
         from .story_commands import stories_fire_triggers
 
         stories_fire_triggers(flags)
+    elif route == "stories:assign-research":
+        from .story_commands import stories_assign_research
+
+        stories_assign_research(flags)
     elif route == "stories:create":
         from .story_commands import stories_create
 
@@ -1027,7 +1074,7 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
     elif route == "renderers:markus-build":
         markus_build(flags)
     else:
-        raise ValueError(f"Unsupported papyrus command: {group} {command}")
+        raise unsupported_command(f"command: {group} {command}")
 
 
 def corpora_status(flags: list[str]) -> None:
@@ -1439,6 +1486,21 @@ def plan_reference_catalog_registration(client, options: dict[str, Any]) -> dict
         if skipped:
             print(f"references\tcreate-from-catalog\tskip-existing\t{skipped} duplicates")
         catalog = {**catalog, "items": filtered}
+    from .reference_identity import IdentityIndex, split_by_identity
+    from .ids import reference_lineage_id_for
+
+    registration_corpus_id = knowledge_corpus_id(corpus_config)
+    registration_status = normalize_reference_curation_status(options.get("status"), "pending")
+    skipping_existing = options.get("skip-existing", True) is not False and str(options.get("skip-existing", "true")).lower() != "false"
+    fresh_items, identity_rows = split_by_identity(
+        IdentityIndex(client.list_records("Reference")), catalog_items(catalog), corpus_id=registration_corpus_id, status=registration_status,
+        reimport_lineage_of=None if skipping_existing else lambda item: reference_lineage_id_for(
+            registration_corpus_id, str(item.get("item_id") or item.get("externalItemId") or item.get("id") or "")))
+    if identity_rows:
+        print(f"references\tcreate-from-catalog\tidentity-existing\t{len(identity_rows)} items match a Reference the publication already holds")
+        for row in identity_rows:
+            print(f"references\tcreate-from-catalog\tidentity-existing\t{row.get('action')}\t{row.get('referenceId') or '-'}\t{row.get('status')}\t{row.get('url')}")
+        catalog = {**catalog, "items": fresh_items}
     plan_options = {
         "corpusConfig": corpus_config,
         "corpusId": knowledge_corpus_id(corpus_config),

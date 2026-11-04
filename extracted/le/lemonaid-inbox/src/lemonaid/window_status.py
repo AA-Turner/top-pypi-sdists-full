@@ -5,16 +5,15 @@ using a hash to pick from a color palette for visual distinction.
 
 ## tmux Configuration
 
-This tool expects both `#{pane_path}` (from OSC 7) and `#{pane_current_path}`
-(from process cwd) to be passed. It prefers `pane_path` when available.
+The scout host's label client and `lemonaid-tmux-window-status` both take
+`#{pane_path}` (from OSC 7) and `#{pane_current_path}` (from process cwd).
+They prefer `pane_path` when it has a value. tmux reads OSC 7 from a pane
+without extra tmux settings.
 
-Required tmux settings for OSC 7 support:
+In a `#()` window-status-format, quote every argument, so that an empty
+pane_path does not shift the later ones:
 
-    set -as terminal-features 'xterm*:osc7'
-    set -g set-titles on
-
-For a complete window-status-format example, see docs/tmux.md. Its quoting
-preserves empty values such as a missing OSC 7 pane_path.
+    #(lemonaid-tmux-window-status ''#{q:pane_path}'' ''#{q:pane_current_path}'' ''#{q:pane_current_command}'' ''#{q:pane_title}'' ''#{q:window_active}'' ''#{q:pane_pid}'')
 
 For session name with inverted colors:
 
@@ -22,10 +21,16 @@ For session name with inverted colors:
 
 ## Shell Setup
 
-Shells must send OSC 7 on every prompt for reliable directory tracking.
-See: https://github.com/tmux/tmux/issues/3098
+OSC 7 is optional. Without it, the label client shows a `cd` within about a
+second. A `#()` config shows a `cd` at the next status redraw, up to
+`status-interval` later. tmux redraws the status line when it reads OSC 7.
+
+For OSC 7, a shell prints a plain sequence before every prompt. tmux does not
+read a sequence in a passthrough wrapper (`\\ePtmux;...`). See docs/tmux.md
+for shell snippets.
 
 The escape sequence format is: \\033]7;file://HOSTNAME/PATH\\033\\\\
+See: https://github.com/tmux/tmux/issues/3098
 """
 
 import os
@@ -33,6 +38,7 @@ import re
 import subprocess
 import sys
 from collections.abc import Collection
+from urllib.parse import unquote
 
 from . import palette
 from .config import load_config
@@ -131,28 +137,31 @@ def _detect_named_app(pane_pid: str, names: Collection[str]) -> str | None:
     return None
 
 
+def _plain_path(path: str) -> str:
+    """The decoded path of an OSC 7 `file://host/path` URL, or *path* unchanged.
+
+    OSC 7 sends a URL, so shells such as oh-my-zsh and xonsh percent-encode its path.
+    `#{pane_current_path}` comes from the operating system as a plain path, so a `%` in
+    it, or in an OSC 7 path sent without `file://`, is part of a directory name.
+    """
+    if not path.startswith("file://"):
+        return path
+
+    host, slash, rest = path.removeprefix("file://").partition("/")  # e.g. MBP-0097.local
+    return unquote(slash + rest) if slash else host
+
+
 def get_color(name: str) -> str:
     """Get a deterministic color for a directory/file name."""
     return DIR_COLORS.get(name, palette.color_for(name))
 
 
 def format_path(path: str) -> str:
-    """Format a path with tmux color codes.
-
-    Args:
-        path: A filesystem path (can be file:// URL or regular path)
+    """Format a plain path with tmux color codes.
 
     Returns:
         Tmux-formatted string with color codes like #[fg=#FF5555]
     """
-    # Normalize: strip file://hostname prefix (e.g., file://MBP-0097.local/Users/...)
-    if path.startswith("file://"):
-        path = path[7:]  # Remove "file://"
-        # Find the first "/" which starts the actual path (after hostname)
-        slash_idx = path.find("/")
-        if slash_idx != -1:
-            path = path[slash_idx:]  # Keep from "/" onwards
-
     # Replace $HOME with ~
     home = os.environ.get("HOME", "")
     if home and path.startswith(home):
@@ -259,6 +268,7 @@ def format_window(
     named_processes: Collection[str] = (),
 ) -> str:
     named_processes = frozenset(named_processes)
+    path = _plain_path(path)
 
     # Normalize version strings (like "2.1.12") to "claude"
     if process and re.match(r"^\d+\.\d+\.\d+$", process):
@@ -335,11 +345,11 @@ def main() -> None:
     Usage: lemonaid-tmux-window-status <pane_path> <pane_current_path>
            [process] [title] [active] [pane_pid]
 
-    pane_path: from OSC 7 (xonsh sends this on every prompt)
-    pane_current_path: from process cwd (works for fish, bash but not xonsh)
+    pane_path: from OSC 7 (empty until a program in the pane prints OSC 7)
+    pane_current_path: from the cwd of the foreground process in the pane
 
     Prefers pane_path (OSC 7) when available, falls back to pane_current_path.
-    This works for xonsh; fish/bash may show stale paths until they send OSC 7.
+    Without OSC 7, a cd shows at the next status redraw, not at once.
     """
     if len(sys.argv) > 2:
         pane_path = sys.argv[1]
@@ -351,7 +361,7 @@ def main() -> None:
         pane_pid = sys.argv[6] if len(sys.argv) > 6 else None
         named_processes = load_config().tmux_window.named_processes
 
-        # Prefer OSC 7 path when available (works for xonsh)
+        # Prefer OSC 7 path when available
         path = pane_path if pane_path else pane_current_path
 
         print(

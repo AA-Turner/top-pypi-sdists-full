@@ -1,8 +1,6 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.mcp."""
 
 from __future__ import annotations
 
-from .generate_url_params import GenerateURLParams as GenerateURLParams
-from .custom_create_params import CustomCreateParams as CustomCreateParams
-from .generate_url_response import GenerateURLResponse as GenerateURLResponse
-from .custom_create_response import CustomCreateResponse as CustomCreateResponse
+__all__ = []

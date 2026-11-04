@@ -19,6 +19,7 @@ chrono = "0.4.45"
 dashmap = "6.2.1"
 file-guard = "0.2.0"
 fs4 = "1.1.0"
+same-file = "1.0.6"
 flate2 = "1.1.10"
 futures = "0.3.34"
 indexmap = { version = "2.14.2", features = ["serde"], optional = true }
@@ -38,6 +39,7 @@ reqwest = { version = "0.12.28", features = [
     "brotli",
     "http2"
 ], optional = true, default-features = false }
+scopeguard = { version = "1.2.0", default-features = false }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_derive = { version = "1.0.229", features = ["deserialize_in_place"] }
 serde_json = { version = "1.0.151", features = [
@@ -47,7 +49,7 @@ serde_json = { version = "1.0.151", features = [
 ] }
 serde_with = "3.23.0"
 sha2 = "0.11.0"
-oai-statsig-grpc = { path = "../statsig-grpc", version = "0.37.0", optional = true }
+oai-statsig-grpc = { path = "../statsig-grpc", version = "0.38.0", optional = true }
 simple_logger = { version = "5.2.0" }
 tempfile = "3.27.0"
 tokio = { version = "1.53.1", features = ["full"] }
@@ -109,6 +111,11 @@ harness = false
 [[test]]
 name = "fork_lifecycle"
 path = "tests/fork_lifecycle.rs"
+harness = false
+
+[[test]]
+name = "fork_event_upload_reuse"
+path = "tests/fork_event_upload_reuse.rs"
 harness = false
 
 [[test]]

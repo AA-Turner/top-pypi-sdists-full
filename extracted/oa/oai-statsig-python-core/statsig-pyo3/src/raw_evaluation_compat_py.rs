@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
 use pyo3::{
-    Bound, Py, PyAny, PyResult, Python, pyclass,
-    types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyString},
+    Bound, IntoPyObject, Py, PyAny, PyResult, Python,
+    pybacked::PyBackedStr,
+    pyclass,
+    types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModule, PyString},
 };
 use pyo3_stub_gen::derive::gen_stub_pyclass;
 use rkyv::{collections::swiss_table::ArchivedHashMap, string::ArchivedString, vec::ArchivedVec};
@@ -17,6 +19,67 @@ use statsig_rust::{
 
 const VALUE_CACHE_KEY_FIELD: &str = "__statsig_dynamic_returnable_cache_key";
 const VALUE_CACHE_HIT_FIELD: &str = "__statsig_dynamic_returnable_cache_hit";
+
+/// Allocate the SDK's existing Python subclasses without invoking their
+/// constructors or building a temporary mutable JSON tree. Keep these handles
+/// scoped to one call, avoiding process-global references to interpreter objects.
+pub(crate) struct FrozenJsonAllocator<'py> {
+    dict_type: Bound<'py, PyAny>,
+    list_type: Bound<'py, PyAny>,
+    dict_new: Bound<'py, PyAny>,
+    list_new: Bound<'py, PyAny>,
+}
+
+impl<'py> FrozenJsonAllocator<'py> {
+    pub(crate) fn for_call(
+        py: Python<'py>,
+        requested: bool,
+        cache_keys: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Option<Self>> {
+        // EvaluationCache owns conversion, sizing, freezing and sharing when
+        // enabled. Preserve that path, including its oversized-value bypass.
+        if !requested || cache_keys.is_some() {
+            return Ok(None);
+        }
+
+        let module = PyModule::import(py, "statsig_python_core._frozen_json")?;
+        Ok(Some(Self {
+            dict_type: module.getattr("_FrozenDict")?,
+            list_type: module.getattr("_FrozenList")?,
+            dict_new: py.get_type::<PyDict>().getattr("__new__")?,
+            list_new: py.get_type::<PyList>().getattr("__new__")?,
+        }))
+    }
+}
+
+trait JsonContainerAllocator<'py> {
+    fn new_dict(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>>;
+    fn new_list(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>>;
+}
+
+struct MutableJsonAllocator;
+
+impl<'py> JsonContainerAllocator<'py> for MutableJsonAllocator {
+    #[inline]
+    fn new_dict(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        Ok(PyDict::new(py))
+    }
+
+    #[inline]
+    fn new_list(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+        Ok(PyList::empty(py))
+    }
+}
+
+impl<'py> JsonContainerAllocator<'py> for FrozenJsonAllocator<'py> {
+    fn new_dict(&self, _py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        Ok(self.dict_new.call1((&self.dict_type,))?.cast_into()?)
+    }
+
+    fn new_list(&self, _py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+        Ok(self.list_new.call1((&self.list_type,))?.cast_into()?)
+    }
+}
 
 #[gen_stub_pyclass]
 #[pyclass(name = "LayerParamExposureData", module = "statsig_python_core")]
@@ -78,15 +141,79 @@ pub(crate) fn raw_dynamic_config_to_py_dict(
     raw: &DynamicConfigRaw,
     cache_keys: Option<&Bound<PyAny>>,
     pending_cache: Option<&Bound<PyDict>>,
+    frozen_json: Option<&FrozenJsonAllocator<'_>>,
 ) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
 
     dict.set_item(pyo3::intern!(py, "name"), raw.name)?;
 
     if let Some(value) = raw.value {
-        insert_dynamic_returnable(py, &dict, value, cache_keys, pending_cache)?;
+        insert_dynamic_returnable(py, &dict, value, cache_keys, pending_cache, frozen_json)?;
     }
 
+    insert_dynamic_config_provenance(py, &dict, raw)?;
+    Ok(dict.unbind())
+}
+
+/// Project before constructing Python values. The enclosing evaluation callback
+/// retains the native spec generation while selected subtrees are converted.
+/// No partial value enters the full-returnable evaluation cache.
+pub(crate) fn raw_dynamic_config_projection_to_py_dict<'py>(
+    py: Python<'py>,
+    raw: &DynamicConfigRaw,
+    field_names: &[PyBackedStr],
+    frozen: Option<&FrozenJsonAllocator<'py>>,
+) -> PyResult<Py<PyDict>> {
+    let dict = PyDict::new(py);
+    dict.set_item(pyo3::intern!(py, "name"), raw.name)?;
+
+    if let Some(allocator) = frozen {
+        insert_selected_fields(py, &dict, raw.value, field_names, allocator)?;
+    } else {
+        insert_selected_fields(py, &dict, raw.value, field_names, &MutableJsonAllocator)?;
+    }
+
+    insert_dynamic_config_provenance(py, &dict, raw)?;
+    Ok(dict.unbind())
+}
+
+fn insert_selected_fields<'py, A: JsonContainerAllocator<'py>>(
+    py: Python<'py>,
+    dict: &Bound<PyDict>,
+    value: Option<&DynamicReturnable>,
+    field_names: &[PyBackedStr],
+    allocator: &A,
+) -> PyResult<()> {
+    let selected = allocator.new_dict(py)?;
+    if let Some(map) = value.and_then(DynamicReturnable::get_json_archived_ref) {
+        for name in field_names {
+            let key = name.as_py_str().bind(py);
+            if selected.contains(key)? {
+                continue;
+            }
+            if let Some(value) = map.get(name.as_str()) {
+                py_dict_insert_rkvy_archived_value(py, &selected, key, value, allocator)?;
+            }
+        }
+    } else if let Some(map) = value.and_then(DynamicReturnable::get_json_pointer_ref) {
+        for name in field_names {
+            let key = name.as_py_str().bind(py);
+            if selected.contains(key)? {
+                continue;
+            }
+            if let Some(value) = map.get(name.as_str()) {
+                py_dict_insert_rkvy_value(py, &selected, key, value, allocator)?;
+            }
+        }
+    }
+    dict.set_item(pyo3::intern!(py, "value"), selected)
+}
+
+fn insert_dynamic_config_provenance(
+    py: Python,
+    dict: &Bound<PyDict>,
+    raw: &DynamicConfigRaw,
+) -> PyResult<()> {
     dict.set_item(
         pyo3::intern!(py, "ruleID"),
         py_intern_rule_id(py, &raw.rule_id),
@@ -100,7 +227,7 @@ pub(crate) fn raw_dynamic_config_to_py_dict(
         evaluation_details_to_py_dict(py, raw.details)?,
     )?;
 
-    Ok(dict.unbind())
+    Ok(())
 }
 
 fn insert_dynamic_returnable(
@@ -109,6 +236,7 @@ fn insert_dynamic_returnable(
     value: &DynamicReturnable,
     cache_keys: Option<&Bound<PyAny>>,
     pending_cache: Option<&Bound<PyDict>>,
+    frozen_json: Option<&FrozenJsonAllocator<'_>>,
 ) -> PyResult<()> {
     let cache_key = value.get_hash();
     if has_cached_dynamic_returnable(cache_keys, cache_key)? {
@@ -124,11 +252,12 @@ fn insert_dynamic_returnable(
         return Ok(());
     }
 
-    let converted = if let Some(value) = value.get_json_archived_ref() {
-        rkvy_archived_object_to_py_dict(py, value)?
-    } else if let Some(value) = value.get_json_pointer_ref() {
-        rkyv_object_to_py_dict(py, value)?
+    let converted = if let Some(allocator) = frozen_json {
+        convert_dynamic_returnable(py, value, allocator)?
     } else {
+        convert_dynamic_returnable(py, value, &MutableJsonAllocator)?
+    };
+    let Some(converted) = converted else {
         return Ok(());
     };
 
@@ -142,6 +271,20 @@ fn insert_dynamic_returnable(
     }
 
     Ok(())
+}
+
+fn convert_dynamic_returnable<'py, A: JsonContainerAllocator<'py>>(
+    py: Python<'py>,
+    value: &DynamicReturnable,
+    allocator: &A,
+) -> PyResult<Option<Py<PyDict>>> {
+    if let Some(value) = value.get_json_archived_ref() {
+        rkvy_archived_object_to_py_dict(py, value, allocator).map(Some)
+    } else if let Some(value) = value.get_json_pointer_ref() {
+        rkyv_object_to_py_dict(py, value, allocator).map(Some)
+    } else {
+        Ok(None)
+    }
 }
 
 fn has_cached_dynamic_returnable(
@@ -178,7 +321,7 @@ pub(crate) fn raw_experiment_to_py_dict(
     dict.set_item(pyo3::intern!(py, "name"), raw.name)?;
 
     if let Some(value) = raw.value {
-        insert_dynamic_returnable(py, &dict, value, cache_keys, pending_cache)?;
+        insert_dynamic_returnable(py, &dict, value, cache_keys, pending_cache, None)?;
     }
 
     dict.set_item(
@@ -216,7 +359,7 @@ pub(crate) fn raw_layer_to_py_dict(
     dict.set_item(pyo3::intern!(py, "name"), raw.name)?;
 
     if let Some(value) = raw.value {
-        insert_dynamic_returnable(py, &dict, value, cache_keys, pending_cache)?;
+        insert_dynamic_returnable(py, &dict, value, cache_keys, pending_cache, None)?;
     }
 
     dict.set_item(
@@ -319,22 +462,24 @@ fn py_intern_rule_id_value<'py>(py: Python<'py>, value: &str) -> Bound<'py, PySt
 
 // ------------------------------------------------------------------------------- [ Rkyv(Archived) to Pyo3 ]
 
-fn rkvy_archived_object_to_py_dict(
-    py: Python,
+fn rkvy_archived_object_to_py_dict<'py, A: JsonContainerAllocator<'py>>(
+    py: Python<'py>,
     map: &ArchivedHashMap<ArchivedString, ArchivedRkyvValue>,
+    allocator: &A,
 ) -> PyResult<Py<PyDict>> {
-    let py_dict = PyDict::new(py);
+    let py_dict = allocator.new_dict(py)?;
     for (key, value) in map.iter() {
-        py_dict_insert_rkvy_archived_value(py, &py_dict, key.as_str(), value)?;
+        py_dict_insert_rkvy_archived_value(py, &py_dict, key.as_str(), value, allocator)?;
     }
     Ok(py_dict.unbind())
 }
 
-fn py_dict_insert_rkvy_archived_value(
-    py: Python,
-    py_dict: &Bound<PyDict>,
-    key: &str,
+fn py_dict_insert_rkvy_archived_value<'py, A: JsonContainerAllocator<'py>>(
+    py: Python<'py>,
+    py_dict: &Bound<'py, PyDict>,
+    key: impl IntoPyObject<'py>,
     value: &ArchivedRkyvValue,
+    allocator: &A,
 ) -> PyResult<()> {
     match value {
         ArchivedRkyvValue::Null => py_dict.set_item(key, py.None())?,
@@ -342,19 +487,19 @@ fn py_dict_insert_rkvy_archived_value(
         ArchivedRkyvValue::Number(v) => py_dict_insert_rkyv_archived_num(py_dict, key, v)?,
         ArchivedRkyvValue::String(v) => py_dict.set_item(key, v.as_str())?,
         ArchivedRkyvValue::Array(v) => {
-            py_dict.set_item(key, rkvy_archived_array_to_py_list(py, v)?)?
+            py_dict.set_item(key, rkvy_archived_array_to_py_list(py, v, allocator)?)?
         }
         ArchivedRkyvValue::Object(v) => {
-            py_dict.set_item(key, rkvy_archived_object_to_py_dict(py, v)?)?
+            py_dict.set_item(key, rkvy_archived_object_to_py_dict(py, v, allocator)?)?
         }
     }
 
     Ok(())
 }
 
-fn py_dict_insert_rkyv_archived_num(
-    py_dict: &Bound<PyDict>,
-    key: &str,
+fn py_dict_insert_rkyv_archived_num<'py>(
+    py_dict: &Bound<'py, PyDict>,
+    key: impl IntoPyObject<'py>,
     value: &ArchivedRkyvNumber,
 ) -> PyResult<()> {
     match value {
@@ -365,30 +510,36 @@ fn py_dict_insert_rkyv_archived_num(
     Ok(())
 }
 
-fn rkvy_archived_array_to_py_list(
-    py: Python,
+fn rkvy_archived_array_to_py_list<'py, A: JsonContainerAllocator<'py>>(
+    py: Python<'py>,
     values: &ArchivedVec<ArchivedRkyvValue>,
+    allocator: &A,
 ) -> PyResult<Py<PyAny>> {
-    let py_list = PyList::empty(py);
+    let py_list = allocator.new_list(py)?;
     for value in values.iter() {
-        py_list_insert_rkvy_archived_value(py, &py_list, value)?;
+        py_list_insert_rkvy_archived_value(py, &py_list, value, allocator)?;
     }
 
     Ok(py_list.unbind().into())
 }
 
-fn py_list_insert_rkvy_archived_value(
-    py: Python,
+fn py_list_insert_rkvy_archived_value<'py, A: JsonContainerAllocator<'py>>(
+    py: Python<'py>,
     py_list: &Bound<PyList>,
     value: &ArchivedRkyvValue,
+    allocator: &A,
 ) -> PyResult<()> {
     match value {
         ArchivedRkyvValue::Null => py_list.append(py.None())?,
         ArchivedRkyvValue::Bool(v) => py_list.append(v)?,
         ArchivedRkyvValue::Number(v) => py_list_insert_rkyv_archived_num(py_list, v)?,
         ArchivedRkyvValue::String(v) => py_list.append(v.as_str())?,
-        ArchivedRkyvValue::Array(v) => py_list.append(rkvy_archived_array_to_py_list(py, v)?)?,
-        ArchivedRkyvValue::Object(v) => py_list.append(rkvy_archived_object_to_py_dict(py, v)?)?,
+        ArchivedRkyvValue::Array(v) => {
+            py_list.append(rkvy_archived_array_to_py_list(py, v, allocator)?)?
+        }
+        ArchivedRkyvValue::Object(v) => {
+            py_list.append(rkvy_archived_object_to_py_dict(py, v, allocator)?)?
+        }
     }
     Ok(())
 }
@@ -407,33 +558,42 @@ fn py_list_insert_rkyv_archived_num(
 
 // ------------------------------------------------------------------------------- [ Rkyv to Pyo3 ]
 
-fn rkyv_object_to_py_dict(py: Python, map: &HashMap<String, RkyvValue>) -> PyResult<Py<PyDict>> {
-    let py_dict = PyDict::new(py);
+fn rkyv_object_to_py_dict<'py, A: JsonContainerAllocator<'py>>(
+    py: Python<'py>,
+    map: &HashMap<String, RkyvValue>,
+    allocator: &A,
+) -> PyResult<Py<PyDict>> {
+    let py_dict = allocator.new_dict(py)?;
     for (key, value) in map {
-        py_dict_insert_rkvy_value(py, &py_dict, key, value)?;
+        py_dict_insert_rkvy_value(py, &py_dict, key, value, allocator)?;
     }
     Ok(py_dict.unbind())
 }
 
-fn py_dict_insert_rkvy_value(
-    py: Python,
-    py_dict: &Bound<PyDict>,
-    key: &str,
+fn py_dict_insert_rkvy_value<'py, A: JsonContainerAllocator<'py>>(
+    py: Python<'py>,
+    py_dict: &Bound<'py, PyDict>,
+    key: impl IntoPyObject<'py>,
     value: &RkyvValue,
+    allocator: &A,
 ) -> PyResult<()> {
     match value {
         RkyvValue::Null => py_dict.set_item(key, py.None())?,
         RkyvValue::Bool(v) => py_dict.set_item(key, v)?,
         RkyvValue::Number(v) => py_dict_insert_rkyv_num(py_dict, key, v)?,
         RkyvValue::String(v) => py_dict.set_item(key, v)?,
-        RkyvValue::Array(v) => py_dict.set_item(key, rkyv_array_to_py_list(py, v)?)?,
-        RkyvValue::Object(v) => py_dict.set_item(key, rkyv_object_to_py_dict(py, v)?)?,
+        RkyvValue::Array(v) => py_dict.set_item(key, rkyv_array_to_py_list(py, v, allocator)?)?,
+        RkyvValue::Object(v) => py_dict.set_item(key, rkyv_object_to_py_dict(py, v, allocator)?)?,
     }
 
     Ok(())
 }
 
-fn py_dict_insert_rkyv_num(py_dict: &Bound<PyDict>, key: &str, value: &RkyvNumber) -> PyResult<()> {
+fn py_dict_insert_rkyv_num<'py>(
+    py_dict: &Bound<'py, PyDict>,
+    key: impl IntoPyObject<'py>,
+    value: &RkyvNumber,
+) -> PyResult<()> {
     match value {
         RkyvNumber::PosInt(v) => py_dict.set_item(key, v)?,
         RkyvNumber::NegInt(v) => py_dict.set_item(key, v)?,
@@ -442,26 +602,31 @@ fn py_dict_insert_rkyv_num(py_dict: &Bound<PyDict>, key: &str, value: &RkyvNumbe
     Ok(())
 }
 
-fn rkyv_array_to_py_list(py: Python, values: &Vec<RkyvValue>) -> PyResult<Py<PyAny>> {
-    let py_list = PyList::empty(py);
+fn rkyv_array_to_py_list<'py, A: JsonContainerAllocator<'py>>(
+    py: Python<'py>,
+    values: &Vec<RkyvValue>,
+    allocator: &A,
+) -> PyResult<Py<PyAny>> {
+    let py_list = allocator.new_list(py)?;
     for value in values {
-        py_list_insert_rkyv_value(py, &py_list, value)?;
+        py_list_insert_rkyv_value(py, &py_list, value, allocator)?;
     }
     Ok(py_list.unbind().into())
 }
 
-fn py_list_insert_rkyv_value(
-    py: Python,
+fn py_list_insert_rkyv_value<'py, A: JsonContainerAllocator<'py>>(
+    py: Python<'py>,
     py_list: &Bound<PyList>,
     value: &RkyvValue,
+    allocator: &A,
 ) -> PyResult<()> {
     match value {
         RkyvValue::Null => py_list.append(py.None())?,
         RkyvValue::Bool(v) => py_list.append(v)?,
         RkyvValue::Number(v) => py_list_insert_rkyv_num(py_list, v)?,
         RkyvValue::String(v) => py_list.append(v)?,
-        RkyvValue::Array(v) => py_list.append(rkyv_array_to_py_list(py, v)?)?,
-        RkyvValue::Object(v) => py_list.append(rkyv_object_to_py_dict(py, v)?)?,
+        RkyvValue::Array(v) => py_list.append(rkyv_array_to_py_list(py, v, allocator)?)?,
+        RkyvValue::Object(v) => py_list.append(rkyv_object_to_py_dict(py, v, allocator)?)?,
     }
     Ok(())
 }

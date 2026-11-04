@@ -75,10 +75,71 @@ pub trait IdListsUpdateListener: Send + Sync {
     ) {
         self.did_receive_id_list_updates(updates);
     }
+
+    /// Applies a subset of ID-list updates without deleting lists omitted from
+    /// the update. Lazy materialization uses this path for on-demand loads.
+    fn did_receive_partial_id_list_updates_with_propagation(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, super::IdListPropagationUpdate>,
+    ) {
+        self.did_receive_id_list_updates_with_propagation(updates, propagation);
+    }
+
+    /// Fallible publication hook used by adapters that persist a committed snapshot.
+    /// Existing listeners retain their current callback behavior by default.
+    fn try_receive_id_list_updates_with_propagation(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, super::IdListPropagationUpdate>,
+    ) -> Result<(), StatsigErr> {
+        self.did_receive_id_list_updates_with_propagation(updates, propagation);
+        Ok(())
+    }
+
+    /// Replaces the installed catalog after one or more file downloads failed.
+    /// The map includes retained lists; omitted names may be removed. Persistent
+    /// listeners must not advance their last successful refresh timestamp.
+    fn try_receive_incomplete_id_list_refresh(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, super::IdListPropagationUpdate>,
+    ) -> Result<(), StatsigErr> {
+        self.try_receive_id_list_updates_with_propagation(updates, propagation)
+    }
+
+    /// Whether HTTP publication must run on a blocking worker.
+    fn requires_blocking_id_list_publication(&self) -> bool {
+        false
+    }
+
+    /// Whether this listener can install immutable membership storage directly.
+    fn supports_id_list_snapshots(&self) -> bool {
+        false
+    }
+
+    /// Atomically installs a complete materialized catalog without replaying strings.
+    /// Unsupported listeners use the ordinary HTTP changeset path instead.
+    fn did_receive_id_list_snapshot(
+        &self,
+        _lists: HashMap<String, super::IdList>,
+        _propagation: HashMap<String, super::IdListPropagationUpdate>,
+    ) -> Result<(), StatsigErr> {
+        Err(StatsigErr::InvalidOperation(
+            "ID-list listener does not support immutable snapshots".to_string(),
+        ))
+    }
 }
 
 impl fmt::Debug for dyn IdListsAdapter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.get_type_name())
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum IdListPublicationMode {
+    Replace,
+    IncompleteRefresh,
+    Merge,
 }

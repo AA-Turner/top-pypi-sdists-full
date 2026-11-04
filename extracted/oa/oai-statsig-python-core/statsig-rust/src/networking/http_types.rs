@@ -26,7 +26,7 @@ pub struct RequestArgs {
     pub proxy_config: Option<ProxyConfig>,
     pub ca_cert_pem: Option<Vec<u8>>,
     pub disable_file_streaming: Option<bool>,
-    /// Opt-in flag for reusing the default reqwest client on Statsig-owned endpoints.
+    /// Whether this request may reuse a connection. The provider decides which client to use.
     pub log_event_connection_reuse: bool,
 }
 
@@ -120,6 +120,33 @@ impl ResponseLimitOutcome {
 pub enum HttpMethod {
     GET,
     POST,
+}
+
+/// The transport requirements for one network attempt.
+#[derive(Clone, Copy)]
+pub(crate) struct NetworkRequest<'a> {
+    pub method: &'a HttpMethod,
+    pub args: &'a RequestArgs,
+    pub prefer_http2: bool,
+    pub max_response_bytes: Option<u64>,
+    pub disable_redirects: bool,
+}
+
+#[cfg(not(feature = "custom_network_provider"))]
+impl<'a> NetworkRequest<'a> {
+    pub fn new(method: &'a HttpMethod, args: &'a RequestArgs) -> Self {
+        Self {
+            method,
+            args,
+            prefer_http2: false,
+            max_response_bytes: None,
+            disable_redirects: false,
+        }
+    }
+
+    pub fn redirects_disabled(self) -> bool {
+        self.disable_redirects || self.max_response_bytes.is_some()
+    }
 }
 
 #[async_trait]
@@ -253,6 +280,16 @@ impl ResponseData {
 
     pub fn get_header_ref(&self, key: &str) -> Option<&String> {
         self.headers.as_ref().and_then(|h| h.get(key))
+    }
+
+    pub(crate) fn get_header_ignore_ascii_case(&self, key: &str) -> Option<&String> {
+        let headers = self.headers.as_ref()?;
+        headers.get(key).or_else(|| {
+            headers
+                .iter()
+                .find(|(name, _)| name.eq_ignore_ascii_case(key))
+                .map(|(_, value)| value)
+        })
     }
 
     pub(crate) fn set_scoped_expected_checksum(&mut self, checksum: &str) {

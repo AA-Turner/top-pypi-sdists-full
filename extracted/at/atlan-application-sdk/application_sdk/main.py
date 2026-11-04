@@ -30,7 +30,6 @@ import contextlib
 import faulthandler
 import importlib.util as _importlib_util
 import os
-import random
 import signal
 import sys
 import threading
@@ -55,6 +54,7 @@ if _importlib_util.find_spec("application_sdk.handler.base") is None:
 
 from application_sdk.common import restart_marker
 from application_sdk.common._env import env_int as _env_int
+from application_sdk.common.backoff import Backoff
 from application_sdk.common.task_queue import task_queue_from_env
 from application_sdk.discovery import (
     load_app_class,
@@ -947,13 +947,42 @@ async def _flush_observability() -> None:
         logger.warning("Failed to drain OTLP logs on shutdown", exc_info=True)
 
 
+# Minimum gap between flushes scheduled by ``_loop_exception_handler``. Each
+# flush takes a ``to_thread`` slot and, against an unreachable collector, an
+# OTLP flush that only returns at its timeout; an exception storm scheduling one
+# per exception would queue them without bound.
+_LOOP_HANDLER_FLUSH_MIN_INTERVAL_SECONDS = 5.0
+# The handler's flush task, and when it was last scheduled (``time.monotonic``).
+_loop_handler_flush_task: asyncio.Task[None] | None = None
+_loop_handler_flush_last: float | None = None
+
+
+def _schedule_loop_handler_flush(loop: asyncio.AbstractEventLoop) -> None:
+    """Schedule ``_flush_observability`` unless one is still running or one
+    was scheduled within ``_LOOP_HANDLER_FLUSH_MIN_INTERVAL_SECONDS``."""
+    global _loop_handler_flush_task, _loop_handler_flush_last
+    if _loop_handler_flush_task is not None and not _loop_handler_flush_task.done():
+        return
+    now = time.monotonic()
+    if (
+        _loop_handler_flush_last is not None
+        and now - _loop_handler_flush_last < _LOOP_HANDLER_FLUSH_MIN_INTERVAL_SECONDS
+    ):
+        return
+    _loop_handler_flush_last = now
+    _loop_handler_flush_task = loop.create_task(_flush_observability())
+
+
 def _loop_exception_handler(
     loop: asyncio.AbstractEventLoop, context: dict[str, Any]
 ) -> None:
     """Log unhandled asyncio task exceptions and schedule a flush.
 
     Registered via ``loop.set_exception_handler()`` in each async run mode.
-    The loop is still alive when this fires, so ``create_task`` is safe.
+    The loop is still alive when this fires, so ``create_task`` is safe. At
+    most one handler flush runs at a time, and a new one starts no sooner than
+    ``_LOOP_HANDLER_FLUSH_MIN_INTERVAL_SECONDS`` after the last; the shutdown
+    paths flush unconditionally, so nothing skipped here is lost at exit.
     """
     exc = context.get("exception")
     msg = context.get("message", "Unhandled asyncio exception")
@@ -962,7 +991,7 @@ def _loop_exception_handler(
     else:
         logger.error("Asyncio exception (no exception object): %s", msg)
     # Schedule a flush — non-blocking so the loop can continue
-    loop.create_task(_flush_observability())
+    _schedule_loop_handler_flush(loop)
     # Preserve the default stderr output
     loop.default_exception_handler(context)
 
@@ -1474,16 +1503,14 @@ async def _supervise_worker(
                         exc_info=True,
                     )
 
-            # Full-jitter exponential backoff (matches create_temporal_client),
-            # raced against shutdown so SIGTERM stays responsive during backoff.
-            # Clamp the exponent: the cap already bounds the result, but a raised
-            # ATLAN_WORKER_MAX_CONSECUTIVE_RESTARTS would otherwise compute an
-            # arbitrarily large power of two just to throw it away.
-            cap_at_attempt = min(
-                2 ** min(consecutive_failures - 1, 16),
-                _WORKER_RESTART_BACKOFF_CAP_SECONDS,
+            # Full-jitter exponential backoff from the shared Backoff, raced
+            # against shutdown so SIGTERM stays responsive during backoff. This
+            # loop keeps its own control flow (the streak reset above, the
+            # shutdown race below), so it takes only the delay. The cap is
+            # read per restart because it is env-overridable.
+            delay = Backoff(base=1.0, cap=_WORKER_RESTART_BACKOFF_CAP_SECONDS).delay(
+                consecutive_failures
             )
-            delay = random.uniform(0, cap_at_attempt)
             logger.warning(
                 "Worker exited with a fatal error (attempt %d/%d, ran %.0fs); "
                 "restarting in %.1fs",
@@ -2303,6 +2330,7 @@ async def _run_dev_combined_inner(
                             exc,
                             exc_info=True,
                         )
+                    # conformance: ignore[P060] readiness poll of this pod's own handler /health at a fixed 1s, not a retry against a shared dependency
                     await asyncio.sleep(1)
 
                 # Step 1: Provision credentials (mimics Heracles)

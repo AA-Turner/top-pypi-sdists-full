@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-typesafe
-Version: 0.0.1a3
+Version: 0.0.1
 Summary: A LangChain integration for TypeSafe classifiers
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/typesafe
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_typesafe/
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0.0,>=3.10.0
-Requires-Dist: httpx2<3.0.0,>=2.0.0
+Requires-Dist: httpx2>=2.0.0
 Requires-Dist: langchain-core<2.0.0,>=1.6.2
 Provides-Extra: experimental
 Requires-Dist: langchain<2.0.0,>=1.3.15; extra == 'experimental'

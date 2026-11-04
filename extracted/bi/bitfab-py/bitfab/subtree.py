@@ -357,6 +357,10 @@ def current_session() -> Session | None:
     return sessions[-1] if sessions else None
 
 
+def active_sessions() -> tuple[Session, ...]:
+    return _session.get()
+
+
 def _reentrant() -> bool:
     return getattr(_local, "busy", False)
 
@@ -436,15 +440,13 @@ def _without(stack: tuple[_Open, ...], index: int) -> tuple[_Open, ...]:
     )
 
 
-def admits_discovered_call(session: Session, span_name: str) -> bool:
+def admits_llm_call(session: Session) -> bool:
     stack = (_open.get() or {}).get(session, ())
     depth = sum(entry.counts_toward_depth for entry in stack)
     if session.exceeds_depth(depth):
         session.refuse_for_depth()
         return False
-    if session.hidden_by_sim_plan(span_name):
-        return True
-    return session.take_discovery_budget()
+    return True
 
 
 def _allocate(

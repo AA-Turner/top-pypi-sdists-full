@@ -132,7 +132,9 @@ class InjectedCatalogs:
     to the target only: handing it to a control that does not define it would
     read nothing there and make the comparison look covered. A stream both
     versions discover is not new -- it is only unselected on this connection --
-    so it goes to both and is compared like any other.
+    so it goes to both and is compared like any other. Each side's shared-stream
+    entry comes from that version's own DISCOVER, so schema, cursor and
+    primary-key differences stay visible in the comparison.
 
     Attributes:
         target_catalog: The configured catalog for the version under test.
@@ -205,8 +207,10 @@ def build_injected_catalogs(
     Selected streams the connection already syncs keep their configured entry,
     so their sync mode, cursor and primary key stay the customer's. Selected
     streams it lacks are configured from the target's discovered catalog and
-    sorted by novelty against the reference version's discovered catalog. A
-    kept entry the reference version does not discover stays in the target's
+    sorted by novelty against the reference version's discovered catalog.
+    Shared streams use each version's own DISCOVER entry, with the target's
+    chosen sync mode requested for the control where it is supported. A kept
+    entry the reference version does not discover stays in the target's
     catalog only, as a new stream would.
 
     Args:
@@ -241,10 +245,16 @@ def build_injected_catalogs(
     if not_discovered:
         raise StreamsNotDiscoveredError(not_discovered, set(discovered))
 
-    reference_names = (
-        {stream.get("name", "") for stream in reference_discovered.get("streams", [])}
+    reference_streams = (
+        {
+            stream.get("name", ""): stream
+            for stream in reference_discovered.get("streams", [])
+        }
         if reference_discovered is not None
-        else None
+        else {}
+    )
+    reference_names = (
+        set(reference_streams) if reference_discovered is not None else None
     )
 
     kept_target_only = sorted(
@@ -280,6 +290,21 @@ def build_injected_catalogs(
         if note:
             notes.append(note)
 
+    control_entries: dict[str, dict[str, Any]] = {}
+    for name in shared:
+        control_entry, _ = _configure_discovered_stream(
+            reference_streams[name], entries[name]["sync_mode"]
+        )
+        control_mode = control_entry["sync_mode"]
+        target_mode = entries[name]["sync_mode"]
+        if control_mode != target_mode:
+            notes.append(
+                f"{name}: the control reads it in {control_mode} and the target in "
+                f"{target_mode}, because the control version cannot read it in "
+                f"{target_mode}"
+            )
+        control_entries[name] = control_entry
+
     return InjectedCatalogs(
         target_catalog={
             "streams": [
@@ -290,7 +315,7 @@ def build_injected_catalogs(
         control_catalog={
             "streams": [
                 *(s for s in kept if _get_stream_name(s) not in kept_target_only),
-                *(entries[n] for n in shared),
+                *(control_entries[n] for n in shared),
             ]
         },
         new_streams=tuple(new),

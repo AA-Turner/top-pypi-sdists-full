@@ -9,17 +9,11 @@ class Trace:
         self.interpreter: Interpreter = interpreter
 
     def on_pop(self, popped_value: ast.expr | MarkObject):
-        if isinstance(popped_value, MarkObject):
-            value = "MARK"
-        else:
-            value = unparse(popped_value).strip()
+        value = "MARK" if isinstance(popped_value, MarkObject) else unparse(popped_value).strip()
         print(f"\tPopped {value}")
 
     def on_push(self, pushed_value: ast.expr | MarkObject):
-        if isinstance(pushed_value, MarkObject):
-            value = "MARK"
-        else:
-            value = unparse(pushed_value).strip()
+        value = "MARK" if isinstance(pushed_value, MarkObject) else unparse(pushed_value).strip()
         print(f"\tPushed {value}")
 
     def on_memoize(self, index: int, value: ast.expr):
@@ -38,6 +32,9 @@ class Trace:
         print(opcode.name)
 
     def run(self) -> ast.AST:
+        # `Interpreter.run()` validates before stepping, but this drives `step()` itself, so it
+        # has to do the same or a frame-straddling pickle would trace as though it were benign.
+        self.interpreter.pickled.validate_frames()
         while True:
             memory_before = dict(self.interpreter.memory)
             stack_before = Stack(self.interpreter.stack)

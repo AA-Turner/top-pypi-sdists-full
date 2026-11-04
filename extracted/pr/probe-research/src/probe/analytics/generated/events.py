@@ -145,6 +145,14 @@ class Event(StrEnum):
     #: The hosted MCP's per-tool accounting event (`probe.mcp.delivery.accounting`, its own sender).
     MCP_TOOL_SERVED = "mcp.tool_served"
 
+    # --- Install refusals ---
+    # Every front door that refuses to install says so once, so a person stuck on an unsupported
+    # platform reaches us (a PostHog destination posts it to #probe-usage).
+    #: Someone tried to install Probe where it does not run (Windows). Carries `surface`
+    #: (`dashboard`, `cli`, `launcher`) and `os`; the dashboard's carries the signed-in person, once
+    #: per Install step it showed. A demand signal, not breakage.
+    INSTALL_UNSUPPORTED_PLATFORM = "install.unsupported_platform"
+
     # --- Errors ---
     #: One crash or swallowed exception, in PostHog's Error Tracking shape: the client's
     #: `report_crash`, the server's `capture_exception`.

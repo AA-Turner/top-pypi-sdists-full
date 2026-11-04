@@ -205,6 +205,7 @@ def test_eks_token_refresh(
             .image(img)
             .node_selector(worker_node_selector)
             .service_account(geneva_k8s_service_account)
+            .min_replicas(1)  # Keep a worker through Ray connection/runtime-env setup
             .build()
         )
         .build()
@@ -373,6 +374,7 @@ def test_cluster_startup_from_builder(
             .image(img)
             .node_selector(worker_node_selector)
             .service_account(geneva_k8s_service_account)
+            .min_replicas(1)  # Keep a worker through Ray connection/runtime-env setup
             .build()
         )
         .build()
@@ -715,6 +717,7 @@ def _cluster_for_manifest_tests(
             .image(img)
             .node_selector(worker_node_selector)
             .service_account(geneva_k8s_service_account)
+            .min_replicas(1)  # Keep a worker through Ray connection/runtime-env setup
             .build()
         )
         .build()

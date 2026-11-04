@@ -1,6 +1,6 @@
 """Sandbox Proxy integrations, as the Koyeb driver persists them and the bootstrap API takes them.
 
-Authors write `GitHubBinding` and `WorkspaceHeaderBindings`; these models are their
+Authors write `GitHubBinding`, `MistralApiBinding` and `WorkspaceHeaderBindings`; these models are their
 translation, so a definition persisted by an earlier worker keeps validating.
 """
 
@@ -9,7 +9,12 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from ..authoring.sandbox_policy import GitHubBinding, SandboxHeaderBinding, WorkspaceHeaderBindings
+from ..authoring.sandbox_policy import (
+    GitHubBinding,
+    MistralApiBinding,
+    SandboxHeaderBinding,
+    WorkspaceHeaderBindings,
+)
 from .proxy_lifecycle import SANDBOX_PROXY_RENEWAL_MARGIN_SECONDS
 
 
@@ -31,6 +36,13 @@ class GitHubProxyConfig(BaseModel):
         return normalized
 
 
+class MistralApiProxyConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    type: Literal["mistral-api"] = "mistral-api"
+    ttl_seconds: int = Field(default=3600, gt=SANDBOX_PROXY_RENEWAL_MARGIN_SECONDS)
+
+
 class SecretInjectionProxyConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -38,7 +50,7 @@ class SecretInjectionProxyConfig(BaseModel):
 
 
 type SandboxProxyIntegration = Annotated[
-    GitHubProxyConfig | SecretInjectionProxyConfig,
+    GitHubProxyConfig | MistralApiProxyConfig | SecretInjectionProxyConfig,
     Field(discriminator="type"),
 ]
 
@@ -57,6 +69,8 @@ def proxy_integrations(header_bindings: Sequence[SandboxHeaderBinding]) -> tuple
                     host=injection.host,
                 )
             )
+        elif isinstance(injection, MistralApiBinding):
+            integrations.append(MistralApiProxyConfig(ttl_seconds=injection.ttl_seconds))
         elif isinstance(injection, WorkspaceHeaderBindings):
             integrations.append(SecretInjectionProxyConfig())
         else:
@@ -66,6 +80,7 @@ def proxy_integrations(header_bindings: Sequence[SandboxHeaderBinding]) -> tuple
 
 __all__ = [
     "GitHubProxyConfig",
+    "MistralApiProxyConfig",
     "SandboxProxyIntegration",
     "SecretInjectionProxyConfig",
     "proxy_integrations",

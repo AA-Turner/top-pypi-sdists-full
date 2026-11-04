@@ -1,4 +1,3 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
-
-__title__ = "composio_client"
-__version__ = "1.43.0"  # x-release-please-version
+__title__ = "composio-client"
+# Kept in sync with pyproject.toml by release-please (extra-files).
+__version__ = "2.0.1"  # x-release-please-version

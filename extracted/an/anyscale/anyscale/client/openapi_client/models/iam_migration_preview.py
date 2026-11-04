@@ -37,6 +37,7 @@ class IamMigrationPreview(object):
         'groups': 'list[PreviewGroup]',
         'direct_bindings': 'list[PreviewDirectBinding]',
         'counts': 'PreviewCounts',
+        'auto_add_gains': 'list[PreviewAutoAddGain]',
         'parity': 'PreviewParity',
         'base_fingerprint': 'str'
     }
@@ -46,11 +47,12 @@ class IamMigrationPreview(object):
         'groups': 'groups',
         'direct_bindings': 'direct_bindings',
         'counts': 'counts',
+        'auto_add_gains': 'auto_add_gains',
         'parity': 'parity',
         'base_fingerprint': 'base_fingerprint'
     }
 
-    def __init__(self, option=None, groups=None, direct_bindings=None, counts=None, parity=None, base_fingerprint=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, option=None, groups=None, direct_bindings=None, counts=None, auto_add_gains=[], parity=None, base_fingerprint=None, local_vars_configuration=None):  # noqa: E501
         """IamMigrationPreview - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -60,6 +62,7 @@ class IamMigrationPreview(object):
         self._groups = None
         self._direct_bindings = None
         self._counts = None
+        self._auto_add_gains = None
         self._parity = None
         self._base_fingerprint = None
         self.discriminator = None
@@ -68,6 +71,8 @@ class IamMigrationPreview(object):
         self.groups = groups
         self.direct_bindings = direct_bindings
         self.counts = counts
+        if auto_add_gains is not None:
+            self.auto_add_gains = auto_add_gains
         self.parity = parity
         self.base_fingerprint = base_fingerprint
 
@@ -170,6 +175,29 @@ class IamMigrationPreview(object):
             raise ValueError("Invalid value for `counts`, must not be `None`")  # noqa: E501
 
         self._counts = counts
+
+    @property
+    def auto_add_gains(self):
+        """Gets the auto_add_gains of this IamMigrationPreview.  # noqa: E501
+
+        The auto-add clouds where the All users group gives members roles they do not have today, such as a member narrowed to a cloud tier through the legacy cloud roles API. Empty when the All users group gives no one more.  # noqa: E501
+
+        :return: The auto_add_gains of this IamMigrationPreview.  # noqa: E501
+        :rtype: list[PreviewAutoAddGain]
+        """
+        return self._auto_add_gains
+
+    @auto_add_gains.setter
+    def auto_add_gains(self, auto_add_gains):
+        """Sets the auto_add_gains of this IamMigrationPreview.
+
+        The auto-add clouds where the All users group gives members roles they do not have today, such as a member narrowed to a cloud tier through the legacy cloud roles API. Empty when the All users group gives no one more.  # noqa: E501
+
+        :param auto_add_gains: The auto_add_gains of this IamMigrationPreview.  # noqa: E501
+        :type: list[PreviewAutoAddGain]
+        """
+
+        self._auto_add_gains = auto_add_gains
 
     @property
     def parity(self):

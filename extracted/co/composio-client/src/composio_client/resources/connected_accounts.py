@@ -1,964 +1,2861 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""``client.connected_accounts`` — the generated resource classes.
+
+``ConnectedAccountsResource`` (sync) and ``AsyncConnectedAccountsResource`` (async),
+dispatching through the hand-written httpx kernel with Stainless-style
+flat request fields and raw / streaming response wrappers.
+"""
 
 from __future__ import annotations
 
-import typing_extensions
-from typing import List, Optional
-from typing_extensions import Literal
+from functools import cached_property
+from typing import Literal
 
 import httpx
+from typing_extensions import overload
 
-from ..types import (
-    connected_account_list_params,
-    connected_account_patch_params,
-    connected_account_create_params,
-    connected_account_delete_params,
-    connected_account_refresh_params,
-    connected_account_update_status_params,
+from .._base_client import BodyParam, QueryParam, RequestOptions
+from .._models import (
+    ConnectedAccountCompleteAuthBody,
+    ConnectedAccountCreateBody,
+    ConnectedAccountPatchBody,
+    ConnectedAccountRefreshBody,
+    ConnectedAccountUpdateStatusBody,
 )
-from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from .._utils import path_template, maybe_transform, async_maybe_transform
-from .._compat import cached_property
-from .._resource import SyncAPIResource, AsyncAPIResource
-from .._response import (
-    to_raw_response_wrapper,
-    to_streamed_response_wrapper,
-    async_to_raw_response_wrapper,
-    async_to_streamed_response_wrapper,
-)
-from .._base_client import make_request_options
-from ..types.connected_account_list_response import ConnectedAccountListResponse
-from ..types.connected_account_patch_response import ConnectedAccountPatchResponse
+from .._operations import OPERATIONS_BY_CHAIN
+from .._response import APIResponse, AsyncAPIResponse, AsyncResponseContextManager, ResponseContextManager
+from .._types import NOT_GIVEN, Body, Headers, NotGiven, Omit, Query, SequenceNotStr, omit
+from ..types import connected_account_create_params, connected_account_patch_params
+from ..types.connected_account_complete_auth_response import ConnectedAccountCompleteAuthResponse
 from ..types.connected_account_create_response import ConnectedAccountCreateResponse
 from ..types.connected_account_delete_response import ConnectedAccountDeleteResponse
+from ..types.connected_account_list_response import ConnectedAccountListResponse
+from ..types.connected_account_patch_response import ConnectedAccountPatchResponse
 from ..types.connected_account_refresh_response import ConnectedAccountRefreshResponse
 from ..types.connected_account_retrieve_response import ConnectedAccountRetrieveResponse
+from ..types.connected_account_revoke_response import ConnectedAccountRevokeResponse
 from ..types.connected_account_update_status_response import ConnectedAccountUpdateStatusResponse
+from ._base import (
+    AsyncAPIResource,
+    SyncAPIResource,
+    build_path,
+    compact,
+    make_request_options,
+    merge_body,
+    merge_mapping,
+    require_fields,
+)
 
-__all__ = ["ConnectedAccountsResource", "AsyncConnectedAccountsResource"]
+_CREATE_OPERATION = OPERATIONS_BY_CHAIN[("connected_accounts", "create")]
+_RETRIEVE_OPERATION = OPERATIONS_BY_CHAIN[("connected_accounts", "retrieve")]
+_LIST_OPERATION = OPERATIONS_BY_CHAIN[("connected_accounts", "list")]
+_DELETE_OPERATION = OPERATIONS_BY_CHAIN[("connected_accounts", "delete")]
+_COMPLETE_AUTH_OPERATION = OPERATIONS_BY_CHAIN[("connected_accounts", "complete_auth")]
+_PATCH_OPERATION = OPERATIONS_BY_CHAIN[("connected_accounts", "patch")]
+_REFRESH_OPERATION = OPERATIONS_BY_CHAIN[("connected_accounts", "refresh")]
+_REVOKE_OPERATION = OPERATIONS_BY_CHAIN[("connected_accounts", "revoke")]
+_UPDATE_STATUS_OPERATION = OPERATIONS_BY_CHAIN[("connected_accounts", "update_status")]
 
 
 class ConnectedAccountsResource(SyncAPIResource):
-    """Connected account management"""
-
     @cached_property
     def with_raw_response(self) -> ConnectedAccountsResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return ConnectedAccountsResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> ConnectedAccountsResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return ConnectedAccountsResourceWithStreamingResponse(self)
 
+    @overload
     def create(
         self,
+        body: BodyParam | None = None,
         *,
         auth_config: connected_account_create_params.AuthConfig,
         connection: connected_account_create_params.Connection,
-        validate_credentials: bool | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountCreateResponse: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        auth_config: connected_account_create_params.AuthConfig | Omit = omit,
+        connection: connected_account_create_params.Connection | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountCreateResponse: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config: connected_account_create_params.AuthConfig | Omit = omit,
+        connection: connected_account_create_params.Connection | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountCreateResponse:
-        """Initiates a new connection to an external service for a user.
-
-        For OAuth-based
-        toolkits, this returns a redirect URL to complete authentication. For API
-        key-based toolkits, provide the credentials directly in the request body. Use
-        the `user_id` field to associate the connection with a specific user in your
-        system.
-
-        **Deprecated for Composio-managed OAuth:** For Composio-managed auth configs on
-        OAuth1, OAuth2, or DCR_OAUTH schemes, this endpoint is being retired and will
-        start returning `400 BadRequest` on **2026-05-08** for new organizations and
-        **2026-07-03** for all remaining organizations. Migrate those calls to
-        `POST /api/v3/connected_accounts/link`. Custom auth configs and non-OAuth
-        schemes (API key, bearer, basic) continue to be supported here. Responses on the
-        retiring path carry a `Deprecation` header (RFC 9745) and a `Sunset` header
-        (RFC 8594) for client-side detection.
-
-        Args:
-          validate_credentials: [EXPERIMENTAL] Whether to validate the provided credentials, validates only for
-              API Key Auth scheme
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return self._post(
+        body_fields = compact(
+            {
+                "auth_config": auth_config,
+                "connection": connection,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("auth_config", "connection"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
             "/api/v3.1/connected_accounts",
-            body=maybe_transform(
-                {
-                    "auth_config": auth_config,
-                    "connection": connection,
-                    "validate_credentials": validate_credentials,
-                },
-                connected_account_create_params.ConnectedAccountCreateParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=ConnectedAccountCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountCreateBody,
+            options=options_data,
         )
 
     def retrieve(
         self,
         nanoid: str,
         *,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountRetrieveResponse:
-        """
-        Retrieves comprehensive details of a connected account, including authentication
-        configuration, connection status, and all parameters needed for API requests.
-
-        Args:
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return self._get(
-            path_template("/api/v3.1/connected_accounts/{nanoid}", nanoid=nanoid),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}",
+                {"nanoid": nanoid},
             ),
             cast_to=ConnectedAccountRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            options=options_data,
         )
 
     def list(
         self,
         *,
-        account_type: Literal["PRIVATE", "SHARED", "ALL"] | Omit = omit,
-        auth_config_ids: Optional[SequenceNotStr[str]] | Omit = omit,
-        connected_account_ids: Optional[SequenceNotStr[str]] | Omit = omit,
-        cursor: Optional[str] | Omit = omit,
-        limit: Optional[float] | Omit = omit,
+        toolkit_slugs: SequenceNotStr[str] | None | Omit = omit,
+        statuses: list[
+            Literal["INITIALIZING", "INITIATED", "ACTIVE", "FAILED", "EXPIRED", "INACTIVE", "REVOKED"]
+        ]
+        | None
+        | Omit = omit,
+        cursor: str | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        user_ids: SequenceNotStr[str] | None | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | None | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | None | Omit = omit,
         order_by: Literal["created_at", "updated_at"] | Omit = omit,
         order_direction: Literal["asc", "desc"] | Omit = omit,
-        statuses: Optional[
-            List[Literal["INITIALIZING", "INITIATED", "ACTIVE", "FAILED", "EXPIRED", "INACTIVE", "REVOKED"]]
-        ]
-        | Omit = omit,
-        toolkit_slugs: Optional[SequenceNotStr[str]] | Omit = omit,
-        user_ids: Optional[SequenceNotStr[str]] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        account_type: Literal["PRIVATE", "SHARED", "ALL"] | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountListResponse:
-        """Retrieves all connected accounts for your project.
-
-        Connected accounts represent
-        authenticated user connections to external services (e.g., a user's Gmail
-        account, Slack workspace). Filter by toolkit, status, user ID, or auth config to
-        find specific connections.
-
-        Args:
-          account_type: [Experimental] Filter by sharing model. Default (omitted) returns PRIVATE only —
-              shared accounts must be requested explicitly. Pass SHARED for only shared
-              accounts, or ALL for PRIVATE + SHARED.
-
-          auth_config_ids: The auth config ids of the connected accounts
-
-          connected_account_ids: The connected account ids to filter by
-
-          cursor: The cursor to paginate through the connected accounts
-
-          limit: The limit of the connected accounts to return
-
-          order_by: The order by of the connected accounts
-
-          order_direction: The order direction of the connected accounts
-
-          statuses: The status of the connected account
-
-          toolkit_slugs: The toolkit slugs of the connected accounts
-
-          user_ids: The user ids of the connected accounts
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return self._get(
+        query_fields = compact(
+            {
+                "toolkit_slugs": toolkit_slugs,
+                "statuses": statuses,
+                "cursor": cursor,
+                "limit": limit,
+                "user_ids": user_ids,
+                "auth_config_ids": auth_config_ids,
+                "connected_account_ids": connected_account_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "account_type": account_type,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
             "/api/v3.1/connected_accounts",
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=maybe_transform(
-                    {
-                        "account_type": account_type,
-                        "auth_config_ids": auth_config_ids,
-                        "connected_account_ids": connected_account_ids,
-                        "cursor": cursor,
-                        "limit": limit,
-                        "order_by": order_by,
-                        "order_direction": order_direction,
-                        "statuses": statuses,
-                        "toolkit_slugs": toolkit_slugs,
-                        "user_ids": user_ids,
-                    },
-                    connected_account_list_params.ConnectedAccountListParams,
-                ),
-            ),
             cast_to=ConnectedAccountListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
     def delete(
         self,
         nanoid: str,
         *,
-        revoke_on_delete: Optional[bool] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        revoke_on_delete: bool | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountDeleteResponse:
-        """Soft-deletes a connected account by marking it as deleted in the database.
-
-        This
-        prevents the account from being used for API calls but preserves the record for
-        audit purposes. Pass `?revoke_on_delete=true` to also revoke the account's
-        upstream credentials via a background job.
-
-        Args:
-          revoke_on_delete: When `true`, the delete also starts a background job that revokes the upstream
-              credentials of every connected account in scope, and the response carries a
-              `revoke_job_id`. Defaults to `false`. Revocation is irreversible — recovering a
-              deleted entity does not restore working credentials.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return self._delete(
-            path_template("/api/v3.1/connected_accounts/{nanoid}", nanoid=nanoid),
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=maybe_transform(
-                    {"revoke_on_delete": revoke_on_delete}, connected_account_delete_params.ConnectedAccountDeleteParams
-                ),
+        query_fields = compact(
+            {
+                "revoke_on_delete": revoke_on_delete,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "delete",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}",
+                {"nanoid": nanoid},
             ),
             cast_to=ConnectedAccountDeleteResponse,
+            operation=_DELETE_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    @overload
+    def complete_auth(
+        self,
+        body: BodyParam | None = None,
+        *,
+        session_uri: str,
+        user_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountCompleteAuthResponse: ...
+
+    @overload
+    def complete_auth(
+        self,
+        body: BodyParam,
+        *,
+        session_uri: str | Omit = omit,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountCompleteAuthResponse: ...
+
+    def complete_auth(
+        self,
+        body: BodyParam | None = None,
+        *,
+        session_uri: str | Omit = omit,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountCompleteAuthResponse:
+        body_fields = compact(
+            {
+                "session_uri": session_uri,
+                "user_id": user_id,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("session_uri", "user_id"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
+            "/api/v3.1/connected_accounts/complete_auth",
+            cast_to=ConnectedAccountCompleteAuthResponse,
+            operation=_COMPLETE_AUTH_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountCompleteAuthBody,
+            options=options_data,
         )
 
     def patch(
         self,
         nanoid: str,
+        body: BodyParam | None = None,
         *,
         alias: str | Omit = omit,
         connection: connected_account_patch_params.Connection | Omit = omit,
         experimental: connected_account_patch_params.Experimental | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountPatchResponse:
-        """Update a connected account.
-
-        Supports updating the alias and/or credentials. Only
-        specified fields will be updated. Set a credential field to null to remove it.
-        Alias must be unique within the same project, entity, and toolkit scope.
-
-        Args:
-          alias: A human-readable alias for this connected account. Pass an empty string to clear
-              the alias. Must be unique per entity and toolkit within the project.
-
-          experimental: Experimental features - not stable, may be modified or removed in future
-              versions.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return self._patch(
-            path_template("/api/v3.1/connected_accounts/{nanoid}", nanoid=nanoid),
-            body=maybe_transform(
-                {
-                    "alias": alias,
-                    "connection": connection,
-                    "experimental": experimental,
-                },
-                connected_account_patch_params.ConnectedAccountPatchParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        body_fields = compact(
+            {
+                "alias": alias,
+                "connection": connection,
+                "experimental": experimental,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "patch",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}",
+                {"nanoid": nanoid},
             ),
             cast_to=ConnectedAccountPatchResponse,
+            operation=_PATCH_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountPatchBody,
+            options=options_data,
         )
 
-    @typing_extensions.deprecated("deprecated")
+    # Deprecated in the input OpenAPI schema.
     def refresh(
         self,
         nanoid: str,
+        body: BodyParam | None = None,
         *,
         query_redirect_url: str | Omit = omit,
         body_redirect_url: str | Omit = omit,
-        validate_credentials: bool | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountRefreshResponse:
-        """DEPRECATED: Manual refresh of a connected account is deprecated.
-
-        Composio
-        automatically refreshes credentials in the background as they approach expiry,
-        so this endpoint is no longer required and may be removed in a future release.
-        Initiates a new authentication flow for a connected account when credentials
-        have expired or become invalid. This may generate a new authentication URL for
-        OAuth flows or refresh tokens for other auth schemes.
-
-        Args:
-          validate_credentials: [EXPERIMENTAL] Whether to validate the provided credentials, validates only for
-              API Key Auth scheme
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return self._post(
-            path_template("/api/v3.1/connected_accounts/{nanoid}/refresh", nanoid=nanoid),
-            body=maybe_transform(
-                {
-                    "body_redirect_url": body_redirect_url,
-                    "validate_credentials": validate_credentials,
-                },
-                connected_account_refresh_params.ConnectedAccountRefreshParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=maybe_transform(
-                    {"query_redirect_url": query_redirect_url},
-                    connected_account_refresh_params.ConnectedAccountRefreshParams,
-                ),
+        body_fields = compact(
+            {
+                "redirect_url": body_redirect_url,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        query_fields = compact(
+            {
+                "redirect_url": query_redirect_url,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}/refresh",
+                {"nanoid": nanoid},
             ),
             cast_to=ConnectedAccountRefreshResponse,
+            operation=_REFRESH_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountRefreshBody,
+            query=query_data,
+            options=options_data,
         )
+
+    def revoke(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountRevokeResponse:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}/revoke",
+                {"nanoid": nanoid},
+            ),
+            cast_to=ConnectedAccountRevokeResponse,
+            operation=_REVOKE_OPERATION,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam | None = None,
+        *,
+        enabled: bool,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountUpdateStatusResponse: ...
+
+    @overload
+    def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam,
+        *,
+        enabled: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountUpdateStatusResponse: ...
 
     def update_status(
         self,
         nano_id: str,
+        body: BodyParam | None = None,
         *,
-        enabled: bool,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        enabled: bool | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountUpdateStatusResponse:
-        """
-        Updates the status of a connected account to either enabled (active) or disabled
-        (inactive). Disabled accounts cannot be used for API calls but remain in the
-        database.
-
-        Args:
-          enabled: Set to true to enable the account or false to disable it
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nano_id:
-            raise ValueError(f"Expected a non-empty value for `nano_id` but received {nano_id!r}")
-        return self._patch(
-            path_template("/api/v3.1/connected_accounts/{nano_id}/status", nano_id=nano_id),
-            body=maybe_transform(
-                {"enabled": enabled}, connected_account_update_status_params.ConnectedAccountUpdateStatusParams
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        body_fields = compact(
+            {
+                "enabled": enabled,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("enabled",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "patch",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoId}/status",
+                {"nanoId": nano_id},
             ),
             cast_to=ConnectedAccountUpdateStatusResponse,
+            operation=_UPDATE_STATUS_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountUpdateStatusBody,
+            options=options_data,
         )
 
 
 class AsyncConnectedAccountsResource(AsyncAPIResource):
-    """Connected account management"""
-
     @cached_property
     def with_raw_response(self) -> AsyncConnectedAccountsResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return AsyncConnectedAccountsResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> AsyncConnectedAccountsResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return AsyncConnectedAccountsResourceWithStreamingResponse(self)
 
+    @overload
     async def create(
         self,
+        body: BodyParam | None = None,
         *,
         auth_config: connected_account_create_params.AuthConfig,
         connection: connected_account_create_params.Connection,
-        validate_credentials: bool | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountCreateResponse: ...
+
+    @overload
+    async def create(
+        self,
+        body: BodyParam,
+        *,
+        auth_config: connected_account_create_params.AuthConfig | Omit = omit,
+        connection: connected_account_create_params.Connection | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountCreateResponse: ...
+
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config: connected_account_create_params.AuthConfig | Omit = omit,
+        connection: connected_account_create_params.Connection | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountCreateResponse:
-        """Initiates a new connection to an external service for a user.
-
-        For OAuth-based
-        toolkits, this returns a redirect URL to complete authentication. For API
-        key-based toolkits, provide the credentials directly in the request body. Use
-        the `user_id` field to associate the connection with a specific user in your
-        system.
-
-        **Deprecated for Composio-managed OAuth:** For Composio-managed auth configs on
-        OAuth1, OAuth2, or DCR_OAUTH schemes, this endpoint is being retired and will
-        start returning `400 BadRequest` on **2026-05-08** for new organizations and
-        **2026-07-03** for all remaining organizations. Migrate those calls to
-        `POST /api/v3/connected_accounts/link`. Custom auth configs and non-OAuth
-        schemes (API key, bearer, basic) continue to be supported here. Responses on the
-        retiring path carry a `Deprecation` header (RFC 9745) and a `Sunset` header
-        (RFC 8594) for client-side detection.
-
-        Args:
-          validate_credentials: [EXPERIMENTAL] Whether to validate the provided credentials, validates only for
-              API Key Auth scheme
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return await self._post(
+        body_fields = compact(
+            {
+                "auth_config": auth_config,
+                "connection": connection,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("auth_config", "connection"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
             "/api/v3.1/connected_accounts",
-            body=await async_maybe_transform(
-                {
-                    "auth_config": auth_config,
-                    "connection": connection,
-                    "validate_credentials": validate_credentials,
-                },
-                connected_account_create_params.ConnectedAccountCreateParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=ConnectedAccountCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountCreateBody,
+            options=options_data,
         )
 
     async def retrieve(
         self,
         nanoid: str,
         *,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountRetrieveResponse:
-        """
-        Retrieves comprehensive details of a connected account, including authentication
-        configuration, connection status, and all parameters needed for API requests.
-
-        Args:
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return await self._get(
-            path_template("/api/v3.1/connected_accounts/{nanoid}", nanoid=nanoid),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}",
+                {"nanoid": nanoid},
             ),
             cast_to=ConnectedAccountRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            options=options_data,
         )
 
     async def list(
         self,
         *,
-        account_type: Literal["PRIVATE", "SHARED", "ALL"] | Omit = omit,
-        auth_config_ids: Optional[SequenceNotStr[str]] | Omit = omit,
-        connected_account_ids: Optional[SequenceNotStr[str]] | Omit = omit,
-        cursor: Optional[str] | Omit = omit,
-        limit: Optional[float] | Omit = omit,
+        toolkit_slugs: SequenceNotStr[str] | None | Omit = omit,
+        statuses: list[
+            Literal["INITIALIZING", "INITIATED", "ACTIVE", "FAILED", "EXPIRED", "INACTIVE", "REVOKED"]
+        ]
+        | None
+        | Omit = omit,
+        cursor: str | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        user_ids: SequenceNotStr[str] | None | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | None | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | None | Omit = omit,
         order_by: Literal["created_at", "updated_at"] | Omit = omit,
         order_direction: Literal["asc", "desc"] | Omit = omit,
-        statuses: Optional[
-            List[Literal["INITIALIZING", "INITIATED", "ACTIVE", "FAILED", "EXPIRED", "INACTIVE", "REVOKED"]]
-        ]
-        | Omit = omit,
-        toolkit_slugs: Optional[SequenceNotStr[str]] | Omit = omit,
-        user_ids: Optional[SequenceNotStr[str]] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        account_type: Literal["PRIVATE", "SHARED", "ALL"] | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountListResponse:
-        """Retrieves all connected accounts for your project.
-
-        Connected accounts represent
-        authenticated user connections to external services (e.g., a user's Gmail
-        account, Slack workspace). Filter by toolkit, status, user ID, or auth config to
-        find specific connections.
-
-        Args:
-          account_type: [Experimental] Filter by sharing model. Default (omitted) returns PRIVATE only —
-              shared accounts must be requested explicitly. Pass SHARED for only shared
-              accounts, or ALL for PRIVATE + SHARED.
-
-          auth_config_ids: The auth config ids of the connected accounts
-
-          connected_account_ids: The connected account ids to filter by
-
-          cursor: The cursor to paginate through the connected accounts
-
-          limit: The limit of the connected accounts to return
-
-          order_by: The order by of the connected accounts
-
-          order_direction: The order direction of the connected accounts
-
-          statuses: The status of the connected account
-
-          toolkit_slugs: The toolkit slugs of the connected accounts
-
-          user_ids: The user ids of the connected accounts
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return await self._get(
+        query_fields = compact(
+            {
+                "toolkit_slugs": toolkit_slugs,
+                "statuses": statuses,
+                "cursor": cursor,
+                "limit": limit,
+                "user_ids": user_ids,
+                "auth_config_ids": auth_config_ids,
+                "connected_account_ids": connected_account_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "account_type": account_type,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
             "/api/v3.1/connected_accounts",
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=await async_maybe_transform(
-                    {
-                        "account_type": account_type,
-                        "auth_config_ids": auth_config_ids,
-                        "connected_account_ids": connected_account_ids,
-                        "cursor": cursor,
-                        "limit": limit,
-                        "order_by": order_by,
-                        "order_direction": order_direction,
-                        "statuses": statuses,
-                        "toolkit_slugs": toolkit_slugs,
-                        "user_ids": user_ids,
-                    },
-                    connected_account_list_params.ConnectedAccountListParams,
-                ),
-            ),
             cast_to=ConnectedAccountListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
     async def delete(
         self,
         nanoid: str,
         *,
-        revoke_on_delete: Optional[bool] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        revoke_on_delete: bool | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountDeleteResponse:
-        """Soft-deletes a connected account by marking it as deleted in the database.
-
-        This
-        prevents the account from being used for API calls but preserves the record for
-        audit purposes. Pass `?revoke_on_delete=true` to also revoke the account's
-        upstream credentials via a background job.
-
-        Args:
-          revoke_on_delete: When `true`, the delete also starts a background job that revokes the upstream
-              credentials of every connected account in scope, and the response carries a
-              `revoke_job_id`. Defaults to `false`. Revocation is irreversible — recovering a
-              deleted entity does not restore working credentials.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return await self._delete(
-            path_template("/api/v3.1/connected_accounts/{nanoid}", nanoid=nanoid),
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=await async_maybe_transform(
-                    {"revoke_on_delete": revoke_on_delete}, connected_account_delete_params.ConnectedAccountDeleteParams
-                ),
+        query_fields = compact(
+            {
+                "revoke_on_delete": revoke_on_delete,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "delete",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}",
+                {"nanoid": nanoid},
             ),
             cast_to=ConnectedAccountDeleteResponse,
+            operation=_DELETE_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    @overload
+    async def complete_auth(
+        self,
+        body: BodyParam | None = None,
+        *,
+        session_uri: str,
+        user_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountCompleteAuthResponse: ...
+
+    @overload
+    async def complete_auth(
+        self,
+        body: BodyParam,
+        *,
+        session_uri: str | Omit = omit,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountCompleteAuthResponse: ...
+
+    async def complete_auth(
+        self,
+        body: BodyParam | None = None,
+        *,
+        session_uri: str | Omit = omit,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountCompleteAuthResponse:
+        body_fields = compact(
+            {
+                "session_uri": session_uri,
+                "user_id": user_id,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("session_uri", "user_id"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
+            "/api/v3.1/connected_accounts/complete_auth",
+            cast_to=ConnectedAccountCompleteAuthResponse,
+            operation=_COMPLETE_AUTH_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountCompleteAuthBody,
+            options=options_data,
         )
 
     async def patch(
         self,
         nanoid: str,
+        body: BodyParam | None = None,
         *,
         alias: str | Omit = omit,
         connection: connected_account_patch_params.Connection | Omit = omit,
         experimental: connected_account_patch_params.Experimental | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountPatchResponse:
-        """Update a connected account.
-
-        Supports updating the alias and/or credentials. Only
-        specified fields will be updated. Set a credential field to null to remove it.
-        Alias must be unique within the same project, entity, and toolkit scope.
-
-        Args:
-          alias: A human-readable alias for this connected account. Pass an empty string to clear
-              the alias. Must be unique per entity and toolkit within the project.
-
-          experimental: Experimental features - not stable, may be modified or removed in future
-              versions.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return await self._patch(
-            path_template("/api/v3.1/connected_accounts/{nanoid}", nanoid=nanoid),
-            body=await async_maybe_transform(
-                {
-                    "alias": alias,
-                    "connection": connection,
-                    "experimental": experimental,
-                },
-                connected_account_patch_params.ConnectedAccountPatchParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        body_fields = compact(
+            {
+                "alias": alias,
+                "connection": connection,
+                "experimental": experimental,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "patch",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}",
+                {"nanoid": nanoid},
             ),
             cast_to=ConnectedAccountPatchResponse,
+            operation=_PATCH_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountPatchBody,
+            options=options_data,
         )
 
-    @typing_extensions.deprecated("deprecated")
+    # Deprecated in the input OpenAPI schema.
     async def refresh(
         self,
         nanoid: str,
+        body: BodyParam | None = None,
         *,
         query_redirect_url: str | Omit = omit,
         body_redirect_url: str | Omit = omit,
-        validate_credentials: bool | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountRefreshResponse:
-        """DEPRECATED: Manual refresh of a connected account is deprecated.
-
-        Composio
-        automatically refreshes credentials in the background as they approach expiry,
-        so this endpoint is no longer required and may be removed in a future release.
-        Initiates a new authentication flow for a connected account when credentials
-        have expired or become invalid. This may generate a new authentication URL for
-        OAuth flows or refresh tokens for other auth schemes.
-
-        Args:
-          validate_credentials: [EXPERIMENTAL] Whether to validate the provided credentials, validates only for
-              API Key Auth scheme
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return await self._post(
-            path_template("/api/v3.1/connected_accounts/{nanoid}/refresh", nanoid=nanoid),
-            body=await async_maybe_transform(
-                {
-                    "body_redirect_url": body_redirect_url,
-                    "validate_credentials": validate_credentials,
-                },
-                connected_account_refresh_params.ConnectedAccountRefreshParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=await async_maybe_transform(
-                    {"query_redirect_url": query_redirect_url},
-                    connected_account_refresh_params.ConnectedAccountRefreshParams,
-                ),
+        body_fields = compact(
+            {
+                "redirect_url": body_redirect_url,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        query_fields = compact(
+            {
+                "redirect_url": query_redirect_url,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}/refresh",
+                {"nanoid": nanoid},
             ),
             cast_to=ConnectedAccountRefreshResponse,
+            operation=_REFRESH_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountRefreshBody,
+            query=query_data,
+            options=options_data,
         )
+
+    async def revoke(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountRevokeResponse:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}/revoke",
+                {"nanoid": nanoid},
+            ),
+            cast_to=ConnectedAccountRevokeResponse,
+            operation=_REVOKE_OPERATION,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    async def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam | None = None,
+        *,
+        enabled: bool,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountUpdateStatusResponse: ...
+
+    @overload
+    async def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam,
+        *,
+        enabled: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ConnectedAccountUpdateStatusResponse: ...
 
     async def update_status(
         self,
         nano_id: str,
+        body: BodyParam | None = None,
         *,
-        enabled: bool,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        enabled: bool | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ConnectedAccountUpdateStatusResponse:
-        """
-        Updates the status of a connected account to either enabled (active) or disabled
-        (inactive). Disabled accounts cannot be used for API calls but remain in the
-        database.
-
-        Args:
-          enabled: Set to true to enable the account or false to disable it
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nano_id:
-            raise ValueError(f"Expected a non-empty value for `nano_id` but received {nano_id!r}")
-        return await self._patch(
-            path_template("/api/v3.1/connected_accounts/{nano_id}/status", nano_id=nano_id),
-            body=await async_maybe_transform(
-                {"enabled": enabled}, connected_account_update_status_params.ConnectedAccountUpdateStatusParams
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        body_fields = compact(
+            {
+                "enabled": enabled,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("enabled",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "patch",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoId}/status",
+                {"nanoId": nano_id},
             ),
             cast_to=ConnectedAccountUpdateStatusResponse,
+            operation=_UPDATE_STATUS_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountUpdateStatusBody,
+            options=options_data,
         )
 
 
 class ConnectedAccountsResourceWithRawResponse:
-    def __init__(self, connected_accounts: ConnectedAccountsResource) -> None:
-        self._connected_accounts = connected_accounts
+    def __init__(self, resource: ConnectedAccountsResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = to_raw_response_wrapper(
-            connected_accounts.create,
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config: connected_account_create_params.AuthConfig,
+        connection: connected_account_create_params.Connection,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountCreateResponse]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        auth_config: connected_account_create_params.AuthConfig | Omit = omit,
+        connection: connected_account_create_params.Connection | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountCreateResponse]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config: connected_account_create_params.AuthConfig | Omit = omit,
+        connection: connected_account_create_params.Connection | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountCreateResponse]:
+        body_fields = compact(
+            {
+                "auth_config": auth_config,
+                "connection": connection,
+            }
         )
-        self.retrieve = to_raw_response_wrapper(
-            connected_accounts.retrieve,
+        require_fields(
+            body,
+            body_fields,
+            ("auth_config", "connection"),
+            "body",
         )
-        self.list = to_raw_response_wrapper(
-            connected_accounts.list,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.delete = to_raw_response_wrapper(
-            connected_accounts.delete,
+        return self._client._request_raw(
+            "post",
+            "/api/v3.1/connected_accounts",
+            cast_to=ConnectedAccountCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountCreateBody,
+            options=options_data,
         )
-        self.patch = to_raw_response_wrapper(
-            connected_accounts.patch,
+
+    def retrieve(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountRetrieveResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.refresh = (  # pyright: ignore[reportDeprecated]
-            to_raw_response_wrapper(
-                connected_accounts.refresh,  # pyright: ignore[reportDeprecated],
-            )
+        return self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}",
+                {"nanoid": nanoid},
+            ),
+            cast_to=ConnectedAccountRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            options=options_data,
         )
-        self.update_status = to_raw_response_wrapper(
-            connected_accounts.update_status,
+
+    def list(
+        self,
+        *,
+        toolkit_slugs: SequenceNotStr[str] | None | Omit = omit,
+        statuses: list[
+            Literal["INITIALIZING", "INITIATED", "ACTIVE", "FAILED", "EXPIRED", "INACTIVE", "REVOKED"]
+        ]
+        | None
+        | Omit = omit,
+        cursor: str | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        user_ids: SequenceNotStr[str] | None | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | None | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | None | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        account_type: Literal["PRIVATE", "SHARED", "ALL"] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountListResponse]:
+        query_fields = compact(
+            {
+                "toolkit_slugs": toolkit_slugs,
+                "statuses": statuses,
+                "cursor": cursor,
+                "limit": limit,
+                "user_ids": user_ids,
+                "auth_config_ids": auth_config_ids,
+                "connected_account_ids": connected_account_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "account_type": account_type,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "get",
+            "/api/v3.1/connected_accounts",
+            cast_to=ConnectedAccountListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    def delete(
+        self,
+        nanoid: str,
+        *,
+        revoke_on_delete: bool | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountDeleteResponse]:
+        query_fields = compact(
+            {
+                "revoke_on_delete": revoke_on_delete,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "delete",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}",
+                {"nanoid": nanoid},
+            ),
+            cast_to=ConnectedAccountDeleteResponse,
+            operation=_DELETE_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    @overload
+    def complete_auth(
+        self,
+        body: BodyParam | None = None,
+        *,
+        session_uri: str,
+        user_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountCompleteAuthResponse]: ...
+
+    @overload
+    def complete_auth(
+        self,
+        body: BodyParam,
+        *,
+        session_uri: str | Omit = omit,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountCompleteAuthResponse]: ...
+
+    def complete_auth(
+        self,
+        body: BodyParam | None = None,
+        *,
+        session_uri: str | Omit = omit,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountCompleteAuthResponse]:
+        body_fields = compact(
+            {
+                "session_uri": session_uri,
+                "user_id": user_id,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("session_uri", "user_id"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "post",
+            "/api/v3.1/connected_accounts/complete_auth",
+            cast_to=ConnectedAccountCompleteAuthResponse,
+            operation=_COMPLETE_AUTH_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountCompleteAuthBody,
+            options=options_data,
+        )
+
+    def patch(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        alias: str | Omit = omit,
+        connection: connected_account_patch_params.Connection | Omit = omit,
+        experimental: connected_account_patch_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountPatchResponse]:
+        body_fields = compact(
+            {
+                "alias": alias,
+                "connection": connection,
+                "experimental": experimental,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "patch",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}",
+                {"nanoid": nanoid},
+            ),
+            cast_to=ConnectedAccountPatchResponse,
+            operation=_PATCH_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountPatchBody,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def refresh(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        query_redirect_url: str | Omit = omit,
+        body_redirect_url: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountRefreshResponse]:
+        body_fields = compact(
+            {
+                "redirect_url": body_redirect_url,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        query_fields = compact(
+            {
+                "redirect_url": query_redirect_url,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}/refresh",
+                {"nanoid": nanoid},
+            ),
+            cast_to=ConnectedAccountRefreshResponse,
+            operation=_REFRESH_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountRefreshBody,
+            query=query_data,
+            options=options_data,
+        )
+
+    def revoke(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountRevokeResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}/revoke",
+                {"nanoid": nanoid},
+            ),
+            cast_to=ConnectedAccountRevokeResponse,
+            operation=_REVOKE_OPERATION,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam | None = None,
+        *,
+        enabled: bool,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountUpdateStatusResponse]: ...
+
+    @overload
+    def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam,
+        *,
+        enabled: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountUpdateStatusResponse]: ...
+
+    def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam | None = None,
+        *,
+        enabled: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ConnectedAccountUpdateStatusResponse]:
+        body_fields = compact(
+            {
+                "enabled": enabled,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("enabled",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "patch",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoId}/status",
+                {"nanoId": nano_id},
+            ),
+            cast_to=ConnectedAccountUpdateStatusResponse,
+            operation=_UPDATE_STATUS_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountUpdateStatusBody,
+            options=options_data,
         )
 
 
 class AsyncConnectedAccountsResourceWithRawResponse:
-    def __init__(self, connected_accounts: AsyncConnectedAccountsResource) -> None:
-        self._connected_accounts = connected_accounts
+    def __init__(self, resource: AsyncConnectedAccountsResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = async_to_raw_response_wrapper(
-            connected_accounts.create,
+    @overload
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config: connected_account_create_params.AuthConfig,
+        connection: connected_account_create_params.Connection,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountCreateResponse]: ...
+
+    @overload
+    async def create(
+        self,
+        body: BodyParam,
+        *,
+        auth_config: connected_account_create_params.AuthConfig | Omit = omit,
+        connection: connected_account_create_params.Connection | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountCreateResponse]: ...
+
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config: connected_account_create_params.AuthConfig | Omit = omit,
+        connection: connected_account_create_params.Connection | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountCreateResponse]:
+        body_fields = compact(
+            {
+                "auth_config": auth_config,
+                "connection": connection,
+            }
         )
-        self.retrieve = async_to_raw_response_wrapper(
-            connected_accounts.retrieve,
+        require_fields(
+            body,
+            body_fields,
+            ("auth_config", "connection"),
+            "body",
         )
-        self.list = async_to_raw_response_wrapper(
-            connected_accounts.list,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.delete = async_to_raw_response_wrapper(
-            connected_accounts.delete,
+        return await self._client._request_raw(
+            "post",
+            "/api/v3.1/connected_accounts",
+            cast_to=ConnectedAccountCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountCreateBody,
+            options=options_data,
         )
-        self.patch = async_to_raw_response_wrapper(
-            connected_accounts.patch,
+
+    async def retrieve(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountRetrieveResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.refresh = (  # pyright: ignore[reportDeprecated]
-            async_to_raw_response_wrapper(
-                connected_accounts.refresh,  # pyright: ignore[reportDeprecated],
-            )
+        return await self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}",
+                {"nanoid": nanoid},
+            ),
+            cast_to=ConnectedAccountRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            options=options_data,
         )
-        self.update_status = async_to_raw_response_wrapper(
-            connected_accounts.update_status,
+
+    async def list(
+        self,
+        *,
+        toolkit_slugs: SequenceNotStr[str] | None | Omit = omit,
+        statuses: list[
+            Literal["INITIALIZING", "INITIATED", "ACTIVE", "FAILED", "EXPIRED", "INACTIVE", "REVOKED"]
+        ]
+        | None
+        | Omit = omit,
+        cursor: str | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        user_ids: SequenceNotStr[str] | None | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | None | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | None | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        account_type: Literal["PRIVATE", "SHARED", "ALL"] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountListResponse]:
+        query_fields = compact(
+            {
+                "toolkit_slugs": toolkit_slugs,
+                "statuses": statuses,
+                "cursor": cursor,
+                "limit": limit,
+                "user_ids": user_ids,
+                "auth_config_ids": auth_config_ids,
+                "connected_account_ids": connected_account_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "account_type": account_type,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "get",
+            "/api/v3.1/connected_accounts",
+            cast_to=ConnectedAccountListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    async def delete(
+        self,
+        nanoid: str,
+        *,
+        revoke_on_delete: bool | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountDeleteResponse]:
+        query_fields = compact(
+            {
+                "revoke_on_delete": revoke_on_delete,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "delete",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}",
+                {"nanoid": nanoid},
+            ),
+            cast_to=ConnectedAccountDeleteResponse,
+            operation=_DELETE_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    @overload
+    async def complete_auth(
+        self,
+        body: BodyParam | None = None,
+        *,
+        session_uri: str,
+        user_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountCompleteAuthResponse]: ...
+
+    @overload
+    async def complete_auth(
+        self,
+        body: BodyParam,
+        *,
+        session_uri: str | Omit = omit,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountCompleteAuthResponse]: ...
+
+    async def complete_auth(
+        self,
+        body: BodyParam | None = None,
+        *,
+        session_uri: str | Omit = omit,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountCompleteAuthResponse]:
+        body_fields = compact(
+            {
+                "session_uri": session_uri,
+                "user_id": user_id,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("session_uri", "user_id"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "post",
+            "/api/v3.1/connected_accounts/complete_auth",
+            cast_to=ConnectedAccountCompleteAuthResponse,
+            operation=_COMPLETE_AUTH_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountCompleteAuthBody,
+            options=options_data,
+        )
+
+    async def patch(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        alias: str | Omit = omit,
+        connection: connected_account_patch_params.Connection | Omit = omit,
+        experimental: connected_account_patch_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountPatchResponse]:
+        body_fields = compact(
+            {
+                "alias": alias,
+                "connection": connection,
+                "experimental": experimental,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "patch",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}",
+                {"nanoid": nanoid},
+            ),
+            cast_to=ConnectedAccountPatchResponse,
+            operation=_PATCH_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountPatchBody,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    async def refresh(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        query_redirect_url: str | Omit = omit,
+        body_redirect_url: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountRefreshResponse]:
+        body_fields = compact(
+            {
+                "redirect_url": body_redirect_url,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        query_fields = compact(
+            {
+                "redirect_url": query_redirect_url,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}/refresh",
+                {"nanoid": nanoid},
+            ),
+            cast_to=ConnectedAccountRefreshResponse,
+            operation=_REFRESH_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountRefreshBody,
+            query=query_data,
+            options=options_data,
+        )
+
+    async def revoke(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountRevokeResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoid}/revoke",
+                {"nanoid": nanoid},
+            ),
+            cast_to=ConnectedAccountRevokeResponse,
+            operation=_REVOKE_OPERATION,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    async def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam | None = None,
+        *,
+        enabled: bool,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountUpdateStatusResponse]: ...
+
+    @overload
+    async def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam,
+        *,
+        enabled: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountUpdateStatusResponse]: ...
+
+    async def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam | None = None,
+        *,
+        enabled: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ConnectedAccountUpdateStatusResponse]:
+        body_fields = compact(
+            {
+                "enabled": enabled,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("enabled",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "patch",
+            build_path(
+                "/api/v3.1/connected_accounts/{nanoId}/status",
+                {"nanoId": nano_id},
+            ),
+            cast_to=ConnectedAccountUpdateStatusResponse,
+            operation=_UPDATE_STATUS_OPERATION,
+            body=body_data,
+            body_model=ConnectedAccountUpdateStatusBody,
+            options=options_data,
         )
 
 
 class ConnectedAccountsResourceWithStreamingResponse:
-    def __init__(self, connected_accounts: ConnectedAccountsResource) -> None:
-        self._connected_accounts = connected_accounts
+    def __init__(self, resource: ConnectedAccountsResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = to_streamed_response_wrapper(
-            connected_accounts.create,
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config: connected_account_create_params.AuthConfig,
+        connection: connected_account_create_params.Connection,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountCreateResponse]]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        auth_config: connected_account_create_params.AuthConfig | Omit = omit,
+        connection: connected_account_create_params.Connection | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountCreateResponse]]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config: connected_account_create_params.AuthConfig | Omit = omit,
+        connection: connected_account_create_params.Connection | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountCreateResponse]]:
+        body_fields = compact(
+            {
+                "auth_config": auth_config,
+                "connection": connection,
+            }
         )
-        self.retrieve = to_streamed_response_wrapper(
-            connected_accounts.retrieve,
+        require_fields(
+            body,
+            body_fields,
+            ("auth_config", "connection"),
+            "body",
         )
-        self.list = to_streamed_response_wrapper(
-            connected_accounts.list,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.delete = to_streamed_response_wrapper(
-            connected_accounts.delete,
-        )
-        self.patch = to_streamed_response_wrapper(
-            connected_accounts.patch,
-        )
-        self.refresh = (  # pyright: ignore[reportDeprecated]
-            to_streamed_response_wrapper(
-                connected_accounts.refresh,  # pyright: ignore[reportDeprecated],
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                "/api/v3.1/connected_accounts",
+                cast_to=ConnectedAccountCreateResponse,
+                operation=_CREATE_OPERATION,
+                body=body_data,
+                body_model=ConnectedAccountCreateBody,
+                options=options_data,
+                stream=True,
             )
         )
-        self.update_status = to_streamed_response_wrapper(
-            connected_accounts.update_status,
+
+    def retrieve(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountRetrieveResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/connected_accounts/{nanoid}",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=ConnectedAccountRetrieveResponse,
+                operation=_RETRIEVE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def list(
+        self,
+        *,
+        toolkit_slugs: SequenceNotStr[str] | None | Omit = omit,
+        statuses: list[
+            Literal["INITIALIZING", "INITIATED", "ACTIVE", "FAILED", "EXPIRED", "INACTIVE", "REVOKED"]
+        ]
+        | None
+        | Omit = omit,
+        cursor: str | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        user_ids: SequenceNotStr[str] | None | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | None | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | None | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        account_type: Literal["PRIVATE", "SHARED", "ALL"] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountListResponse]]:
+        query_fields = compact(
+            {
+                "toolkit_slugs": toolkit_slugs,
+                "statuses": statuses,
+                "cursor": cursor,
+                "limit": limit,
+                "user_ids": user_ids,
+                "auth_config_ids": auth_config_ids,
+                "connected_account_ids": connected_account_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "account_type": account_type,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                "/api/v3.1/connected_accounts",
+                cast_to=ConnectedAccountListResponse,
+                operation=_LIST_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def delete(
+        self,
+        nanoid: str,
+        *,
+        revoke_on_delete: bool | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountDeleteResponse]]:
+        query_fields = compact(
+            {
+                "revoke_on_delete": revoke_on_delete,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "delete",
+                build_path(
+                    "/api/v3.1/connected_accounts/{nanoid}",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=ConnectedAccountDeleteResponse,
+                operation=_DELETE_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    @overload
+    def complete_auth(
+        self,
+        body: BodyParam | None = None,
+        *,
+        session_uri: str,
+        user_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountCompleteAuthResponse]]: ...
+
+    @overload
+    def complete_auth(
+        self,
+        body: BodyParam,
+        *,
+        session_uri: str | Omit = omit,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountCompleteAuthResponse]]: ...
+
+    def complete_auth(
+        self,
+        body: BodyParam | None = None,
+        *,
+        session_uri: str | Omit = omit,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountCompleteAuthResponse]]:
+        body_fields = compact(
+            {
+                "session_uri": session_uri,
+                "user_id": user_id,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("session_uri", "user_id"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                "/api/v3.1/connected_accounts/complete_auth",
+                cast_to=ConnectedAccountCompleteAuthResponse,
+                operation=_COMPLETE_AUTH_OPERATION,
+                body=body_data,
+                body_model=ConnectedAccountCompleteAuthBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def patch(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        alias: str | Omit = omit,
+        connection: connected_account_patch_params.Connection | Omit = omit,
+        experimental: connected_account_patch_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountPatchResponse]]:
+        body_fields = compact(
+            {
+                "alias": alias,
+                "connection": connection,
+                "experimental": experimental,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "patch",
+                build_path(
+                    "/api/v3.1/connected_accounts/{nanoid}",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=ConnectedAccountPatchResponse,
+                operation=_PATCH_OPERATION,
+                body=body_data,
+                body_model=ConnectedAccountPatchBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def refresh(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        query_redirect_url: str | Omit = omit,
+        body_redirect_url: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountRefreshResponse]]:
+        body_fields = compact(
+            {
+                "redirect_url": body_redirect_url,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        query_fields = compact(
+            {
+                "redirect_url": query_redirect_url,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/connected_accounts/{nanoid}/refresh",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=ConnectedAccountRefreshResponse,
+                operation=_REFRESH_OPERATION,
+                body=body_data,
+                body_model=ConnectedAccountRefreshBody,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def revoke(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountRevokeResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/connected_accounts/{nanoid}/revoke",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=ConnectedAccountRevokeResponse,
+                operation=_REVOKE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam | None = None,
+        *,
+        enabled: bool,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountUpdateStatusResponse]]: ...
+
+    @overload
+    def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam,
+        *,
+        enabled: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountUpdateStatusResponse]]: ...
+
+    def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam | None = None,
+        *,
+        enabled: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ConnectedAccountUpdateStatusResponse]]:
+        body_fields = compact(
+            {
+                "enabled": enabled,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("enabled",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "patch",
+                build_path(
+                    "/api/v3.1/connected_accounts/{nanoId}/status",
+                    {"nanoId": nano_id},
+                ),
+                cast_to=ConnectedAccountUpdateStatusResponse,
+                operation=_UPDATE_STATUS_OPERATION,
+                body=body_data,
+                body_model=ConnectedAccountUpdateStatusBody,
+                options=options_data,
+                stream=True,
+            )
         )
 
 
 class AsyncConnectedAccountsResourceWithStreamingResponse:
-    def __init__(self, connected_accounts: AsyncConnectedAccountsResource) -> None:
-        self._connected_accounts = connected_accounts
+    def __init__(self, resource: AsyncConnectedAccountsResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = async_to_streamed_response_wrapper(
-            connected_accounts.create,
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config: connected_account_create_params.AuthConfig,
+        connection: connected_account_create_params.Connection,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountCreateResponse]]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        auth_config: connected_account_create_params.AuthConfig | Omit = omit,
+        connection: connected_account_create_params.Connection | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountCreateResponse]]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        auth_config: connected_account_create_params.AuthConfig | Omit = omit,
+        connection: connected_account_create_params.Connection | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountCreateResponse]]:
+        body_fields = compact(
+            {
+                "auth_config": auth_config,
+                "connection": connection,
+            }
         )
-        self.retrieve = async_to_streamed_response_wrapper(
-            connected_accounts.retrieve,
+        require_fields(
+            body,
+            body_fields,
+            ("auth_config", "connection"),
+            "body",
         )
-        self.list = async_to_streamed_response_wrapper(
-            connected_accounts.list,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.delete = async_to_streamed_response_wrapper(
-            connected_accounts.delete,
-        )
-        self.patch = async_to_streamed_response_wrapper(
-            connected_accounts.patch,
-        )
-        self.refresh = (  # pyright: ignore[reportDeprecated]
-            async_to_streamed_response_wrapper(
-                connected_accounts.refresh,  # pyright: ignore[reportDeprecated],
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                "/api/v3.1/connected_accounts",
+                cast_to=ConnectedAccountCreateResponse,
+                operation=_CREATE_OPERATION,
+                body=body_data,
+                body_model=ConnectedAccountCreateBody,
+                options=options_data,
+                stream=True,
             )
         )
-        self.update_status = async_to_streamed_response_wrapper(
-            connected_accounts.update_status,
+
+    def retrieve(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountRetrieveResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/connected_accounts/{nanoid}",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=ConnectedAccountRetrieveResponse,
+                operation=_RETRIEVE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def list(
+        self,
+        *,
+        toolkit_slugs: SequenceNotStr[str] | None | Omit = omit,
+        statuses: list[
+            Literal["INITIALIZING", "INITIATED", "ACTIVE", "FAILED", "EXPIRED", "INACTIVE", "REVOKED"]
+        ]
+        | None
+        | Omit = omit,
+        cursor: str | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        user_ids: SequenceNotStr[str] | None | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | None | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | None | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        account_type: Literal["PRIVATE", "SHARED", "ALL"] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountListResponse]]:
+        query_fields = compact(
+            {
+                "toolkit_slugs": toolkit_slugs,
+                "statuses": statuses,
+                "cursor": cursor,
+                "limit": limit,
+                "user_ids": user_ids,
+                "auth_config_ids": auth_config_ids,
+                "connected_account_ids": connected_account_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "account_type": account_type,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                "/api/v3.1/connected_accounts",
+                cast_to=ConnectedAccountListResponse,
+                operation=_LIST_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def delete(
+        self,
+        nanoid: str,
+        *,
+        revoke_on_delete: bool | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountDeleteResponse]]:
+        query_fields = compact(
+            {
+                "revoke_on_delete": revoke_on_delete,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "delete",
+                build_path(
+                    "/api/v3.1/connected_accounts/{nanoid}",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=ConnectedAccountDeleteResponse,
+                operation=_DELETE_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    @overload
+    def complete_auth(
+        self,
+        body: BodyParam | None = None,
+        *,
+        session_uri: str,
+        user_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountCompleteAuthResponse]]: ...
+
+    @overload
+    def complete_auth(
+        self,
+        body: BodyParam,
+        *,
+        session_uri: str | Omit = omit,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountCompleteAuthResponse]]: ...
+
+    def complete_auth(
+        self,
+        body: BodyParam | None = None,
+        *,
+        session_uri: str | Omit = omit,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountCompleteAuthResponse]]:
+        body_fields = compact(
+            {
+                "session_uri": session_uri,
+                "user_id": user_id,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("session_uri", "user_id"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                "/api/v3.1/connected_accounts/complete_auth",
+                cast_to=ConnectedAccountCompleteAuthResponse,
+                operation=_COMPLETE_AUTH_OPERATION,
+                body=body_data,
+                body_model=ConnectedAccountCompleteAuthBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def patch(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        alias: str | Omit = omit,
+        connection: connected_account_patch_params.Connection | Omit = omit,
+        experimental: connected_account_patch_params.Experimental | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountPatchResponse]]:
+        body_fields = compact(
+            {
+                "alias": alias,
+                "connection": connection,
+                "experimental": experimental,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "patch",
+                build_path(
+                    "/api/v3.1/connected_accounts/{nanoid}",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=ConnectedAccountPatchResponse,
+                operation=_PATCH_OPERATION,
+                body=body_data,
+                body_model=ConnectedAccountPatchBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def refresh(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        query_redirect_url: str | Omit = omit,
+        body_redirect_url: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountRefreshResponse]]:
+        body_fields = compact(
+            {
+                "redirect_url": body_redirect_url,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        query_fields = compact(
+            {
+                "redirect_url": query_redirect_url,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/connected_accounts/{nanoid}/refresh",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=ConnectedAccountRefreshResponse,
+                operation=_REFRESH_OPERATION,
+                body=body_data,
+                body_model=ConnectedAccountRefreshBody,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def revoke(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountRevokeResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/connected_accounts/{nanoid}/revoke",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=ConnectedAccountRevokeResponse,
+                operation=_REVOKE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam | None = None,
+        *,
+        enabled: bool,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountUpdateStatusResponse]]: ...
+
+    @overload
+    def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam,
+        *,
+        enabled: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountUpdateStatusResponse]]: ...
+
+    def update_status(
+        self,
+        nano_id: str,
+        body: BodyParam | None = None,
+        *,
+        enabled: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ConnectedAccountUpdateStatusResponse]]:
+        body_fields = compact(
+            {
+                "enabled": enabled,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("enabled",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "patch",
+                build_path(
+                    "/api/v3.1/connected_accounts/{nanoId}/status",
+                    {"nanoId": nano_id},
+                ),
+                cast_to=ConnectedAccountUpdateStatusResponse,
+                operation=_UPDATE_STATUS_OPERATION,
+                body=body_data,
+                body_model=ConnectedAccountUpdateStatusBody,
+                options=options_data,
+                stream=True,
+            )
         )

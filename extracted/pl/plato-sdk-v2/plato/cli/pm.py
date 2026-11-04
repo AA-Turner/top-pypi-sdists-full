@@ -16,7 +16,8 @@ import typer
 import yaml
 from rich.table import Table
 
-from plato._generated.api.v1.env import get_simulator_by_name, get_simulators
+from plato._generated.api.v1.env import create_simulator, get_simulator_by_name, get_simulators
+from plato._generated.api.v1.env import update_simulator as env_update_simulator
 from plato._generated.api.v1.organization import get_organization_members
 from plato._generated.api.v1.simulator import (
     add_simulator_review,
@@ -26,11 +27,15 @@ from plato._generated.api.v1.simulator import (
 )
 from plato._generated.models import (
     AddReviewRequest,
+    AppApiV1EnvRoutesUpdateSimulatorRequest,
     AppApiV1SimulatorRoutesUpdateSimulatorRequest,
     Authentication,
+    CreateSimulatorRequest,
     Outcome,
     ReviewType,
     SimReviewComment,
+    SimulatorConfig,
+    Status,
     UpdateStatusRequest,
     UpdateTagRequest,
 )
@@ -42,6 +47,7 @@ from plato.cli.utils import (
     require_plato_config_field,
     safe_print,
 )
+from plato.utils.sim_config import sim_config_dict
 from plato.v1.flow_executor import FlowExecutor
 from plato.v1.models.flow import Flow
 from plato.v1.sdk import Plato
@@ -205,10 +211,8 @@ list_app = typer.Typer(help="List simulators by status")
 review_app = typer.Typer(help="Review simulator artifacts")
 submit_app = typer.Typer(help="Submit simulator artifacts for review")
 start_app = typer.Typer(help="Start env or data pipelines for simulators")
+register_app = typer.Typer(help="Create or complete simulator records")
 experiment_app = typer.Typer(help="Manage experiment configs in Chronos")
-experiment_env_app = typer.Typer(help="Env pipeline experiments")
-experiment_env_base_app = typer.Typer(help="Env base (fresh create) experiment")
-experiment_env_fix_app = typer.Typer(help="Env fix experiment")
 experiment_data_app = typer.Typer(help="Data pipeline experiments")
 experiment_data_base_app = typer.Typer(help="Data base experiment")
 experiment_data_unified_app = typer.Typer(help="Data unified (multi-sim) experiment")
@@ -225,14 +229,12 @@ pm_app.add_typer(list_app, name="list")
 pm_app.add_typer(review_app, name="review")
 pm_app.add_typer(submit_app, name="submit")
 pm_app.add_typer(start_app, name="start")
+pm_app.add_typer(register_app, name="register")
 pm_app.add_typer(experiment_app, name="experiment")
-experiment_app.add_typer(experiment_env_app, name="env")
 experiment_app.add_typer(experiment_data_app, name="data")
 experiment_app.add_typer(experiment_check_app, name="check")
 experiment_app.add_typer(experiment_blank_app, name="blank")
 experiment_app.add_typer(experiment_agent_app, name="agent")
-experiment_env_app.add_typer(experiment_env_base_app, name="base")
-experiment_env_app.add_typer(experiment_env_fix_app, name="fix")
 experiment_data_app.add_typer(experiment_data_base_app, name="base")
 experiment_data_app.add_typer(experiment_data_unified_app, name="unified")
 experiment_check_app.add_typer(experiment_check_base_app, name="base")
@@ -365,20 +367,6 @@ def _extract_review_comment_texts(review: dict) -> list[str]:
 
     legacy_comments = (review.get("comments") or "").strip()
     return [legacy_comments] if legacy_comments else []
-
-
-def _get_latest_rejected_env_review_comments(reviews: list[dict]) -> list[str]:
-    """Get the latest rejected env-review comments."""
-    rejected_env_reviews = [
-        review
-        for review in reviews
-        if isinstance(review, dict) and review.get("review_type") == "env" and review.get("outcome") == "reject"
-    ]
-    rejected_env_reviews.sort(key=lambda review: review.get("timestamp_iso", ""), reverse=True)
-    if not rejected_env_reviews:
-        return []
-
-    return _extract_review_comment_texts(rejected_env_reviews[0])
 
 
 def _get_latest_rejected_data_review_comments(reviews: list[dict]) -> list[str]:
@@ -849,6 +837,7 @@ async def _launch_env_world(
                 github_url=github_url,
                 workspace="/workspace",
             )
+            _render_step_verify(config, sim_name=simulator_name, github_url=github_url)
             cred_key, cred_val = _get_claude_credentials()
             config["plato_api_key"] = datagen_api_key
             _set_claude_credentials(config, cred_key, cred_val)
@@ -870,6 +859,7 @@ async def _launch_env_world(
                 github_url=github_url,
                 workspace="/workspace",
             )
+            _render_step_verify(config, sim_name=simulator_name, github_url=github_url)
             cred_key, cred_val = _get_claude_credentials()
             config["plato_api_key"] = datagen_api_key
             _set_claude_credentials(config, cred_key, cred_val)
@@ -980,7 +970,7 @@ async def _submit_reject_no_browser(
             x_api_key=api_key,
         )
         simulator_id = sim.id
-        current_config = sim.config or {}
+        current_config = sim_config_dict(sim.config)
         current_status = current_config.get("status", "not_started")
 
         artifact_id = artifact_id_arg or current_config.get("data_artifact_id")
@@ -1075,7 +1065,7 @@ async def _handle_data_level_reject(
         await update_simulator_status.asyncio(
             client=client,
             simulator_id=simulator_id,
-            body=UpdateStatusRequest(status=target_status),
+            body=UpdateStatusRequest(status=Status(target_status)),
             x_api_key=api_key,
         )
     await add_simulator_review.asyncio(
@@ -1215,7 +1205,7 @@ async def _handle_env_level_reject(
         await update_simulator_status.asyncio(
             client=client,
             simulator_id=simulator_id,
-            body=UpdateStatusRequest(status=target_status),
+            body=UpdateStatusRequest(status=Status(target_status)),
             x_api_key=api_key,
         )
 
@@ -1814,240 +1804,6 @@ async def _launch_from_template_unified(
 # =============================================================================
 
 
-@start_app.command(name="env")
-def start_env(
-    simulators: list[str] = typer.Argument(None, help="Simulator name(s)"),
-    resume: bool = typer.Option(False, "--resume", "-r", help="Resume create pipeline from last simcreator session"),
-    resume_from: str = typer.Option("", "--resume-from", help="Resume from a specific session ID"),
-    fix: bool = typer.Option(False, "--fix", "-f", help="Fix rejected sim using latest env review feedback"),
-    next_n: int = typer.Option(
-        0,
-        "--next",
-        "-n",
-        help="Auto-pick the N most recent not-started docker_app simulators (default 1 if flag given without value).",
-    ),
-):
-    """Start simcreator (env pipeline) for one or more simulators.
-
-    Moves status to env_in_progress and launches simcreator on Chronos.
-
-    Modes:
-        fresh (default): Full create pipeline from GitHub URL
-        --resume / -r:   Resume create pipeline from last session's state
-        --resume-from ID: Resume from a specific session ID
-        --fix / -f:      Fix pipeline using base artifact + latest env review feedback
-
-    Examples:
-        plato pm start env aureus memos docmost
-        plato pm start env aureus -r    # resume from last session
-        plato pm start env aureus --resume-from abc123  # resume from specific session
-        plato pm start env aureus -f    # fix from artifact with review feedback
-        plato pm start env -n 1          # start 1 most recent not-started sim
-        plato pm start env -n 10         # start 10 most recent not-started sims
-    """
-    if resume_from:
-        resume = True
-    if resume and fix:
-        console.print("[red]❌ Cannot use --resume and --fix together. Pick one.[/red]")
-        raise typer.Exit(1)
-
-    if next_n < 0:
-        console.print("[red]❌ -n value must be positive[/red]")
-        raise typer.Exit(1)
-
-    mode = "fix" if fix else ("resume" if resume else "fresh")
-    api_key = require_api_key()
-
-    if not simulators and next_n <= 0:
-        console.print("[red]❌ No simulators specified. Provide names or use -n.[/red]")
-        raise typer.Exit(1)
-
-    async def _start():
-        base_url = _get_base_url()
-        datagen_api_key = DEFAULT_DATAGEN_API_KEY
-
-        # When -n is used, fetch the full not-started pool and pick valid ones
-        if next_n > 0:
-            async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
-                all_sims = await get_simulators.asyncio(client=client, x_api_key=api_key)
-            candidates = []
-            for s in all_sims:
-                config = s.get("config", {}) if isinstance(s, dict) else getattr(s, "config", {})
-                if not isinstance(config, dict):
-                    continue
-                if config.get("status") != "not_started":
-                    continue
-                if config.get("type") != "docker_app":
-                    continue
-                name = (s.get("name") or "") if isinstance(s, dict) else (getattr(s, "name", None) or "")
-                if name:
-                    candidates.append((name, s))
-            if not candidates:
-                console.print("[red]❌ No not-started docker_app simulators found[/red]")
-                raise typer.Exit(1)
-            candidates.sort(key=lambda x: x[0])
-            sim_names = [name for name, _ in candidates]
-        else:
-            sim_names = list(simulators)
-
-        # Fetch all sim configs, skipping ineligible ones and backfilling when using -n
-        to_launch = []
-        idx = 0
-        target = next_n if next_n > 0 else len(sim_names)
-        while idx < len(sim_names) and len(to_launch) < target:
-            sim_name = sim_names[idx]
-            idx += 1
-            try:
-                async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
-                    sim = await get_simulator_by_name.asyncio(
-                        client=client,
-                        name=sim_name,
-                        x_api_key=api_key,
-                    )
-                current_config = sim.config or {}
-                github_url = current_config.get("source_code_url", "")
-                base_artifact_id = current_config.get("base_artifact_id", "")
-                status = current_config.get("status", "not_started")
-
-                if mode == "fresh" and not github_url:
-                    console.print(f"[yellow]⚠️  {sim_name}: no source_code_url, skipping[/yellow]")
-                    continue
-
-                if mode == "fix" and not base_artifact_id:
-                    console.print(f"[yellow]⚠️  {sim_name}: no base_artifact_id, skipping (required for fix)[/yellow]")
-                    continue
-
-                entry = {
-                    "name": sim_name,
-                    "id": sim.id,
-                    "status": status,
-                    "github_url": github_url,
-                    "base_artifact_id": base_artifact_id,
-                    "current_config": current_config,
-                }
-
-                # For resume or fix, find the session to resume from
-                if mode in ("resume"):
-                    if resume_from:
-                        entry["resume_from"] = resume_from
-                    else:
-                        last = _get_last_chronos_session(tags=["simcreator", sim_name], api_key=api_key)
-                        entry["resume_from"] = last["public_id"] if last else ""
-                        if not entry["resume_from"]:
-                            console.print(
-                                f"[yellow]⚠️  {sim_name}: no previous simcreator session found, will start fresh[/yellow]"
-                            )
-
-                # For fix, get latest env review feedback
-                if mode == "fix":
-                    reviews = current_config.get("reviews") or []
-                    feedback_comments = _get_latest_rejected_env_review_comments(reviews)
-                    entry["feedback"] = "\n".join(feedback_comments) if feedback_comments else ""
-                    if not entry["feedback"]:
-                        console.print(
-                            f"[yellow]⚠️  {sim_name}: no rejected env review comments found, will fix without feedback[/yellow]"
-                        )
-
-                to_launch.append(entry)
-            except Exception as e:
-                console.print(f"[red]❌ {sim_name}: {e}[/red]")
-
-        if not to_launch:
-            console.print("[yellow]Nothing to launch.[/yellow]")
-            return
-
-        console.print(f"\n[bold]Will launch simcreator ({mode}) for {len(to_launch)} simulator(s):[/bold]")
-        for s in to_launch:
-            if mode == "resume":
-                extra = f"resume={s.get('resume_from', '')[:12]}"
-            elif mode == "fix":
-                feedback_preview = s.get("feedback", "")[:60]
-                extra = f"artifact={s['base_artifact_id'][:8]}... feedback={'yes' if feedback_preview else 'none'}"
-            else:
-                extra = s["github_url"]
-            console.print(f"  {s['name']} ({s['status']}) — {extra}")
-
-        if not typer.confirm("\nProceed?", default=True):
-            console.print("[yellow]Cancelled.[/yellow]")
-            return
-
-        # Resolve credentials once before the loop to avoid redundant subprocess calls
-        cred_key, cred_val = _get_claude_credentials()
-
-        for s in to_launch:
-            try:
-                async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
-                    await update_simulator_status.asyncio(
-                        client=client,
-                        simulator_id=s["id"],
-                        body=UpdateStatusRequest(status="env_in_progress"),
-                        x_api_key=api_key,
-                    )
-
-                if mode == "fresh":
-                    template, version_id = _fetch_experiment_config("env", "base", api_key)
-                    config = template["world"]["config"]
-                    config["sim_name"] = s["name"]
-                    config["github_url"] = s["github_url"]
-                    _render_step_instructions(
-                        config,
-                        sim_name=s["name"],
-                        github_url=s["github_url"],
-                        workspace="/workspace",
-                    )
-                    config["plato_api_key"] = datagen_api_key
-                    _set_claude_credentials(config, cred_key, cred_val)
-                    config["agent"]["config"]["plato_api_key"] = datagen_api_key
-                    _set_claude_credentials(config["agent"]["config"], cred_key, cred_val)
-                    template["tags"].append(s["name"])
-
-                elif mode == "resume":
-                    template, version_id = _fetch_experiment_config("env", "base", api_key)
-                    config = template["world"]["config"]
-                    config["sim_name"] = s["name"]
-                    config["github_url"] = s["github_url"]
-                    _render_step_instructions(
-                        config,
-                        sim_name=s["name"],
-                        github_url=s["github_url"],
-                        workspace="/workspace",
-                    )
-                    config["plato_api_key"] = datagen_api_key
-                    _set_claude_credentials(config, cred_key, cred_val)
-                    config["agent"]["config"]["plato_api_key"] = datagen_api_key
-                    _set_claude_credentials(config["agent"]["config"], cred_key, cred_val)
-                    config["state"]["resume_from"] = s.get("resume_from", "")
-                    template["tags"].append(s["name"])
-                    template["tags"].append("resume")
-
-                else:  # fix
-                    template, version_id = _fetch_experiment_config("env", "fix", api_key)
-                    config = template["world"]["config"]
-                    config["sim_name"] = s["name"]
-                    data_artifact_id = s.get("current_config", {}).get("data_artifact_id") or ""
-                    _render_step_instructions(
-                        config,
-                        sim_name=s["name"],
-                        feedback=s.get("feedback", ""),
-                        artifact_id=s["base_artifact_id"],
-                        data_artifact_section=_render_data_artifact_section(data_artifact_id),
-                        workspace="/workspace",
-                    )
-                    config["plato_api_key"] = datagen_api_key
-                    _set_claude_credentials(config, cred_key, cred_val)
-                    config["agent"]["config"]["plato_api_key"] = datagen_api_key
-                    _set_claude_credentials(config["agent"]["config"], cred_key, cred_val)
-                    config["state"]["resume_from"] = s.get("resume_from", "")
-                    template["tags"].append(s["name"])
-                session_id = _launch_on_chronos(template, api_key)
-                _attach_session_to_experiment(version_id, session_id, api_key)
-                console.print(f"[green]✅ {s['name']}:[/green] {session_id}")
-            except Exception as e:
-                console.print(f"[red]❌ {s['name']}: {e}[/red]")
-
-    handle_async(_start())
-
-
 @start_app.command(name="data")
 def start_data(
     simulators: list[str] = typer.Argument(..., help="Simulator name(s)"),
@@ -2111,7 +1867,7 @@ def start_data(
                         name=sim_name,
                         x_api_key=api_key,
                     )
-                current_config = sim.config or {}
+                current_config = sim_config_dict(sim.config)
                 status = current_config.get("status", "not_started")
                 base_artifact_id = current_config.get("base_artifact_id", "")
                 data_artifact_id = current_config.get("data_artifact_id", "")
@@ -2194,7 +1950,7 @@ def start_data(
                     await update_simulator_status.asyncio(
                         client=client,
                         simulator_id=s["id"],
-                        body=UpdateStatusRequest(status="data_in_progress"),
+                        body=UpdateStatusRequest(status=Status("data_in_progress")),
                         x_api_key=api_key,
                     )
                 else:
@@ -2290,7 +2046,7 @@ def start_checker(
                             name=sim_name,
                             x_api_key=api_key,
                         )
-                    current_config = sim.config or {}
+                    current_config = sim_config_dict(sim.config)
                     base_artifact_id = current_config.get("base_artifact_id", "")
                     data_artifact_id = current_config.get("data_artifact_id", "")
 
@@ -2491,7 +2247,7 @@ def start_blank(
             try:
                 async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
                     sim = await get_simulator_by_name.asyncio(client=client, name=sim_name, x_api_key=api_key)
-                current_config = sim.config or {}
+                current_config = sim_config_dict(sim.config)
                 base_artifact_id = current_config.get("base_artifact_id", "")
                 data_artifact_id = current_config.get("data_artifact_id", "")
 
@@ -2650,7 +2406,7 @@ def start_from_template(
             try:
                 async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
                     sim = await get_simulator_by_name.asyncio(client=client, name=sim_name, x_api_key=api_key)
-                current_config = sim.config or {}
+                current_config = sim_config_dict(sim.config)
                 base_artifact_id = current_config.get("base_artifact_id", "")
                 data_artifact_id = current_config.get("data_artifact_id", "")
 
@@ -2813,7 +2569,7 @@ def open_sim(
             try:
                 async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
                     sim = await get_simulator_by_name.asyncio(client=client, name=sim_name, x_api_key=api_key)
-                current_config = sim.config or {}
+                current_config = sim_config_dict(sim.config)
                 base_artifact_id = current_config.get("base_artifact_id", "")
                 data_artifact_id = current_config.get("data_artifact_id", "")
 
@@ -2896,6 +2652,146 @@ def open_sim(
 # =============================================================================
 
 
+@register_app.command(name="env")
+def register_env(
+    name: str = typer.Argument(..., help="Simulator name (lowercase letters and underscores)"),
+    url: str = typer.Option(..., "--url", help="GitHub URL of the app"),
+    description: str | None = typer.Option(None, "--description", "-d", help="One-line description"),
+    img_url: str | None = typer.Option(None, "--img-url", help="Favicon / logo URL"),
+    check: bool = typer.Option(False, "--check", help="Verify only: exit 1 unless the record is complete"),
+    json_output: bool = typer.Option(False, "--json", help="Print the record as JSON"),
+):
+    """Create or complete the simulator record the env pipeline builds into.
+
+    Idempotent — the pipeline's ``register`` step runs it, and re-running is safe:
+    creates the record if missing (docker_app, oss, enabled), fills url /
+    description / favicon when given, and moves ``not_started`` →
+    ``env_in_progress``. A simulator in any other status is left alone.
+
+    Examples:
+        plato pm register env grist --url https://github.com/gristlabs/grist-core \
+            -d "Grist — the evolution of spreadsheets" --img-url https://www.getgrist.com/favicon.ico
+        plato pm register env grist --url https://github.com/gristlabs/grist-core --check
+    """
+    api_key = require_api_key()
+    base_url = _get_base_url()
+
+    async def _run() -> bool:
+        async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+            try:
+                sim = await get_simulator_by_name.asyncio(client=client, name=name, x_api_key=api_key)
+            except Exception:
+                sim = None
+
+            def _record(sim_obj, created: bool) -> dict:
+                cfg = sim_config_dict(sim_obj.config) if sim_obj else {}
+                extra = getattr(sim_obj, "model_extra", None) or {}
+                return {
+                    "name": name,
+                    "id": getattr(sim_obj, "id", None),
+                    "created": created,
+                    "enabled": bool(getattr(sim_obj, "enabled", False)),
+                    "status": cfg.get("status"),
+                    "url": getattr(sim_obj, "url", None),
+                    "description": getattr(sim_obj, "description", None),
+                    # SimulatorResponse declares the favicon as ``imgUrl`` (the API's camelCase
+                    # name); older/other shapes may carry it as img_url or as an extra.
+                    "img_url": getattr(sim_obj, "imgUrl", None)
+                    or getattr(sim_obj, "img_url", None)
+                    or extra.get("imgUrl")
+                    or extra.get("img_url"),
+                }
+
+            def _missing(rec: dict) -> list[str]:
+                problems = []
+                if rec["id"] is None:
+                    return ["record does not exist"]
+                if not rec["enabled"]:
+                    problems.append("enabled is false (start-services cannot find a disabled sim in Gitea)")
+                if rec["status"] != "env_in_progress":
+                    problems.append(f"status is {rec['status']!r}, expected env_in_progress")
+                for field in ("url", "description", "img_url"):
+                    if not rec[field]:
+                        problems.append(f"{field} is empty")
+                return problems
+
+            if check:
+                rec = _record(sim, False)
+                problems = _missing(rec)
+                if json_output:
+                    print(json.dumps({**rec, "problems": problems}))
+                elif problems:
+                    for problem in problems:
+                        console.print(f"[red]❌ {name}: {problem}[/red]")
+                else:
+                    console.print(f"[green]✅ {name}: registered (id={rec['id']}, {rec['status']})[/green]")
+                return not problems
+
+            created = False
+            if sim is None:
+                body = CreateSimulatorRequest(
+                    name=name,
+                    url=url,
+                    description=description or "",
+                    # model_validate: the generated SimulatorConfig types `type`/`status` as enums and
+                    # has no `source_code_url` field, but the backend reads it (pm start env does too).
+                    config=SimulatorConfig.model_validate(
+                        {"type": "docker_app", "status": "not_started", "source_code_url": url}
+                    ),
+                    enabled=True,
+                    kind="oss",
+                    simType="docker_app",
+                )
+                sim = await create_simulator.asyncio(client=client, body=body, x_api_key=api_key)
+                created = True
+
+            cfg = sim_config_dict(sim.config)
+            status = cfg.get("status") or "not_started"
+            if status not in ("not_started", "env_in_progress"):
+                console.print(
+                    f"[red]❌ {name}: status is {status!r}; refusing to touch a simulator past env_in_progress[/red]"
+                )
+                return False
+
+            update = AppApiV1EnvRoutesUpdateSimulatorRequest()
+            changed = False
+            if not sim.enabled:
+                update.enabled = True
+                changed = True
+            if url and sim.url != url:
+                update.url = url
+                changed = True
+            if description and sim.description != description:
+                update.description = description
+                changed = True
+            if img_url:
+                # The generated model predates imgUrl; the backend reads it by alias.
+                update.__pydantic_extra__ = {**(update.__pydantic_extra__ or {}), "imgUrl": img_url}
+                changed = True
+            if changed:
+                sim = await env_update_simulator.asyncio(client=client, id=sim.id, body=update, x_api_key=api_key)
+
+            if status == "not_started":
+                await update_simulator_status.asyncio(
+                    client=client,
+                    simulator_id=sim.id,
+                    body=UpdateStatusRequest(status=Status("env_in_progress")),
+                    x_api_key=api_key,
+                )
+                sim = await get_simulator_by_name.asyncio(client=client, name=name, x_api_key=api_key)
+
+            rec = _record(sim, created)
+            if json_output:
+                print(json.dumps(rec))
+            else:
+                verb = "created" if created else "updated"
+                console.print(f"[green]✅ {name}: {verb} (id={rec['id']}, {rec['status']})[/green]")
+            return True
+
+    if not handle_async(_run()):
+        raise typer.Exit(1)
+
+
 @pm_app.command(name="set-status")
 def set_status(
     simulators: list[str] = typer.Argument(..., help="Simulator name(s)"),
@@ -2924,7 +2820,7 @@ def set_status(
                         client=client,
                         simulator_id=sim.id,
                         x_api_key=api_key,
-                        body=UpdateStatusRequest(status=status),
+                        body=UpdateStatusRequest(status=Status(status)),
                     )
                     console.print(f"[green]✅ {sim_name}:[/green] → {status}")
                 except Exception as e:
@@ -3053,7 +2949,7 @@ def archive(
                         name=sim_name,
                         x_api_key=api_key,
                     )
-                current_config = sim.config or {}
+                current_config = sim_config_dict(sim.config)
                 status = current_config.get("status", "not_started")
                 existing_notes = current_config.get("notes", "") or ""
                 to_archive.append(
@@ -3095,7 +2991,7 @@ def archive(
                     await update_simulator_status.asyncio(
                         client=client,
                         simulator_id=s["id"],
-                        body=UpdateStatusRequest(status="out_of_service"),
+                        body=UpdateStatusRequest(status=Status("out_of_service")),
                         x_api_key=api_key,
                     )
                 console.print(f"[green]✅ {s['name']}:[/green] {s['status']} → out_of_service")
@@ -3217,7 +3113,7 @@ def review_env(
                     x_api_key=api_key,
                 )
             simulator_id = sim.id
-            current_config = sim.config or {}
+            current_config = sim_config_dict(sim.config)
             current_status = current_config.get("status", "not_started")
 
             console.print(f"[cyan]Current status:[/cyan] {current_status}")
@@ -3543,7 +3439,7 @@ def review_env(
                             name=simulator_name,
                             x_api_key=api_key,
                         )
-                    existing_assignees = (fresh_sim.config or {}).get("env_assignees") or []
+                    existing_assignees = sim_config_dict(fresh_sim.config).get("env_assignees") or []
                 except Exception:
                     existing_assignees = current_config.get("env_assignees") or []
                 if existing_assignees:
@@ -3626,7 +3522,7 @@ def review_env(
                     await update_simulator_status.asyncio(
                         client=api_client,
                         simulator_id=simulator_id,
-                        body=UpdateStatusRequest(status=new_status),
+                        body=UpdateStatusRequest(status=Status(new_status)),
                         x_api_key=api_key,
                     )
 
@@ -3705,7 +3601,7 @@ def review_env(
                                 name=simulator_name,
                                 x_api_key=api_key,
                             )
-                        fresh_config = fresh_sim.config or {}
+                        fresh_config = sim_config_dict(fresh_sim.config)
                         updates = {}
                         if not fresh_config.get("data_assignees"):
                             updates["data_assignees"] = DEFAULT_DATA_ASSIGNEES
@@ -3730,7 +3626,7 @@ def review_env(
                         await update_simulator_status.asyncio(
                             client=api_client,
                             simulator_id=simulator_id,
-                            body=UpdateStatusRequest(status="data_in_progress"),
+                            body=UpdateStatusRequest(status=Status("data_in_progress")),
                             x_api_key=api_key,
                         )
                         console.print(f"[cyan]Status:[/cyan] {new_status} → data_in_progress")
@@ -3870,7 +3766,7 @@ def review_data(
                     name=simulator_name,
                     x_api_key=api_key,
                 )
-                config = sim.config or {}
+                config = sim_config_dict(sim.config)
 
                 # If no artifact provided, try to get data_artifact_id from server
                 if not artifact_id:
@@ -4162,7 +4058,7 @@ def review_data(
                         name=simulator_name,
                         x_api_key=api_key,
                     )
-                post_config = post_sim.config or {}
+                post_config = sim_config_dict(post_sim.config)
                 post_status = post_config.get("status", "")
                 simulator_id = post_sim.id
 
@@ -4337,7 +4233,7 @@ def submit_env():
                 x_api_key=api_key,
             )
             simulator_id = sim.id
-            current_config = sim.config or {}
+            current_config = sim_config_dict(sim.config)
             current_status = current_config.get("status", "not_started")
 
             # Validate status transition
@@ -4399,7 +4295,7 @@ def submit_env():
             await update_simulator_status.asyncio(
                 client=client,
                 simulator_id=simulator_id,
-                body=UpdateStatusRequest(status="env_review_requested"),
+                body=UpdateStatusRequest(status=Status("env_review_requested")),
                 x_api_key=api_key,
             )
 
@@ -4457,7 +4353,7 @@ def submit_data(
                 x_api_key=api_key,
             )
             simulator_id = sim.id
-            current_config = sim.config or {}
+            current_config = sim_config_dict(sim.config)
             current_status = current_config.get("status", "not_started")
 
             # Validate status transition
@@ -4472,7 +4368,7 @@ def submit_data(
             await update_simulator_status.asyncio(
                 client=client,
                 simulator_id=simulator_id,
-                body=UpdateStatusRequest(status="data_review_requested"),
+                body=UpdateStatusRequest(status=Status("data_review_requested")),
                 x_api_key=api_key,
             )
 
@@ -4515,8 +4411,6 @@ def submit_data(
 
 # =============================================================================
 # EXPERIMENT COMMANDS
-# plato pm experiment env base push
-# plato pm experiment env fix push
 # plato pm experiment data base push
 # =============================================================================
 
@@ -4525,8 +4419,6 @@ def _push_experiment(pipeline: str, mode: str, api_key: str) -> None:
     """Create a new experiment version in Chronos (creates the file if it doesn't exist)."""
     name = _EXPERIMENT_NAMES[(pipeline, mode)]
     template_file = {
-        ("env", "base"): "env-create-launch.json",
-        ("env", "fix"): "env-fix-launch.json",
         ("data", "base"): "datagen-launch.json",
         ("data", "unified"): "datagen-unified-launch.json",
         ("check", "base"): "sim-checker-launch.json",
@@ -4594,20 +4486,6 @@ def _push_experiment(pipeline: str, mode: str, api_key: str) -> None:
             resp.raise_for_status()
             version_num = resp.json().get("latest_version", {}).get("version_number", "?")
             console.print(f"[green]✅ Pushed experiment '{name}' → v{version_num}[/green]")
-
-
-@experiment_env_base_app.command(name="push")
-def experiment_env_base_push() -> None:
-    """Push local env-create-launch.json to Chronos as a new experiment version."""
-    api_key = require_api_key()
-    _push_experiment("env", "base", api_key)
-
-
-@experiment_env_fix_app.command(name="push")
-def experiment_env_fix_push() -> None:
-    """Push local env-fix-launch.json to Chronos as a new experiment version."""
-    api_key = require_api_key()
-    _push_experiment("env", "fix", api_key)
 
 
 @experiment_data_base_app.command(name="push")

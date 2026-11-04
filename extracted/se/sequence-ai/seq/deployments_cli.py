@@ -32,13 +32,14 @@ _NOTICE_HEADER = "X-Deploy-Notice"
 
 
 def _call(method: str, path: str, base_url: str | None, body: dict | None = None, *, raw: bool = False,
-          content: bool = False, person: bool = False, upload: tuple[bytes, str] | None = None) -> Any:
+          content: bool = False, person: bool = False, upload: tuple[bytes, str] | None = None,
+          timeout: float = 60) -> Any:
     """One platform call: what it answered (with `raw`, its text — a CSV export; with `content`, its bytes — a version's
     source; a JSON object with the notice the platform sent beside it, as its `notice`), or the exception the one mapping makes
     of a refusal — whose message is the platform's own reason, never the key; one for want of GPUs says which limit,
     in one sentence (sequence_ai/_core/capacity.py). Sent as the key, else your `seq login` sign-in; with `person`
     (what only you may do), as your sign-in alone (seq/_account.credential). `upload` (bytes, content type) is sent
-    as the body itself, in place of JSON."""
+    as the body itself, in place of JSON. `timeout`: how long its answer is waited for (a command's run: shell_cli)."""
     base = (base_url or os.environ.get("SEQUENCES_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
     key = credential(None, base, person=person)
     from seq._http import RetryReads
@@ -46,7 +47,7 @@ def _call(method: str, path: str, base_url: str | None, body: dict | None = None
     sent = {"content": upload[0], "headers": {"Content-Type": upload[1]}} if upload is not None else {"json": body}
     try:
 
-        with httpx.Client(headers=auth_headers(key), timeout=60, transport=RetryReads()) as client:
+        with httpx.Client(headers=auth_headers(key), timeout=timeout, transport=RetryReads()) as client:
             r = client.request(method, f"{base}{path}", **sent)
     except httpx.TransportError as exc:
         raise unreachable(base, exc) from None

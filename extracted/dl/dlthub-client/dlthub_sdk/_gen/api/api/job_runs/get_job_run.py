@@ -87,7 +87,7 @@ def sync_detailed(
 
     Gets a run for a workspace by ID.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -122,7 +122,7 @@ def sync(
 
     Gets a run for a workspace by ID.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -152,7 +152,7 @@ async def asyncio_detailed(
 
     Gets a run for a workspace by ID.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -185,7 +185,7 @@ async def asyncio(
 
     Gets a run for a workspace by ID.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

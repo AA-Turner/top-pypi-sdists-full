@@ -4,8 +4,11 @@ metadata as it builds (``composed``), and the arches built written as its comput
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import posixpath
+from collections.abc import Callable
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, Self
 
 from agentenv_protocol import METHOD_ADD, RPC_PATH
@@ -13,6 +16,7 @@ from agentenv_protocol import client as protocol_v1
 
 from agent_env.artifact.artifacts.computer import ComputerArtifact, SettingValue
 from agent_env.attribution import Attribution
+from agent_env.config import get_config
 from agent_env.entity.refs import EntityRef
 from agent_env.env.env import Env, LoadFileArtifactUniverseResult, gateway_url_of
 from agent_env.env.envs._deployment import (
@@ -23,12 +27,14 @@ from agent_env.env.envs._deployment import (
     deploy_through_provider,
     provider_or_class,
 )
-from agent_env.env.envs.computer.utils import composer, gate, inside
+from agent_env.env.envs.computer.utils import boot, composer, gate, inside
 from agent_env.env.envs.computer.utils.composer import Composing
 from agent_env.env.envs.computer.utils import params as computer_params
 from agent_env.env.envs.computer.driver_env import ComputerDriverEnv
 from agent_env.env.gateway import GatewayMode
 from agent_env.env.store import get_env_store
+from agent_env.store.local_state import awaiting_lock
+from agent_env.utils.progress import current_progress
 from agent_env.providers.env_providers.env_computer_provider import end_recordings
 from agent_env.utils.paths import validate_relative_filename
 
@@ -38,6 +44,7 @@ if TYPE_CHECKING:
     from agent_env.env.env import DeployedEnv
     from agent_env.env.envs.computer.app_env import ComputerAppEnv
     from agent_env.providers.env_providers.env_provider import EnvironmentProvider
+    from agent_env.providers.sandbox_providers.sandbox_provider import SandboxProvider
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +52,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_DESTINATION = "Downloads"
 #: The computer app env's type: an app composed into a computer env, and a computer env of its own.
 APP_TYPE = "computer_app"
+#: The statuses of a build a deploy boots, by form: a disk may also boot unprobed, as KVM is where a disk is probed.
+_DEPLOYABLE = {"container": ("ready",), "disk": ("ready", "unverified")}
 
 
 class ComputerEnv(Env):
@@ -109,6 +118,7 @@ class ComputerEnv(Env):
         apps, app_settings = list(apps), app_settings or {}
         values, problems = gate.check(computer, driver, environment_name=environment_name, apps=apps, display=display,
                                       network=network, computer_settings=computer_settings or {})
+        problems += gate.check_screen(driver, apps)
         by_name = {app.environment_name: app for app in apps}
         for name, defaults in app_settings.items():
             problems += ([f"apps.{name}.settings: {id} has no app {name!r}"] if name not in by_name else
@@ -160,16 +170,71 @@ class ComputerEnv(Env):
         return {app.environment_name: {**app.settings, **self.app_settings.get(app.environment_name, {})}
                 for app in self.composed_apps()}
 
+    def computer_values(self) -> dict[str, Any]:
+        """The env's values of its base's settings: its ``computer_settings``, and its display as the resolution."""
+        display = self.display
+        return {**self.computer_settings, **({"resolution": f"{display['width']}x{display['height']}"} if display else {})}
+
+    def composed_arches(self) -> list[str]:
+        """The arches the env composes: those its base, driver and apps all run on."""
+        return gate.arches(self.computer, self.driver, self.composed_apps())
+
     def computer_artifact(self) -> ComputerArtifact:
         """The env's computer: its base composed with its driver, over the images built."""
         return ComputerArtifact.get(self.metadata["computer"]["id"], self.metadata["computer"]["version"])
 
-    def ready_builds(self, form: Optional[str] = None) -> list[tuple[str, str, dict]]:
-        """Each ready build, as (form, arch, record), in the base's order of forms and of arches; only
-        ``form``'s when it's given."""
+    async def compose_unstarted(self, sandbox_provider: SandboxProvider, form: Optional[str] = None) -> None:
+        """Compose first what a deploy on ``sandbox_provider`` boots that no compose started, once for deploys at once,
+        on the env's default sandbox provider, this machine unless the config names another, never on the deploy's,
+        unless the run's fence would refuse the record (rules in ``computers/README.md``). A cancelled deploy holds the
+        lock until its compose's thread, which no cancel stops, ends, so the next deploy waits for what it builds."""
+        if get_config().local_run_refuses_write(self.stored_id):
+            return
+        if not composer.unstarted_or_building(self, sandbox_provider, form):
+            return
+        say, progress = _telling(self.id, current_progress())
+        awaited: dict[tuple[str, str], str | None] = {}
+
+        async def waiting(seconds: float) -> None:
+            self.metadata = (await asyncio.to_thread(Env.get, self.stored_id, self.version)).metadata
+            composed = self.metadata.get("composed", {})
+            awaited.update({(name, arch): composed[name][arch].get("started_at") for name, arch in
+                            composer.unstarted_or_building(self, sandbox_provider, form) if arch in composed.get(name, {})})
+            say(_waiting(awaited, seconds))
+
+        async with awaiting_lock(f"computer-compose:{self.stored_id}:{self.version}", waiting, composer.HEARTBEAT_S):
+            self.metadata = (await asyncio.to_thread(Env.get, self.stored_id, self.version)).metadata
+            if pairs := composer.unstarted(self, sandbox_provider, form):
+                them = "it" if len(pairs) == 1 else "them"
+                on = Composing(on_progress=progress)
+                say(f"composing {_pairs(pairs)} before this deploy on "
+                    f"{' or '.join(type(link).__name__ for link in on.provider().links)} (no compose built {them} for "
+                    f"{' or '.join(type(link).__name__ for link in sandbox_provider.links)} yet); later deploys reuse {them}")
+                composing = asyncio.ensure_future(asyncio.to_thread(composer.compose, self, pairs, on))
+                try:
+                    await asyncio.shield(composing)
+                except asyncio.CancelledError:
+                    await asyncio.wait({composing})
+                    raise
+            elif awaited:
+                composed = self.metadata["composed"]
+                say("reusing what another deploy composed: " + ", ".join(
+                    f"{name}/{arch} {composed[name][arch]['status']}" for name, arch in awaited))
+
+    def deployable_builds(self, form: Optional[str] = None) -> list[tuple[str, str, dict]]:
+        """Each build a deploy may boot, as (form, arch, record), in the base's order of forms and of arches; only
+        ``form``'s when it's given: a ready one, or a disk no compose could probe (unverified), which its first boot on
+        a provider that boots it natively probes before it's used."""
         composed, arches = self.metadata.get("composed", {}), self.computer.arch
         return [(name, arch, composed[name][arch]) for name in gate.forms(self.computer) if form in (None, name)
-                for arch in arches if composed.get(name, {}).get(arch, {}).get("status") == "ready"]
+                for arch in arches if composed.get(name, {}).get(arch, {}).get("status") in _DEPLOYABLE[name]]
+
+    def disk_size_refusal(self, form: str, disk_size_gb: float) -> Optional[str]:
+        """Why a deploy of ``form`` can't have ``disk_size_gb``: a disk is the size its base makes it, which a deploy
+        doesn't enlarge."""
+        if form == "disk" and disk_size_gb > (size := self.computer.forms.disk.min_disk_gb):
+            return f"{self.id}'s disk is {size} GB, which a deploy doesn't enlarge, and it asks for {disk_size_gb:g} GB"
+        return None
 
     def build_statuses(self) -> dict[str, str]:
         return {f"{form}/{arch}": result.get("status") for form, by_arch in self.metadata.get("composed", {}).items()
@@ -196,12 +261,17 @@ class ComputerEnv(Env):
 
         if refusal := deploy_refusal(self, provider_or_class(self), {**options, "env_params": env_params}):
             return refusal
-        _, _, problems = computer_params.checked(self, env_params)
+        params, _, problems = computer_params.checked(self, env_params)
         sandbox_provider = build_sandbox_provider(sandbox_type) if sandbox_type else get_env_sandbox_provider()
-        links, arches = sandbox_provider.links, gate.arches(self.computer, self.driver, self.composed_apps())
-        if not any(f"linux/{arch}" in link.native_platforms() for link in links for arch in arches):
+        links, arches = sandbox_provider.links, self.composed_arches()
+        forms = [params.form] if params.form else gate.forms(self.computer)
+        if not any(boot.native_links(sandbox_provider, arch, form, self.stored_id) for form in forms
+                   for arch in arches):
+            unpulled = [type(link).__name__ for link in links if not boot.pulls_containers(link, self.stored_id)]
             problems.append(f"{', '.join(type(link).__name__ for link in links)} runs none of its arches "
-                            f"({', '.join(arches)}) natively")
+                            f"({', '.join(arches)}) natively as {' or '.join(forms)}" + (
+                                f", and {', '.join(unpulled)} can't pull its containers from the image store's registry "
+                                "on this machine" if "container" in forms and unpulled else ""))
         policy = NetworkPolicy.from_dict(self.network) if self.network else None
         if policy is not None and not any(link.supports_network_policy(policy) for link in links):
             problems.append(f"{', '.join(type(link).__name__ for link in links)} can't enforce its network")
@@ -346,3 +416,29 @@ def _listed_apps(refs: list, ctx: AuthoringContext) -> tuple[list[ComputerAppEnv
 
 def _not_an_app(env: Env) -> str | None:
     return f"{env.id} is a {env.type} env, not a {APP_TYPE} env" if env.type != APP_TYPE else None
+
+
+def _telling(env_id: str, progress: Optional[Callable[[str], None]]) -> tuple[
+        Callable[[str], None], Optional[Callable[[str], None]]]:
+    """What a deploy that composes says, to the log and the run's ``progress`` when there's one, after the env's id;
+    and the progress alone, for the compose, which logs its own lines."""
+    told = None if progress is None else (lambda line: progress(f"{env_id}: {line}"))
+
+    def say(line: str) -> None:
+        logger.info(f"{env_id}: {line}")
+        if told is not None:
+            told(line)
+
+    return say, told
+
+
+def _pairs(pairs: list[tuple[str, str]]) -> str:
+    return ", ".join(f"{name}/{arch}" for name, arch in pairs)
+
+
+def _waiting(awaited: dict[tuple[str, str], str | None], seconds: float) -> str:
+    """What a deploy waiting for another's compose of ``awaited``, by when each started, says after ``seconds``."""
+    since = min((at for at in awaited.values() if at), default=None)
+    building = f"building since {datetime.fromisoformat(since).strftime('%H:%M')} UTC" if since else "building"
+    so_far = f", {composer.took(seconds)} so far" if seconds >= 1 else ""
+    return f"waiting for another deploy composing {_pairs(list(awaited)) or 'it'} ({building}{so_far})"

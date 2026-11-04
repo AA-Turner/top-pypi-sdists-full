@@ -18,7 +18,8 @@ class VariableChangeResult:
     """
     Attributes:
         name (str): Environment variable name
-        status (str | VariableChangeResultStatusType0): What happened to this variable
+        status (str | VariableChangeResultStatusType0): What happened to this variable: `upserted` (created or updated),
+            `removed`, or `not_found` (a delete named a variable that does not exist).
     """
 
     name: str

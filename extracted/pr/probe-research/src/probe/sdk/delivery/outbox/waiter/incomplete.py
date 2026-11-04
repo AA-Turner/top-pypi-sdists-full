@@ -17,6 +17,7 @@ _NEXT = {
     WaitOutcome.NO_SENDER: "no background worker could start here; `probe outbox drain` sends them",
     WaitOutcome.OLD_WORKER: "an older probe-research is sending this outbox; upgrade it or stop it",
     WaitOutcome.CLOSE_UNRECORDED: "free space next to the outbox (`probe outbox status`); the server closes the run when it goes quiet",
+    WaitOutcome.DATA_REFUSED: "`probe run get {run}` lists them under `ingest.refusals`",
 }
 
 _WHY = {
@@ -45,6 +46,8 @@ class DeliveryIncomplete(errors.RosError):
 
 def describe(result: WaitResult, *, minutes: int = 10) -> str:
     """One plain sentence a researcher can act on."""
+    if result.outcome == WaitOutcome.DATA_REFUSED:
+        return _describe_refusals(result)
     left = result.pending + result.held + result.failed
     why = _WHY.get(result.outcome, str(result.outcome)).format(
         failed=result.failed, held=result.held, minutes=minutes, holder=result.holder or "?"
@@ -53,4 +56,18 @@ def describe(result: WaitResult, *, minutes: int = 10) -> str:
     return (
         f"run {result.run_ref}: {left} write(s) not delivered: {why}{error}. "
         f"They are kept on disk; {_NEXT.get(result.outcome, 'see `probe outbox status`')}."
+    )
+
+
+def _describe_refusals(result: WaitResult) -> str:
+    """Which kinds of refusal the server recorded, in its own words (I15d)."""
+    points = sum(int(r.get("points") or 0) for r in result.refusals)
+    reasons = []
+    for refusal in result.refusals:
+        text = (refusal.get("message") or {}).get("text") or str(refusal.get("kind") or "refused")
+        if text not in reasons:
+            reasons.append(text)
+    return (
+        f"run {result.run_ref}: the server accepted {points:,} point(s) and then did not store them "
+        f"({'; '.join(reasons)}). {_NEXT[WaitOutcome.DATA_REFUSED].format(run=result.run_ref)}."
     )

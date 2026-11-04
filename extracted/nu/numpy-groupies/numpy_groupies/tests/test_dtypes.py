@@ -16,7 +16,8 @@ import numpy as np
 import pytest
 
 from numpy_groupies import aggregate_numpy, aggregate_purepy
-from numpy_groupies.utils_np import minimum_dtype
+from numpy_groupies.nptools import minimum_dtype, resolve_output_dtype
+from numpy_groupies.tests.helpers import impl_name, is_purepy
 
 float_funcs = [np.std, np.var, np.mean, np.median, np.nanmedian]
 if hasattr(np, "trapezoid"):
@@ -55,8 +56,11 @@ def test_sum_dtype_guess_survives_single_group(impl, dtype):
     res = impl.aggregate(group_idx, a, func="sum")
     np.testing.assert_array_equal(res, [2 * maximum])
     # an explicitly larger output size with fill values must not change this
-    res = impl.aggregate(group_idx, a, func="sum", size=3, fill_value=-1)
-    np.testing.assert_array_equal(res, [2 * maximum, -1, -1])
+    # the fill value has to fit into the dtype of the answer, which keeps the
+    # sign of the input: an unsigned input answers with an unsigned dtype
+    fill = -1 if np.dtype(dtype).kind == "i" else 2**31
+    res = impl.aggregate(group_idx, a, func="sum", size=3, fill_value=fill)
+    np.testing.assert_array_equal(res, [2 * maximum, fill, fill])
     if not isinstance(res, list):
         assert res.dtype == minimum_dtype(2 * maximum, np.dtype(dtype))
 
@@ -84,6 +88,19 @@ def test_purepy_integer_sum_does_not_overflow():
     assert res[0] == 2**64
     res = aggregate_purepy.aggregate([0, 0], np.array([2**64 - 1, 2**64 - 1], dtype=np.uint64), func="sum")
     assert res[0] == 2**65 - 2
+
+
+@pytest.mark.parametrize("func", ["sum", "nansum"])
+@pytest.mark.parametrize("large", [10**18, 2**63, 2**64 - 2])
+@pytest.mark.parametrize("fill_value", [0, 7])
+def test_uint64_sum_keeps_integer_precision(impl, func, large, fill_value):
+    values = np.array([large, 3, 1, 4], dtype=np.uint64)
+    groups = np.array([0, 2, 0, 2])
+    result = impl.aggregate(groups, values, func=func, size=4, fill_value=fill_value)
+    # Comparing float arrays to float-cast expectations hides lost low bits.
+    assert [int(value) for value in result] == [large + 1, fill_value, 7, fill_value]
+    if not isinstance(result, list):
+        assert result.dtype == np.uint64
 
 
 @pytest.mark.parametrize("floatfunc", float_funcs, ids=lambda x: x.__name__)
@@ -291,31 +308,47 @@ def test_integer_variance_full_span_raises(impl, dtype, func):
 
 
 @pytest.mark.parametrize("func", ["mean", "nanmean"])
-def test_integer_mean_cancellation_raises(impl, func):
+def test_integer_mean_extreme_cancellation_exact(impl, func):
+    # the sums cancel to a small exact mean although the values reach the
+    # edges of int64 - the limb sums hold the total exactly where float64
+    # accumulation would round
     maximum = np.iinfo(np.int64).max
     values = np.array([maximum, -maximum + 1, maximum, maximum, maximum], dtype=np.int64)
     original = values.copy()
-    with pytest.raises(OverflowError, match="exact mean"):
-        impl.aggregate(np.array([0, 0, 1, 1, 1]), values, func=func, size=3)
+    actual = impl.aggregate(np.array([0, 0, 1, 1, 1]), values, func=func, size=3)
+    np.testing.assert_array_equal(actual, [0.5, maximum, np.nan])
     np.testing.assert_array_equal(values, original)
 
 
-def test_integer_mean_beyond_exact_window_raises(impl):
-    # (2**53 + 1) is not representable in float64, so even this tiny group has
-    # no exact float64 mean
+def test_integer_mean_beyond_exact_window_exact(impl):
+    # (2**53 + 1) is not representable in float64 - the mean is still the
+    # exact quotient of the exact total, not a float64 rounding of it
     values = np.array([2**53 + 1, 0, 0], dtype=np.int64)
-    with pytest.raises(OverflowError, match="exact mean"):
-        impl.aggregate(np.array([0, 0, 0]), values, func="mean", size=1)
+    actual = impl.aggregate(np.array([0, 0, 0]), values, func="mean", size=1)
+    np.testing.assert_array_equal(actual, [(2**53 + 1) / 3])
+
+
+def test_integer_mean_half_to_even_beyond_exact_window(impl):
+    # an integer output rounds the exact quotient half to even: the sum of
+    # (2**53 + 1) and 2 is odd, the tie of (2**53 + 3) / 2 rounds up to the
+    # even neighbour - although the values themselves are not floats.
+    # purepy keeps its answers as python floats, an integer dtype of the
+    # result is the business of the caller there
+    if impl_name(impl) == "purepy":
+        pytest.skip("purepy hands out floats and leaves the dtype to the caller")
+    values = np.array([2**53 + 1, 2], dtype=np.int64)
+    actual = impl.aggregate(np.array([0, 0]), values, func="mean", size=1, dtype=np.int64)
+    np.testing.assert_array_equal(actual, [2**52 + 2])
 
 
 def test_integer_mean_gate_boundary(impl):
     # 2 * 2**52 == 2**53 stays inside the exact window and returns the exact
-    # mean; a third value pushes the possible sum beyond it and is refused
+    # mean; a third value leaves it and the answer stays exact as well - the
+    # window no longer decides between an answer and a refusal
     values = np.array([2**52, 2**52], dtype=np.int64)
     np.testing.assert_array_equal(impl.aggregate(np.array([0, 0]), values, func="mean", size=1), [2**52])
     values = np.array([2**52, 2**52, 2**52], dtype=np.int64)
-    with pytest.raises(OverflowError, match="exact mean"):
-        impl.aggregate(np.array([0, 0, 0]), values, func="mean", size=1)
+    np.testing.assert_array_equal(impl.aggregate(np.array([0, 0, 0]), values, func="mean", size=1), [2**52])
 
 
 def test_integer_mean_small_values_exact(impl):
@@ -334,3 +367,51 @@ def test_bool_min_max_and_arg_reductions(impl, func):
     a = np.array([True, False, False, True])
     expected = {"min": [False, False], "max": [True, True], "argmin": [1, 2], "argmax": [0, 3]}[func]
     np.testing.assert_array_equal(impl.aggregate(group_idx, a, func=func, size=2), expected)
+
+
+INTEGER_DTYPES = ["bool", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64"]
+
+
+@pytest.mark.parametrize("dtype", INTEGER_DTYPES)
+@pytest.mark.parametrize("n", [1, 2, 8, 1000, 10**6])
+def test_the_sum_of_integers_answers_with_an_integer(dtype, n):
+    """The sum of integers answers with an integer, whatever the count.
+
+    The ladder of the output dtype climbs with the number of the values
+    (bool -> int8 -> int32 -> int64, uint8 -> uint32 -> uint64) and keeps
+    the sign of the input: a signed input never lands in an unsigned dtype,
+    where a negative sum would read as a huge positive one, and an unsigned
+    one does not become signed.  numpy keeps the sign as well (it sums into
+    int64 or uint64), but it has no ladder at all - the sum overflows there.
+    """
+    out = resolve_output_dtype(None, "sum", np.dtype(dtype), n)
+    assert out.kind in "iub", f"{dtype} at n={n} answers {out}"
+    if dtype.startswith("u"):
+        assert out.kind in "ub", f"{dtype} at n={n} answers {out}"
+    else:
+        assert out.kind in "ib", f"{dtype} at n={n} answers {out}"
+
+
+@pytest.mark.parametrize("dtype", ["bool", "int8", "int16", "int32", "uint8", "uint16", "uint32"])
+def test_the_ladder_ends_in_float64_and_never_in_float32(dtype):
+    """A value that fits into no integer dtype answers with float64.
+
+    The mantissa of float32 is 24 bits - too coarse for the sum it would
+    carry - and the ladder has no float before it.  The int64 and the uint64
+    are not part of the ladder: they keep their dtype and wrap, like numpy.
+    """
+    out = resolve_output_dtype(None, "sum", np.dtype(dtype), 10**30)
+    assert out == np.dtype(np.float64)
+
+
+def test_the_sum_of_small_integers_answers_with_the_ladder_dtype(impl):
+    """The dtype of the answer is the one of the ladder, in every backend.
+
+    The pure python implementation has no dtype of its own - it answers with
+    the python integers it accumulates.
+    """
+    if is_purepy(impl):
+        pytest.skip("the pure python implementation carries no dtype")
+    a = np.array([100, 100, 100], dtype=np.uint8)
+    actual = impl.aggregate(np.array([0, 0, 0]), a, func="sum", size=1)
+    assert np.asarray(actual).dtype == np.dtype(np.uint32)

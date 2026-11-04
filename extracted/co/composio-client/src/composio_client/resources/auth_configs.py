@@ -1,962 +1,2340 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""``client.auth_configs`` — the generated resource classes.
+
+``AuthConfigsResource`` (sync) and ``AsyncAuthConfigsResource`` (async),
+dispatching through the hand-written httpx kernel with Stainless-style
+flat request fields and raw / streaming response wrappers.
+"""
 
 from __future__ import annotations
 
-from typing import Dict, Union, Optional
-from typing_extensions import Literal, overload
+from functools import cached_property
+from typing import Literal
 
 import httpx
+from typing_extensions import overload
 
-from ..types import (
-    auth_config_list_params,
-    auth_config_create_params,
-    auth_config_delete_params,
-    auth_config_update_params,
-)
-from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from .._utils import path_template, required_args, maybe_transform, async_maybe_transform
-from .._compat import cached_property
-from .._resource import SyncAPIResource, AsyncAPIResource
-from .._response import (
-    to_raw_response_wrapper,
-    to_streamed_response_wrapper,
-    async_to_raw_response_wrapper,
-    async_to_streamed_response_wrapper,
-)
-from .._base_client import make_request_options
-from ..types.auth_config_list_response import AuthConfigListResponse
+from .._base_client import BodyParam, QueryParam, RequestOptions
+from .._models import AuthConfigCreateBody, AuthConfigUpdateBody
+from .._operations import OPERATIONS_BY_CHAIN
+from .._response import APIResponse, AsyncAPIResponse, AsyncResponseContextManager, ResponseContextManager
+from .._types import NOT_GIVEN, Body, Headers, NotGiven, Omit, Query, SequenceNotStr, omit
+from ..types import auth_config_create_params, auth_config_update_params
 from ..types.auth_config_create_response import AuthConfigCreateResponse
 from ..types.auth_config_delete_response import AuthConfigDeleteResponse
+from ..types.auth_config_list_response import AuthConfigListResponse
 from ..types.auth_config_retrieve_response import AuthConfigRetrieveResponse
+from ..types.auth_config_update_response import AuthConfigUpdateResponse
+from ..types.auth_config_update_status_response import AuthConfigUpdateStatusResponse
+from ._base import (
+    AsyncAPIResource,
+    SyncAPIResource,
+    build_path,
+    compact,
+    make_request_options,
+    merge_body,
+    merge_mapping,
+    normalize_path_arguments,
+    require_fields,
+)
 
-__all__ = ["AuthConfigsResource", "AsyncAuthConfigsResource"]
+_CREATE_OPERATION = OPERATIONS_BY_CHAIN[("auth_configs", "create")]
+_RETRIEVE_OPERATION = OPERATIONS_BY_CHAIN[("auth_configs", "retrieve")]
+_UPDATE_OPERATION = OPERATIONS_BY_CHAIN[("auth_configs", "update")]
+_LIST_OPERATION = OPERATIONS_BY_CHAIN[("auth_configs", "list")]
+_DELETE_OPERATION = OPERATIONS_BY_CHAIN[("auth_configs", "delete")]
+_UPDATE_STATUS_OPERATION = OPERATIONS_BY_CHAIN[("auth_configs", "update_status")]
 
 
 class AuthConfigsResource(SyncAPIResource):
-    """Authentication configuration management"""
-
     @cached_property
     def with_raw_response(self) -> AuthConfigsResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return AuthConfigsResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> AuthConfigsResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return AuthConfigsResourceWithStreamingResponse(self)
 
+    @overload
     def create(
         self,
+        body: BodyParam | None = None,
         *,
         toolkit: auth_config_create_params.Toolkit,
         auth_config: auth_config_create_params.AuthConfig | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigCreateResponse: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        toolkit: auth_config_create_params.Toolkit | Omit = omit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigCreateResponse: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkit: auth_config_create_params.Toolkit | Omit = omit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> AuthConfigCreateResponse:
-        """
-        Creates a new auth config for a toolkit, allowing you to use your own OAuth
-        credentials or API keys instead of Composio-managed authentication. This is
-        required when you want to use custom OAuth apps (bring your own client
-        ID/secret) or configure specific authentication parameters for a toolkit.
-
-        Args:
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return self._post(
+        body_fields = compact(
+            {
+                "toolkit": toolkit,
+                "auth_config": auth_config,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("toolkit",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
             "/api/v3.1/auth_configs",
-            body=maybe_transform(
-                {
-                    "toolkit": toolkit,
-                    "auth_config": auth_config,
-                },
-                auth_config_create_params.AuthConfigCreateParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=AuthConfigCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=AuthConfigCreateBody,
+            options=options_data,
         )
 
     def retrieve(
         self,
         nanoid: str,
         *,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> AuthConfigRetrieveResponse:
-        """
-        Retrieves detailed information about a specific authentication configuration
-        using its unique identifier.
-
-        Args:
-          nanoid: The unique identifier of the authentication configuration to retrieve
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return self._get(
-            path_template("/api/v3.1/auth_configs/{nanoid}", nanoid=nanoid),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}",
+                {"nanoid": nanoid},
             ),
             cast_to=AuthConfigRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            options=options_data,
         )
 
     @overload
     def update(
         self,
         nanoid: str,
+        body: BodyParam | None = None,
         *,
-        type: Literal["custom"],
-        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
-        is_enabled_for_tool_router: bool | Omit = omit,
+        type: Literal["custom"] | Literal["default"],
         name: str | Omit = omit,
-        proxy_config: Optional[auth_config_update_params.Variant0ProxyConfig] | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
         restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
-        shared_credentials: Dict[str, Optional[object]] | Omit = omit,
-        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
-        """
-        Modifies an existing authentication configuration with new credentials or other
-        settings. Only specified fields will be updated.
-
-        Args:
-          nanoid: The unique identifier of the authentication configuration to update
-
-          is_enabled_for_tool_router: Whether this auth config is enabled for tool router
-
-          name: The display name of the authentication configuration
-
-          restrict_to_following_tools: Use tool_access_config instead. This field will be deprecated in the future.
-
-          shared_credentials: Shared credentials inherited by all connected accounts using this auth config.
-              Secret values are redacted in responses, so provide the real values when
-              updating; omit this field to leave them unchanged.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        ...
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigUpdateResponse: ...
 
     @overload
     def update(
         self,
         nanoid: str,
+        body: BodyParam,
         *,
-        type: Literal["default"],
-        is_enabled_for_tool_router: bool | Omit = omit,
+        type: Literal["custom"] | Literal["default"] | Omit = omit,
         name: str | Omit = omit,
-        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
-        scopes: Union[str, SequenceNotStr[str]] | Omit = omit,
-        shared_credentials: Dict[str, Optional[object]] | Omit = omit,
-        tool_access_config: auth_config_update_params.Variant1ToolAccessConfig | Omit = omit,
-        user_scopes: Union[str, SequenceNotStr[str]] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
-        """
-        Modifies an existing authentication configuration with new credentials or other
-        settings. Only specified fields will be updated.
-
-        Args:
-          nanoid: The unique identifier of the authentication configuration to update
-
-          is_enabled_for_tool_router: Whether this auth config is enabled for tool router
-
-          name: The display name of the authentication configuration
-
-          restrict_to_following_tools: Use tool_access_config instead. This field will be deprecated in the future.
-
-          scopes: OAuth scopes requested for the auth config.
-
-          shared_credentials: Shared credentials inherited by all connected accounts using this auth config.
-              Secret values are redacted in responses, so provide the real values when
-              updating; omit this field to leave them unchanged.
-
-          user_scopes: OAuth user-token scopes requested for the auth config. This is primarily used by
-              Slack OAuth v2.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        ...
-
-    @required_args(["type"])
-    def update(
-        self,
-        nanoid: str,
-        *,
-        type: Literal["custom"] | Literal["default"],
         credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
-        is_enabled_for_tool_router: bool | Omit = omit,
-        name: str | Omit = omit,
-        proxy_config: Optional[auth_config_update_params.Variant0ProxyConfig] | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
         restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
-        shared_credentials: Dict[str, Optional[object]] | Omit = omit,
         tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
         | auth_config_update_params.Variant1ToolAccessConfig
         | Omit = omit,
-        scopes: Union[str, SequenceNotStr[str]] | Omit = omit,
-        user_scopes: Union[str, SequenceNotStr[str]] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return self._patch(
-            path_template("/api/v3.1/auth_configs/{nanoid}", nanoid=nanoid),
-            body=maybe_transform(
-                {
-                    "type": type,
-                    "credentials": credentials,
-                    "is_enabled_for_tool_router": is_enabled_for_tool_router,
-                    "name": name,
-                    "proxy_config": proxy_config,
-                    "restrict_to_following_tools": restrict_to_following_tools,
-                    "shared_credentials": shared_credentials,
-                    "tool_access_config": tool_access_config,
-                    "scopes": scopes,
-                    "user_scopes": user_scopes,
-                },
-                auth_config_update_params.AuthConfigUpdateParams,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigUpdateResponse: ...
+
+    def update(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        type: Literal["custom"] | Literal["default"] | Omit = omit,
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigUpdateResponse:
+        body_fields = compact(
+            {
+                "type": type,
+                "name": name,
+                "credentials": credentials,
+                "sealed_credentials": sealed_credentials,
+                "proxy_config": proxy_config,
+                "restrict_to_following_tools": restrict_to_following_tools,
+                "tool_access_config": tool_access_config,
+                "shared_credentials": shared_credentials,
+                "shared_connection_fields": shared_connection_fields,
+                "is_enabled_for_tool_router": is_enabled_for_tool_router,
+                "scopes": scopes,
+                "user_scopes": user_scopes,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("type",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "patch",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}",
+                {"nanoid": nanoid},
             ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
-            cast_to=object,
+            cast_to=AuthConfigUpdateResponse,
+            operation=_UPDATE_OPERATION,
+            body=body_data,
+            body_model=AuthConfigUpdateBody,
+            options=options_data,
         )
 
     def list(
         self,
         *,
-        cursor: str | Omit = omit,
+        is_composio_managed: str | bool | Omit = omit,
+        toolkit_slug: str | Omit = omit,
         deprecated_app_id: str | Omit = omit,
         deprecated_status: str | Omit = omit,
-        is_composio_managed: Union[str, bool] | Omit = omit,
-        limit: Optional[float] | Omit = omit,
+        show_disabled: bool | None | Omit = omit,
         search: str | Omit = omit,
-        show_disabled: Optional[bool] | Omit = omit,
-        toolkit_slug: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> AuthConfigListResponse:
-        """Retrieves all auth configs for your project.
-
-        Auth configs define how users
-        authenticate with external services (OAuth, API keys, etc.). Use filters to find
-        configs for specific toolkits or to distinguish between Composio-managed and
-        custom configurations.
-
-        Args:
-          cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
-              limit. The page is the page number and the limit is the number of items per
-              page. The cursor is used to paginate through the items. The cursor is not
-              required for the first page.
-
-          deprecated_app_id: The app id to filter by
-
-          deprecated_status: DEPRECATED: This parameter will be removed in a future version.
-
-          is_composio_managed: Whether to filter by composio managed auth configs
-
-          limit: Number of items per page, max allowed is 1000
-
-          search: Search auth configs by name or id
-
-          show_disabled: Show disabled auth configs
-
-          toolkit_slug: Comma-separated list of toolkit slugs to filter auth configs by
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return self._get(
+        query_fields = compact(
+            {
+                "is_composio_managed": is_composio_managed,
+                "toolkit_slug": toolkit_slug,
+                "deprecated_app_id": deprecated_app_id,
+                "deprecated_status": deprecated_status,
+                "show_disabled": show_disabled,
+                "search": search,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
             "/api/v3.1/auth_configs",
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=maybe_transform(
-                    {
-                        "cursor": cursor,
-                        "deprecated_app_id": deprecated_app_id,
-                        "deprecated_status": deprecated_status,
-                        "is_composio_managed": is_composio_managed,
-                        "limit": limit,
-                        "search": search,
-                        "show_disabled": show_disabled,
-                        "toolkit_slug": toolkit_slug,
-                    },
-                    auth_config_list_params.AuthConfigListParams,
-                ),
-            ),
             cast_to=AuthConfigListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
     def delete(
         self,
         nanoid: str,
         *,
-        revoke_on_delete: Optional[bool] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        revoke_on_delete: bool | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> AuthConfigDeleteResponse:
-        """
-        Soft-deletes an authentication configuration by marking it as deleted in the
-        database. This operation cannot be undone. Pass `?revoke_on_delete=true` to also
-        revoke the upstream credentials of every connection using this auth config via a
-        background job.
-
-        Args:
-          nanoid: The unique identifier of the authentication configuration to delete
-
-          revoke_on_delete: When `true`, the delete also starts a background job that revokes the upstream
-              credentials of every connected account in scope, and the response carries a
-              `revoke_job_id`. Defaults to `false`. Revocation is irreversible — recovering a
-              deleted entity does not restore working credentials.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return self._delete(
-            path_template("/api/v3.1/auth_configs/{nanoid}", nanoid=nanoid),
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=maybe_transform(
-                    {"revoke_on_delete": revoke_on_delete}, auth_config_delete_params.AuthConfigDeleteParams
-                ),
+        query_fields = compact(
+            {
+                "revoke_on_delete": revoke_on_delete,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "delete",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}",
+                {"nanoid": nanoid},
             ),
             cast_to=AuthConfigDeleteResponse,
+            operation=_DELETE_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
+    @overload
     def update_status(
         self,
         status: Literal["ENABLED", "DISABLED"],
         *,
         nanoid: str,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
-        """
-        Updates the status of an authentication configuration to either enabled or
-        disabled. Disabled configurations cannot be used for new connections.
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigUpdateStatusResponse: ...
 
-        Args:
-          nanoid: The unique identifier of the authentication configuration to update
+    @overload
+    def update_status(
+        self,
+        status: str,
+        legacy_path: str,
+        /,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigUpdateStatusResponse: ...
 
-          status: The new status to set for the auth configuration
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        if not status:
-            raise ValueError(f"Expected a non-empty value for `status` but received {status!r}")
-        return self._patch(
-            path_template("/api/v3.1/auth_configs/{nanoid}/{status}", nanoid=nanoid, status=status),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+    def update_status(
+        self,
+        status: str,
+        *legacy_args: object,
+        nanoid: str | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigUpdateStatusResponse:
+        status, (nanoid,), _legacy_body = normalize_path_arguments(
+            status,
+            legacy_args,
+            leading_values=(nanoid,),
+            leading_names=("nanoid",),
+            trailing_name="status",
+            accepts_body=False,
+        )
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "patch",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}/{status}",
+                {"nanoid": nanoid, "status": status},
             ),
-            cast_to=object,
+            cast_to=AuthConfigUpdateStatusResponse,
+            operation=_UPDATE_STATUS_OPERATION,
+            options=options_data,
         )
 
 
 class AsyncAuthConfigsResource(AsyncAPIResource):
-    """Authentication configuration management"""
-
     @cached_property
     def with_raw_response(self) -> AsyncAuthConfigsResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return AsyncAuthConfigsResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> AsyncAuthConfigsResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return AsyncAuthConfigsResourceWithStreamingResponse(self)
 
+    @overload
     async def create(
         self,
+        body: BodyParam | None = None,
         *,
         toolkit: auth_config_create_params.Toolkit,
         auth_config: auth_config_create_params.AuthConfig | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigCreateResponse: ...
+
+    @overload
+    async def create(
+        self,
+        body: BodyParam,
+        *,
+        toolkit: auth_config_create_params.Toolkit | Omit = omit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigCreateResponse: ...
+
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkit: auth_config_create_params.Toolkit | Omit = omit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> AuthConfigCreateResponse:
-        """
-        Creates a new auth config for a toolkit, allowing you to use your own OAuth
-        credentials or API keys instead of Composio-managed authentication. This is
-        required when you want to use custom OAuth apps (bring your own client
-        ID/secret) or configure specific authentication parameters for a toolkit.
-
-        Args:
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return await self._post(
+        body_fields = compact(
+            {
+                "toolkit": toolkit,
+                "auth_config": auth_config,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("toolkit",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
             "/api/v3.1/auth_configs",
-            body=await async_maybe_transform(
-                {
-                    "toolkit": toolkit,
-                    "auth_config": auth_config,
-                },
-                auth_config_create_params.AuthConfigCreateParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=AuthConfigCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=AuthConfigCreateBody,
+            options=options_data,
         )
 
     async def retrieve(
         self,
         nanoid: str,
         *,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> AuthConfigRetrieveResponse:
-        """
-        Retrieves detailed information about a specific authentication configuration
-        using its unique identifier.
-
-        Args:
-          nanoid: The unique identifier of the authentication configuration to retrieve
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return await self._get(
-            path_template("/api/v3.1/auth_configs/{nanoid}", nanoid=nanoid),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}",
+                {"nanoid": nanoid},
             ),
             cast_to=AuthConfigRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            options=options_data,
         )
 
     @overload
     async def update(
         self,
         nanoid: str,
+        body: BodyParam | None = None,
         *,
-        type: Literal["custom"],
-        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
-        is_enabled_for_tool_router: bool | Omit = omit,
+        type: Literal["custom"] | Literal["default"],
         name: str | Omit = omit,
-        proxy_config: Optional[auth_config_update_params.Variant0ProxyConfig] | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
         restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
-        shared_credentials: Dict[str, Optional[object]] | Omit = omit,
-        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
-        """
-        Modifies an existing authentication configuration with new credentials or other
-        settings. Only specified fields will be updated.
-
-        Args:
-          nanoid: The unique identifier of the authentication configuration to update
-
-          is_enabled_for_tool_router: Whether this auth config is enabled for tool router
-
-          name: The display name of the authentication configuration
-
-          restrict_to_following_tools: Use tool_access_config instead. This field will be deprecated in the future.
-
-          shared_credentials: Shared credentials inherited by all connected accounts using this auth config.
-              Secret values are redacted in responses, so provide the real values when
-              updating; omit this field to leave them unchanged.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        ...
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigUpdateResponse: ...
 
     @overload
     async def update(
         self,
         nanoid: str,
+        body: BodyParam,
         *,
-        type: Literal["default"],
-        is_enabled_for_tool_router: bool | Omit = omit,
+        type: Literal["custom"] | Literal["default"] | Omit = omit,
         name: str | Omit = omit,
-        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
-        scopes: Union[str, SequenceNotStr[str]] | Omit = omit,
-        shared_credentials: Dict[str, Optional[object]] | Omit = omit,
-        tool_access_config: auth_config_update_params.Variant1ToolAccessConfig | Omit = omit,
-        user_scopes: Union[str, SequenceNotStr[str]] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
-        extra_headers: Headers | None = None,
-        extra_query: Query | None = None,
-        extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
-        """
-        Modifies an existing authentication configuration with new credentials or other
-        settings. Only specified fields will be updated.
-
-        Args:
-          nanoid: The unique identifier of the authentication configuration to update
-
-          is_enabled_for_tool_router: Whether this auth config is enabled for tool router
-
-          name: The display name of the authentication configuration
-
-          restrict_to_following_tools: Use tool_access_config instead. This field will be deprecated in the future.
-
-          scopes: OAuth scopes requested for the auth config.
-
-          shared_credentials: Shared credentials inherited by all connected accounts using this auth config.
-              Secret values are redacted in responses, so provide the real values when
-              updating; omit this field to leave them unchanged.
-
-          user_scopes: OAuth user-token scopes requested for the auth config. This is primarily used by
-              Slack OAuth v2.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        ...
-
-    @required_args(["type"])
-    async def update(
-        self,
-        nanoid: str,
-        *,
-        type: Literal["custom"] | Literal["default"],
         credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
-        is_enabled_for_tool_router: bool | Omit = omit,
-        name: str | Omit = omit,
-        proxy_config: Optional[auth_config_update_params.Variant0ProxyConfig] | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
         restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
-        shared_credentials: Dict[str, Optional[object]] | Omit = omit,
         tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
         | auth_config_update_params.Variant1ToolAccessConfig
         | Omit = omit,
-        scopes: Union[str, SequenceNotStr[str]] | Omit = omit,
-        user_scopes: Union[str, SequenceNotStr[str]] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return await self._patch(
-            path_template("/api/v3.1/auth_configs/{nanoid}", nanoid=nanoid),
-            body=await async_maybe_transform(
-                {
-                    "type": type,
-                    "credentials": credentials,
-                    "is_enabled_for_tool_router": is_enabled_for_tool_router,
-                    "name": name,
-                    "proxy_config": proxy_config,
-                    "restrict_to_following_tools": restrict_to_following_tools,
-                    "shared_credentials": shared_credentials,
-                    "tool_access_config": tool_access_config,
-                    "scopes": scopes,
-                    "user_scopes": user_scopes,
-                },
-                auth_config_update_params.AuthConfigUpdateParams,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigUpdateResponse: ...
+
+    async def update(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        type: Literal["custom"] | Literal["default"] | Omit = omit,
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigUpdateResponse:
+        body_fields = compact(
+            {
+                "type": type,
+                "name": name,
+                "credentials": credentials,
+                "sealed_credentials": sealed_credentials,
+                "proxy_config": proxy_config,
+                "restrict_to_following_tools": restrict_to_following_tools,
+                "tool_access_config": tool_access_config,
+                "shared_credentials": shared_credentials,
+                "shared_connection_fields": shared_connection_fields,
+                "is_enabled_for_tool_router": is_enabled_for_tool_router,
+                "scopes": scopes,
+                "user_scopes": user_scopes,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("type",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "patch",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}",
+                {"nanoid": nanoid},
             ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
-            cast_to=object,
+            cast_to=AuthConfigUpdateResponse,
+            operation=_UPDATE_OPERATION,
+            body=body_data,
+            body_model=AuthConfigUpdateBody,
+            options=options_data,
         )
 
     async def list(
         self,
         *,
-        cursor: str | Omit = omit,
+        is_composio_managed: str | bool | Omit = omit,
+        toolkit_slug: str | Omit = omit,
         deprecated_app_id: str | Omit = omit,
         deprecated_status: str | Omit = omit,
-        is_composio_managed: Union[str, bool] | Omit = omit,
-        limit: Optional[float] | Omit = omit,
+        show_disabled: bool | None | Omit = omit,
         search: str | Omit = omit,
-        show_disabled: Optional[bool] | Omit = omit,
-        toolkit_slug: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> AuthConfigListResponse:
-        """Retrieves all auth configs for your project.
-
-        Auth configs define how users
-        authenticate with external services (OAuth, API keys, etc.). Use filters to find
-        configs for specific toolkits or to distinguish between Composio-managed and
-        custom configurations.
-
-        Args:
-          cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
-              limit. The page is the page number and the limit is the number of items per
-              page. The cursor is used to paginate through the items. The cursor is not
-              required for the first page.
-
-          deprecated_app_id: The app id to filter by
-
-          deprecated_status: DEPRECATED: This parameter will be removed in a future version.
-
-          is_composio_managed: Whether to filter by composio managed auth configs
-
-          limit: Number of items per page, max allowed is 1000
-
-          search: Search auth configs by name or id
-
-          show_disabled: Show disabled auth configs
-
-          toolkit_slug: Comma-separated list of toolkit slugs to filter auth configs by
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return await self._get(
+        query_fields = compact(
+            {
+                "is_composio_managed": is_composio_managed,
+                "toolkit_slug": toolkit_slug,
+                "deprecated_app_id": deprecated_app_id,
+                "deprecated_status": deprecated_status,
+                "show_disabled": show_disabled,
+                "search": search,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
             "/api/v3.1/auth_configs",
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=await async_maybe_transform(
-                    {
-                        "cursor": cursor,
-                        "deprecated_app_id": deprecated_app_id,
-                        "deprecated_status": deprecated_status,
-                        "is_composio_managed": is_composio_managed,
-                        "limit": limit,
-                        "search": search,
-                        "show_disabled": show_disabled,
-                        "toolkit_slug": toolkit_slug,
-                    },
-                    auth_config_list_params.AuthConfigListParams,
-                ),
-            ),
             cast_to=AuthConfigListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
     async def delete(
         self,
         nanoid: str,
         *,
-        revoke_on_delete: Optional[bool] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        revoke_on_delete: bool | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> AuthConfigDeleteResponse:
-        """
-        Soft-deletes an authentication configuration by marking it as deleted in the
-        database. This operation cannot be undone. Pass `?revoke_on_delete=true` to also
-        revoke the upstream credentials of every connection using this auth config via a
-        background job.
-
-        Args:
-          nanoid: The unique identifier of the authentication configuration to delete
-
-          revoke_on_delete: When `true`, the delete also starts a background job that revokes the upstream
-              credentials of every connected account in scope, and the response carries a
-              `revoke_job_id`. Defaults to `false`. Revocation is irreversible — recovering a
-              deleted entity does not restore working credentials.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        return await self._delete(
-            path_template("/api/v3.1/auth_configs/{nanoid}", nanoid=nanoid),
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=await async_maybe_transform(
-                    {"revoke_on_delete": revoke_on_delete}, auth_config_delete_params.AuthConfigDeleteParams
-                ),
+        query_fields = compact(
+            {
+                "revoke_on_delete": revoke_on_delete,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "delete",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}",
+                {"nanoid": nanoid},
             ),
             cast_to=AuthConfigDeleteResponse,
+            operation=_DELETE_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
+    @overload
     async def update_status(
         self,
         status: Literal["ENABLED", "DISABLED"],
         *,
         nanoid: str,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
-        """
-        Updates the status of an authentication configuration to either enabled or
-        disabled. Disabled configurations cannot be used for new connections.
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigUpdateStatusResponse: ...
 
-        Args:
-          nanoid: The unique identifier of the authentication configuration to update
+    @overload
+    async def update_status(
+        self,
+        status: str,
+        legacy_path: str,
+        /,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigUpdateStatusResponse: ...
 
-          status: The new status to set for the auth configuration
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not nanoid:
-            raise ValueError(f"Expected a non-empty value for `nanoid` but received {nanoid!r}")
-        if not status:
-            raise ValueError(f"Expected a non-empty value for `status` but received {status!r}")
-        return await self._patch(
-            path_template("/api/v3.1/auth_configs/{nanoid}/{status}", nanoid=nanoid, status=status),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+    async def update_status(
+        self,
+        status: str,
+        *legacy_args: object,
+        nanoid: str | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AuthConfigUpdateStatusResponse:
+        status, (nanoid,), _legacy_body = normalize_path_arguments(
+            status,
+            legacy_args,
+            leading_values=(nanoid,),
+            leading_names=("nanoid",),
+            trailing_name="status",
+            accepts_body=False,
+        )
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "patch",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}/{status}",
+                {"nanoid": nanoid, "status": status},
             ),
-            cast_to=object,
+            cast_to=AuthConfigUpdateStatusResponse,
+            operation=_UPDATE_STATUS_OPERATION,
+            options=options_data,
         )
 
 
 class AuthConfigsResourceWithRawResponse:
-    def __init__(self, auth_configs: AuthConfigsResource) -> None:
-        self._auth_configs = auth_configs
+    def __init__(self, resource: AuthConfigsResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = to_raw_response_wrapper(
-            auth_configs.create,
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkit: auth_config_create_params.Toolkit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[AuthConfigCreateResponse]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        toolkit: auth_config_create_params.Toolkit | Omit = omit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[AuthConfigCreateResponse]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkit: auth_config_create_params.Toolkit | Omit = omit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[AuthConfigCreateResponse]:
+        body_fields = compact(
+            {
+                "toolkit": toolkit,
+                "auth_config": auth_config,
+            }
         )
-        self.retrieve = to_raw_response_wrapper(
-            auth_configs.retrieve,
+        require_fields(
+            body,
+            body_fields,
+            ("toolkit",),
+            "body",
         )
-        self.update = to_raw_response_wrapper(
-            auth_configs.update,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.list = to_raw_response_wrapper(
-            auth_configs.list,
+        return self._client._request_raw(
+            "post",
+            "/api/v3.1/auth_configs",
+            cast_to=AuthConfigCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=AuthConfigCreateBody,
+            options=options_data,
         )
-        self.delete = to_raw_response_wrapper(
-            auth_configs.delete,
+
+    def retrieve(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[AuthConfigRetrieveResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.update_status = to_raw_response_wrapper(
-            auth_configs.update_status,
+        return self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}",
+                {"nanoid": nanoid},
+            ),
+            cast_to=AuthConfigRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            options=options_data,
+        )
+
+    @overload
+    def update(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        type: Literal["custom"] | Literal["default"],
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[AuthConfigUpdateResponse]: ...
+
+    @overload
+    def update(
+        self,
+        nanoid: str,
+        body: BodyParam,
+        *,
+        type: Literal["custom"] | Literal["default"] | Omit = omit,
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[AuthConfigUpdateResponse]: ...
+
+    def update(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        type: Literal["custom"] | Literal["default"] | Omit = omit,
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[AuthConfigUpdateResponse]:
+        body_fields = compact(
+            {
+                "type": type,
+                "name": name,
+                "credentials": credentials,
+                "sealed_credentials": sealed_credentials,
+                "proxy_config": proxy_config,
+                "restrict_to_following_tools": restrict_to_following_tools,
+                "tool_access_config": tool_access_config,
+                "shared_credentials": shared_credentials,
+                "shared_connection_fields": shared_connection_fields,
+                "is_enabled_for_tool_router": is_enabled_for_tool_router,
+                "scopes": scopes,
+                "user_scopes": user_scopes,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("type",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "patch",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}",
+                {"nanoid": nanoid},
+            ),
+            cast_to=AuthConfigUpdateResponse,
+            operation=_UPDATE_OPERATION,
+            body=body_data,
+            body_model=AuthConfigUpdateBody,
+            options=options_data,
+        )
+
+    def list(
+        self,
+        *,
+        is_composio_managed: str | bool | Omit = omit,
+        toolkit_slug: str | Omit = omit,
+        deprecated_app_id: str | Omit = omit,
+        deprecated_status: str | Omit = omit,
+        show_disabled: bool | None | Omit = omit,
+        search: str | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[AuthConfigListResponse]:
+        query_fields = compact(
+            {
+                "is_composio_managed": is_composio_managed,
+                "toolkit_slug": toolkit_slug,
+                "deprecated_app_id": deprecated_app_id,
+                "deprecated_status": deprecated_status,
+                "show_disabled": show_disabled,
+                "search": search,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "get",
+            "/api/v3.1/auth_configs",
+            cast_to=AuthConfigListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    def delete(
+        self,
+        nanoid: str,
+        *,
+        revoke_on_delete: bool | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[AuthConfigDeleteResponse]:
+        query_fields = compact(
+            {
+                "revoke_on_delete": revoke_on_delete,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "delete",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}",
+                {"nanoid": nanoid},
+            ),
+            cast_to=AuthConfigDeleteResponse,
+            operation=_DELETE_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def update_status(
+        self,
+        status: Literal["ENABLED", "DISABLED"],
+        *,
+        nanoid: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[AuthConfigUpdateStatusResponse]: ...
+
+    @overload
+    def update_status(
+        self,
+        status: str,
+        legacy_path: str,
+        /,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[AuthConfigUpdateStatusResponse]: ...
+
+    def update_status(
+        self,
+        status: str,
+        *legacy_args: object,
+        nanoid: str | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[AuthConfigUpdateStatusResponse]:
+        status, (nanoid,), _legacy_body = normalize_path_arguments(
+            status,
+            legacy_args,
+            leading_values=(nanoid,),
+            leading_names=("nanoid",),
+            trailing_name="status",
+            accepts_body=False,
+        )
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "patch",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}/{status}",
+                {"nanoid": nanoid, "status": status},
+            ),
+            cast_to=AuthConfigUpdateStatusResponse,
+            operation=_UPDATE_STATUS_OPERATION,
+            options=options_data,
         )
 
 
 class AsyncAuthConfigsResourceWithRawResponse:
-    def __init__(self, auth_configs: AsyncAuthConfigsResource) -> None:
-        self._auth_configs = auth_configs
+    def __init__(self, resource: AsyncAuthConfigsResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = async_to_raw_response_wrapper(
-            auth_configs.create,
+    @overload
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkit: auth_config_create_params.Toolkit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[AuthConfigCreateResponse]: ...
+
+    @overload
+    async def create(
+        self,
+        body: BodyParam,
+        *,
+        toolkit: auth_config_create_params.Toolkit | Omit = omit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[AuthConfigCreateResponse]: ...
+
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkit: auth_config_create_params.Toolkit | Omit = omit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[AuthConfigCreateResponse]:
+        body_fields = compact(
+            {
+                "toolkit": toolkit,
+                "auth_config": auth_config,
+            }
         )
-        self.retrieve = async_to_raw_response_wrapper(
-            auth_configs.retrieve,
+        require_fields(
+            body,
+            body_fields,
+            ("toolkit",),
+            "body",
         )
-        self.update = async_to_raw_response_wrapper(
-            auth_configs.update,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.list = async_to_raw_response_wrapper(
-            auth_configs.list,
+        return await self._client._request_raw(
+            "post",
+            "/api/v3.1/auth_configs",
+            cast_to=AuthConfigCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=AuthConfigCreateBody,
+            options=options_data,
         )
-        self.delete = async_to_raw_response_wrapper(
-            auth_configs.delete,
+
+    async def retrieve(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[AuthConfigRetrieveResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.update_status = async_to_raw_response_wrapper(
-            auth_configs.update_status,
+        return await self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}",
+                {"nanoid": nanoid},
+            ),
+            cast_to=AuthConfigRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            options=options_data,
+        )
+
+    @overload
+    async def update(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        type: Literal["custom"] | Literal["default"],
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[AuthConfigUpdateResponse]: ...
+
+    @overload
+    async def update(
+        self,
+        nanoid: str,
+        body: BodyParam,
+        *,
+        type: Literal["custom"] | Literal["default"] | Omit = omit,
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[AuthConfigUpdateResponse]: ...
+
+    async def update(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        type: Literal["custom"] | Literal["default"] | Omit = omit,
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[AuthConfigUpdateResponse]:
+        body_fields = compact(
+            {
+                "type": type,
+                "name": name,
+                "credentials": credentials,
+                "sealed_credentials": sealed_credentials,
+                "proxy_config": proxy_config,
+                "restrict_to_following_tools": restrict_to_following_tools,
+                "tool_access_config": tool_access_config,
+                "shared_credentials": shared_credentials,
+                "shared_connection_fields": shared_connection_fields,
+                "is_enabled_for_tool_router": is_enabled_for_tool_router,
+                "scopes": scopes,
+                "user_scopes": user_scopes,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("type",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "patch",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}",
+                {"nanoid": nanoid},
+            ),
+            cast_to=AuthConfigUpdateResponse,
+            operation=_UPDATE_OPERATION,
+            body=body_data,
+            body_model=AuthConfigUpdateBody,
+            options=options_data,
+        )
+
+    async def list(
+        self,
+        *,
+        is_composio_managed: str | bool | Omit = omit,
+        toolkit_slug: str | Omit = omit,
+        deprecated_app_id: str | Omit = omit,
+        deprecated_status: str | Omit = omit,
+        show_disabled: bool | None | Omit = omit,
+        search: str | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[AuthConfigListResponse]:
+        query_fields = compact(
+            {
+                "is_composio_managed": is_composio_managed,
+                "toolkit_slug": toolkit_slug,
+                "deprecated_app_id": deprecated_app_id,
+                "deprecated_status": deprecated_status,
+                "show_disabled": show_disabled,
+                "search": search,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "get",
+            "/api/v3.1/auth_configs",
+            cast_to=AuthConfigListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    async def delete(
+        self,
+        nanoid: str,
+        *,
+        revoke_on_delete: bool | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[AuthConfigDeleteResponse]:
+        query_fields = compact(
+            {
+                "revoke_on_delete": revoke_on_delete,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "delete",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}",
+                {"nanoid": nanoid},
+            ),
+            cast_to=AuthConfigDeleteResponse,
+            operation=_DELETE_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    async def update_status(
+        self,
+        status: Literal["ENABLED", "DISABLED"],
+        *,
+        nanoid: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[AuthConfigUpdateStatusResponse]: ...
+
+    @overload
+    async def update_status(
+        self,
+        status: str,
+        legacy_path: str,
+        /,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[AuthConfigUpdateStatusResponse]: ...
+
+    async def update_status(
+        self,
+        status: str,
+        *legacy_args: object,
+        nanoid: str | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[AuthConfigUpdateStatusResponse]:
+        status, (nanoid,), _legacy_body = normalize_path_arguments(
+            status,
+            legacy_args,
+            leading_values=(nanoid,),
+            leading_names=("nanoid",),
+            trailing_name="status",
+            accepts_body=False,
+        )
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "patch",
+            build_path(
+                "/api/v3.1/auth_configs/{nanoid}/{status}",
+                {"nanoid": nanoid, "status": status},
+            ),
+            cast_to=AuthConfigUpdateStatusResponse,
+            operation=_UPDATE_STATUS_OPERATION,
+            options=options_data,
         )
 
 
 class AuthConfigsResourceWithStreamingResponse:
-    def __init__(self, auth_configs: AuthConfigsResource) -> None:
-        self._auth_configs = auth_configs
+    def __init__(self, resource: AuthConfigsResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = to_streamed_response_wrapper(
-            auth_configs.create,
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkit: auth_config_create_params.Toolkit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[AuthConfigCreateResponse]]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        toolkit: auth_config_create_params.Toolkit | Omit = omit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[AuthConfigCreateResponse]]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkit: auth_config_create_params.Toolkit | Omit = omit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[AuthConfigCreateResponse]]:
+        body_fields = compact(
+            {
+                "toolkit": toolkit,
+                "auth_config": auth_config,
+            }
         )
-        self.retrieve = to_streamed_response_wrapper(
-            auth_configs.retrieve,
+        require_fields(
+            body,
+            body_fields,
+            ("toolkit",),
+            "body",
         )
-        self.update = to_streamed_response_wrapper(
-            auth_configs.update,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.list = to_streamed_response_wrapper(
-            auth_configs.list,
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                "/api/v3.1/auth_configs",
+                cast_to=AuthConfigCreateResponse,
+                operation=_CREATE_OPERATION,
+                body=body_data,
+                body_model=AuthConfigCreateBody,
+                options=options_data,
+                stream=True,
+            )
         )
-        self.delete = to_streamed_response_wrapper(
-            auth_configs.delete,
+
+    def retrieve(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[AuthConfigRetrieveResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.update_status = to_streamed_response_wrapper(
-            auth_configs.update_status,
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/auth_configs/{nanoid}",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=AuthConfigRetrieveResponse,
+                operation=_RETRIEVE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    @overload
+    def update(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        type: Literal["custom"] | Literal["default"],
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[AuthConfigUpdateResponse]]: ...
+
+    @overload
+    def update(
+        self,
+        nanoid: str,
+        body: BodyParam,
+        *,
+        type: Literal["custom"] | Literal["default"] | Omit = omit,
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[AuthConfigUpdateResponse]]: ...
+
+    def update(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        type: Literal["custom"] | Literal["default"] | Omit = omit,
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[AuthConfigUpdateResponse]]:
+        body_fields = compact(
+            {
+                "type": type,
+                "name": name,
+                "credentials": credentials,
+                "sealed_credentials": sealed_credentials,
+                "proxy_config": proxy_config,
+                "restrict_to_following_tools": restrict_to_following_tools,
+                "tool_access_config": tool_access_config,
+                "shared_credentials": shared_credentials,
+                "shared_connection_fields": shared_connection_fields,
+                "is_enabled_for_tool_router": is_enabled_for_tool_router,
+                "scopes": scopes,
+                "user_scopes": user_scopes,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("type",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "patch",
+                build_path(
+                    "/api/v3.1/auth_configs/{nanoid}",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=AuthConfigUpdateResponse,
+                operation=_UPDATE_OPERATION,
+                body=body_data,
+                body_model=AuthConfigUpdateBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def list(
+        self,
+        *,
+        is_composio_managed: str | bool | Omit = omit,
+        toolkit_slug: str | Omit = omit,
+        deprecated_app_id: str | Omit = omit,
+        deprecated_status: str | Omit = omit,
+        show_disabled: bool | None | Omit = omit,
+        search: str | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[AuthConfigListResponse]]:
+        query_fields = compact(
+            {
+                "is_composio_managed": is_composio_managed,
+                "toolkit_slug": toolkit_slug,
+                "deprecated_app_id": deprecated_app_id,
+                "deprecated_status": deprecated_status,
+                "show_disabled": show_disabled,
+                "search": search,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                "/api/v3.1/auth_configs",
+                cast_to=AuthConfigListResponse,
+                operation=_LIST_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def delete(
+        self,
+        nanoid: str,
+        *,
+        revoke_on_delete: bool | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[AuthConfigDeleteResponse]]:
+        query_fields = compact(
+            {
+                "revoke_on_delete": revoke_on_delete,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "delete",
+                build_path(
+                    "/api/v3.1/auth_configs/{nanoid}",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=AuthConfigDeleteResponse,
+                operation=_DELETE_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def update_status(
+        self,
+        status: Literal["ENABLED", "DISABLED"],
+        *,
+        nanoid: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[AuthConfigUpdateStatusResponse]]: ...
+
+    @overload
+    def update_status(
+        self,
+        status: str,
+        legacy_path: str,
+        /,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[AuthConfigUpdateStatusResponse]]: ...
+
+    def update_status(
+        self,
+        status: str,
+        *legacy_args: object,
+        nanoid: str | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[AuthConfigUpdateStatusResponse]]:
+        status, (nanoid,), _legacy_body = normalize_path_arguments(
+            status,
+            legacy_args,
+            leading_values=(nanoid,),
+            leading_names=("nanoid",),
+            trailing_name="status",
+            accepts_body=False,
+        )
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "patch",
+                build_path(
+                    "/api/v3.1/auth_configs/{nanoid}/{status}",
+                    {"nanoid": nanoid, "status": status},
+                ),
+                cast_to=AuthConfigUpdateStatusResponse,
+                operation=_UPDATE_STATUS_OPERATION,
+                options=options_data,
+                stream=True,
+            )
         )
 
 
 class AsyncAuthConfigsResourceWithStreamingResponse:
-    def __init__(self, auth_configs: AsyncAuthConfigsResource) -> None:
-        self._auth_configs = auth_configs
+    def __init__(self, resource: AsyncAuthConfigsResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = async_to_streamed_response_wrapper(
-            auth_configs.create,
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkit: auth_config_create_params.Toolkit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[AuthConfigCreateResponse]]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        toolkit: auth_config_create_params.Toolkit | Omit = omit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[AuthConfigCreateResponse]]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkit: auth_config_create_params.Toolkit | Omit = omit,
+        auth_config: auth_config_create_params.AuthConfig | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[AuthConfigCreateResponse]]:
+        body_fields = compact(
+            {
+                "toolkit": toolkit,
+                "auth_config": auth_config,
+            }
         )
-        self.retrieve = async_to_streamed_response_wrapper(
-            auth_configs.retrieve,
+        require_fields(
+            body,
+            body_fields,
+            ("toolkit",),
+            "body",
         )
-        self.update = async_to_streamed_response_wrapper(
-            auth_configs.update,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.list = async_to_streamed_response_wrapper(
-            auth_configs.list,
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                "/api/v3.1/auth_configs",
+                cast_to=AuthConfigCreateResponse,
+                operation=_CREATE_OPERATION,
+                body=body_data,
+                body_model=AuthConfigCreateBody,
+                options=options_data,
+                stream=True,
+            )
         )
-        self.delete = async_to_streamed_response_wrapper(
-            auth_configs.delete,
+
+    def retrieve(
+        self,
+        nanoid: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[AuthConfigRetrieveResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.update_status = async_to_streamed_response_wrapper(
-            auth_configs.update_status,
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/auth_configs/{nanoid}",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=AuthConfigRetrieveResponse,
+                operation=_RETRIEVE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    @overload
+    def update(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        type: Literal["custom"] | Literal["default"],
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[AuthConfigUpdateResponse]]: ...
+
+    @overload
+    def update(
+        self,
+        nanoid: str,
+        body: BodyParam,
+        *,
+        type: Literal["custom"] | Literal["default"] | Omit = omit,
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[AuthConfigUpdateResponse]]: ...
+
+    def update(
+        self,
+        nanoid: str,
+        body: BodyParam | None = None,
+        *,
+        type: Literal["custom"] | Literal["default"] | Omit = omit,
+        name: str | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        sealed_credentials: dict[str, str] | Omit = omit,
+        proxy_config: auth_config_update_params.Variant0ProxyConfig | None | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
+        | auth_config_update_params.Variant1ToolAccessConfig
+        | Omit = omit,
+        shared_credentials: dict[str, object | None] | Omit = omit,
+        shared_connection_fields: dict[str, object | None] | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        scopes: str | SequenceNotStr[str] | Omit = omit,
+        user_scopes: str | SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[AuthConfigUpdateResponse]]:
+        body_fields = compact(
+            {
+                "type": type,
+                "name": name,
+                "credentials": credentials,
+                "sealed_credentials": sealed_credentials,
+                "proxy_config": proxy_config,
+                "restrict_to_following_tools": restrict_to_following_tools,
+                "tool_access_config": tool_access_config,
+                "shared_credentials": shared_credentials,
+                "shared_connection_fields": shared_connection_fields,
+                "is_enabled_for_tool_router": is_enabled_for_tool_router,
+                "scopes": scopes,
+                "user_scopes": user_scopes,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("type",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "patch",
+                build_path(
+                    "/api/v3.1/auth_configs/{nanoid}",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=AuthConfigUpdateResponse,
+                operation=_UPDATE_OPERATION,
+                body=body_data,
+                body_model=AuthConfigUpdateBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def list(
+        self,
+        *,
+        is_composio_managed: str | bool | Omit = omit,
+        toolkit_slug: str | Omit = omit,
+        deprecated_app_id: str | Omit = omit,
+        deprecated_status: str | Omit = omit,
+        show_disabled: bool | None | Omit = omit,
+        search: str | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[AuthConfigListResponse]]:
+        query_fields = compact(
+            {
+                "is_composio_managed": is_composio_managed,
+                "toolkit_slug": toolkit_slug,
+                "deprecated_app_id": deprecated_app_id,
+                "deprecated_status": deprecated_status,
+                "show_disabled": show_disabled,
+                "search": search,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                "/api/v3.1/auth_configs",
+                cast_to=AuthConfigListResponse,
+                operation=_LIST_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def delete(
+        self,
+        nanoid: str,
+        *,
+        revoke_on_delete: bool | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[AuthConfigDeleteResponse]]:
+        query_fields = compact(
+            {
+                "revoke_on_delete": revoke_on_delete,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "delete",
+                build_path(
+                    "/api/v3.1/auth_configs/{nanoid}",
+                    {"nanoid": nanoid},
+                ),
+                cast_to=AuthConfigDeleteResponse,
+                operation=_DELETE_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def update_status(
+        self,
+        status: Literal["ENABLED", "DISABLED"],
+        *,
+        nanoid: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[AuthConfigUpdateStatusResponse]]: ...
+
+    @overload
+    def update_status(
+        self,
+        status: str,
+        legacy_path: str,
+        /,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[AuthConfigUpdateStatusResponse]]: ...
+
+    def update_status(
+        self,
+        status: str,
+        *legacy_args: object,
+        nanoid: str | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[AuthConfigUpdateStatusResponse]]:
+        status, (nanoid,), _legacy_body = normalize_path_arguments(
+            status,
+            legacy_args,
+            leading_values=(nanoid,),
+            leading_names=("nanoid",),
+            trailing_name="status",
+            accepts_body=False,
+        )
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "patch",
+                build_path(
+                    "/api/v3.1/auth_configs/{nanoid}/{status}",
+                    {"nanoid": nanoid, "status": status},
+                ),
+                cast_to=AuthConfigUpdateStatusResponse,
+                operation=_UPDATE_STATUS_OPERATION,
+                options=options_data,
+                stream=True,
+            )
         )

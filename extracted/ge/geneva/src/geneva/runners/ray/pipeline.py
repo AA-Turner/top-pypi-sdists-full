@@ -123,7 +123,16 @@ from geneva.errors import (
     MergeFallbackTargetError,
     ShortFragmentWriteError,
 )
+from geneva.jobs.compaction_pause import (
+    CompactionPause,
+    check_compaction_hold,
+    open_latest_dataset,
+    pause_for_job,
+    resume_after_job,
+    wait_for_compactions,
+)
 from geneva.jobs.config import JobConfig
+from geneva.jobs.heartbeat import DriverHeartbeatWriter, set_driver_phase
 from geneva.packager import UDFPackager, UDFSpec
 from geneva.query import (
     MATVIEW_META_BASE_VERSION,
@@ -159,6 +168,7 @@ from geneva.runners.ray.actor_pool import (
     PollTimeoutError,
 )
 from geneva.runners.ray.admission import PipelineResourceConfig
+from geneva.runners.ray.jobstate import RayJobState
 from geneva.runners.ray.jobtracker import (
     METRIC_AVG_BATCH_NUM_ROWS,
     METRIC_AVG_BATCH_SIZE,
@@ -1309,7 +1319,6 @@ def _run_pipeline(
             name=job_tracker_name(job_id),
             num_cpus=rc.jobtracker_num_cpus,
             memory=rc.jobtracker_memory,
-            max_restarts=-1,
         ).remote(  # type: ignore[call-arg]
             job_id,
             dst,
@@ -1385,9 +1394,97 @@ def _emit_phase(hist: Any, job_id: str | None, phase: str) -> None:
     Best-effort: neither destination may ever fail the job.
     """
     telemetry.add_span_event(f"Entering phase: {phase}")
+    set_driver_phase(job_id, phase)
     if hist is not None and job_id:
         with contextlib.suppress(Exception):
             hist.add_event(job_id, phase)
+
+
+def _start_driver_heartbeat(hist: Any, job_id: str) -> DriverHeartbeatWriter | None:
+    """Start the driver's heartbeat so readers can tell it is alive.
+
+    Best-effort: a job whose heartbeat cannot start still runs.
+    """
+    try:
+        return hist.start_driver_heartbeat(job_id)
+    except Exception:
+        _LOG.warning(
+            "Failed to start driver heartbeat for job %s", job_id, exc_info=True
+        )
+        return None
+
+
+def _stop_driver_heartbeat(heartbeat: DriverHeartbeatWriter | None) -> None:
+    """Record that the driver exited. Bounded and never raises."""
+    if heartbeat is None:
+        return
+    try:
+        heartbeat.stop()
+    except Exception:
+        _LOG.warning("Failed to stop driver heartbeat", exc_info=True)
+
+
+def _record_event(hist: Any, job_id: str | None, message: str) -> None:
+    """Record an event on the job that is not a phase change, such as a
+    warning the job carries on past. Best-effort, like :func:`_emit_phase`."""
+    telemetry.add_span_event(message)
+    if hist is not None and job_id:
+        with contextlib.suppress(Exception):
+            hist.add_event(job_id, message)
+
+
+def _open_latest_dataset(table_ref: TableReference) -> Any:
+    """The job's table at its latest version, as a Lance dataset."""
+    return open_latest_dataset(table_ref, use_worker_props=True)
+
+
+def _pause_compaction(
+    hist: Any,
+    table_ref: TableReference,
+    job_id: str,
+    heartbeat: DriverHeartbeatWriter | None,
+) -> tuple[CompactionPause | None, bool]:
+    """Pause the Enterprise agent's automatic compaction of the job's table, if
+    configured, then wait for any compaction the agent already started there
+    (GEN-994). ``heartbeat`` shows other jobs that this one holds the pause.
+
+    Returns the pause, None unless pausing is configured, and whether the job
+    waited. A job that paused or waited must plan against the table as it is
+    now, not as it was opened: a compaction may have finished in between,
+    including one the wait never saw. Never raises.
+    """
+    pause = pause_for_job(
+        table_name=table_ref.table_name,
+        job_id=job_id,
+        open_dataset=lambda: _open_latest_dataset(table_ref),
+        history=hist,
+        heartbeat=heartbeat,
+        on_event=lambda message: _record_event(hist, job_id, message),
+    )
+    waited_for = wait_for_compactions(
+        table_id=table_ref.table_id,
+        on_wait=lambda job_ids: _emit_phase(
+            hist, job_id, f"Waiting for compaction {', '.join(job_ids)}"
+        ),
+        on_event=lambda message: _record_event(hist, job_id, message),
+    )
+    return pause, bool(waited_for)
+
+
+def _flush_job_tracker(job_tracker: ActorHandle | None) -> None:
+    """Persist the tracker's latest metrics before the job's final status write.
+
+    Tracker saves are throttled, so up to one save interval of progress may not
+    be on the job record yet when a job ends, most visibly when it fails.
+    Best-effort and bounded: this must never fail the job or hold up its final
+    status write.
+    """
+    if job_tracker is None:
+        return
+    try:
+        ray.get(job_tracker.flush.remote(), timeout=FINAL_STATUS_TIMEOUT_S)
+    except Exception:
+        _LOG.warning("Failed to persist final job metrics", exc_info=True)
 
 
 @attrs.define(frozen=True)
@@ -1642,7 +1739,6 @@ class ColumnAddPipelineJob:
             name=job_tracker_name(self.job_id),
             num_cpus=rc.jobtracker_num_cpus,
             memory=rc.jobtracker_memory,
-            max_restarts=-1,
         ).remote(  # type: ignore[call-arg]
             self.job_id,
             self.dst,
@@ -2737,6 +2833,17 @@ class ColumnAddPipelineJob:
         raise fatal_exc from exc
 
     def run(self) -> None:
+        try:
+            self._run()
+        except Exception:
+            # The success path sends buffered progress deltas to the tracker
+            # before finalizing; a failed job needs its latest counts too.
+            if self._metric_buffer is not None:
+                with contextlib.suppress(Exception):
+                    self._metric_buffer.flush(force=True)
+            raise
+
+    def _run(self) -> None:
         plans, tasks_by_frag, cnt_tasks = self.setup_inputplans()
         # The writer bar counts the fragments this job will write -- the distinct
         # destination fragments in the plan, which already reflects
@@ -5369,6 +5476,7 @@ class FragmentWriterManager:
                 # namespace-describe fallback when nothing was cached.
                 storage_options = self._resolve_commit_storage_options()
 
+                check_compaction_hold(self.job_id)
                 # Pass namespace_client and table_id for managed versioning
                 # This triggers CreateTableVersion API calls through phalanx
                 get_committer().commit(
@@ -5710,6 +5818,7 @@ class FragmentWriterManager:
                 schema=ds.lance_schema,
             )
             try:
+                check_compaction_hold(self.job_id)
                 # Pass namespace_client and table_id for managed versioning
                 get_committer().commit(
                     self.ds_uri,
@@ -8929,6 +9038,8 @@ def _submit_ray_job(
     hist: Any,
     job_id: str,
     submit: Callable[[], Any],
+    *,
+    state: RayJobState | None = None,
 ) -> Any:
     try:
         obj_ref = submit()
@@ -8939,12 +9050,27 @@ def _submit_ray_job(
             _LOG.exception("Failed to mark job %s failed after submit error", job_id)
         raise
 
+    state = state or RayJobState(hist, job_id)
     try:
-        hist.set_object_ref(job_id, cloudpickle.dumps(obj_ref))
+        serialized_ref = cloudpickle.dumps(obj_ref)
+        hist.set_object_ref(job_id, serialized_ref)
+        state.object_ref = serialized_ref
     except Exception:
         _LOG.warning(
             "Failed to persist Ray object ref for job %s", job_id, exc_info=True
         )
+        # Without a durable attempt identity we cannot safely write a delayed
+        # failure: the same job id may already belong to a replacement driver.
+        return obj_ref
+    # A worker killed outside Python never reaches the driver's exception
+    # handler. Observe its result from the submitter, including fire-and-forget
+    # jobs, so an OOM cannot leave a healthy-looking RUNNING record behind.
+    try:
+        obj_ref.future().add_done_callback(
+            lambda future: state.record_failure(future.exception())
+        )
+    except Exception:
+        _LOG.warning("Failed to watch Ray driver for job %s", job_id, exc_info=True)
     return obj_ref
 
 
@@ -8976,6 +9102,7 @@ def dispatch_run_ray_add_column(
     col_name: str,
     *,
     read_version: int | None = None,
+    read_version_pinned: bool = True,
     concurrency: int = 8,
     batch_size: int | None = None,
     checkpoint_size: int | None = None,
@@ -9075,6 +9202,7 @@ def dispatch_run_ray_add_column(
         table_ref.table_name,
         col_name,
         job_id=job_id,
+        reset_object_ref=True,
         where=where,
         manifest_id=manifest_id,
         manifest_checksum=manifest_checksum,
@@ -9093,7 +9221,6 @@ def dispatch_run_ray_add_column(
         name=job_tracker_name(job.job_id),
         num_cpus=rc.jobtracker_num_cpus,
         memory=rc.jobtracker_memory,
-        max_restarts=-1,
     ).remote(  # type: ignore[call-arg]
         job.job_id,
         table_ref,
@@ -9120,6 +9247,7 @@ def dispatch_run_ray_add_column(
         ).remote,
     )
     parent_carrier = telemetry.inject_context()
+    state = RayJobState(hist, job.job_id, table_ref)
     obj_ref = _submit_ray_job(
         hist,
         job.job_id,
@@ -9127,6 +9255,7 @@ def dispatch_run_ray_add_column(
             table_ref,
             col_name,
             read_version=read_version,  # type: ignore[call-arg]
+            read_version_pinned=read_version_pinned,  # type: ignore[call-arg]
             job_id=job.job_id,  # type: ignore[call-arg]
             job_tracker=job_tracker,  # type: ignore[call-arg]
             concurrency=concurrency,  # type: ignore[call-arg]
@@ -9149,6 +9278,7 @@ def dispatch_run_ray_add_column(
             parent_carrier=parent_carrier,  # type: ignore[call-arg]
             **kwargs,
         ),
+        state=state,
     )
     telemetry.close_span(_dispatch_span)
 
@@ -9157,11 +9287,12 @@ def dispatch_run_ray_add_column(
 
     ctx = get_current_context()
     if isinstance(ctx, RayCluster):
-        ctx.register_tracked_job(job.job_id, obj_ref, job_tracker)
+        ctx.register_tracked_job(job.job_id, obj_ref, job_tracker, job_state=state)
 
     return RayJobFuture(
         job_id=job.job_id,
         ray_obj_ref=obj_ref,
+        job_state=state,
         job_tracker=job_tracker,  # type: ignore[arg-type]
         result_metadata={
             "input_columns": input_columns,
@@ -9244,6 +9375,7 @@ def dispatch_run_ray_refresh(
         table_ref.table_name,
         "<refresh>",
         job_id=job_id,
+        reset_object_ref=True,
         manifest_id=manifest_id,
         manifest_checksum=manifest_checksum,
         cluster_name=cluster_name,
@@ -9257,7 +9389,6 @@ def dispatch_run_ray_refresh(
             name=job_tracker_name(job.job_id),
             num_cpus=rc.jobtracker_num_cpus,
             memory=rc.jobtracker_memory,
-            max_restarts=-1,
         ).remote(  # type: ignore[call-arg]
             job.job_id,
             table_ref,
@@ -9277,47 +9408,50 @@ def dispatch_run_ray_refresh(
             ).remote,
         )
         parent_carrier = telemetry.inject_context()
-        obj_ref = remote_runner(
-            table_ref,
-            job_id=job.job_id,  # type: ignore[call-arg]
-            job_tracker=job_tracker,  # type: ignore[call-arg]
-            src_version=src_version,  # type: ignore[call-arg]
-            max_rows_per_fragment=max_rows_per_fragment,  # type: ignore[call-arg]
-            concurrency=concurrency,  # type: ignore[call-arg]
-            intra_applier_concurrency=intra_applier_concurrency,  # type: ignore[call-arg]
-            output_limit=output_limit,  # type: ignore[call-arg]
-            source_task_size=source_task_size,  # type: ignore[call-arg]
-            _admission_check=_admission_check,  # type: ignore[call-arg]
-            _admission_strict=_admission_strict,  # type: ignore[call-arg]
-            parent_carrier=parent_carrier,  # type: ignore[call-arg]
+        state = RayJobState(hist, job.job_id, table_ref)
+        obj_ref = _submit_ray_job(
+            hist,
+            job.job_id,
+            lambda: remote_runner(
+                table_ref,
+                job_id=job.job_id,  # type: ignore[call-arg]
+                job_tracker=job_tracker,  # type: ignore[call-arg]
+                src_version=src_version,  # type: ignore[call-arg]
+                max_rows_per_fragment=max_rows_per_fragment,  # type: ignore[call-arg]
+                concurrency=concurrency,  # type: ignore[call-arg]
+                intra_applier_concurrency=intra_applier_concurrency,  # type: ignore[call-arg]
+                output_limit=output_limit,  # type: ignore[call-arg]
+                source_task_size=source_task_size,  # type: ignore[call-arg]
+                _admission_check=_admission_check,  # type: ignore[call-arg]
+                _admission_strict=_admission_strict,  # type: ignore[call-arg]
+                parent_carrier=parent_carrier,  # type: ignore[call-arg]
+            ),
+            state=state,
         )
         telemetry.close_span(_dispatch_span)
     except Exception as e:
         hist.set_failed(job.job_id, str(e))
         raise
 
-    try:
-        hist.set_object_ref(job.job_id, cloudpickle.dumps(obj_ref))
-    except Exception:
-        _LOG.exception(
-            "failed to record obj_ref for job %s; task is still running",
-            job.job_id,
-        )
-
     from geneva.runners.ray.raycluster import RayCluster
 
     ctx = get_current_context()
     if isinstance(ctx, RayCluster):
-        ctx.register_tracked_job(job.job_id, obj_ref, job_tracker)
+        ctx.register_tracked_job(job.job_id, obj_ref, job_tracker, job_state=state)
 
     return RayJobFuture(
         job_id=job.job_id,
         ray_obj_ref=obj_ref,
+        job_state=state,
         job_tracker=job_tracker,  # type: ignore[arg-type]
     )
 
 
-@ray.remote
+# Drivers own in-memory retry budgets and stall deadlines. Replaying one after
+# an OOM resets those bounds; Ray can retry OOM kills forever even with a finite
+# positive max_retries. Trackers must also be non-restartable, otherwise Ray's
+# memory monitor just repeatedly kills the tracker instead of a data worker.
+@ray.remote(max_retries=0)
 def run_ray_refresh_remote(
     table_ref: TableReference,
     *,
@@ -9356,6 +9490,8 @@ def run_ray_refresh_remote(
 
     telemetry.init()
     hist = None
+    heartbeat: DriverHeartbeatWriter | None = None
+    compaction_pause: CompactionPause | None = None
     job_span: Any = None
     job_token: Any = None
     job_exc: BaseException | None = None
@@ -9384,6 +9520,8 @@ def run_ray_refresh_remote(
         )
         if job_id:
             hist.set_running(job_id)
+            heartbeat = _start_driver_heartbeat(hist, job_id)
+            compaction_pause, _ = _pause_compaction(hist, table_ref, job_id, heartbeat)
 
         schema = tbl.schema
         metadata = schema.metadata or {}
@@ -9445,6 +9583,7 @@ def run_ray_refresh_remote(
         )
 
         if job_id:
+            _flush_job_tracker(job_tracker)
             hist.set_completed(job_id)
 
         telemetry.close_span(_complete_span)
@@ -9453,10 +9592,13 @@ def run_ray_refresh_remote(
         job_exc = e
         _LOG.exception("Error running Ray refresh operation")
         if job_id and hist is not None:
+            _flush_job_tracker(job_tracker)
             with contextlib.suppress(Exception):
                 hist.set_failed(job_id, f"{type(e).__name__}: {e}")
         raise
     finally:
+        resume_after_job(compaction_pause)
+        _stop_driver_heartbeat(heartbeat)
         if job_tracker is not None:
             with contextlib.suppress(Exception):
                 job_tracker.mark_job_done.remote()
@@ -9608,7 +9750,7 @@ def validate_backfill_args(
             raise
 
 
-@ray.remote
+@ray.remote(max_retries=0)
 def run_ray_add_column_remote(
     table_ref: TableReference,
     col_name: str,
@@ -9616,6 +9758,7 @@ def run_ray_add_column_remote(
     job_id: str | None = None,
     udf: UDF | None = None,
     read_version: int | None = None,
+    read_version_pinned: bool = True,
     concurrency: int = 8,
     checkpoint_size: int | None = None,
     min_checkpoint_size: int | None = None,
@@ -9655,6 +9798,8 @@ def run_ray_add_column_remote(
 
     telemetry.init()
     hist = None
+    heartbeat: DriverHeartbeatWriter | None = None
+    compaction_pause: CompactionPause | None = None
     job_span: Any = None
     job_token: Any = None
     job_exc: BaseException | None = None
@@ -9672,10 +9817,30 @@ def run_ray_add_column_remote(
         )
         _setup_span = telemetry.open_span("worker_setup", {"job_id": job_id or ""})
         tbl = table_ref.open()
-        read_version = _resolve_read_version(tbl, read_version)
         hist = tbl._conn._history
         if job_id:
             hist.set_running(job_id)
+            heartbeat = _start_driver_heartbeat(hist, job_id)
+            compaction_pause, waited = _pause_compaction(
+                hist, table_ref, job_id, heartbeat
+            )
+            pinned = read_version is not None and read_version_pinned
+            pause_ran = compaction_pause is not None
+            if (pause_ran or waited) and not pinned and table_ref.version is None:
+                # Plan against the table as it is now that compaction is paused,
+                # not the snapshot taken at launch: a compaction may have
+                # finished since, including one the agent admitted just before
+                # the pause and finished before the wait could see it.
+                tbl.checkout_latest()
+                read_version = None
+            elif waited:
+                _LOG.warning(
+                    "Job %s reads a pinned table version from before a "
+                    "compaction it waited for; its commits to fragments the "
+                    "compaction rewrote will fail",
+                    job_id,
+                )
+        read_version = _resolve_read_version(tbl, read_version)
 
         # Get input_columns from column metadata first
         field = tbl._ltbl.schema.field(col_name)
@@ -9740,6 +9905,7 @@ def run_ray_add_column_remote(
                 use_cpu_only_pool=bool(kwargs.get("use_cpu_only_pool", False)),
             )
             if job_id:
+                _flush_job_tracker(job_tracker)
                 hist.set_completed(job_id)
             # The returned dict becomes the job payload (the future's result),
             # from which BackfillJobResult reads its per-column counters.
@@ -9784,10 +9950,12 @@ def run_ray_add_column_remote(
             **kwargs,
         )
         if job_id:
+            _flush_job_tracker(job_tracker)
             hist.set_completed(job_id)
     except SkipThresholdExceededError as e:
         job_exc = e
         if job_id and hist is not None:
+            _flush_job_tracker(job_tracker)
             with contextlib.suppress(Exception):
                 hist.set_failed(job_id, f"{type(e).__name__}: {e}")
         raise
@@ -9795,10 +9963,13 @@ def run_ray_add_column_remote(
         job_exc = e
         _LOG.exception("Error running Ray add column operation")
         if job_id and hist is not None:
+            _flush_job_tracker(job_tracker)
             with contextlib.suppress(Exception):
                 hist.set_failed(job_id, f"{type(e).__name__}: {e}")
         raise _picklable_remote_error(e) from None
     finally:
+        resume_after_job(compaction_pause)
+        _stop_driver_heartbeat(heartbeat)
         # Signal the JobTracker that this job is finished so that
         # _wait_for_tracked_jobs can detect completion.
         if job_tracker is not None:
@@ -10396,6 +10567,9 @@ class RayJobFuture(JobFuture):
     ray_obj_ref: ActorHandle = attrs.field()
     job_tracker: ActorHandle | None = attrs.field(default=None)
     result_metadata: dict[str, Any] = attrs.field(factory=dict)
+    job_state: RayJobState | None = attrs.field(default=None)
+    _tracker_dead: bool = attrs.field(default=False, init=False)
+    _tracker_warned: bool = attrs.field(default=False, init=False)
     _pbars: dict[str, TqdmType] = attrs.field(factory=dict)
     _JOB_ID_KEY: str = "_job_id_line"
     _RAY_LINE_KEY: str = "_ray_summary_line"
@@ -10726,23 +10900,34 @@ class RayJobFuture(JobFuture):
     def status(self, timeout: float | None = 0.05) -> None:
         if self.job_tracker is None:
             return
-        try:
-            snapshot = ray.get(self.job_tracker.get_all.remote(), timeout=timeout)  # type: ignore[call-arg,arg-type]
-            self._sync_bars(snapshot)  # type: ignore[arg-type]
-
-        except ray.exceptions.GetTimeoutError:
-            _LOG.debug("JobTracker not ready? skip this tick")
-            return
-        except Exception:
-            # The JobTracker actor may have died (OOMKilled, node
-            # preempted, raylet crash). Don't let a dead tracker crash
-            # the caller — the actual job data is unaffected.
-            _LOG.warning(
-                "JobTracker unreachable during status update; "
-                "progress bar may be stale",
-                exc_info=True,
+        if not self._tracker_dead:
+            try:
+                snapshot = ray.get(self.job_tracker.get_all.remote(), timeout=timeout)  # type: ignore[call-arg,arg-type]
+                self._sync_bars(snapshot)  # type: ignore[arg-type]
+                self._tracker_warned = False
+                return
+            except ray.exceptions.GetTimeoutError:
+                _LOG.debug("JobTracker not ready? skip this tick")
+                return
+            except ray.exceptions.ActorDiedError:
+                # Ray reports permanent death after the restart budget is
+                # exhausted. Stop calling this actor on every display tick.
+                self._tracker_dead = True
+            except Exception:
+                if not self._tracker_warned:
+                    _LOG.warning(
+                        "JobTracker unreachable; using saved metrics", exc_info=True
+                    )
+                    self._tracker_warned = True
+        if not self._tracker_warned:
+            _LOG.warning("JobTracker lost for job %s; using saved metrics", self.job_id)
+            self._tracker_warned = True
+        if self.job_state is not None:
+            saved = self.job_state.saved_record(
+                timeout=FINAL_STATUS_TIMEOUT_S if timeout is None else timeout
             )
-            return
+            if saved is not None:
+                self._sync_bars({m.name: attrs.asdict(m) for m in saved.metrics or []})
 
     def done(self, timeout: float | None = None) -> bool:
         self.status()
@@ -10775,8 +10960,11 @@ class RayJobFuture(JobFuture):
             # run as ERROR.
             raise
         except BaseException as e:
+            if self.job_state is not None:
+                self.job_state.finish_failure(e)
             self._close_span(e)
             raise
+        self.status(timeout=FINAL_STATUS_TIMEOUT_S)
         self._close_span(None)
         if result is None and self.result_metadata:
             return dict(self.result_metadata)
@@ -10836,6 +11024,7 @@ def dispatch_run_ray_bulk_load(
         table_ref.table_name,
         f"bulkload:{col_label}",
         job_id=job_id,
+        reset_object_ref=True,
         cluster_name=cluster_name,
     )
     # Job record now exists (PENDING); mark the bring-up/provisioning phase.
@@ -10846,7 +11035,6 @@ def dispatch_run_ray_bulk_load(
         name=job_tracker_name(job.job_id),
         num_cpus=rc.jobtracker_num_cpus,
         memory=rc.jobtracker_memory,
-        max_restarts=-1,
     ).remote(  # type: ignore[call-arg]
         job.job_id,
         table_ref,
@@ -10870,6 +11058,7 @@ def dispatch_run_ray_bulk_load(
         ).remote,
     )
     parent_carrier = telemetry.inject_context()
+    state = RayJobState(hist, job.job_id, table_ref)
     obj_ref = _submit_ray_job(
         hist,
         job.job_id,
@@ -10897,6 +11086,7 @@ def dispatch_run_ray_bulk_load(
             ),
             parent_carrier=parent_carrier,  # type: ignore[call-arg]
         ),
+        state=state,
     )
     telemetry.close_span(_dispatch_span)
 
@@ -10904,16 +11094,17 @@ def dispatch_run_ray_bulk_load(
 
     ctx = get_current_context()
     if isinstance(ctx, RayCluster):
-        ctx.register_tracked_job(job.job_id, obj_ref, job_tracker)
+        ctx.register_tracked_job(job.job_id, obj_ref, job_tracker, job_state=state)
 
     return RayJobFuture(
         job_id=job.job_id,
         ray_obj_ref=obj_ref,
+        job_state=state,
         job_tracker=job_tracker,  # type: ignore[arg-type]
     )
 
 
-@ray.remote
+@ray.remote(max_retries=0)
 def run_ray_bulk_load_remote(
     table_ref: TableReference,
     source_uri: str | list[str],
@@ -10944,6 +11135,8 @@ def run_ray_bulk_load_remote(
 
     telemetry.init()
     hist = None
+    heartbeat: DriverHeartbeatWriter | None = None
+    compaction_pause: CompactionPause | None = None
     job_span: Any = None
     job_token: Any = None
     job_exc: BaseException | None = None
@@ -10967,6 +11160,8 @@ def run_ray_bulk_load_remote(
         hist = tbl._conn._history
         if job_id:
             hist.set_running(job_id)
+            heartbeat = _start_driver_heartbeat(hist, job_id)
+            compaction_pause, _ = _pause_compaction(hist, table_ref, job_id, heartbeat)
 
         checkpoint_store = table_ref.open_checkpoint_store()
         telemetry.close_span(_setup_span)
@@ -10995,15 +11190,19 @@ def run_ray_bulk_load_remote(
             job_tracker=job_tracker,
         )
         if job_id:
+            _flush_job_tracker(job_tracker)
             hist.set_completed(job_id)
     except Exception as e:
         job_exc = e
         _LOG.exception("Error running bulk load column operation")
         if job_id and hist is not None:
+            _flush_job_tracker(job_tracker)
             with contextlib.suppress(Exception):
                 hist.set_failed(job_id, f"{type(e).__name__}: {e}")
         raise _picklable_remote_error(e) from None
     finally:
+        resume_after_job(compaction_pause)
+        _stop_driver_heartbeat(heartbeat)
         if job_tracker is not None:
             with contextlib.suppress(Exception):
                 job_tracker.mark_job_done.remote()

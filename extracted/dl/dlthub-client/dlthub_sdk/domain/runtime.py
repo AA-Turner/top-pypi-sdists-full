@@ -18,13 +18,14 @@ class Runtime(Namespace[M]):
     """Entry point to the platform.
 
     Build one with :func:`~dlthub_sdk.connect` or
-    :func:`~dlthub_sdk.connect_async`; ``M`` records which, so every object
+    :func:`~dlthub_sdk.connect_async`; `M` records which, so every object
     reached from it stays in the same mode.
 
-    Usable as a context manager, which closes it on the way out::
+    Usable as a context manager (`with dlthub_sdk.connect(...) as runtime:`), which
+    closes it on the way out.
 
-        with dlthub_sdk.connect(token="...") as runtime:
-            ...
+    A runtime from `connect_async` needs `async with`; plain `with` raises
+    `TypeError`.
     """
 
     @property
@@ -61,23 +62,23 @@ class Runtime(Namespace[M]):
     def me(self: Runtime[Async]) -> Awaitable[Caller[Async]]: ...
 
     def me(self) -> Caller[Any] | Awaitable[Caller[Any]]:
-        """Return the human this token belongs to.
+        """Return the person this token belongs to.
 
-        **Only a user token can call this.** The platform gates ``/me`` to
-        human principals, so an API key is refused however broad its grants.
-        Reading the API key's own identity is what :meth:`Organization.me` and
-        :meth:`Workspace.me` are for — both answer for any principal, and both
-        are scoped rather than account-wide.
+        Works with a user token or a user API key. A service-account API key or
+        a platform run's identity is refused; :meth:`Organization.me` and
+        :meth:`Workspace.me` answer for those too.
 
-        Calling it also settles the caller's default organization, so a first
-        call on a new account is not side-effect free.
+        Not side-effect free: it accepts the person's pending invitations, and
+        on their first call creates a personal organization and playground
+        workspace.
 
         Returns:
             The caller, with every organization they belong to; awaitable in
             async mode.
 
         Raises:
-            NotAuthorized: The token is not a user token.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             NotAuthenticated: The token is missing, malformed, or rejected.
         """
         return self._ctx.run(lambda t: t.get_me(), Caller._from_payload)
@@ -92,11 +93,11 @@ class Runtime(Namespace[M]):
         """Release the connections held for this client.
 
         Anything reached from it — a workspace, a job, a collection — shares
-        those connections, so close only when done with all of them. Calling
-        the platform through a closed client raises.
+        those connections, so close only when done with all of them. Calls
+        after close raise `RuntimeError`.
 
         Returns:
-            ``None``; awaitable in async mode.
+            `None`; awaitable in async mode.
         """
         return self._ctx.close()
 

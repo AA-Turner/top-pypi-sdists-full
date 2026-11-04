@@ -61,6 +61,10 @@ class RunProgress:
     failing_since: float | None = None
     #: Stall causes already reported to the server for this run (sent once each).
     reported: list[str] = field(default_factory=list)
+    #: I15d: the server holds the run's close until its queued data is stored: the pending points
+    #: it said, and when the worker last heard it (a waiting finish() counts that as moving).
+    server_pending_points: int | None = None
+    server_storing_at: float | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)

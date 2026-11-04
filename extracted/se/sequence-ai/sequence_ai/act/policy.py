@@ -527,7 +527,9 @@ class Policy(_Waits):
         caller sit through the remaining poll interval — a cold start is long enough that a stop
         issued inside one has to take effect inside it too.
 
-        `timeout_s` bounds the wait from its start. Unset, it lasts as long as the platform gives the start under way
+        `timeout_s` bounds the wait from its start. Unset, the policy's `startup_timeout_s` (connect()) bounds it, in
+        line or not, as it bounds an act's. With neither - or startup_timeout_s=0, which has an act raise at once
+        rather than wait, not this wait the robot asked for - it lasts as long as the platform gives the start under way
         - the deadline it says with each starting answer - and 1800 s while it says none; a line lasts until the
         platform's queue_timeout_s ends it.
         """
@@ -547,7 +549,10 @@ class Policy(_Waits):
         builds (`building`). Seated by its connect, its connection opens as on a ready answer.
         
 """
-        wait_for = _StartWait(timeout_s, "wait_until_ready timeout_s")
+
+
+        wait_for = (_StartWait(timeout_s, "wait_until_ready timeout_s") if timeout_s is not None
+                    else _StartWait(self._startup_timeout_s or None))
         started = wait_for.began
         missed = 0
         placed: float | None = None

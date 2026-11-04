@@ -137,17 +137,15 @@ async fn hydrated_store_update_with_mode(
         SpecDecodeStats::default(),
         next,
         data,
-        super::ProtobufHydrationContext {
-            hydrator: &hydrator,
-            source_url: "https://statsigcdn.openai.com/v2/download_config_specs/key.json",
-            sync_trigger: None,
-            mmap_project_id: super::MmapProjectId::for_sdk_key("parser-protocol-tests"),
-            capture_hydrated_data_store_bytes: false,
-            preserve_session_update_mode,
-        },
+        &hydrator,
+        super::StoreHydrationOptions::new(
+            "https://statsigcdn.openai.com/v2/download_config_specs/key.json",
+            super::MmapProjectId::for_sdk_key("parser-protocol-tests"),
+        )
+        .with_session_update_mode(preserve_session_update_mode),
     )
     .await
-    .map(|(update, _, _)| update)
+    .map(|result| result.update)
 }
 
 #[tokio::test]
@@ -199,7 +197,7 @@ async fn protobuf_parsers_tolerate_malformed_full_envelopes_but_reject_them_in_d
                 &SpecsFieldChecksums::default(),
                 &mut sync_next,
                 &mut compressed_response(envelopes.clone()),
-                false,
+                SpecsResponseParseOptions::default(),
             );
             let async_result = hydrated_store_update(
                 &current,
@@ -729,7 +727,7 @@ async fn checksum_only_delta_defers_copy_prev_for_the_store() {
         &SpecsFieldChecksums::from_specs(&current),
         &mut next,
         &mut data,
-        false,
+        SpecsResponseParseOptions::default(),
     )
     .unwrap();
 
@@ -845,7 +843,7 @@ fn store_decoder_rejects_stale_cached_field_checksums() {
         &cached,
         &mut next,
         &mut data,
-        false,
+        SpecsResponseParseOptions::default(),
     );
 
     assert!(matches!(result, Err(StatsigErr::ChecksumFailure(_))));
@@ -1027,6 +1025,24 @@ fn condition_from_pb_compiles_dispatch_tags() {
 
     assert_eq!(condition.compiled_condition_type, ConditionType::UserField);
     assert_eq!(condition.compiled_operator, ConditionOperator::Any);
+}
+
+#[test]
+fn condition_from_pb_compiles_cron_window() {
+    let condition = condition_from_pb(pb::Condition {
+        condition_type: pb::ConditionType::CurrentTime as i32,
+        operator: Some(pb::Operator::InCronWindow as i32),
+        target_value: Some(pb::AnyValue {
+            value: Some(pb::any_value::Value::StringValue(
+                "0 22 * * *|43200".to_string(),
+            )),
+        }),
+        ..pb::Condition::default()
+    })
+    .expect("cron window protobuf condition should parse");
+
+    assert_eq!(condition.compiled_operator, ConditionOperator::InCronWindow);
+    assert!(condition.compiled_cron_window.is_some());
 }
 
 #[test]

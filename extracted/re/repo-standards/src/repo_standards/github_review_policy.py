@@ -31,6 +31,8 @@ _RUN_COMPLETION_TIMEOUT_SECONDS: Final = 300
 _RUN_COMPLETION_POLL_SECONDS: Final = 5
 _MAX_STACK_DEPTH: Final = 10
 _COMMAND_TIMEOUT_SECONDS: Final = 120
+_API_TIMEOUT_SECONDS: Final = 30
+_TRANSIENT_READ_STATUSES: Final = frozenset({500, 502, 503, 504})
 _OBJECT_ID = re.compile(r"[0-9a-f]{40}\Z")
 _MERGE_GROUP_REF = re.compile(
     r"refs/heads/gh-readonly-queue/(?P<base_ref>.+)/"
@@ -160,16 +162,28 @@ class GitHubClient:
                 "X-GitHub-Api-Version": "2022-11-28",
             },
         )
-        try:
-            with urlopen(request, timeout=30) as response:  # pyright: ignore[reportAny] -- urllib types the opened response as Any
-                raw: bytes = response.read()  # pyright: ignore[reportAny] -- the HTTP response body is bytes
-        except HTTPError as error:
-            detail = error.read().decode(errors="replace")[:1000]
-            raise ReconciliationError(
-                f"GitHub API {method} {path} returned {error.code}: {detail}"
-            ) from error
-        except (TimeoutError, URLError) as error:
-            raise ReconciliationError(f"GitHub API {method} {path} failed: {error}") from error
+        deadline = time.monotonic() + _API_TIMEOUT_SECONDS
+        delays = iter((1, 2) if method == "GET" and payload is None else ())
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ReconciliationError(f"GitHub API {method} {path} exceeded its request budget")
+            try:
+                with urlopen(request, timeout=remaining) as response:  # pyright: ignore[reportAny] -- urllib types the opened response as Any
+                    raw: bytes = response.read()  # pyright: ignore[reportAny] -- the HTTP response body is bytes
+                break
+            except HTTPError as error:
+                with error:
+                    detail = error.read(1000).decode(errors="replace")
+                delay = next(delays, None) if error.code in _TRANSIENT_READ_STATUSES else None
+                if delay is not None and time.monotonic() + delay < deadline:
+                    time.sleep(delay)
+                    continue
+                raise ReconciliationError(
+                    f"GitHub API {method} {path} returned {error.code}: {detail}"
+                ) from error
+            except (TimeoutError, URLError) as error:
+                raise ReconciliationError(f"GitHub API {method} {path} failed: {error}") from error
         if not raw:
             return None
         try:
@@ -854,6 +868,8 @@ def render_comment(
         f"({size.get('excluded_lines', '?')} excluded)\n"
         f"{earlier_lines}"
         f"- Migration: **{'yes' if summary.get('touches_migration') else 'no'}**\n"
+        f"- Domain: **{'yes' if summary.get('touches_domain') else 'no'}**\n"
+        f"- Description: **{summary.get('body_characters', '?')}** characters\n"
         f"- Review-optional lane: **{lane}**\n"
         f"- Reasons: `{reason_text}`\n\n"
         f"Evaluated head `{_evaluated_head(receipt)}`.\n"
@@ -955,19 +971,14 @@ def review_policy_status_passed(
     client: GitHubClient,
     statuses: Sequence[object],
     *,
+    head_sha: str,
     workflow_path: str,
     clock: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> bool:
-    matching: list[Mapping[str, object]] = []
-    for raw in statuses:
-        status = _mapping(raw, "commit status")
-        # The statuses endpoint is scoped to the exact commit; its items omit "sha".
-        if status.get("context") == _STATUS_CONTEXT:
-            matching.append(status)
-    if not matching:
+    latest = _latest_review_policy_status(statuses)
+    if latest is None:
         return False
-    latest = max(matching, key=lambda item: _integer(item.get("id"), "commit status id"))
     creator = _mapping(latest.get("creator"), "commit status creator")
     if not (
         latest.get("state") == "success"
@@ -981,13 +992,31 @@ def review_policy_status_passed(
     )
     run = _completed_run(client, run_id, clock=clock, sleep=sleep)
     run_path = _string(run.get("path"), "review policy workflow path").split("@", 1)[0]
-    return (
+    if not (
         run_path == workflow_path
         and run.get("status") == "completed"
         and run.get("conclusion") == "success"
         and run.get("event")
         in {"pull_request_target", "workflow_run", "schedule", "workflow_dispatch"}
+    ):
+        return False
+    # Another reconciliation may supersede this receipt while its Actions run finishes.
+    refreshed = _latest_review_policy_status(
+        client.rest_pages(f"/repos/{client.repository}/commits/{head_sha}/statuses")
     )
+    return refreshed is not None and refreshed.get("id") == latest.get("id")
+
+
+def _latest_review_policy_status(statuses: Sequence[object]) -> Mapping[str, object] | None:
+    matching: list[Mapping[str, object]] = []
+    for raw in statuses:
+        status = _mapping(raw, "commit status")
+        # The statuses endpoint is scoped to the exact commit; its items omit "sha".
+        if status.get("context") == _STATUS_CONTEXT:
+            matching.append(status)
+    if not matching:
+        return None
+    return max(matching, key=lambda item: _integer(item.get("id"), "commit status id"))
 
 
 def _completed_run(
@@ -1098,7 +1127,9 @@ def queued_stack_block_reason(  # ruff: ignore[too-many-return-statements] - eac
         statuses = client.rest_pages(
             f"/repos/{client.repository}/commits/{parent.head_sha}/statuses"
         )
-        if not review_policy_status_passed(client, statuses, workflow_path=workflow_path):
+        if not review_policy_status_passed(
+            client, statuses, head_sha=parent.head_sha, workflow_path=workflow_path
+        ):
             return f"base pull request #{parent.number} has no passing review policy receipt"
         child, parent_sha = parent, entry.parent_sha
     return f"pull request stack is deeper than {_MAX_STACK_DEPTH}"
@@ -1165,6 +1196,7 @@ def reconcile_merge_group(
     passed = stack_block is None and review_policy_status_passed(
         client,
         statuses,
+        head_sha=snapshot.head_sha,
         workflow_path=workflow_path,
     )
     refreshed = pull_request_snapshot(client, snapshot.number)

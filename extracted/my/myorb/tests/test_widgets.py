@@ -2,7 +2,7 @@ import asyncio
 import base64
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs
 from zoneinfo import ZoneInfo
@@ -17,6 +17,7 @@ from myorb.cache import Cache
 from myorb.connections import google
 from myorb.plugins.calendar import CalendarPlugin, parse_event, today_and_upcoming
 from myorb.plugins.gmail import GmailPlugin
+from myorb.plugins.gmail.invite import ics_time, read_ics, when
 from myorb.timezone import resolve_timezone
 
 TZ = ZoneInfo("Europe/Bratislava")
@@ -1295,6 +1296,17 @@ def test_the_report_follows_an_ignored_event(client: TestClient, fake_google: Fa
     assert "LuciA madero</strong> ignored" in report
 
 
+def test_an_email_keeps_its_light_look_on_a_dark_system():
+    from myorb.plugins.gmail.message import frame_document
+
+    email = (
+        "<style>@media (prefers-color-scheme: dark) { p { color: #fff } }</style>"
+        '<picture><source srcset="dark.png" media="(prefers-color-scheme:DARK)"></picture><p>Hi</p>'
+    )
+    document = frame_document(email, images=False)
+    assert "dark)" not in document.lower() and document.count("prefers-color-scheme: never") == 2
+
+
 def test_unsubscribe_and_images_in_the_email_header(client: TestClient, fake_google: FakeGoogle):
     from myorb.plugins.gmail.message import unsubscribe_link
 
@@ -1313,7 +1325,161 @@ def test_unsubscribe_and_images_in_the_email_header(client: TestClient, fake_goo
     page = client.get("/email/1/t1").text
     head = page.split('<div class="email-top">')[1].split("</div>\n</div>")[0]
     # The email blocks its images: the button is in the header too; it has no unsubscribe link.
-    assert "Show images" in head and "email-actions-end" in head
+    assert "Show images" in head
     assert "Unsubscribe" not in head
     # On a phone the rest of the actions are behind ⋮.
     assert '<details class="email-more">' in head and 'aria-label="More actions"' in head
+
+
+# An invitation in an email, answered from it
+
+# As Outlook sends it: in an invite.ics, the time in Windows' own name of the zone.
+ICS = """BEGIN:VCALENDAR\r
+METHOD:REQUEST\r
+BEGIN:VTIMEZONE\r
+TZID:Central Europe Standard Time\r
+END:VTIMEZONE\r
+BEGIN:VEVENT\r
+UID:040000008200E00074C5B7101A82E008@outlook\r
+SUMMARY;LANGUAGE=en-US:PO & UX sync\\, weekly\r
+DTSTART;TZID=Central Europe Standard Time:20991105T150000\r
+DTEND;TZID=Central Europe Standard Time:20991105T160000\r
+ORGANIZER;CN=Samuel:mailto:samuel@transportly.example\r
+END:VEVENT\r
+END:VCALENDAR\r
+"""
+EVENT = {
+    "id": "ev1",
+    "iCalUID": "040000008200E00074C5B7101A82E008@outlook",
+    "summary": "PO & UX sync",
+    "start": {"dateTime": "2099-11-05T14:00:00Z"},
+    "end": {"dateTime": "2099-11-05T15:00:00Z"},
+    "htmlLink": "https://calendar.google.com/event?eid=ev1",
+    "organizer": {"email": "samuel@transportly.example"},
+    "attendees": [
+        {"email": "samuel@transportly.example", "organizer": True, "responseStatus": "accepted"},
+        {"email": "tony@stark.example", "self": True, "responseStatus": "needsAction"},
+        {"email": "pepper@stark.example", "responseStatus": "accepted"},
+    ],
+}
+
+
+def invited(fake: FakeGoogle, answers: list[dict]) -> None:
+    """A conversation t2 with an invitation in invite.ics, and the event in the calendar."""
+    event = json.loads(json.dumps(EVENT))
+
+    def gmail(request: httpx2.Request) -> httpx2.Response:
+        path = request.url.path.removeprefix("/gmail/v1/users/me")
+        if path == "/threads/t2":
+            payload = {
+                "headers": [
+                    {"name": "From", "value": "samuel@transportly.example"},
+                    {"name": "Subject", "value": "PO & UX sync"},
+                ],
+                "parts": [
+                    {"mimeType": "text/html", "body": {"data": b64("<p>Join us.</p>")}},
+                    {
+                        "mimeType": "application/ics",
+                        "filename": "invite.ics",
+                        "body": {"attachmentId": "ics1", "size": 900},
+                    },
+                ],
+            }
+            message = {"id": "m2", "threadId": "t2", "labelIds": ["UNREAD"], "payload": payload}
+            return httpx2.Response(200, json={"id": "t2", "messages": [message]})
+        if path == "/messages/m2/attachments/ics1":
+            return httpx2.Response(200, json={"data": b64(ICS)})
+        return gmail_api(request)
+
+    def calendar(request: httpx2.Request) -> httpx2.Response:
+        path = request.url.path.removeprefix("/calendar/v3")
+        if path == "/calendars/primary/events":
+            if "iCalUID" in query(request):
+                return httpx2.Response(200, json={"items": [event]})
+            # What else is in the calendar at that time: a birthday clashes; a free block, a
+            # declined meeting and the invitation itself do not.
+            others = [
+                event,
+                {**EVENT, "id": "b1", "summary": "Martina's birthday", "attendees": []},
+                {**EVENT, "id": "f1", "summary": "Focus", "transparency": "transparent"},
+                {
+                    **EVENT,
+                    "id": "d1",
+                    "summary": "Declined",
+                    "attendees": [{"self": True, "responseStatus": "declined"}],
+                },
+            ]
+            return httpx2.Response(200, json={"items": others})
+        if path == "/calendars/primary/events/ev1":
+            if request.method == "PATCH":
+                assert query(request)["sendUpdates"] == ["all"]
+                answers.append(json.loads(request.content))
+                event["attendees"] = answers[-1]["attendees"]
+            return httpx2.Response(200, json=event)
+        return calendar_api(request)
+
+    fake.routes[GMAIL] = gmail
+    fake.routes[CALENDAR] = calendar
+
+
+def test_an_invitation_is_answered_from_the_email(client: TestClient, fake_google: FakeGoogle):
+    answers: list[dict] = []
+    invited(fake_google, answers)
+    connect_google(client, fake_google)
+
+    page = client.get("/email/1/t2").text
+    card = page.split('aria-label="Invitation"')[1].split("</section>")[0]
+    # As it is in the calendar: its time there, who organizes it, who else comes.
+    assert "Thu 5 Nov · 14:00–15:00" in card and "PO &amp; UX sync" in card
+    assert "samuel@transportly.example" in card and "pepper@stark.example" in card
+    assert "At the same time in your calendar: Martina&#39;s birthday</p>" in card
+    assert 'value="accepted"' in card and 'aria-pressed="true"' not in card
+    assert 'href="https://calendar.google.com/event?eid=ev1"' in card
+
+    response = client.post(
+        "/email/1/t2/invitation", data={"event_id": "ev1", "response": "tentative"}
+    )
+    # Answered for the user only; Google tells the organizer.
+    assert [a["responseStatus"] for a in answers[0]["attendees"]] == [
+        "accepted",
+        "tentative",
+        "accepted",
+    ]
+    card = response.text.split('aria-label="Invitation"')[1].split("</section>")[0]
+    pressed = card.split('aria-pressed="true"')[0].rsplit("<button", 1)[1]
+    assert 'value="tentative"' in pressed
+    assert (
+        client.post("/email/1/t2/invitation", data={"event_id": "ev1", "response": "x"})
+    ).status_code == 400
+
+
+def test_an_invitation_asks_for_the_permission_to_answer(
+    client: TestClient, fake_google: FakeGoogle
+):
+    invited(fake_google, [])
+    fake_google.granted_scopes = " ".join(
+        s for s in fake_google.granted_scopes.split() if not s.endswith("calendar.events")
+    )
+    connect_google(client, fake_google)
+    card = client.get("/email/1/t2").text.split('aria-label="Invitation"')[1]
+    assert "PO &amp; UX sync" in card.split("</section>")[0]
+    assert 'value="accepted"' not in card and "allow changing the calendar" in card
+    response = client.post(
+        "/email/1/t2/invitation", data={"event_id": "ev1", "response": "accepted"}
+    )
+    assert response.status_code == 403
+
+
+def test_an_invitation_without_its_event_shows_what_the_email_says():
+    fields = read_ics(ICS)
+    assert fields["METHOD"] == "REQUEST" and fields["SUMMARY"] == "PO & UX sync\\, weekly"
+    # Windows' names of zones are not known: no time rather than a wrong one.
+    assert ics_time(fields["DTSTART"], fields["DTSTART;"], ZoneInfo("UTC")) is None
+    assert ics_time("20991105T140000Z", "", ZoneInfo("Europe/Bratislava")) == datetime(
+        2099, 11, 5, 15, 0, tzinfo=ZoneInfo("Europe/Bratislava")
+    )
+    assert ics_time("20991105T140000", "TZID=Europe/Prague", ZoneInfo("UTC")).hour == 13
+    assert when(date(2099, 11, 5), date(2099, 11, 8), True) == "Thu 5 – Sat 7 Nov"
+    assert when(date(2099, 11, 5), date(2099, 11, 6), True) == "Thu 5 Nov"
+    # An answer to the user's own invitation is no invitation.
+    assert read_ics(ICS.replace("METHOD:REQUEST", "METHOD:REPLY"))["METHOD"] == "REPLY"

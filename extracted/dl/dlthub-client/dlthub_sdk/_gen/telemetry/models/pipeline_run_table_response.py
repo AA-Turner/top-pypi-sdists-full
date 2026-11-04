@@ -17,16 +17,22 @@ T = TypeVar("T", bound="PipelineRunTableResponse")
 class PipelineRunTableResponse:
     """
     Attributes:
-        table_name (str):
-        bytes_extracted (int | None | Unset):
-        bytes_loaded (int | None | Unset):
-        file_format (None | str | Unset):
-        load_duration_ms (int | None | Unset):
-        load_job_state (LoadJobMetricState | None | str | Unset):
-        rows_extracted (int | None | Unset):
-        rows_loaded (int | None | Unset):
-        schema_name (str | Unset):  Default: ''.
-        write_disposition (None | str | Unset | WriteDisposition):
+        table_name (str): Name of the table.
+        bytes_extracted (int | None | Unset): Size of the intermediate files the extract step wrote for this table;
+            `null` when not extracted.
+        bytes_loaded (int | None | Unset): Bytes that dlt prepared for loading for this table (size of the normalized
+            files). dlt does not report per-row load counts, so this is set even when loading failed.
+        file_format (None | str | Unset): Format of the file dlt loaded, for example `parquet`.
+        load_duration_ms (int | None | Unset): Duration of the table's load job in milliseconds; `null` when the table
+            was not loaded.
+        load_job_state (LoadJobMetricState | None | str | Unset): `completed` or `failed`; `null` when the table was not
+            loaded.
+        rows_extracted (int | None | Unset): Rows the extract step wrote for this table; `null` when not extracted.
+        rows_loaded (int | None | Unset): Rows that dlt prepared for loading for this table (normalized rows). dlt does
+            not report per-row load counts, so this is set even when loading failed.
+        schema_name (str | Unset): dlt schema of the table's load package; empty when not reported. Default: ''.
+        write_disposition (None | str | Unset | WriteDisposition): From the resource hints; `null` when the extract step
+            reported none.
     """
 
     table_name: str

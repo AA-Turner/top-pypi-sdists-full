@@ -49,7 +49,7 @@ from plato.cli.chronos.config import Config
 from plato.cli.chronos.dev.ecr import ensure_image_exists
 from plato.cli.chronos.dev.profiling import StartupProfiler
 from plato.cli.chronos.dev.ssh import SSHKeyPair, build_ssh_command
-from plato.cli.chronos.dev.sync import SyncManager
+from plato.cli.chronos.dev.sync import SyncManager, sync_fuse_binary_override
 from plato.cli.chronos.env import resolve_config_env_vars
 from plato.cli.chronos.provision import build_sync_targets, build_world_process_env, provision_vm
 from plato.cli.chronos.registry import parse_package_string
@@ -525,7 +525,7 @@ class DevRunner:
         """Create a session in Chronos for OTel traces."""
         import httpx
 
-        world_config = self.config.world.config or {}
+        world_config = self.config.world.to_session_payload()
         tags = list({*self.config.tags, "dev"})
         body = CreateSessionRequest(
             world_name=self.config.world.package or "",
@@ -606,31 +606,13 @@ class DevRunner:
             await self.world_env.execute(ENSURE_FUSE3_COMMAND, timeout=60)
 
         # Sync local plato-fuse binary to VM if PLATO_FUSE_BINARY is set.
-        fuse_binary = os.environ.get("PLATO_FUSE_BINARY")
-        if fuse_binary and Path(fuse_binary).is_file():
-            if not self.sync_manager:
-                raise RuntimeError("sync_manager must be initialized")
-            sync_manager = self.sync_manager
-            with self._startup_profiler.time("setup.env.packages.sync_fuse_binary"):
-                console.print(f"  [dim]Syncing local plato-fuse binary: {fuse_binary}[/dim]")
-                from plato.cli.chronos.dev.ssh import build_ssh_command_string
-
-                ssh_cmd = build_ssh_command_string(self.world_env.job_id, sync_manager.ssh_key_path)
-                proc = await asyncio.create_subprocess_exec(
-                    "rsync",
-                    "-az",
-                    "-e",
-                    ssh_cmd,
-                    fuse_binary,
-                    f"root@{self.world_env.job_id}.plato:/usr/local/bin/plato-fuse",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                _, stderr = await proc.communicate()
-                if proc.returncode != 0:
-                    raise RuntimeError(f"Failed to sync plato-fuse binary: {stderr.decode().strip()}")
-                await self.world_env.execute("chmod +x /usr/local/bin/plato-fuse", timeout=10)
-                console.print("  [dim]plato-fuse binary synced to VM[/dim]")
+        if not self.sync_manager:
+            raise RuntimeError("sync_manager must be initialized")
+        with self._startup_profiler.time("setup.env.packages.sync_fuse_binary"):
+            fuse_binary = await sync_fuse_binary_override(self.world_env.job_id, self.sync_manager.ssh_key_path)
+        if fuse_binary:
+            await self.world_env.execute("chmod +x /usr/local/bin/plato-fuse", timeout=10)
+            console.print(f"  [dim]plato-fuse binary synced to VM: {fuse_binary}[/dim]")
 
         # Uninstall existing world package from Docker image
         if self.config.dev.world:
@@ -1017,11 +999,11 @@ class DevRunner:
                         update={"world": self.config.world.model_copy(update={"config": world_config})}
                     )
                     self._force_fresh_next_run = False
-                # Resolve ${VAR} placeholders the local env couldn't fill from
-                # the Chronos analyzer-env (org + user scope) — the same
-                # backend resolution `chronos test` and `launch` use. Local
-                # values (Config.from_file expands from the shell/.env) win;
-                # the backend fills the rest.
+                # Resolve ${VAR} placeholders the local env couldn't fill by
+                # asking Chronos for each referenced secret by name, which
+                # resolves it the way a launch does (org-wide, overlaid by
+                # the caller's own). Local values (Config.from_file expands
+                # from the shell/.env) win; Chronos fills the rest.
                 if self.config.world.config:
                     await resolve_config_env_vars(self.config.world.config, self.api_key)
                 # Copy previously resolved agent images
@@ -1110,7 +1092,6 @@ class DevRunner:
                     break
 
                 if choice == "r":
-                    await self._clear_state()
                     await self._clear_workspace_data()
                     self._force_fresh_next_run = True
 
@@ -1233,7 +1214,13 @@ class DevRunner:
             stdout = self._world_process.stdout
             if stdout:
                 while True:
-                    line = await stdout.readline()
+                    try:
+                        line = await stdout.readline()
+                    except ValueError:
+                        # oversized line: drain buffered bytes, keep streaming
+                        line = await stdout.read(2**16)
+                        if not line:
+                            break
                     if not line:
                         break
                     sys.stdout.write(line.decode(errors="replace"))
@@ -1332,27 +1319,18 @@ class DevRunner:
             while True:
                 ready, _, _ = select.select([sys.stdin], [], [], 0.1)
                 if ready:
-                    return sys.stdin.readline()
+                    line = sys.stdin.readline()
+                    if line == "":
+                        # EOF (stdin redirected/closed — e.g. a backgrounded
+                        # run). readline returns "" instantly and forever
+                        # here; treating it as "Enter" put the restart prompt
+                        # into an infinite resume loop that respawned a fresh
+                        # orchestrator VM every ~50s. Callers handle EOFError
+                        # as "exit".
+                        raise EOFError
+                    return line
 
         return await loop.run_in_executor(None, _read)
-
-    async def _clear_state(self) -> None:
-        """Clear world state in Chronos DB so next run starts fresh."""
-        import httpx
-
-        session_id = self.config.session.session_id
-        if not session_id:
-            return
-        try:
-            base_url = settings.chronos_url.rstrip("/")
-            async with httpx.AsyncClient(timeout=10) as client:
-                await client.put(
-                    f"{base_url}/api/sessions/{session_id}/state",
-                    json={},
-                    headers={"X-API-Key": self.api_key},
-                )
-        except Exception as e:
-            _warn(f"Could not clear state: {e}")
 
     async def _clear_workspace_data(self) -> None:
         """Delete workspace data dirs on the world VM so next run starts clean."""

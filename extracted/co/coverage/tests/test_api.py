@@ -1143,6 +1143,16 @@ class SourceIncludeOmitTest(IncludeOmitTestsMixin, CoverageTest):
         ):
             self.coverage_usepkgs_counts(source_dirs=["i-do-not-exist"])
 
+    @pytest.mark.parametrize("src", ["/", "/.."])
+    def test_source_dir_is_file_system_root(self, src: str) -> None:
+        cov = coverage.Coverage(source=[src])
+        with pytest.raises(
+            ConfigError,
+            match=re.escape(f"Source dir can't be a file system root: {src!r}"),
+        ):
+            with cov.collect():
+                pass
+
 
 class ReportIncludeOmitTest(IncludeOmitTestsMixin, CoverageTest):
     """Tests of the report include/omit functionality."""

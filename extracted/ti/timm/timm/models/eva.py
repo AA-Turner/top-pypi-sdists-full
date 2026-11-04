@@ -1,15 +1,25 @@
 """ EVA
 
-EVA ViT from https://github.com/baaivision/EVA , paper: https://arxiv.org/abs/2211.07636
+EVA ViT from https://github.com/baaivision/EVA
 
 This file contains a number of ViT variants the utilise ROPE position embeddings, SwiGLU and other additions:
  * EVA & EVA02 model implementations that evolved from BEiT, additional models in vision_transformer.py.
  * `timm` original SBB ViT w/ ROPE position embeddings
- * Perception Encoder (PE) ViT from Meta (https://arxiv.org/abs/2504.13181)
- * ROPE-ViT from Naver AI (https://arxiv.org/abs/2403.13298)
- * DINOv3 from META AI Research (https://arxiv.org/abs/2508.10104)
- * LingBot-Vision from Robbyant (https://arxiv.org/abs/2607.05247)
- * Sapiens2 human-centric ViT from Meta (https://arxiv.org/abs/2604.21681)
+ * Perception Encoder (PE) ViT from Meta
+ * ROPE-ViT from Naver AI
+ * DINOv3 from META AI Research
+ * LingBot-Vision from Robbyant
+ * Sapiens2 human-centric ViT from Meta
+
+Papers:
+ * `EVA: Exploring the Limits of Masked Visual Representation Learning at Scale` - https://arxiv.org/abs/2211.07636
+ * `EVA-02: A Visual Representation for Neon Genesis` - https://arxiv.org/abs/2303.11331
+ * `EVA-CLIP: Improved Training Techniques for CLIP at Scale` - https://arxiv.org/abs/2303.15389
+ * `Perception Encoder: The best visual embeddings are not at the output of the network` - https://arxiv.org/abs/2504.13181
+ * `Rotary Position Embedding for Vision Transformer` - https://arxiv.org/abs/2403.13298
+ * `DINOv3` - https://arxiv.org/abs/2508.10104
+ * `Vision Pretraining for Dense Spatial Perception` - https://arxiv.org/abs/2607.05247 (LingBot-Vision)
+ * `Sapiens2` - https://arxiv.org/abs/2604.21681
 
 @article{EVA,
   title={EVA: Exploring the Limits of Masked Visual Representation Learning at Scale},
@@ -19,7 +29,6 @@ This file contains a number of ViT variants the utilise ROPE position embeddings
   year={2022}
 }
 
-EVA-02: A Visual Representation for Neon Genesis - https://arxiv.org/abs/2303.11331
 @article{EVA02,
   title={EVA-02: A Visual Representation for Neon Genesis},
   author={Fang, Yuxin and Sun, Quan and Wang, Xinggang and Huang, Tiejun and Wang, Xinlong and Cao, Yue},
@@ -117,6 +126,7 @@ from timm.layers import (
     AttentionRope,
     AttentionPoolLatent,
 )
+from ._input import get_pretrained_grid_size, update_model_args, update_model_input_size
 from ._builder import build_model_with_cfg
 from ._features import feature_take_indices
 from ._manipulate import checkpoint
@@ -616,6 +626,7 @@ class Eva(nn.Module):
             rope_shift_coords: Optional[float] = None,
             rope_jitter_coords: Optional[float] = None,
             rope_rescale_coords: Optional[float] = None,
+            rope_mrope_section: Optional[Tuple[int, int, int]] = None,
             use_post_norm: bool = False,
             use_pre_transformer_norm: bool = False,
             use_post_transformer_norm: Optional[bool] = None,
@@ -664,14 +675,16 @@ class Eva(nn.Module):
             no_embed_class: Don't include position embeddings for class (or reg) tokens
             use_abs_pos_emb: Use absolute (learned) positional embeddings
             use_rot_pos_emb: Use rotary position embeddings
-            rope_type: Type of RoPE to use ('cat', 'mixed', 'dinov3', etc.).
+            rope_type: Type of RoPE to use ('cat', 'mixed', 'dinov3', or 'mrope').
             rope_grid_offset: Offset for rotary position embedding grid
             rope_grid_indexing: Indexing mode for rotary position embeddings ('ij' or 'xy')
             rope_temperature: Temperature parameter for ROPE frequency computation
-            rope_rotate_half: Use half rotation layout (rotate D/2 dims), else use interleaved rotation layout
-            rope_shift_coords: Train-time RoPE coordinate shift augmentation, uniform in [-s, s] (rope_type='dinov3')
-            rope_jitter_coords: Train-time RoPE per-axis log-uniform scale augmentation in [1/J, J] (rope_type='dinov3')
-            rope_rescale_coords: Train-time RoPE shared log-uniform scale augmentation in [1/R, R] (rope_type='dinov3')
+            rope_rotate_half: Use half rotation for both embeddings and attention, else interleaved rotation.
+                Mixed RoPE requires False; MRoPE always uses half rotation.
+            rope_shift_coords: Train-time RoPE coordinate shift, uniform in [-s, s], in the rope grid's units.
+            rope_jitter_coords: Train-time RoPE per-axis log-uniform scale augmentation in [1/J, J].
+            rope_rescale_coords: Train-time RoPE shared log-uniform scale augmentation in [1/R, R].
+            rope_mrope_section: Temporal, height, and width frequency sections for MRoPE. None uses (8, 12, 12).
             use_post_norm: Use post-norm transformer block type
             use_pre_transformer_norm: Use normalization layer before transformer blocks
             use_post_transformer_norm: Use normalization layer after transformer blocks
@@ -685,7 +698,9 @@ class Eva(nn.Module):
         """
         super().__init__()
         dd = {'device': device, 'dtype': dtype}
-        assert global_pool in ('', 'avg', 'avgmax', 'max', 'token', 'map')
+        assert global_pool in ('', 'avg', 'avgmax', 'max', 'token', 'map'), \
+            'Only avg, avgmax, max, token or map pooling (or none) is supported.'
+        assert class_token or global_pool != 'token', 'Token pooling needs the class token.'
         self.num_classes = num_classes
         self.in_chans = in_chans
         self.global_pool = global_pool
@@ -746,6 +761,10 @@ class Eva(nn.Module):
                 feat_shape=None if dynamic_img_size else self.patch_embed.grid_size,
                 temperature=rope_temperature,
                 grid_indexing=rope_grid_indexing,
+                rotate_half=rope_rotate_half or rope_type == 'mrope',
+                shift_coords=rope_shift_coords,
+                jitter_coords=rope_jitter_coords,
+                rescale_coords=rope_rescale_coords,
                 **dd,
             )
             if rope_type == 'mixed':
@@ -760,10 +779,9 @@ class Eva(nn.Module):
             elif rope_type == 'dinov3':
                 rope_kwargs.update(dict(
                     grid_offset=rope_grid_offset,
-                    shift_coords=rope_shift_coords,
-                    jitter_coords=rope_jitter_coords,
-                    rescale_coords=rope_rescale_coords,
                 ))
+            elif rope_type == 'mrope' and rope_mrope_section is not None:
+                rope_kwargs.update(dict(mrope_section=rope_mrope_section))
 
             self.rope = create_rope_embed(rope_type=rope_type, **rope_kwargs)
         else:
@@ -800,7 +818,7 @@ class Eva(nn.Module):
                 scale_mlp=scale_mlp,
                 scale_attn_inner=scale_attn_inner,
                 attn_type=attn_type,
-                rotate_half=rope_rotate_half,
+                rotate_half=rope_rotate_half or rope_type == 'mrope',
                 num_prefix_tokens=self.num_prefix_tokens,
                 proj_drop=proj_drop_rate,
                 attn_drop=attn_drop_rate,
@@ -891,7 +909,7 @@ class Eva(nn.Module):
     def group_matcher(self, coarse: bool = False) -> Dict[str, Any]:
         """Create layer groupings for optimization."""
         matcher = dict(
-            stem=r'^cls_token|reg_token|pos_embed|patch_embed',  # stem and embed
+            stem=r'^cls_token|reg_token|pos_embed|patch_embed|norm_pre',  # stem and embed
             blocks=[(r'^blocks\.(\d+)', None), (r'^norm', (99999,))],
         )
         return matcher
@@ -910,7 +928,16 @@ class Eva(nn.Module):
         dd = get_device_dtype(self)
         self.num_classes = num_classes
         if global_pool is not None:
+            assert global_pool in ('', 'avg', 'avgmax', 'max', 'token', 'map'), \
+                'Only avg, avgmax, max, token or map pooling (or none) is supported.'
+            assert global_pool != 'token' or self.cls_token is not None, 'Token pooling needs the class token.'
+            if global_pool == 'map':
+                assert self.attn_pool is not None, 'Cannot currently add attention pooling in reset_classifier().'
+            else:
+                self.attn_pool = None
             self.global_pool = global_pool
+            # norm placement defaults from global_pool at construction, keep the current one for reconstruction
+            update_model_args(self, use_fc_norm=not isinstance(self.fc_norm, nn.Identity))
         self.head = nn.Linear(self.embed_dim, num_classes, **dd) if num_classes > 0 else nn.Identity()
         self.head.train(self.training)
 
@@ -931,17 +958,20 @@ class Eva(nn.Module):
         if self.pos_embed is not None:
             num_prefix_tokens = 0 if self.no_embed_class else self.num_prefix_tokens
             num_new_tokens = self.patch_embed.num_patches + num_prefix_tokens
-            if num_new_tokens != self.pos_embed.shape[1]:
+            if num_new_tokens != self.pos_embed.shape[1] or self.patch_embed.grid_size != prev_grid_size:
                 self.pos_embed = nn.Parameter(resample_abs_pos_embed(
                     self.pos_embed,
                     new_size=self.patch_embed.grid_size,
                     old_size=prev_grid_size,
                     num_prefix_tokens=num_prefix_tokens,
                     verbose=True,
-                ))
+                ), requires_grad=self.pos_embed.requires_grad)
 
         if self.rope is not None:
-            self.rope.update_feat_shape(self.patch_embed.grid_size)
+            if hasattr(self.rope, 'update_feat_shape'):
+                self.rope.update_feat_shape(self.patch_embed.grid_size)
+
+        update_model_input_size(self, self.patch_embed.img_size, patch_size=patch_size)
 
     def _pos_embed(self, x) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         if self.dynamic_img_size:
@@ -960,7 +990,14 @@ class Eva(nn.Module):
             rot_pos_embed = self.rope.get_embed(shape=(H, W)) if self.rope is not None else None
         else:
             pos_embed = self.pos_embed
-            rot_pos_embed = self.rope.get_embed() if self.rope is not None else None
+            if self.rope is not None:
+                if hasattr(self.rope, 'feat_shape'):
+                    rot_pos_embed = self.rope.get_embed()
+                else:
+                    # RoPE modules without a feat_shape (e.g. MRoPE) need an explicit grid shape.
+                    rot_pos_embed = self.rope.get_embed(shape=self.patch_embed.grid_size)
+            else:
+                rot_pos_embed = None
 
         to_cat = []
         if self.cls_token is not None:
@@ -1364,17 +1401,25 @@ def checkpoint_filter_fn(
                     antialias=antialias,
                     verbose=True,
                 )
-        elif k == 'pos_embed' and v.shape[1] != model.pos_embed.shape[1]:
-            # To resize pos embedding when using model at different size from pretrained weights
+        elif k == 'pos_embed' and model.pos_embed is not None:
             num_prefix_tokens = 0 if getattr(model, 'no_embed_class', False) else getattr(model, 'num_prefix_tokens', 1)
-            v = resample_abs_pos_embed(
-                v,
-                new_size=model.patch_embed.grid_size,
-                num_prefix_tokens=num_prefix_tokens,
-                interpolation=interpolation,
-                antialias=antialias,
-                verbose=True,
+            old_size = get_pretrained_grid_size(
+                model,
+                state_dict.get(prefix + 'patch_embed.proj.weight'),
+                v.shape[1] - num_prefix_tokens,
             )
+            if v.shape[1] != model.pos_embed.shape[1] or (
+                old_size is not None and old_size != model.patch_embed.grid_size
+            ):
+                v = resample_abs_pos_embed(
+                    v,
+                    new_size=model.patch_embed.grid_size,
+                    old_size=old_size,
+                    num_prefix_tokens=num_prefix_tokens,
+                    interpolation=interpolation,
+                    antialias=antialias,
+                    verbose=True,
+                )
 
         k = k.replace('mlp.ffn_ln', 'mlp.norm')
         k = k.replace('attn.inner_attn_ln', 'attn.norm')

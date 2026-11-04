@@ -87,7 +87,7 @@ def sync_detailed(
 
     Gets a deployment for a workspace by its ID. Find one by version number with `list_deployments`.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -122,7 +122,7 @@ def sync(
 
     Gets a deployment for a workspace by its ID. Find one by version number with `list_deployments`.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -152,7 +152,7 @@ async def asyncio_detailed(
 
     Gets a deployment for a workspace by its ID. Find one by version number with `list_deployments`.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -185,7 +185,7 @@ async def asyncio(
 
     Gets a deployment for a workspace by its ID. Find one by version number with `list_deployments`.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

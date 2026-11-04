@@ -116,7 +116,7 @@ jobs:
           persist-credentials: false
 
       - name: "Set up Python"
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "${{ matrix.python-version }}"
           allow-prereleases: true
@@ -178,7 +178,7 @@ jobs:
           fetch-depth: 200
 
       - name: "Set up Python"
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11" # Minimum of PYVERSIONS
           cache: pip
@@ -278,6 +278,9 @@ jobs:
               --format markdown:report.md \
               || status=$?
           cat report.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${status}" ]; then
+              echo '::error::Changed lines are not fully covered! Add tests, or label the PR "missing-coverage-ok" then close and re-open it.'
+          fi
           exit "${status:-0}"
 
   publish:

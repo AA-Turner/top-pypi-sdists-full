@@ -486,8 +486,11 @@ class SumoTrafficBackend(TrafficBackend):
         self._walking: dict[str, tuple[float, float, float, float]] = {}
         #: SUMO ids of the background vehicles spawn_background added.
         self._background: set[str] = set()
-        #: Lane id -> the vehicle classes it allowed before close_lane().
-        self._closed_lanes: dict[str, list[str]] = {}
+        #: Lane id -> the vehicle classes it allowed before its first
+        #: close_lane(), and how many close_lane() calls are not yet matched
+        #: by a reopen_lane(): two zones on one lane share the closure, and
+        #: the lane opens only once both are cleared (#1294).
+        self._closed_lanes: dict[str, tuple[list[str], int]] = {}
         self._background_count = 0
         #: SUMO id -> the CARLA blueprint asked for its mirror.
         self._blueprints: dict[str, str] = {}
@@ -517,6 +520,11 @@ class SumoTrafficBackend(TrafficBackend):
         self._crossing_links: dict[str, list[tuple[int, list[int]]]] = {}
         self._ego_actor: Any = None
         self._running = False
+        #: SUMO was started and its connection is still open.  Unlike
+        #: ``_running``, it stays set when the steps are given up on, so that
+        #: ``close`` still closes the connection (#1216).  Not ``_started``,
+        #: which says start() has put the run's vehicles into SUMO.
+        self._connected = False
         self._failures = 0
         #: With fcd_output: SUMO time, CARLA simulation time and frame per tick.
         self._clock_log: Any = None
@@ -925,6 +933,7 @@ class SumoTrafficBackend(TrafficBackend):
             self._traci.start(cmd)
         except Exception as exc:
             raise TrafficBackendError(f"SUMO did not start: {exc}") from exc
+        self._connected = True
         self._running = True
         logger.info("SUMO started on %s", self._network.net_file)
         if self._tm_drives_scenario:
@@ -1211,7 +1220,9 @@ class SumoTrafficBackend(TrafficBackend):
         if self._clock_log is not None:
             self._clock_log.close()
             self._clock_log = None
-        if self._running and self._traci is not None:
+        # Also after tick gave up stepping it: an open connection would leave
+        # SUMO orphaned and the next start refused ("already active").
+        if self._connected and self._traci is not None:
             try:
                 if self._traci.__name__ == "libsumo":
                     self._traci.close()
@@ -1221,6 +1232,7 @@ class SumoTrafficBackend(TrafficBackend):
                     self._traci.close(False)
             except Exception as exc:  # noqa: BLE001 - teardown must go on
                 logger.debug("SUMO close: %s", exc)
+        self._connected = False
         self._running = False
         if self._meso is not None and self._level_changes != [0, 0]:
             logger.info(
@@ -2081,6 +2093,27 @@ class SumoTrafficBackend(TrafficBackend):
             self._draw_vehicle(sumo_id, overrides)
         logger.info("SUMO: ambient %s resumed; SUMO drives it again", sumo_id)
 
+    def remove_walker(self, world: Any, actor: Any) -> bool:
+        """Let go of a SUMO pedestrian's mirror the caller is destroying (a
+        fallen one): its person leaves SUMO too, so the person sync does not
+        follow a destroyed walker nor mirror the person again, standing."""
+        del world
+        person = self._mirrored_id(actor)
+        if person is None or person not in self._persons:
+            return False
+        if int(self._persons[person].id) != int(actor.id):
+            return False
+        del self._persons[person]
+        self._physics.pop(actor.id, None)
+        self._constant_speed.pop(actor.id, None)
+        self._box_offsets.pop(actor.id, None)
+        try:
+            self._traci.person.remove(person)
+        except Exception as exc:  # noqa: BLE001 - gone from SUMO already
+            logger.debug("SUMO could not remove person %s: %s", person, exc)
+        logger.info("SUMO: pedestrian %s removed with its mirror", person)
+        return True
+
     @staticmethod
     def _mirrored_id(actor: Any) -> Optional[str]:
         """The SUMO id a mirror's role name names, if it is one."""
@@ -2339,7 +2372,11 @@ class SumoTrafficBackend(TrafficBackend):
     def close_lane(self, world: Any, transform: Any) -> Optional[str]:
         """Disallow every vehicle class on the SUMO lane at *transform*, as
         TeraSim's full-lane construction zone does (``setDisallowed``); the
-        lane's id, or None off the network."""
+        lane's id, or None off the network.
+
+        Each call needs its own :meth:`reopen_lane`: a lane closed already
+        returns the same id and counts one more closure, and stays closed
+        until every one is reopened."""
         del world
         if not self._running:
             return None
@@ -2361,7 +2398,12 @@ class SumoTrafficBackend(TrafficBackend):
             logger.warning("A construction zone is off the SUMO network: %s", exc)
             return None
         lane_id = f"{edge}_{lane}"
-        if lane_id in self._closed_lanes:
+        closure = self._closed_lanes.get(lane_id)
+        if closure is not None:
+            # Closed already (by another zone, or another span of this one):
+            # one more owner, whose reopen_lane() the lane waits for too.
+            allowed, owners = closure
+            self._closed_lanes[lane_id] = (allowed, owners + 1)
             return lane_id
         try:
             allowed = list(tc.lane.getAllowed(lane_id))
@@ -2369,15 +2411,25 @@ class SumoTrafficBackend(TrafficBackend):
         except Exception as exc:  # noqa: BLE001 - a closure must not end the run
             logger.warning("SUMO could not close lane %s: %s", lane_id, exc)
             return None
-        self._closed_lanes[lane_id] = allowed
+        self._closed_lanes[lane_id] = (allowed, 1)
         logger.info("SUMO: lane %s closed", lane_id)
         return lane_id
 
     def reopen_lane(self, world: Any, handle: str) -> None:
-        """Allow on lane *handle* again what it allowed before it was closed."""
+        """Allow on lane *handle* again what it allowed before it was closed,
+        once every :meth:`close_lane` that returned *handle* is reopened; a
+        handle not closed (any more) is ignored."""
         del world
-        allowed = self._closed_lanes.pop(handle, None)
-        if allowed is None or not self._running:
+        closure = self._closed_lanes.get(handle)
+        if closure is None:
+            return
+        allowed, owners = closure
+        if owners > 1:
+            # Another zone still stands on the lane: it stays closed.
+            self._closed_lanes[handle] = (allowed, owners - 1)
+            return
+        del self._closed_lanes[handle]
+        if not self._running:
             return
         try:
             self._traci.lane.setAllowed(handle, allowed)

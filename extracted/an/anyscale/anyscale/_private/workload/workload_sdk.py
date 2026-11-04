@@ -10,6 +10,7 @@ from anyscale._private.anyscale_client import (
 )
 from anyscale._private.models.integrations import (
     _CONNECTION_METHOD_TO_CONNECTION_TYPE,
+    _ConnectionMethodType,
     ConnectionConfig,
     ConnectionType,
 )
@@ -528,17 +529,18 @@ class WorkloadSDK(BaseSDK):
 
     def resolve_connection_ids(
         self, connections: Optional[List[ConnectionConfig]]
-    ) -> Optional[List[str]]:
-        """Resolve ConnectionConfig objects to connection IDs.
+    ) -> Tuple[Optional[List[str]], Optional[List[str]]]:
+        """Resolve ConnectionConfig objects to (connection_ids, connection_config_ids).
 
-        Looks up connections by name and connection type and returns their IDs.
-        Raises ValueError if a connection is not found, if an invalid connection
-        type is specified, or if duplicate connection types are specified.
+        Looks up connections by name. A federated config is attached by its config ID,
+        which belongs to the organization; any other is attached by the caller's own
+        connection to it. Raises ValueError if a connection is not found, if an invalid
+        connection type is specified, or if duplicate connection types are specified.
         """
         if connections is None:
-            return None
+            return None, None
         if len(connections) == 0:
-            return []
+            return [], []
 
         # Check for duplicate connection types (only one connection per type allowed)
         seen_types: set = set()
@@ -554,6 +556,7 @@ class WorkloadSDK(BaseSDK):
 
         # Get connection IDs for each connection
         connection_ids = []
+        connection_config_ids = []
         for conn_config in connections:
             fetched_connections = self.client.list_databricks_connections(name=conn_config.name)
             if len(fetched_connections) == 0:
@@ -561,6 +564,12 @@ class WorkloadSDK(BaseSDK):
                     f"Connection '{conn_config.name}' not found. Please check that the "
                     f"connection exists in your organization settings and has the correct name."
                 )
+            if (
+                fetched_connections[0].connection_type
+                == _ConnectionMethodType.DATABRICKS_FEDERATED
+            ):
+                connection_config_ids.append(fetched_connections[0].config_id)
+                continue
             user_conn_id = fetched_connections[0].user_connection_id
             if not user_conn_id:
                 raise ValueError(
@@ -569,10 +578,12 @@ class WorkloadSDK(BaseSDK):
                 )
             connection_ids.append(user_conn_id)
 
-        return connection_ids
+        return connection_ids, connection_config_ids
 
     def resolve_connection_ids_to_configs(
-        self, connection_ids: Optional[List[str]]
+        self,
+        connection_ids: Optional[List[str]],
+        connection_config_ids: Optional[List[str]] = None,
     ) -> Optional[List[ConnectionConfig]]:
         """Resolve connection IDs back to ConnectionConfig objects.
 
@@ -583,15 +594,24 @@ class WorkloadSDK(BaseSDK):
         Prefer using `resolve_decorated_connections_to_configs` when decorated connection
         data is already available (e.g., from DecoratedProductionJob.connections).
         """
-        if not connection_ids:
+        if not connection_ids and not connection_config_ids:
             return None
 
         connections = []
-        for connection_id in connection_ids:
+        for connection_id in connection_ids or []:
             connection = self.client.get_databricks_connection(connection_id)
             config = self._connection_config_if_known(connection)
             if config is not None:
                 connections.append(config)
+        if connection_config_ids:
+            # No get-by-id for a config; one list call covers every config in the org.
+            configs_by_id = {c.config_id: c for c in self.client.list_databricks_connections()}
+            for config_id in connection_config_ids:
+                if config_id not in configs_by_id:
+                    continue
+                config = self._connection_config_if_known(configs_by_id[config_id])
+                if config is not None:
+                    connections.append(config)
 
         return connections
 

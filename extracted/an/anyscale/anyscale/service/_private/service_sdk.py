@@ -380,7 +380,7 @@ class PrivateServiceSDK(WorkloadSDK):
         )
 
         project_id = self.client.get_project_id(parent_cloud_id=cloud_id, name=config.project)
-        connection_ids = self.resolve_connection_ids(config.connections)
+        connection_ids, connection_config_ids = self.resolve_connection_ids(config.connections)
         return ApplyProductionServiceV2Model(
             name=name,
             version=config.version_name,
@@ -398,6 +398,7 @@ class PrivateServiceSDK(WorkloadSDK):
             tracing_config=existing_config.tracing_config,
             tags=config.tags,
             connection_ids=connection_ids,
+            connection_config_ids=connection_config_ids,
         )
 
     def _build_apply_service_model_for_rollout(  # noqa: PLR0912
@@ -518,7 +519,7 @@ class PrivateServiceSDK(WorkloadSDK):
             assert isinstance(config.traffic_policy, TrafficPolicy)
             traffic_policy = _to_api_traffic_policy(config.traffic_policy)
 
-        connection_ids = self.resolve_connection_ids(config.connections)
+        connection_ids, connection_config_ids = self.resolve_connection_ids(config.connections)
         return ApplyProductionServiceV2Model(
             name=name,
             version=config.version_name,
@@ -540,6 +541,7 @@ class PrivateServiceSDK(WorkloadSDK):
             traffic_percent=traffic_percent,
             tags=config.tags,
             connection_ids=connection_ids,
+            connection_config_ids=connection_config_ids,
         )
 
     def _build_apply_service_model_for_weight_update(
@@ -1154,7 +1156,9 @@ class PrivateServiceSDK(WorkloadSDK):
 
         version_name = model.version or self._get_user_facing_service_version_id(model)
 
-        connections = self.resolve_connection_ids_to_configs(model.connection_ids)
+        connections = self.resolve_connection_ids_to_configs(
+            model.connection_ids, model.connection_config_ids
+        )
 
         return ServiceVersionStatus(
             id=self._get_user_facing_service_version_id(model),

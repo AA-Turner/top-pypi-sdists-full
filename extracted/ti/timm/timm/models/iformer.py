@@ -1,6 +1,6 @@
 """iFormer
 iFormer: Integrating ConvNet and Transformer for Mobile Application (ICLR 2025)
-- paper: https://arxiv.org/abs/2501.15369
+- `iFormer: Integrating ConvNet and Transformer for Mobile Application` - https://arxiv.org/abs/2501.15369
 - code: https://github.com/ChuanyangZheng/iFormer
 @inproceedings{zheng2025iformer,
   title={iformer: Integrating convnet and transformer for mobile application},
@@ -28,6 +28,7 @@ from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.layers import DropPath, calculate_drop_path_rates, get_device_dtype, trunc_normal_, use_fused_attn
 from ._builder import build_model_with_cfg
 from ._features import feature_take_indices
+from ._input import update_model_args
 from ._manipulate import checkpoint_seq
 from ._registry import generate_default_cfgs, register_model
 
@@ -519,6 +520,7 @@ class IFormer(nn.Module):
         dd = {"device": device, "dtype": dtype}
         self.num_classes = num_classes
         self.in_chans = in_chans
+        assert global_pool in ('', 'avg'), 'Only avg pooling (or none) is supported.'
         self.global_pool = global_pool
         self.distillation = distillation
         assert len(dims) == len(depths) == len(attn_groups) == len(attn_head_dim_reduction)
@@ -610,9 +612,11 @@ class IFormer(nn.Module):
         self.num_classes = num_classes
         self.distillation = distillation
         if global_pool is not None:
+            assert global_pool in ('', 'avg'), 'Only avg pooling (or none) is supported.'
             self.global_pool = global_pool
         self.head = RepVitClassifier(self.head_hidden_size, num_classes, distillation, **dd)
         self.head.train(self.training)
+        update_model_args(self, distillation=distillation)
 
     @torch.jit.ignore
     def set_distilled_training(self, enable: bool = True):
@@ -678,13 +682,13 @@ class IFormer(nn.Module):
             List of indices that were kept.
         """
         take_indices, max_index = feature_take_indices(len(self.stages), indices)
-        if max_index + 1 < len(self.stages):
-            assert prune_head, 'The classifier requires the final stage.'
+        prune_end = max_index < len(self.stages) - 1
         self.stages = self.stages[:max_index + 1]
         self.feature_info = self.feature_info[:max_index + 1]
         self.num_stages = len(self.stages)
+        # features now end at the last kept tap, the head is sized for the final features so it goes too
         self.num_features = self.head_hidden_size = self.feature_info[-1]['num_chs']
-        if prune_head:
+        if prune_head or prune_end:
             self.reset_classifier(0, "")
         return take_indices
 
@@ -698,7 +702,6 @@ class IFormer(nn.Module):
             x: torch.Tensor,
             pre_logits: bool = False,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
-        assert self.global_pool in ("avg", ""), f"Unsupported global_pool {self.global_pool}"
         if self.global_pool == "avg":
             x = x.mean((2, 3), keepdim=False)
         x = self.head_drop(x)

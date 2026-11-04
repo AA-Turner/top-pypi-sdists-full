@@ -242,6 +242,6 @@ __all__ = [
     "udtf",
 ]
 
-version = "0.17.0"
+version = "0.18.0"
 
 __version__ = version

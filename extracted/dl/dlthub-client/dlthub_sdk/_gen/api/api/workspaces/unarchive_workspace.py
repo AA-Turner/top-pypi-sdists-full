@@ -88,9 +88,9 @@ def sync_detailed(
     """UnarchiveWorkspace
 
     Unarchives a workspace, restoring write access and recomputing schedules.
-    Refuses with 409 if the workspace is not archived.
+    Answers 409 if the workspace is not archived.
 
-    Requires MANAGE_WORKSPACE permission.
+    Requires the workspace owner role.
 
     Args:
         workspace_id (UUID):
@@ -121,9 +121,9 @@ def sync(
     """UnarchiveWorkspace
 
     Unarchives a workspace, restoring write access and recomputing schedules.
-    Refuses with 409 if the workspace is not archived.
+    Answers 409 if the workspace is not archived.
 
-    Requires MANAGE_WORKSPACE permission.
+    Requires the workspace owner role.
 
     Args:
         workspace_id (UUID):
@@ -149,9 +149,9 @@ async def asyncio_detailed(
     """UnarchiveWorkspace
 
     Unarchives a workspace, restoring write access and recomputing schedules.
-    Refuses with 409 if the workspace is not archived.
+    Answers 409 if the workspace is not archived.
 
-    Requires MANAGE_WORKSPACE permission.
+    Requires the workspace owner role.
 
     Args:
         workspace_id (UUID):
@@ -180,9 +180,9 @@ async def asyncio(
     """UnarchiveWorkspace
 
     Unarchives a workspace, restoring write access and recomputing schedules.
-    Refuses with 409 if the workspace is not archived.
+    Answers 409 if the workspace is not archived.
 
-    Requires MANAGE_WORKSPACE permission.
+    Requires the workspace owner role.
 
     Args:
         workspace_id (UUID):

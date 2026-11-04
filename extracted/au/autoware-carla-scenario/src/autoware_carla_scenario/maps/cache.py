@@ -328,7 +328,8 @@ class GitMapCache:
         """
         path = self.tip_file(source)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
+        _write_atomically(
+            path,
             _json_object(
                 [
                     ("repo_url", json.dumps(source.repo_url)),
@@ -337,7 +338,6 @@ class GitMapCache:
                     ("resolved_at", json.dumps(time.time())),
                 ]
             ),
-            encoding="utf-8",
         )
 
     def last_tip(self, source: MapSource) -> str:
@@ -634,7 +634,8 @@ class GitMapCache:
                 cwd=str(cwd) if cwd is not None else None,
                 env=env,
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=_GIT_TIMEOUT_SECONDS,
                 check=False,
             )
@@ -711,7 +712,7 @@ class GitMapCache:
             )
             materialised = "[\n" + items + "\n  ]"
         fields.append(("materialised", materialised))
-        (entry / "meta.json").write_text(_json_object(fields), encoding="utf-8")
+        _write_atomically(entry / "meta.json", _json_object(fields))
 
 
 #: The full ref names a short ref can stand for, in the order git tries them
@@ -837,6 +838,61 @@ def _json_number(raw: str, key: str) -> Optional[float]:
     except (TypeError, ValueError):
         pass
     return None
+
+
+def _write_atomically(path: Path, text: str) -> None:
+    """Replace *path* with a file holding *text*, in one rename.
+
+    ``meta.json`` and the ``.tip.json`` notes are read without a lock -- by
+    :meth:`GitMapCache.peek`, at the start of every checkout, and by other
+    processes -- while a resolve rewrites them.  ``write_text`` truncates
+    before it writes, so a reader could find the file empty or half written
+    and take the entry for one that records no commit.  The text goes to a
+    scratch file in the same directory instead, closed (so flushed) and then
+    renamed over *path*: a reader sees the old file or the new one, whole.
+
+    The scratch name is ``mkstemp``'s, unique whichever thread, process or host
+    (the cache may be shared) writes; it starts with a dot and ends in
+    ``.tmp``, and is removed when the write fails, so nothing that looks for
+    entries or notes finds one.
+
+    :mod:`~autoware_carla_scenario.maps.opendrive` writes the ``.xodr`` files
+    of the ``derived`` directory through it too, for the same reason.
+    """
+    fd, name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+    )
+    os.close(fd)
+    try:
+        Path(name).write_text(text, encoding="utf-8")
+        # 0o644 (Codon has no octal literal), what write_text made, rather
+        # than mkstemp's 0o600: the cache may be shared.
+        os.chmod(name, 420)
+        os.replace(name, str(path))
+    except BaseException:
+        Path(name).unlink(missing_ok=True)
+        raise
+
+
+def _copy_atomically(source: Path, path: Path) -> None:
+    """Replace *path* with a copy of *source*, in one rename.
+
+    :func:`_write_atomically` for a file rather than a text: ``shutil.copy2``
+    copies the bytes, mode and modification time exactly, whatever the
+    encoding and line endings, into a scratch file in *path*'s directory that
+    is then renamed over *path*.  The scratch file is removed when the copy
+    fails.
+    """
+    fd, name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+    )
+    os.close(fd)
+    try:
+        shutil.copy2(str(source), name)
+        os.replace(name, str(path))
+    except BaseException:
+        Path(name).unlink(missing_ok=True)
+        raise
 
 
 def _json_object(fields: list[tuple[str, str]]) -> str:

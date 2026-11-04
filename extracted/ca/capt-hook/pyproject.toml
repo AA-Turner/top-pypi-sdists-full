@@ -1,7 +1,7 @@
 [project]
 name = "capt-hook"
 # Inert sentinel — the real version is stamped from the release tag (uv version --frozen).
-version = "12.116.1"
+version = "12.121.19"
 description = "Stop repeating yourself to Claude."
 readme = "README.md"
 license = "PolyForm-Noncommercial-1.0.0"
@@ -29,7 +29,7 @@ classifiers = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "cc-transcript[judge]==14.46.8",
+    "cc-transcript[judge]==14.46.15",
     "pydantic>=2.0",
     "jsonschema>=4.26",
     "pydantic-settings>=2.0",
@@ -44,7 +44,7 @@ dependencies = [
     "filelock>=3.24.0",
     "pathspec>=0.12",
     "loguru>=0.7.3",
-    "spawnllm[sdk]>=0.17.4,<0.18",
+    "spawnllm[sdk]>=0.17.6,<0.18",
     "mcp>=2.0,<3",
 ]
 
@@ -98,11 +98,11 @@ artifacts = [
     "capt_hook_client/guard_literal.py",
     "captain_hook/resource_defaults.py",
 ]
-exclude = ["captain_hook/bin", "captain_hook/linux"]
+exclude = ["captain_hook/linux"]
 
 [tool.hatch.build.targets.sdist]
 only-include = ["captain_hook", "capt_hook_client", "hatch_build.py", "internal/wireproto/guard.json", "internal/wireproto/resource.json"]
-exclude = ["captain_hook/bin", "captain_hook/linux"]
+exclude = ["captain_hook/linux"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

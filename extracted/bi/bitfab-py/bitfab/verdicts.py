@@ -113,6 +113,36 @@ class HumanVerdictOutcome(TypedDict):
     label: NotRequired[bool]
 
 
+class VerdictEvidenceItem(TypedDict):
+    """One span a saved verdict cites. ``spanId`` and ``text`` are always present.
+
+    Evidence written by Bitfab's assertion judge also carries ``field``, ``ranges``, and ``spanChanged``,
+    which point at the exact passages the judge read.
+
+    ``field`` is the span field the judge read: ``summary``, ``input``, ``output``, ``reasoning``,
+    ``content``, ``metadata``, ``errors``, ``contexts``, or ``llm_usage``.
+
+    ``ranges`` are ``[start, end)`` character ranges into that field's text as the judge saw it: a string
+    field as is, any other value as JSON indented by two spaces. Indexes are JavaScript string indexes
+    (UTF-16 code units), so text outside the Basic Multilingual Plane counts two per character, unlike a
+    Python ``str`` index. Use them to highlight only when ``spanChanged`` is ``False``.
+
+    ``spanChanged`` is ``True`` when the span no longer matches what was judged: ``text`` is then only a
+    short preview saved with the verdict, and ``ranges`` must not be used to highlight anything. When it is
+    ``False``, ``text`` is the full text of ``ranges`` read from the span, joined by a newline, an ellipsis,
+    and a newline.
+    """
+
+    spanId: str
+    text: str
+    field: NotRequired[str]
+    ranges: NotRequired[list[list[int]]]
+    spanChanged: NotRequired[bool]
+
+
+VerdictEvidence = list[VerdictEvidenceItem]
+
+
 class AssertionVerdict(TypedDict):
     """One assertion's verdict on a trace.
 
@@ -125,7 +155,7 @@ class AssertionVerdict(TypedDict):
     verdict: Verdict | None
     verdictStatus: VerdictStatus
     annotation: str | None
-    evidence: Justification | None
+    evidence: VerdictEvidence | None
     confidence: VerdictConfidence | None
     source: VerdictSource
     approved: bool
@@ -144,7 +174,7 @@ class TraceVerdicts(TypedDict):
     verdict: Verdict | None
     verdictStatus: VerdictStatus
     annotation: str | None
-    evidence: Justification | None
+    evidence: VerdictEvidence | None
     approved: bool
     passed: int
     failed: int

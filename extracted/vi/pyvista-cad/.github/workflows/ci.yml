@@ -7,6 +7,12 @@ on:
   pull_request:
     branches: [main]
 
+# Least-privilege default for every job (fixes CodeQL
+# actions/missing-workflow-permissions). Jobs that need more grant it
+# locally, e.g. `publish` adds `id-token: write` for OIDC PyPI auth.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -56,7 +62,12 @@ jobs:
           # status check in the repo ruleset, so renaming it would block
           # every PR until the ruleset is updated to match. Exercising
           # the alias also keeps the back-compat path covered in CI.
-          - { os: ubuntu-latest, python-version: "3.14", extras: "dev,full,step-light", coverage: true }
+          - {
+              os: ubuntu-latest,
+              python-version: "3.14",
+              extras: "dev,full,step-light",
+              coverage: true,
+            }
           # macOS — minimal: lowest + highest Python only
           - { os: macos-14, python-version: "3.10", extras: "dev" }
           - { os: macos-14, python-version: "3.14", extras: "dev,step" }
@@ -76,7 +87,7 @@ jobs:
             pyproject.toml
             uv.lock
       - name: Set up headless display
-        uses: pyvista/setup-headless-display-action@v4
+        uses: pyvista/setup-headless-display-action@v5
       - name: Install system packages for OCCT backends
         if: runner.os == 'Linux'
         run: |
@@ -176,7 +187,7 @@ jobs:
           cache-dependency-glob: |
             pyproject.toml
             uv.lock
-      - uses: pyvista/setup-headless-display-action@v4
+      - uses: pyvista/setup-headless-display-action@v5
       - name: Install [dev,all] for end-to-end perf cases
         run: uv sync --extra dev --extra all
       - name: Run benchmarks

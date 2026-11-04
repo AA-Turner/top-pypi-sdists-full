@@ -22,6 +22,7 @@ from pydantic import (
     ModelWrapValidatorHandler,
     PrivateAttr,
     TypeAdapter,
+    field_validator,
     model_validator,
 )
 from typing_extensions import TypeVar
@@ -35,6 +36,7 @@ from mistralai.vibe.harness.app_server.session import (
     ResourceLinkContentBlock,
     TextContentBlock,
 )
+from mistralai.vibe.harness.app_server.session.models.content import refuse_unsupported_blocks
 from mistralai.vibe.harness.runtime.content import to_session_content
 from mistralai.vibe.harness.runtime.hosts.mcp_results import from_mcp_content
 
@@ -62,8 +64,9 @@ _LegacyValueT = TypeVar("_LegacyValueT", default=Any)
 class ToolResult(BaseModel, Generic[_LegacyValueT]):
     """What a tool returns: content for the model, structured output, and host metadata.
 
-    ``value=`` and ``annotations=`` are deprecated aliases of ``structured_content=`` and
-    ``meta=``.
+    A tool annotated ``-> ToolResult[T]`` gets ``T``'s JSON Schema as its output schema.
+    ``ToolResult[T]`` does not type ``structured_content``: the tool's output schema checks it when
+    the tool returns.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -132,6 +135,12 @@ class ToolResult(BaseModel, Generic[_LegacyValueT]):
         if structured_model is not None:
             result._structured_model = (structured_model, result.structured_content)
         return result
+
+    @field_validator("content")
+    @classmethod
+    def _refuse_unsupported_blocks(cls, content: list[ContentBlock]) -> list[ContentBlock]:
+        # The model sees this content, so it must hold only blocks a Turn can run.
+        return refuse_unsupported_blocks(content)
 
     @property
     def value(self) -> JsonValue:

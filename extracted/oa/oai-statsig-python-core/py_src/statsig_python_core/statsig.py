@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, TypeVar
 from weakref import ref
 
 from statsig_python_core import (
@@ -22,6 +22,7 @@ from statsig_python_core import (
     notify_python_shutdown,
 )
 
+from ._frozen_json import _deep_freeze
 from .error_boundary import ErrorBoundary
 from .evaluation_cache import (
     EvaluationCache,
@@ -398,7 +399,10 @@ class Statsig(StatsigBasePy):
         )
         if cache is not None:
             cache._consume_result(raw, cache_keys)
-        return DynamicConfig(name, raw)
+        result = DynamicConfig(name, raw)
+        if options is not None and options.freeze_value:
+            result.value = _deep_freeze(result.value)
+        return result
 
     def get_layer_with_context(
         self,
@@ -465,6 +469,28 @@ class Statsig(StatsigBasePy):
         )
         if cache is not None:
             cache._consume_result(raw, cache_keys)
+        result = DynamicConfig(name, raw)
+        if options is not None and options.freeze_value:
+            result.value = _deep_freeze(result.value)
+        return result
+
+    def get_dynamic_config_fields(
+        self,
+        user: StatsigUser,
+        name: str,
+        field_names: Sequence[str],
+        options: Optional[DynamicConfigEvaluationOptions] = None,
+    ) -> Optional[DynamicConfig]:
+        """Return selected fields when python_dynamic_config_field_projection is enabled.
+
+        With the instance flag unset or absent from experimental_flags, return the
+        ordinary full config, including its usual cache, targeting and exposures.
+        Enabled projections skip missing keys and bypass the full-value cache.
+        Selected containers are independently owned, and freeze_value makes them immutable.
+        """
+        raw = super()._INTERNAL_get_dynamic_config_fields(user, name, field_names, options)
+        if raw is None:
+            return self.get_dynamic_config(user, name, options)
         return DynamicConfig(name, raw)
 
     def get_experiment(
@@ -555,6 +581,15 @@ class Statsig(StatsigBasePy):
                 for evaluation in evaluations.values():
                     if isinstance(evaluation, dict):
                         cache._consume_result(evaluation, cache_keys)
+        if options is not None and options.freeze_dynamic_configs:
+            configurations = raw.get("dynamic_configs", {})
+            if isinstance(configurations, dict):
+                for evaluation in configurations.values():
+                    if isinstance(evaluation, dict):
+                        value = evaluation.get("value")
+                        evaluation["value"] = _deep_freeze(
+                            value if isinstance(value, dict) else {}
+                        )
         return raw
 
     def _is_exposure_callsite_module_ignored(self, module_name: str) -> bool:

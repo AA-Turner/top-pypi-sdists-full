@@ -21,7 +21,6 @@ def set_aside_stalled(journal: Any, tracker: Any, lanes: Any) -> int:
     its run's lock (another drain may be sending it, its drain lock let go: #3618); anything
     else holds its whole run lane in place. Returns how many were set aside."""
     from probe.foundation.os_backend import os_backend as oscompat
-    from probe.sdk.delivery.outbox.drain.lock import _take_drain_lock
 
     due = tracker.due_stalls()
     if not due:
@@ -42,7 +41,9 @@ def set_aside_stalled(journal: Any, tracker: Any, lanes: Any) -> int:
         handle.close()
     for head in moved:
         tracker.note_set_aside(head)
-        lanes.forget(head.lane)
+        # Tried next pass with its ladder kept (I14): in a 503 storm the next write fails too
+        # and must not restart at 2 s every stall window.
+        lanes.retry_now(head.lane)
         tracker.queue_report(head.run_ref, DeliveryStallCause.STALLED, head.error)
     if moved:
         send_due_reports(tracker)
@@ -50,8 +51,6 @@ def set_aside_stalled(journal: Any, tracker: Any, lanes: Any) -> int:
 
 
 def _set_aside(journal: Any, head: Any) -> bool:
-    from probe.sdk.delivery.outbox.drain.lock import holding_run_lock
-
     try:
         op = json.loads(head.path.read_text())
     except (OSError, ValueError):
@@ -102,3 +101,4 @@ def send_due_reports(tracker: Any) -> None:
         # A refused credential refuses its own report too: one try, then the server's beats
         # and its silence path carry it.
         tracker.note_report_result(ref, cause, taken=taken, final=cause == DeliveryStallCause.LOGIN_REFUSED)
+from probe.sdk.delivery.outbox.drain.lock import _take_drain_lock, holding_run_lock  # noqa: E402 -- pieces need each other; the front door loads this one first

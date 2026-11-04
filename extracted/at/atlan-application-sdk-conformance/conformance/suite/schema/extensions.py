@@ -194,6 +194,51 @@ class AtlanResultProperties(BaseModel):
         )
 
 
+SAFE_SWAP_PROPERTY = "atlan/safeSwap"
+
+
+class SafeSwapRequires(BaseModel):
+    """The lowest version of *package* the app must lock for the swap to import."""
+
+    package: str
+    min: str
+
+
+class SafeSwap(BaseModel):
+    """A finding whose fix is one fixed text change that keeps behaviour.
+
+    Set by a checker in ``result.properties["atlan/safeSwap"]`` only when the
+    replacement is the same object, a public method that delegates to the
+    flagged one with the same signature, or the removal of a payload-safety
+    opt-out that guards no field and that no class inherits, so the change
+    cannot alter what the app does.  The rule stays a migration rule; this marks one finding.
+
+    Apply it as: on the finding's line, ``find`` occurs exactly once; replace
+    it with ``replace``.  When ``find`` is not on that line exactly once, or
+    the app's lock has *package* below ``requires.min``, do not apply it.
+    After applying, run the app's own import sorter and formatter on the file
+    (for ruff: ``ruff check --fix --select I`` then ``ruff format``): the new
+    module path can move the import within its group or past the line length.
+    """
+
+    id: str
+    """Recipe id: ``public-reexport`` (import path), ``public-rename`` (method name),
+    ``public-alias`` (a public alias of the same class, bound to the old name) or
+    ``remove-noop-optout`` (``replace`` is empty: delete ``find``)."""
+
+    find: str
+    replace: str
+    requires: SafeSwapRequires
+
+    def to_properties(self) -> dict[str, Any]:
+        return {SAFE_SWAP_PROPERTY: self.model_dump()}
+
+    @classmethod
+    def from_properties(cls, props: dict[str, Any]) -> SafeSwap | None:
+        raw = props.get(SAFE_SWAP_PROPERTY)
+        return cls.model_validate(raw) if isinstance(raw, dict) else None
+
+
 # ---------------------------------------------------------------------------
 # Run-level (run.properties)
 # ---------------------------------------------------------------------------

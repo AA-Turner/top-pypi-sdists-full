@@ -82,11 +82,10 @@ def sync_detailed(
 ) -> Response[ErrorResponse | OrganizationMeResponse]:
     """OrganizationMe
 
-    Get the current user's organization-scoped context including role and workspace memberships.
+    Gets your context in an organization: the organization, your role and membership id there,
+    and the workspaces you can access in it with your role in each.
 
-    This endpoint returns user context scoped to a specific organization.
-
-    Requires READ permission on the organization level.
+    Any organization member, including collaborators.
 
     Args:
         organization_id (UUID):
@@ -116,11 +115,10 @@ def sync(
 ) -> ErrorResponse | OrganizationMeResponse | None:
     """OrganizationMe
 
-    Get the current user's organization-scoped context including role and workspace memberships.
+    Gets your context in an organization: the organization, your role and membership id there,
+    and the workspaces you can access in it with your role in each.
 
-    This endpoint returns user context scoped to a specific organization.
-
-    Requires READ permission on the organization level.
+    Any organization member, including collaborators.
 
     Args:
         organization_id (UUID):
@@ -145,11 +143,10 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | OrganizationMeResponse]:
     """OrganizationMe
 
-    Get the current user's organization-scoped context including role and workspace memberships.
+    Gets your context in an organization: the organization, your role and membership id there,
+    and the workspaces you can access in it with your role in each.
 
-    This endpoint returns user context scoped to a specific organization.
-
-    Requires READ permission on the organization level.
+    Any organization member, including collaborators.
 
     Args:
         organization_id (UUID):
@@ -177,11 +174,10 @@ async def asyncio(
 ) -> ErrorResponse | OrganizationMeResponse | None:
     """OrganizationMe
 
-    Get the current user's organization-scoped context including role and workspace memberships.
+    Gets your context in an organization: the organization, your role and membership id there,
+    and the workspaces you can access in it with your role in each.
 
-    This endpoint returns user context scoped to a specific organization.
-
-    Requires READ permission on the organization level.
+    Any organization member, including collaborators.
 
     Args:
         organization_id (UUID):

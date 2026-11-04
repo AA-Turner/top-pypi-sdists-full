@@ -42,11 +42,12 @@ from conformance.suite.checks._ast_common import (
     discover,
     make_cli_main,
 )
+from conformance.suite.checks._ast_common._safe_swap import source_lines
 from conformance.suite.schema.disposition import RuleScope
 from conformance.suite.schema.findings import Finding
 
 from ._authoring import scan_authoring
-from ._consumer import scan_consumer
+from ._consumer import scan_consumer, unsafe_renames
 from ._contract_compat import scan_contract_compat
 from ._daft_runtime import scan_daft_runtime
 from ._ledger_schema import load_ledger
@@ -98,6 +99,7 @@ def scan_all(paths: list[Path], root: Path) -> list[Finding]:
     # from everybody else's (not fine), and that is a property of the repo, not
     # of any one file.
     own_roots = own_import_roots(root) if run_consumer else frozenset()
+    unsafe = unsafe_renames(root) if run_consumer else frozenset()
 
     findings: list[Finding] = []
     for path in paths:
@@ -115,10 +117,16 @@ def scan_all(paths: list[Path], root: Path) -> list[Finding]:
             rel = str(path)
         directives = _parse_directives(text)
         if run_consumer and manifest is not None:
-            findings.extend(scan_consumer(tree, rel, manifest, directives))
+            findings.extend(
+                scan_consumer(tree, rel, manifest, directives, unsafe, text)
+            )
         if run_consumer:
             findings.extend(scan_daft_runtime(tree, rel, directives))
-            findings.extend(scan_private_imports(tree, rel, directives, own_roots))
+            findings.extend(
+                scan_private_imports(
+                    tree, rel, directives, own_roots, lines=source_lines(text)
+                )
+            )
         if run_authoring:
             findings.extend(scan_authoring(tree, rel, version, directives))
 

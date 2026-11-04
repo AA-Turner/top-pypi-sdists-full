@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
 
 
 class AsyncSupportedStorage(ABC):
     @abstractmethod
-    async def get_item(self, key: str) -> Optional[str]: ...  # pragma: no cover
+    async def get_item(self, key: str) -> str | None: ...  # pragma: no cover
 
     @abstractmethod
     async def set_item(self, key: str, value: str) -> None: ...  # pragma: no cover
@@ -17,9 +16,9 @@ class AsyncSupportedStorage(ABC):
 
 class AsyncMemoryStorage(AsyncSupportedStorage):
     def __init__(self) -> None:
-        self.storage: Dict[str, str] = {}
+        self.storage: dict[str, str] = {}
 
-    async def get_item(self, key: str) -> Optional[str]:
+    async def get_item(self, key: str) -> str | None:
         if key in self.storage:
             return self.storage[key]
         return None

@@ -3,15 +3,13 @@ from __future__ import annotations
 import sys
 from argparse import ArgumentParser
 from ast import unparse
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from . import __version__, fickle, tracing
 from .analysis import Severity, check_safety
 from .constants import EXIT_CLEAN, EXIT_ERROR, EXIT_UNSAFE
 from .exception import ResourceExhaustionError
-from .loader import scan_file, scan_zip_archive
-
-DEFAULT_JSON_OUTPUT_FILE = "safety_results.json"
+from .loader import ScanResult, scan_file, scan_zip_archive
 
 HF_RAW_PICKLE_EXTENSIONS = frozenset({".bin", ".pkl", ".pickle"})
 HF_ZIP_PICKLE_EXTENSIONS = frozenset({".pt", ".pth"})
@@ -43,6 +41,7 @@ def _scan_huggingface(
         from huggingface_hub import HfApi, hf_hub_download
 
         from .polyglot import find_file_properties
+        from .pytorch import PyTorchModelWrapper
     except ImportError:
         sys.stderr.write(
             "Error: huggingface_hub and torch are required for --huggingface scanning.\n"
@@ -75,7 +74,7 @@ def _scan_huggingface(
 
     overall_safe = True
     failed = 0
-    json_output = json_output_path or DEFAULT_JSON_OUTPUT_FILE
+    json_output = json_output_path
 
     for filename in files_to_scan:
         try:
@@ -103,6 +102,29 @@ def _scan_huggingface(
                 local_path, graceful=True, json_output_path=json_output
             )
             file_results = list(member_results.values())
+            if props["is_torch_zip"] and ext in HF_ZIP_PICKLE_EXTENSIONS:
+                try:
+                    analysis = check_safety(
+                        PyTorchModelWrapper(Path(local_path)).pickled,
+                        json_output_path=json_output,
+                    )
+                    file_results.append(
+                        ScanResult(
+                            filepath=f"{filename}:data.pkl",
+                            severity=analysis.severity,
+                            results=[analysis],
+                            errors=[],
+                        )
+                    )
+                except Exception as e:  # noqa: BLE001 -- report PyTorch parser failures
+                    file_results.append(
+                        ScanResult(
+                            filepath=filename,
+                            severity=Severity.SUSPICIOUS,
+                            results=[],
+                            errors=[f"PyTorch archive error ({type(e).__name__}): {e!s}"],
+                        )
+                    )
         elif props["is_valid_pickle"] or ext in HF_RAW_PICKLE_EXTENSIONS:
             if print_results:
                 print(f"\n  Scanning: {filename}")
@@ -217,8 +239,8 @@ def main(argv: list[str] | None = None) -> int:
         "--json-output",
         type=str,
         default=None,
-        help="path to the output JSON file to store the analysis results from check-safety."
-        f"If not provided, a default file named {DEFAULT_JSON_OUTPUT_FILE} will be used.",
+        help="path to a JSON file to write the check-safety analysis results to. "
+        "If not provided, no JSON file is written.",
     )
 
     parser.add_argument(
@@ -320,19 +342,26 @@ def main(argv: list[str] | None = None) -> int:
                     "Warning: The last opcode of the input file was expected to be STOP, but was "
                     f"in fact {pickled[-1].info.name}"
                 )
-            pickled.insert_python_eval(
-                args.inject,
-                run_first=not args.run_last,
-                use_output_as_unpickle_result=args.replace_result,
-            )
+            try:
+                pickled.insert_python_eval(
+                    args.inject,
+                    run_first=not args.run_last,
+                    use_output_as_unpickle_result=args.replace_result,
+                )
+            except fickle.InterpretationError as e:
+                sys.stderr.write(
+                    f"Error: refusing to inject into this file. {e!s}\n"
+                    "Rewriting it would recompute the FRAME length and produce a well-formed "
+                    "pickle, hiding the inconsistency. Use --check-safety to analyze it.\n"
+                )
+                return EXIT_ERROR
             pickled.dump(buffer)
             for pickled in stacked_pickled[args.inject_target + 1 :]:
                 pickled.dump(buffer)
         elif args.check_safety:
             was_safe = True
-            json_output_path = args.json_output or DEFAULT_JSON_OUTPUT_FILE
             for pickled in stacked_pickled:
-                safety_results = check_safety(pickled, json_output_path=json_output_path)
+                safety_results = check_safety(pickled, json_output_path=args.json_output)
 
                 # Print results if requested
                 if args.print_results:
@@ -366,7 +395,14 @@ def main(argv: list[str] | None = None) -> int:
                         "This pickle file may contain an expansion attack. "
                         "Use --check-safety to analyze it.\n"
                     )
-                    return 1
+                    return EXIT_UNSAFE
+                except fickle.InterpretationError as e:
+                    sys.stderr.write(
+                        f"Error: this pickle file cannot be interpreted. {e!s}\n"
+                        "It may be malformed, or crafted so that what unpickling runs differs "
+                        "from what a linear reader sees. Use --check-safety to analyze it.\n"
+                    )
+                    return EXIT_UNSAFE
                 var_id = interpreter.next_variable_id
     else:
         pickled = fickle.Pickled(

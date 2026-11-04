@@ -25,11 +25,15 @@ FRAME_STYLE = (
     # so its lines overlap.
     "html{overflow-y:hidden!important;overflow-x:auto;-webkit-text-size-adjust:100%;"
     "text-size-adjust:100%}"
+    # A long word or address breaks only when it would not fit, and an image shrinks to the
+    # frame only outside a table: either would squeeze an email's narrow cells (width: 1%) to
+    # nothing, so Bitbucket's "Failed" stood a letter a line and its icons were gone.
     "body{margin:0;padding:18px;font:15px/1.55 -apple-system,system-ui,sans-serif;color:#1d2125;"
-    "background:#fff;overflow-wrap:anywhere}img{max-width:100%;height:auto}"
+    "background:#fff;overflow-wrap:break-word}img:not(table img){max-width:100%;height:auto}"
     "table{max-width:100%}a{color:#0b6bcb}"
     "@media (max-width:480px){body{padding:10px}}"
 )
+DARK_SCHEME = re.compile(r"prefers-color-scheme\s*:\s*dark", re.I)
 # Larger images sent inside an email are left out rather than put into the page.
 MAX_INLINE = 5_000_000
 
@@ -192,6 +196,9 @@ def frame_document(body_html: str, images: bool) -> str:
     policy = IMAGES_ALLOWED if images else IMAGES_BLOCKED
     # A refresh would take the frame to another page; scripts cannot run in it anyway.
     body_html = re.sub(r"<meta[^>]*http-equiv\s*=\s*[\"']?refresh[^>]*>", "", body_html, flags=re.I)
+    # The frame is white, as in Gmail. An email's own dark styles would follow a dark system
+    # (the frame can't be told otherwise) and leave white text on it, so they never apply.
+    body_html = DARK_SCHEME.sub("prefers-color-scheme: never", body_html)
     return (
         f'<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" '
         f'content="{policy}"><meta name="referrer" content="no-referrer">'
@@ -243,6 +250,16 @@ def read_message(message: dict[str, Any], timezone: tzinfo) -> dict[str, Any]:
         "",
     )
     inline = _inline(parts, body_html)
+    # A calendar invitation: in the email itself (Google Calendar) or as invite.ics (Outlook).
+    invite = next(
+        (
+            p
+            for p in parts
+            if p.get("mimeType", "").lower() == "text/calendar"
+            or p.get("filename", "").lower().endswith(".ics")
+        ),
+        None,
+    )
     shown_inside = {image["attachment_id"] for image in inline if image["attachment_id"]}
     name, address = parseaddr(_header(message, "From"))
     return {
@@ -267,6 +284,11 @@ def read_message(message: dict[str, Any], timezone: tzinfo) -> dict[str, Any]:
         "unsubscribe": unsubscribe_link(body_html),
         "text": text or html.unescape(message.get("snippet", "")),
         "inline": inline,
+        "invite": invite
+        and {
+            "data": invite.get("body", {}).get("data", ""),
+            "attachment_id": invite.get("body", {}).get("attachmentId", ""),
+        },
         # Images shown in the email are not listed again, as in Gmail.
         # Each by its part of the message, which stays the same (Gmail's attachment ids do not).
         "attachments": [

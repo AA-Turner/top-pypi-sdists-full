@@ -220,6 +220,8 @@ class ChannelState:
     finalized: bool
     created_at: str
     """ISO 8601 timestamp when the channel was created."""
+    pending_close_valid_before: int | None = None
+    """Expiry of a signed server close, independent of the payer's close-request timestamp."""
     backend: Backend | None = None
     descriptor: ChannelDescriptor | None = None
     expiring_nonce_hash: str | None = None
@@ -630,10 +632,13 @@ def reconcile_expired_pending_close(
     # An open channel with no on-chain close request proves the expired close never executed.
     if int(state.close_requested_at) != 0 or state.deposit == 0:
         return current
-    expires_at = current.close_requested_at + PENDING_CLOSE_VALIDITY_SECONDS
+    expires_at = max(
+        current.close_requested_at + PENDING_CLOSE_VALIDITY_SECONDS,
+        current.pending_close_valid_before or 0,
+    )
     if now <= expires_at + PENDING_CLOSE_CLOCK_SKEW_SECONDS:
         return current
-    return replace(current, close_requested_at=0)
+    return replace(current, close_requested_at=0, pending_close_valid_before=None)
 
 
 def mark_pending_close(
@@ -710,6 +715,11 @@ def channel_state_to_json(state: ChannelState) -> dict[str, Any]:
         "chainId": state.chain_id,
         "channelId": state.channel_id,
         "closeRequestedAt": str(state.close_requested_at),
+        **(
+            {"pendingCloseValidBefore": str(state.pending_close_valid_before)}
+            if state.pending_close_valid_before is not None
+            else {}
+        ),
         "createdAt": state.created_at,
         "deposit": str(state.deposit),
         "escrowContract": state.escrow_contract,
@@ -859,6 +869,7 @@ def channel_state_from_json(value: Mapping[str, Any]) -> ChannelState:
         spent=_int(data["spent"]),
         units=_int(data["units"]),
         close_requested_at=_int(data["closeRequestedAt"]),
+        pending_close_valid_before=_opt_int(data, "pendingCloseValidBefore"),
         finalized=bool(data["finalized"]),
         created_at=str(data["createdAt"]),
         backend=backend,
@@ -1190,6 +1201,37 @@ def _plan_deduction(current: ChannelState | None, amount: int) -> StoreChange[De
         return StoreChange("noop", DeductResult(False, current))
     next_state = replace(current, spent=current.spent + amount, units=current.units + 1)
     return StoreChange("set", DeductResult(True, next_state), next_state)
+
+
+@dataclass(frozen=True, slots=True)
+class VoucherAcceptance:
+    """A channel state that accepted a voucher, and whether its request was charged too."""
+
+    channel: ChannelState
+    charged: bool
+
+
+def plan_voucher_acceptance(
+    *, accepted: ChannelState, charge_amount: int | None = None
+) -> VoucherAcceptance:
+    """Charge ``charge_amount`` to a state that just accepted a voucher, in the same update.
+
+    A charge the available balance cannot cover leaves the accepted state uncharged.
+    """
+    if charge_amount is None:
+        return VoucherAcceptance(accepted, False)
+    deduction = _plan_deduction(accepted, charge_amount)
+    if deduction.op != "set" or deduction.value is None:
+        return VoucherAcceptance(accepted, False)
+    return VoucherAcceptance(deduction.value, True)
+
+
+def insufficient_balance_for_charge(
+    channel: ChannelState, charge_amount: int
+) -> InsufficientBalanceError:
+    """The error for a request charge the channel's available balance could not cover."""
+    available = channel.highest_voucher_amount - channel.spent
+    return InsufficientBalanceError(f"requested {charge_amount}, available {available}")
 
 
 _Conflict = Literal["conflict"]

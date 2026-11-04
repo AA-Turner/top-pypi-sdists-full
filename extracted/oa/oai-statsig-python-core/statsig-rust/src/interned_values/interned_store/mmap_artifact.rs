@@ -3,7 +3,7 @@ use std::{fs::Metadata, path::Path, time::UNIX_EPOCH};
 use crate::StatsigErr;
 
 use super::{
-    InternedStore, LEGACY_MMAP_FORMAT_VERSION, legacy_mmap_v1_path_for_sdk_key,
+    InternedStore,
     mmap_manifest::{MmapV2Publication, inspect_mmap_v2_publication},
     mmap_manifest_path_for_sdk_key, mmap_v2_path_for_sdk_key,
 };
@@ -11,24 +11,24 @@ use super::{
 /// Describes the interned mmap artifacts linked at the SDK-owned location.
 ///
 /// This intentionally omits the SDK key, filesystem path, and platform-specific
-/// file identity used to validate publication. V1 states are informational;
-/// the V2-only reader rejects them.
+/// file identity used to validate publication.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MmapArtifactState {
-    /// No V1 artifact or V2 publication is linked at the SDK-owned location.
+    /// No V2 publication is linked at the SDK-owned location.
     Missing,
-    /// A legacy V1 artifact is linked and no V2 publication was observed.
+    /// Retained for source compatibility. Artifact inspection no longer returns
+    /// this state because V1 artifacts are unsupported.
     LegacyV1,
-    /// A V2 publication failed manifest identity validation while a legacy V1
-    /// artifact remains linked.
+    /// Retained for source compatibility. Artifact inspection no longer returns
+    /// this state because V1 artifacts are unsupported.
     FallbackV1,
     /// The V2 artifact and manifest identities match.
     CommittedV2,
-    /// A V2-only artifact and manifest do not form a committed identity, so
-    /// readers must retry rather than fall back.
+    /// The V2 artifact and manifest do not form a committed identity, so
+    /// readers must retry.
     IncompleteV2,
-    /// V2 publication validation failed and no V1 fallback is linked.
+    /// V2 publication validation failed.
     Invalid,
 }
 
@@ -48,21 +48,22 @@ impl MmapArtifactState {
 
 /// Safe metadata for an SDK-owned interned mmap artifact.
 ///
-/// Byte counts cover only currently linked V1, V2, and manifest files. They do
+/// Byte counts cover only currently linked V2 and manifest files. They do
 /// not include unlinked generations that remain mapped by readers or transient
 /// writer files. State and format reflect a reader-selectable publication
 /// observed during inspection. Linked file sizes and modification times are
 /// best-effort and may span a concurrent atomic publication. Filesystem
 /// capacity is best-effort and is omitted on unsupported platforms or when the
-/// backing filesystem cannot be inspected. A reported V1 format is not
-/// selectable by the V2-only reader.
+/// backing filesystem cannot be inspected.
 #[non_exhaustive]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MmapArtifactSnapshot {
     pub state: MmapArtifactState,
-    /// Format of the linked legacy or committed artifact. Unavailable or
+    /// Format of the committed artifact. Unavailable or
     /// invalid artifacts report `None`.
     pub format_version: Option<u32>,
+    /// Retained for source compatibility. Always `None`; V1 artifacts are no
+    /// longer inspected or included in linked file totals.
     pub v1_bytes: Option<u64>,
     pub v2_bytes: Option<u64>,
     pub manifest_bytes: Option<u64>,
@@ -80,22 +81,15 @@ impl InternedStore {
     ///
     /// V2 state uses the same committed-manifest identity validation as
     /// `preload_mmap`. The snapshot is informational and does not map or parse
-    /// either archived config payload.
+    /// the archived config payload.
     pub fn inspect_mmap_artifact(sdk_key: &str) -> Result<MmapArtifactSnapshot, StatsigErr> {
-        let v1_path = legacy_mmap_v1_path_for_sdk_key(sdk_key);
         let v2_path = mmap_v2_path_for_sdk_key(sdk_key);
         let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
 
-        let publication = inspect_mmap_v2_publication(&manifest_path, &v1_path, &v2_path)?;
-        let v1_metadata = metadata_if_linked(&v1_path)?;
+        let publication = inspect_mmap_v2_publication(&manifest_path, &v2_path)?;
         let manifest_metadata = metadata_if_linked(&manifest_path)?;
 
         let (state, format_version, committed_v2_metadata) = match publication {
-            MmapV2Publication::Absent if v1_metadata.is_some() => (
-                MmapArtifactState::LegacyV1,
-                Some(LEGACY_MMAP_FORMAT_VERSION),
-                None,
-            ),
             MmapV2Publication::Absent => (MmapArtifactState::Missing, None, None),
             MmapV2Publication::Committed(file) => {
                 let metadata = file
@@ -108,11 +102,6 @@ impl InternedStore {
                 )
             }
             MmapV2Publication::Incomplete => (MmapArtifactState::IncompleteV2, None, None),
-            MmapV2Publication::Invalid(_) if v1_metadata.is_some() => (
-                MmapArtifactState::FallbackV1,
-                Some(LEGACY_MMAP_FORMAT_VERSION),
-                None,
-            ),
             MmapV2Publication::Invalid(_) => (MmapArtifactState::Invalid, None, None),
         };
 
@@ -120,26 +109,22 @@ impl InternedStore {
             Some(metadata) => Some(metadata),
             None => metadata_if_linked(&v2_path)?,
         };
-        let v1_bytes = v1_metadata.as_ref().map(Metadata::len);
         let v2_bytes = v2_metadata.as_ref().map(Metadata::len);
         let manifest_bytes = manifest_metadata.as_ref().map(Metadata::len);
-        let total_linked_bytes = [v1_bytes, v2_bytes, manifest_bytes]
+        let total_linked_bytes = [v2_bytes, manifest_bytes]
             .into_iter()
             .flatten()
             .fold(0_u64, u64::saturating_add);
-        let linked_file_count = [v1_bytes, v2_bytes, manifest_bytes]
+        let linked_file_count = [v2_bytes, manifest_bytes]
             .into_iter()
             .filter(Option::is_some)
             .count() as u64;
-        let newest_linked_modified_unix_seconds = [
-            v1_metadata.as_ref(),
-            v2_metadata.as_ref(),
-            manifest_metadata.as_ref(),
-        ]
-        .into_iter()
-        .flatten()
-        .filter_map(modified_unix_seconds)
-        .max();
+        let newest_linked_modified_unix_seconds =
+            [v2_metadata.as_ref(), manifest_metadata.as_ref()]
+                .into_iter()
+                .flatten()
+                .filter_map(modified_unix_seconds)
+                .max();
         let (filesystem_capacity_bytes, filesystem_available_bytes) = manifest_path
             .parent()
             .map(filesystem_space)
@@ -148,7 +133,7 @@ impl InternedStore {
         Ok(MmapArtifactSnapshot {
             state,
             format_version,
-            v1_bytes,
+            v1_bytes: None,
             v2_bytes,
             manifest_bytes,
             total_linked_bytes,

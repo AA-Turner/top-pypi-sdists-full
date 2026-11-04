@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from probe.foundation.compat.compat import StrEnum
 
@@ -30,6 +30,9 @@ class WaitOutcome(StrEnum):
     OLD_WORKER = "old_worker"
     #: The close itself neither reached the server nor the outbox (full, or unwritable).
     CLOSE_UNRECORDED = "close_unrecorded"
+    #: Everything was delivered, but the server refused some of it once it stored it (infra
+    #: I15d: a 202 batch refused at apply). The refusals are on the run (`ingest.refusals`).
+    DATA_REFUSED = "data_refused"
     #: Ctrl-C: the caller stops waiting; the worker keeps sending.
     STOPPED_WAITING = "stopped_waiting"
     #: The caller's own limit ran out (`flush_timeout`, a SIGTERM's grace); the worker keeps sending.
@@ -57,6 +60,9 @@ class WaitResult:
     waited_seconds: float = 0.0
     #: Who held the lease, for `OLD_WORKER` (pid and release).
     holder: str | None = None
+    #: For `DATA_REFUSED`: the run read's `ingest.refusals` of this attempt, each with its kind,
+    #: counts and the server's sentence (`message.text`).
+    refusals: list = field(default_factory=list)
 
     @property
     def is_delivered(self) -> bool:

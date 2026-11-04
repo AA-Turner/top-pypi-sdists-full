@@ -2673,7 +2673,7 @@ class TestPythonFlag:
         pyproject = _make_pyproject(tmp_path)
         out = tmp_path / "pylock.toml"
         with pytest.raises(SystemExit) as exc:
-            lock(pyproject, output=out, python=value, locked=locked)
+            lock(pyproject, output=out, python=value, reproduce=locked)
         assert exc.value.code == 1
         err = capsys.readouterr().err
         assert "--python" in err
@@ -2722,31 +2722,79 @@ class TestPythonFlag:
         assert target.python_version == "3.11"
 
     def test_retargets_a_free_threaded_platform_onto_a_new_python(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, hermetic_roots: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """``--python`` lands before the free-threaded floor is checked.
-
-        Checked against the 3.12 host instead, the floor would reject the
-        run the flag retargets onto 3.14.
-        """
+        """``--python`` retargets the free-threaded platform before validation."""
         env = {**host_environment(), "python_full_version": "3.12.11"}
         monkeypatch.setattr("nab.config.model.host_environment", lambda: env)
 
         pyproject = _make_pyproject(
-            tmp_path,
+            hermetic_roots,
             '[project]\ndependencies = ["foo"]\n'
             '[tool.nab]\nbuild-policy = "never"\n'
             "[tool.nab.environment]\n"
             'platform = { id = "linux_x86_64", free-threaded = true }\n',
         )
-        out = tmp_path / "pylock.toml"
-        with patch(
-            "nab._resolve.resolve_for_targets", return_value=_stub_resolve_result()
-        ) as mock_resolve:
-            lock(pyproject, output=out, python="3.14")
+        out = hermetic_roots / "pylock.toml"
+
+        listings = {
+            "foo": [
+                make_wheel(
+                    version,
+                    package="foo",
+                    tag=tag,
+                    hashes=(("sha256", "a" * 64),),
+                )
+                for version, tag in (
+                    ("2.0", "cp314-cp314-manylinux_2_28_x86_64"),
+                    ("1.0", "cp314-cp314t-manylinux_2_28_x86_64"),
+                )
+            ],
+            "leaf": [
+                make_wheel(version, package="leaf", hashes=(("sha256", "b" * 64),))
+                for version in ("2.0", "1.0")
+            ],
+        }
+
+        metadata = {}
+        for name, wheels in listings.items():
+            for wheel in wheels:
+                dependencies = (f"leaf=={wheel.version}",) if name == "foo" else ()
+                metadata[wheel.metadata_url] = make_metadata(
+                    name, str(wheel.version), *dependencies
+                )
+
+        with (
+            patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=contextlib.nullcontext(
+                    make_coordinator(listings=listings, metadata_by_url=metadata)
+                ),
+            ),
+            patch(
+                "nab._resolve.resolve_for_targets", wraps=resolve_for_targets
+            ) as mock_resolve,
+        ):
+            lock(pyproject, output=out, python="3.14", offline=True, cache=False)
 
         (target,) = mock_resolve.call_args.kwargs["targets"]
         assert target.python_version == "3.14"
+
+        pylock = Pylock.from_dict(tomli.loads(out.read_text()))
+        assert {package.name: str(package.version) for package in pylock.packages} == {
+            "foo": "1.0",
+            "leaf": "1.0",
+        }
+
+        assert {
+            package.name: [wheel.url for wheel in package.wheels]
+            for package in pylock.packages
+        } == {
+            "foo": [
+                "https://example.com/foo-1.0-cp314-cp314t-manylinux_2_28_x86_64.whl"
+            ],
+            "leaf": ["https://example.com/leaf-1.0-py3-none-any.whl"],
+        }
 
     def test_rejected_beside_a_cli_matrix(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -3119,7 +3167,7 @@ class TestTableFlagsEndToEnd:
             lock(
                 pyproject,
                 output=out,
-                locked=True,
+                reproduce=True,
                 project_environment_platform=("macos_arm64", "runs-on-macos=14.0"),
                 project_build_policy="never",
             )
@@ -3137,7 +3185,7 @@ class TestTableFlagsEndToEnd:
         pyproject = _make_pyproject(tmp_path)
         out = tmp_path / "pylock.toml"
         with pytest.raises(SystemExit) as exc:
-            lock(pyproject, output=out, locked=True, python="3.12")
+            lock(pyproject, output=out, reproduce=True, python="3.12")
 
         assert exc.value.code == 1
         assert capsys.readouterr().err.count("--python 3.12") == 1
@@ -5620,7 +5668,7 @@ def _conflict_fork_result(*, shared: tuple[str, str]) -> ResolveResult:
 
 
 class TestLockedFlag:
-    """``nab lock --locked`` re-resolves and verifies the committed pylock."""
+    """``nab lock --reproduce`` re-resolves and verifies the committed pylock."""
 
     def _write_lock(
         self,
@@ -5645,7 +5693,7 @@ class TestLockedFlag:
                 str(pyproject),
                 "--output",
                 str(out),
-                "--locked",
+                "--reproduce",
                 *extra_args,
                 status=status,
             )
@@ -5672,11 +5720,11 @@ class TestLockedFlag:
             'extras = ["all"]\npackages = []\n'
         )
         with pytest.raises(SystemExit, match="1"):
-            lock(pyproject, output=out, locked=True, offline=True, extras=("all",))
+            lock(pyproject, output=out, reproduce=True, offline=True, extras=("all",))
 
         err = capsys.readouterr().err
         assert 'cannot lock: marker python_full_version ~= "3"' in err
-        assert "--locked" not in err
+        assert "--reproduce" not in err
         assert "Traceback" not in err
 
     def test_up_to_date_exits_zero_without_writing(
@@ -5783,7 +5831,7 @@ class TestLockedFlag:
     def test_unhashable_pin_during_render_exits_one(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        # A pin that cannot be hashed makes the render fail; --locked reports
+        # A pin that cannot be hashed makes the render fail; --reproduce reports
         # it and exits without touching the committed lock, like a normal lock.
         pyproject = _make_pyproject(tmp_path)
         out = tmp_path / "pylock.toml"
@@ -5797,7 +5845,7 @@ class TestLockedFlag:
             ),
             patch("nab._lock.render_lock", side_effect=MissingHashError("no hash")),
         ):
-            _lock_cli(str(pyproject), "--output", str(out), "--locked", status=1)
+            _lock_cli(str(pyproject), "--output", str(out), "--reproduce", status=1)
 
         assert "cannot lock" in capsys.readouterr().err
         assert out.read_bytes() == before
@@ -5838,7 +5886,7 @@ class TestLockedFlag:
             ),
             patch("nab._lock.render_lock", side_effect=DisjointnessError(hint)),
         ):
-            _lock_cli(str(pyproject), "--output", str(out), "--locked", status=1)
+            _lock_cli(str(pyproject), "--output", str(out), "--reproduce", status=1)
 
         assert f"error: {hint}\n" in capsys.readouterr().err
         assert out.read_bytes() == before
@@ -5892,7 +5940,7 @@ class TestLockedFlag:
             str(out),
             "--format",
             "requirements",
-            "--locked",
+            "--reproduce",
             status=1,
         )
 
@@ -5903,18 +5951,18 @@ class TestLockedFlag:
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         pyproject = _make_pyproject(tmp_path)
-        _lock_cli(str(pyproject), "--output", "-", "--locked", status=1)
+        _lock_cli(str(pyproject), "--output", "-", "--reproduce", status=1)
 
         assert "only supported for pylock" in capsys.readouterr().err
 
-    def test_universal_unsupported(
+    def test_universal_missing_lock(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         pyproject = _universal_pyproject(tmp_path)
         out = tmp_path / "pylock.toml"
-        _lock_cli(str(pyproject), "--output", str(out), "--locked", status=1)
+        _lock_cli(str(pyproject), "--output", str(out), "--reproduce", status=1)
 
-        assert "not supported in universal mode" in capsys.readouterr().err
+        assert "no lockfile" in capsys.readouterr().err
         assert not out.exists()
 
     def test_local_source_paths_do_not_false_mismatch(
@@ -5952,7 +6000,7 @@ class TestLockedFlag:
         assert [package["directory"]["path"] for package in packages] == ["../vendor"]
 
         capsys.readouterr()
-        lock(pyproject, output=out, offline=True, cache=False, locked=True)
+        lock(pyproject, output=out, offline=True, cache=False, reproduce=True)
         assert "is up to date" in capsys.readouterr().err
 
 

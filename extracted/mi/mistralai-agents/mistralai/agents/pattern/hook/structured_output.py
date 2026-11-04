@@ -45,7 +45,7 @@ class StructuredOutputHook[T: BaseModel](Hook):
     iteration left under the agent's ``max_iterations``. At that limit it accepts the last answer,
     or, when ``on_limit`` is ``"reject"``, raises ``ValueError``, which fails the turn. Set
     ``schema_in_prompt`` to ``False`` to leave the JSON Schema out of the user message, for example
-    when ``response_format`` already gives it to the model; corrections still include it. Set
+    when ``output_type`` already gives it to the model; corrections still include it. Set
     ``enabled`` to ``False`` to let answers through unchecked. ``turn`` holds the count of the
     current turn; the Session saves it with the other fields.
 

@@ -96,6 +96,18 @@ PSEUDO_SIMPLE_NO_MATCH = {
     ':visited'
 }
 
+# Attributes whose values are matched case insensitively on HTML elements in HTML documents
+# https://html.spec.whatwg.org/multipage/semantics-other.html#case-sensitivity-of-selectors
+HTML_CASE_INSENSITIVE_ATTRIBUTES = frozenset(
+    (
+        'accept', 'accept-charset', 'align', 'alink', 'axis', 'bgcolor', 'charset', 'checked', 'clear',
+        'codetype', 'color', 'compact', 'declare', 'defer', 'dir', 'direction', 'disabled', 'enctype',
+        'face', 'frame', 'hreflang', 'http-equiv', 'lang', 'language', 'link', 'media', 'method',
+        'multiple', 'nohref', 'noresize', 'noshade', 'nowrap', 'readonly', 'rel', 'rev', 'rules', 'scope',
+        'scrolling', 'selected', 'shape', 'target', 'text', 'type', 'valign', 'valuetype', 'vlink'
+    )
+)
+
 # Complex pseudo classes that take selector lists
 PSEUDO_COMPLEX = {
     ':contains',
@@ -192,7 +204,7 @@ PAT_PSEUDO_NTH_TYPE = fr'''
 # Pseudo class language (`:lang("*-de", en)`)
 PAT_PSEUDO_LANG = fr'{PAT_PSEUDO_CLASS_SPECIAL}(?P<values>{VALUE}(?:{WSC}*+,{WSC}*+{VALUE})*+){WSC}*+\)'
 # Pseudo class direction (`:dir(ltr)`)
-PAT_PSEUDO_DIR = fr'{PAT_PSEUDO_CLASS_SPECIAL}(?P<dir>ltr|rtl){WSC}*+\)'
+PAT_PSEUDO_DIR = fr'{PAT_PSEUDO_CLASS_SPECIAL}(?P<dir>{IDENTIFIER}){WSC}*+\)'
 # Combining characters (`>`, `~`, ` `, `+`, `,`)
 PAT_COMBINE = fr'{COMMENTS}*+(?={WS}|[,+>~]){WSC}*+(?P<relation>[,+>~])?+{WSC}*+'
 # Extra: Contains (`:contains(text)`)
@@ -234,6 +246,8 @@ FLG_IN_RANGE = 0x80
 FLG_OUT_OF_RANGE = 0x100
 FLG_PLACEHOLDER_SHOWN = 0x200
 FLG_FORGIVE = 0x400
+FLG_EDITABLE = 0x800
+FLG_CHECKED = 0x1000
 
 # Maximum cached patterns to store
 _MAXCACHE = 500
@@ -522,6 +536,8 @@ class _SelectorContext:
         self.is_out_of_range = bool(flags & FLG_OUT_OF_RANGE)
         self.is_placeholder_shown = bool(flags & FLG_PLACEHOLDER_SHOWN)
         self.is_forgive = bool(flags & FLG_FORGIVE)
+        self.is_editable = bool(flags & FLG_EDITABLE)
+        self.is_checked = bool(flags & FLG_CHECKED)
 
         # The algorithm for relative selectors require an initial selector in the selector list
         if self.is_relative:
@@ -532,7 +548,7 @@ class _SelectorContext:
 
         for name in (
             'is_pseudo', 'is_open', 'is_relative', 'is_not', 'is_html', 'is_default', 'is_indeterminate',
-            'is_in_range', 'is_out_of_range', 'is_placeholder_shown', 'is_forgive'
+            'is_in_range', 'is_out_of_range', 'is_placeholder_shown', 'is_forgive', 'is_editable', 'is_checked'
         ):
             if getattr(self, name):
                 print(f'    {name}: True')
@@ -566,25 +582,45 @@ class PseudoSelectorMap(UserDict[str, CSSPattern | ct.SelectorList]):
         return value
 
 
+# An `input` is in the Text state when its `type` is missing, `text`, or not one of
+# the other keywords, so an invalid value like `type="foo"` is a text input:
+# https://html.spec.whatwg.org/multipage/input.html#attr-input-type
+INPUT_TEXT_STATE = (
+    ':not([type=hidden], [type=search], [type=tel], [type=url], [type=email], [type=password], '
+    '[type=date], [type=month], [type=week], [type=time], [type=datetime-local], [type=number], '
+    '[type=range], [type=color], [type=checkbox], [type=radio], [type=file], [type=submit], '
+    '[type=image], [type=reset], [type=button])'
+)
+
 # CSS pattern for `:link` and `:any-link`
 CSS_LINK = CSSPattern('html|*:is(a, area)[href]', FLG_PSEUDO | FLG_HTML)
 # CSS pattern for `:checked`
 CSS_CHECKED = CSSPattern(
     '''
-    html|*:is(input[type=checkbox], input[type=radio])[checked], html|option[selected]
-    ''',
-    FLG_PSEUDO | FLG_HTML
-)
-# CSS pattern for `:default` (must compile CSS_CHECKED first)
-CSS_DEFAULT = CSSPattern(
-    '''
-    :checked,
+    html|input[type=checkbox][checked],
 
     /*
     This pattern must be at the end.
     Special logic is applied to the last selector.
     */
-    html|form html|*:is(button, input)[type="submit"]
+    html|*:is(input[type=radio][checked], option)
+    ''',
+    FLG_PSEUDO | FLG_HTML | FLG_CHECKED
+)
+# CSS pattern for `:default`
+CSS_DEFAULT = CSSPattern(
+    '''
+    html|*:is(input[type=checkbox], input[type=radio])[checked],
+    html|option[selected],
+
+    /*
+    This pattern must be at the end.
+    Special logic is applied to the last selector.
+    */
+    html|*:is(
+        button:is([type=submit], :not([type=button], [type=reset], [commandfor], [command])),
+        input:is([type=submit], [type=image])
+    )
     ''',
     FLG_PSEUDO | FLG_HTML | FLG_DEFAULT
 )
@@ -606,32 +642,51 @@ CSS_INDETERMINATE = CSSPattern(
 # CSS pattern for `:disabled`
 CSS_DISABLED = CSSPattern(
     '''
-    html|*:is(input:not([type=hidden]), button, select, textarea, fieldset, optgroup, option, fieldset)[disabled],
+    html|*:is(input, button, select, textarea, fieldset, optgroup, option, fieldset)[disabled],
     html|optgroup[disabled] > html|option,
-    html|fieldset[disabled] > html|*:is(input:not([type=hidden]), button, select, textarea, fieldset),
+    html|fieldset[disabled] > html|*:is(input, button, select, textarea, fieldset),
     html|fieldset[disabled] >
-        html|*:not(legend:nth-of-type(1)) html|*:is(input:not([type=hidden]), button, select, textarea, fieldset)
+        html|*:not(legend:nth-of-type(1)) html|*:is(input, button, select, textarea, fieldset),
+    html|*:is(
+        html|select[disabled],
+        html|fieldset[disabled] > html|select,
+        html|fieldset[disabled] > html|*:not(legend:nth-of-type(1)) html|select
+    ) html|*:is(optgroup, option)
     ''',
     FLG_PSEUDO | FLG_HTML
 )
 # CSS pattern for `:enabled`
 CSS_ENABLED = CSSPattern(
     '''
-    html|*:is(input:not([type=hidden]), button, select, textarea, fieldset, optgroup, option, fieldset):not(:disabled)
+    html|*:is(input, button, select, textarea, fieldset, optgroup, option, fieldset):not(:disabled)
     ''',
     FLG_PSEUDO | FLG_HTML
 )
 # CSS pattern for `:required`
-CSS_REQUIRED = CSSPattern('html|*:is(input, textarea, select)[required]', FLG_PSEUDO | FLG_HTML)
+# The `required` attribute does not apply to `input` elements of these types.
+INPUT_REQUIRED_NOT_APPLIES = (
+    '[type=hidden], [type=range], [type=color], [type=submit], [type=image], [type=reset], [type=button]'
+)
+CSS_REQUIRED = CSSPattern(
+    f'''
+    html|input:not({INPUT_REQUIRED_NOT_APPLIES})[required],
+    html|*:is(textarea, select)[required]
+    ''',
+    FLG_PSEUDO | FLG_HTML
+)
 # CSS pattern for `:optional`
-CSS_OPTIONAL = CSSPattern('html|*:is(input, textarea, select):not([required])', FLG_PSEUDO | FLG_HTML)
+CSS_OPTIONAL = CSSPattern(
+    f'''
+    html|*:is(input, textarea, select):not([required]),
+    html|input:is({INPUT_REQUIRED_NOT_APPLIES})
+    ''',
+    FLG_PSEUDO | FLG_HTML
+)
 # CSS pattern for `:placeholder-shown`
 CSS_PLACEHOLDER_SHOWN = CSSPattern(
-    '''
+    f'''
     html|input:is(
-        :not([type]),
-        [type=""],
-        [type=text],
+        {INPUT_TEXT_STATE},
         [type=search],
         [type=url],
         [type=tel],
@@ -645,13 +700,11 @@ CSS_PLACEHOLDER_SHOWN = CSSPattern(
 )
 # CSS pattern for `:read-write` (CSS_DISABLED must be compiled first)
 CSS_READ_WRITE = CSSPattern(
-    '''
+    f'''
     html|*:is(
         textarea,
         input:is(
-            :not([type]),
-            [type=""],
-            [type=text],
+            {INPUT_TEXT_STATE},
             [type=search],
             [type=url],
             [type=tel],
@@ -665,9 +718,9 @@ CSS_READ_WRITE = CSSPattern(
             [type=week]
         )
     ):not([readonly], :disabled),
-    html|*:is([contenteditable=""], [contenteditable="true" i])
+    html|*:not(input, textarea, [contenteditable="false" i])
     ''',
-    FLG_PSEUDO | FLG_HTML
+    FLG_PSEUDO | FLG_HTML | FLG_EDITABLE
 )
 # CSS pattern for `:read-only`
 CSS_READ_ONLY = CSSPattern('html|*:not(:read-write)', FLG_PSEUDO | FLG_HTML)
@@ -803,16 +856,16 @@ class CSSParser:
         case = util.lower(m.group('case')) if m.group('case') else None
         ns = css_unescape(m.group('attr_ns')[:-1]) if m.group('attr_ns') else ''
         attr = css_unescape(m.group('attr_name'))
-        is_type = False
+        html_insensitive = False
         pattern2 = None
         value = ''
         inverse = False
 
         if case:
-            flags = (re.I if case == 'i' else 0) | re.DOTALL
-        elif util.lower(attr) == 'type':
-            flags = re.I | re.DOTALL
-            is_type = True
+            flags = (re.I | re.ASCII if case == 'i' else 0) | re.DOTALL
+        elif util.lower(attr) in HTML_CASE_INSENSITIVE_ATTRIBUTES:
+            flags = re.I | re.ASCII | re.DOTALL
+            html_insensitive = True
         else:
             flags = re.DOTALL
 
@@ -847,14 +900,14 @@ class CSSParser:
             pattern = re.compile(r'^%s(?:-.*)?$' % re.escape(value), flags)
         elif op.startswith('!'):
             # Value does not matches
-            pattern = re.compile(r'^(?!%s).*$' % re.escape(value), flags)
+            pattern = re.compile(r'^(?!%s$)' % re.escape(value), flags)
             inverse = True
         else:
             # Value matches
             pattern = re.compile(r'^%s$' % re.escape(value), flags)
 
-        if is_type and pattern:
-            pattern2 = re.compile(pattern.pattern)
+        if html_insensitive and pattern:
+            pattern2 = re.compile(pattern.pattern, re.DOTALL)
 
         # Append the attribute selector
         sel_attr = ct.SelectorAttribute(attr, ns, pattern, pattern2, inverse)
@@ -899,9 +952,8 @@ class CSSParser:
         sel: _Selector,
         m: Match[str],
         has_selector: bool,
-        is_html: bool,
         is_relative: bool
-    ) -> tuple[bool, bool, _SelectorContext | None]:
+    ) -> tuple[bool, _SelectorContext | None]:
         """
         Parse pseudo class.
 
@@ -921,7 +973,6 @@ class CSSParser:
                 sel.flags |= ct.SEL_ROOT
             elif pseudo == ':defined':
                 sel.flags |= ct.SEL_DEFINED
-                is_html = True
             elif pseudo == ':scope':
                 sel.flags |= ct.SEL_SCOPE
             elif pseudo == ':empty':
@@ -974,7 +1025,7 @@ class CSSParser:
                 m.start(0)
             )
 
-        return has_selector, is_html, context
+        return has_selector, context
 
     def parse_pseudo_nth(
         self,
@@ -1237,8 +1288,14 @@ class CSSParser:
     def parse_pseudo_dir(self, sel: _Selector, m: Match[str], has_selector: bool) -> bool:
         """Parse pseudo direction."""
 
-        value = ct.SEL_DIR_LTR if util.lower(m.group('dir')) == 'ltr' else ct.SEL_DIR_RTL
-        sel.flags |= value
+        value = util.lower(css_unescape(m.group('dir')))
+        if value == 'ltr':
+            sel.flags |= ct.SEL_DIR_LTR
+        elif value == 'rtl':
+            sel.flags |= ct.SEL_DIR_RTL
+        else:
+            # Any other identifier is valid, but does not match anything.
+            sel.no_match = True
         has_selector = True
         return has_selector
 
@@ -1281,9 +1338,7 @@ class CSSParser:
             elif key == 'pseudo_class_custom':
                 ctx.has_selector = self.parse_pseudo_class_custom(ctx.sel, m, ctx.has_selector)
             elif key == 'pseudo_class':
-                ctx.has_selector, ctx.is_html, child = self.parse_pseudo_class(
-                    ctx.sel, m, ctx.has_selector, ctx.is_html, ctx.is_relative
-                )
+                ctx.has_selector, child = self.parse_pseudo_class(ctx.sel, m, ctx.has_selector, ctx.is_relative)
             elif key == 'pseudo_element':
                 raise NotImplementedError(f"Pseudo-element found at position {m.start(0)}")
             elif key == 'pseudo_contains':
@@ -1294,8 +1349,6 @@ class CSSParser:
                 ctx.has_selector = self.parse_pseudo_lang(ctx.sel, m, ctx.has_selector)
             elif key == 'pseudo_dir':
                 ctx.has_selector = self.parse_pseudo_dir(ctx.sel, m, ctx.has_selector)
-                # Currently only supports HTML
-                ctx.is_html = True
             elif key == 'pseudo_close':
                 if not ctx.has_selector:
                     if not ctx.is_forgive:
@@ -1410,6 +1463,10 @@ class CSSParser:
             selectors[-1].flags = ct.SEL_OUT_OF_RANGE
         if ctx.is_placeholder_shown:
             selectors[-1].flags = ct.SEL_PLACEHOLDER_SHOWN
+        if ctx.is_editable:
+            selectors[-1].flags = ct.SEL_EDITABLE
+        if ctx.is_checked:
+            selectors[-1].flags = ct.SEL_CHECKED
 
         # Return selector list
         return ct.SelectorList([s.freeze() for s in selectors], ctx.is_not, ctx.is_html, self.count - ctx.count)

@@ -505,7 +505,7 @@ def test_task_failure_still_fetches_fresh_pod_statuses(
 
 def test_result_loop_body_has_no_synchronous_refresh_call() -> None:
     """Regression guard: the loop body contains no cluster-status refresh call."""
-    src = inspect.getsource(ColumnAddPipelineJob.run)
+    src = inspect.getsource(ColumnAddPipelineJob._run)
     start = src.index("while pool.has_next()")
     # Anchor on the teardown call (unique, cannot appear mid-loop) rather than
     # the first ``finally:``, which an inner try/finally could shadow.

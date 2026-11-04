@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = 'Common libraries for Databricks Labs'
 readme = "README.md"
 license-files = { paths = ["LICENSE", "NOTICE"] }
-requires-python = ">=3.10"
+requires-python = ">=3.10, <3.15"
 keywords = ["Databricks"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -17,7 +17,12 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = ["databricks-sdk>=0.16.0"]
+dependencies = [
+    "databricks-sdk>=0.16.0",
+    "pip>=26.2.2,<27",
+    # Transitive dependencies, to constrain downstream installations.
+    "certifi>=2026.10.19",  # Earlier bundles still trust "emSign ECC Root CA - G3".
+]
 
 [project.optional-dependencies]
 yaml = ["PyYAML>=6.0.0,<7.0.0"]
@@ -26,78 +31,65 @@ yaml = ["PyYAML>=6.0.0,<7.0.0"]
 Issues = "https://github.com/databrickslabs/blueprint/issues"
 Source = "https://github.com/databrickslabs/blueprint"
 
+[dependency-groups]
+dev = [
+    { include-group = "lint" },
+    { include-group = "test" },
+]
+lint = [
+    "databricks-labs-pylint~=0.5.0",
+    "mypy~=2.1.0",
+    "pylint~=4.0.5",
+    "pylint-pytest==2.0.0a1",
+    "ruff~=0.15.17",
+    "types-PyYAML~=6.0.12",
+    "types-requests~=2.33",
+]
+pytest = [
+    "coverage[toml]~=7.14.1",
+    "pytest~=9.1.0",
+    "pytest-asyncio~=1.4.0",
+    "pytest-cov~=7.1.0",
+    "pytest-mock~=3.15.1",
+    "pytest-timeout~=2.4.0",
+    "pytest-xdist~=3.8.0",
+]
+test = [
+    { include-group = "pytest" },
+]
+# Ensure we can use yq in a way that it (and dependencies) are pinned.
+yq = [
+    "yq~=3.4.3"
+]
+
 [build-system]
-requires = ["hatchling"]
+requires = [
+    "hatchling~=1.30.1"
+]
 build-backend = "hatchling.build"
 
-[tool.hatch.build]
-sources = ["src"]
-include = ["src"]
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "/.build-constraints.txt",
+    "/README.*",
+    "/LICEN[CS]E",
+    "/NOTICE",
+    "/pyproject.toml",
+    "/src/",
+    "/tests/",
+    "/uv.lock",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/databricks"]
 
 [tool.hatch.version]
 path = "src/databricks/labs/blueprint/__about__.py"
-
-[tool.hatch.envs.default]
-dependencies = [
-    "databricks-labs-blueprint[yaml]",
-    "coverage[toml]~=7.4.4",
-    "mypy~=1.18.0",
-    "pylint~=4.0.0",
-    # "pylint-pytest==2.0.0a0"  # Incorrect dependency constraint (pylint<4), installed separately below.
-    "databricks-labs-pylint~=0.3.0",
-    "pytest~=8.1.0",
-    "pytest-asyncio~=0.23.0",
-    "pytest-cov~=4.1.0",
-    "pytest-mock~=3.14.0",
-    "pytest-timeout~=2.3.1",
-    "pytest-xdist~=3.5.0",
-    "ruff~=0.3.4",
-    "types-PyYAML~=6.0.12",
-    "types-requests~=2.31.0",
-]
-
-post-install-commands = [
-    "pip install --no-deps pylint-pytest==2.0.0a0",  # See above; installed here to avoid dependency conflict.
-]
-
-# store virtual env as the child of this folder. Helps VSCode (and PyCharm) to run better
-path = ".venv"
-
-[tool.hatch.envs.default.scripts]
-test        = "pytest -n 2 --cov src --cov-report=xml --timeout 30 tests/unit --durations 20"
-coverage    = "pytest -n 2 --cov src tests/unit --timeout 30 --cov-report=html --durations 20"
-integration = "pytest -n 10 --cov src tests/integration --durations 20"
-fmt         = ["isort .",
-               "ruff format",
-               "ruff check . --fix",
-               "mypy .",
-               "pylint --output-format=colorized -j 0 src"]
-verify      = ["isort . --check-only",
-               "ruff format --check --diff",
-               "ruff check .",
-               "mypy .",
-               "pylint --output-format=colorized -j 0 src"]
-
-[tool.isort]
-profile = "black"
-
-[tool.pytest.ini_options]
-addopts = "--no-header"
-cache_dir = ".venv/pytest-cache"
-asyncio_mode = "auto"
 
 [tool.black]
 target-version = ["py310"]
 line-length = 120
 skip-string-normalization = true
-
-[tool.ruff]
-cache-dir = ".venv/ruff-cache"
-target-version = "py310"
-line-length = 120
-
-[tool.ruff.lint.isort]
-known-first-party = ["databricks.labs.blueprint"]
 
 [tool.coverage.run]
 branch = true
@@ -110,6 +102,28 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+cache_dir = ".venv/mypy-cache"
+
+[tool.pytest.ini_options]
+addopts = "--no-header"
+cache_dir = ".venv/pytest-cache"
+asyncio_mode = "auto"
+
+[tool.ruff]
+cache-dir = ".venv/ruff-cache"
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint.isort]
+known-first-party = ["databricks.labs.blueprint"]
+
+[tool.uv]
+required-version = "~= 0.11.0"
 
 [tool.pylint.main]
 # PyLint configuration is adapted from Google Python Style Guide with modifications.

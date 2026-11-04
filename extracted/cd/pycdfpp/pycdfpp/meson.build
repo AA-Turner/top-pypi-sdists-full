@@ -1,9 +1,10 @@
-pycdfpp_python_sources = [files('__init__.py', 'debug.py', 'cli.py', 'cli_irsdump.py')]
+pycdfpp_python_sources = [files('__init__.py', 'debug.py', 'cli.py', 'cli_irsdump.py', '_remote.py')]
 fs = import('fs')
 fs.copyfile('__init__.py', '__init__.py')
 fs.copyfile('debug.py', 'debug.py')
 fs.copyfile('cli.py', 'cli.py')
 fs.copyfile('cli_irsdump.py', 'cli_irsdump.py')
+fs.copyfile('_remote.py', '_remote.py')
 
 pymod = import('python')
 python3 = pymod.find_installation('python3')
@@ -23,3 +24,5 @@ _pycdfpp = python3.extension_module('_pycdfpp', 'pycdfpp.cpp',
                         )
 
 python3.install_sources(pycdfpp_python_sources, pure: false, subdir: 'pycdfpp')
+
+subdir('cdflib')

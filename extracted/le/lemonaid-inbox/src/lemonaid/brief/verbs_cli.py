@@ -13,9 +13,10 @@ import sys
 from collections import abc
 from pathlib import Path
 
-from .. import obsidian
+from .. import config, obsidian
 from ..config import load_config
 from ..inbox import db
+from ..tasks.briefs import completion, subject_hints
 from . import (
     check,
     command,
@@ -89,6 +90,17 @@ def _cmd_hide(args: argparse.Namespace) -> None:
 
 
 def _cmd_status(args: argparse.Namespace) -> None:
+    if args.state == "done" and load_config().tasks.enabled:
+        path, _ = command.own_brief(args)
+        with db.connect() as conn:
+            lemon_id, held = completion.open_tasks(conn, path) if path else ("", [])
+            handed, held, why = completion.hand_to_parent(conn, lemon_id, held)
+        for line in handed:
+            print(line, file=sys.stderr)
+        if held:
+            result = {"path": str(path), "open_tasks": [t["task_id"] for t in held]}
+            command.finish(args, result, completion.refusal(held, why))
+
     if args.state in store.RETIRED:
         print(
             f"`{args.state}` is no longer set by hand; cleared Status, so the inbox shows"
@@ -160,7 +172,11 @@ def _cmd_pr(args: argparse.Namespace) -> None:
             brief, Path(args.review), f"Review of {url}", config.vaults
         )
 
-    edited(args, change)
+    path, error = command.own_brief(args)
+    if path:
+        error = edit(path, change)
+    hint = subject_hints.for_brief(path, url) if path and not error else ""
+    command.finish(args, {"path": str(path) if path else None}, error, str(path), hint)
 
 
 def _verbs(
@@ -190,9 +206,9 @@ def add_parsers(brief_subparsers: argparse._SubParsersAction) -> None:
         "Set the Status line of a lemon's brief; `clear` removes it, so the inbox shows the "
         "lemon's own state",
     )
-    status.epilog = status_guide.GUIDE
+    status.epilog = status_guide.guide(config.brief_statuses())
     status.formatter_class = argparse.RawDescriptionHelpFormatter
-    status.add_argument("state", choices=(*store.STATES, store.CLEAR, *store.RETIRED))
+    status.add_argument("state", choices=(*store.states(), store.CLEAR, *store.RETIRED))
     status.set_defaults(func=_cmd_status)
 
     hide = command.parser(

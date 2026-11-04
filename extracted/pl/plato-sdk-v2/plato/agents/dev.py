@@ -63,12 +63,15 @@ async def sync_dev_code(
             raise RuntimeError(f"Failed to install packages: {stderr or stdout}")
     logger.info("Editable pip install on %s took %.1fs", hostname, time.monotonic() - t0)
 
-    # Also install the SDK editably into the venv so agent VMs have the latest
-    # CLI commands. Include the agent package so entry points are discoverable
-    # by plato-agent-runner.
+    # The editable install above already put /sdk and /app — including their
+    # entry points, which is what makes them discoverable by
+    # plato-agent-runner — into the pre-baked venv. Re-building the identical
+    # command list here re-ran the exact same installs on every agent VM boot
+    # (~3s each), so only the published-SDK path still needs a CLI install.
     if agent_synced:
-        tool_cmds = build_editable_install_commands(["/sdk", "/app"])
-    elif package_name and version:
+        logger.info("sync_dev_code total on %s: %.1fs", hostname, time.monotonic() - t_total)
+        return agent_synced
+    if package_name and version:
         tool_cmds = [build_editable_sdk_install_command(package_name, version)]
     else:
         logger.info("SDK-only sync complete on %s; skipping redundant CLI reinstall", hostname)

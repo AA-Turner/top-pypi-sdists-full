@@ -42,6 +42,10 @@ class MessageCode(StrEnum):
 
     CLIENT_TOO_OLD = "client_too_old"
     WORKSPACE_REQUIRED = "workspace_required"
+    # A batch the server accepted (202) and refused once it applied it: listed on the run (I15d).
+    DATA_REFUSED = "data_refused"
+    # A tenant's queued data is over its share of the ingest queue: resend after Retry-After (I16).
+    INGEST_BACKLOG = "ingest_backlog"
     # A staff notice's codes (non-blocking).
     UPDATE_RECOMMENDED = "update_recommended"
     MAINTENANCE = "maintenance"

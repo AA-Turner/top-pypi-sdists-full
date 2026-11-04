@@ -353,14 +353,16 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ListPageDetailedJobResponse]:
     """ListJobs
 
-    Gets the jobs of a workspace as a paginated list, newest run first.
+    Gets the jobs of a workspace as a paginated list, most recent run first; jobs that never
+    ran come last.
 
-    Search with `q` over the job name; filter by type, archived state,
-    paused state, profile, or pipeline; sort with paired `sort` and `order` lists.
+    Search with `q` over the job name; filter by `ref`, type, archived or paused state, profile,
+    pipeline, the status of the latest run, trigger kind, category, tags (given without the
+    `tag:` prefix) or a `created_at` window; sort with paired `sort` and `order` lists.
 
     Archived and live jobs are both listed unless `is_archived` says which to keep.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -390,12 +392,12 @@ def sync_detailed(
         exclude_category (list[JobCategory] | None | Unset): Drop jobs declaring any of the given
             `expose.category` values. A job declaring none is kept.
         tags (list[str] | None | Unset): Match jobs carrying any of the given tags.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
         sort (list[ListJobsSortType0Item] | None | Unset): Keys to sort by, applied in the order
             given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListJobsOrderType0Item] | None | Unset): Sort directions, one per `sort` key
@@ -484,14 +486,16 @@ def sync(
 ) -> ErrorResponse | ListPageDetailedJobResponse | None:
     """ListJobs
 
-    Gets the jobs of a workspace as a paginated list, newest run first.
+    Gets the jobs of a workspace as a paginated list, most recent run first; jobs that never
+    ran come last.
 
-    Search with `q` over the job name; filter by type, archived state,
-    paused state, profile, or pipeline; sort with paired `sort` and `order` lists.
+    Search with `q` over the job name; filter by `ref`, type, archived or paused state, profile,
+    pipeline, the status of the latest run, trigger kind, category, tags (given without the
+    `tag:` prefix) or a `created_at` window; sort with paired `sort` and `order` lists.
 
     Archived and live jobs are both listed unless `is_archived` says which to keep.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -521,12 +525,12 @@ def sync(
         exclude_category (list[JobCategory] | None | Unset): Drop jobs declaring any of the given
             `expose.category` values. A job declaring none is kept.
         tags (list[str] | None | Unset): Match jobs carrying any of the given tags.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
         sort (list[ListJobsSortType0Item] | None | Unset): Keys to sort by, applied in the order
             given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListJobsOrderType0Item] | None | Unset): Sort directions, one per `sort` key
@@ -610,14 +614,16 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | ListPageDetailedJobResponse]:
     """ListJobs
 
-    Gets the jobs of a workspace as a paginated list, newest run first.
+    Gets the jobs of a workspace as a paginated list, most recent run first; jobs that never
+    ran come last.
 
-    Search with `q` over the job name; filter by type, archived state,
-    paused state, profile, or pipeline; sort with paired `sort` and `order` lists.
+    Search with `q` over the job name; filter by `ref`, type, archived or paused state, profile,
+    pipeline, the status of the latest run, trigger kind, category, tags (given without the
+    `tag:` prefix) or a `created_at` window; sort with paired `sort` and `order` lists.
 
     Archived and live jobs are both listed unless `is_archived` says which to keep.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -647,12 +653,12 @@ async def asyncio_detailed(
         exclude_category (list[JobCategory] | None | Unset): Drop jobs declaring any of the given
             `expose.category` values. A job declaring none is kept.
         tags (list[str] | None | Unset): Match jobs carrying any of the given tags.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
         sort (list[ListJobsSortType0Item] | None | Unset): Keys to sort by, applied in the order
             given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListJobsOrderType0Item] | None | Unset): Sort directions, one per `sort` key
@@ -739,14 +745,16 @@ async def asyncio(
 ) -> ErrorResponse | ListPageDetailedJobResponse | None:
     """ListJobs
 
-    Gets the jobs of a workspace as a paginated list, newest run first.
+    Gets the jobs of a workspace as a paginated list, most recent run first; jobs that never
+    ran come last.
 
-    Search with `q` over the job name; filter by type, archived state,
-    paused state, profile, or pipeline; sort with paired `sort` and `order` lists.
+    Search with `q` over the job name; filter by `ref`, type, archived or paused state, profile,
+    pipeline, the status of the latest run, trigger kind, category, tags (given without the
+    `tag:` prefix) or a `created_at` window; sort with paired `sort` and `order` lists.
 
     Archived and live jobs are both listed unless `is_archived` says which to keep.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -776,12 +784,12 @@ async def asyncio(
         exclude_category (list[JobCategory] | None | Unset): Drop jobs declaring any of the given
             `expose.category` values. A job declaring none is kept.
         tags (list[str] | None | Unset): Match jobs carrying any of the given tags.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `created_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
         sort (list[ListJobsSortType0Item] | None | Unset): Keys to sort by, applied in the order
             given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListJobsOrderType0Item] | None | Unset): Sort directions, one per `sort` key

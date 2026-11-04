@@ -24,6 +24,7 @@ from myorb.brief.writer import (
     translate,
     write_brief,
 )
+from myorb.cache import cancel
 from myorb.connections import store
 from myorb.crypto import SecretBox
 from myorb.plugins import BriefSection, Plugin, TimelineItem, WidgetContext
@@ -288,6 +289,10 @@ class BriefService:
                 self._after.add(task)
                 task.add_done_callback(self._after.discard)
             return brief
+
+    async def close(self) -> None:
+        """Stops what runs after a brief is written (reading it aloud in advance)."""
+        await cancel(list(self._after))
 
     async def due(self) -> bool:
         """Whether today's scheduled brief should be written now."""

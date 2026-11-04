@@ -557,6 +557,35 @@ def models_status(**kwargs):
     return jsonify(model_status_payload())
 
 
+# The event stream's worker rows (operator 2026-10-27: /api/llm/events moved ~3 MB on every
+# connect and on every worker change). The console reads only membership from
+# models_central, a few marker fields from models_discovered and nothing from
+# model_pair_settings, so the stream carries those slim; REST views keep the full rows.
+_STREAM_MARKER_FIELDS = ("primary_task", "framework", "tasks", "moe_capable")
+
+
+def _stream_marker(entry):
+    hj = entry.get("hugpy_json") if isinstance(entry, dict) else None
+    hj = hj if isinstance(hj, dict) else {}
+    keep = {k: hj[k] for k in _STREAM_MARKER_FIELDS if k in hj}
+    hub = hj.get("hub")
+    if isinstance(hub, dict) and hub.get("pipeline_tag"):
+        keep["hub"] = {"pipeline_tag": hub["pipeline_tag"]}
+    return {"hugpy_json": keep}
+
+
+def stream_worker(row: dict) -> dict:
+    row = dict(row)
+    row.pop("model_pair_settings", None)
+    central = row.get("models_central")
+    if isinstance(central, dict):
+        row["models_central"] = {key: True for key in central}
+    discovered = row.get("models_discovered")
+    if isinstance(discovered, dict):
+        row["models_discovered"] = {key: _stream_marker(entry) for key, entry in discovered.items()}
+    return row
+
+
 def llm_events(**kwargs):
     """SSE: the full snapshot on connect, then a fresh one the moment the
     registry changes (a worker registers or heartbeats) or the boxes' DB state
@@ -566,7 +595,9 @@ def llm_events(**kwargs):
     live._ensure()
 
     def feeds_now() -> dict:
-        return dict(snapshot_feeds())
+        feeds = dict(snapshot_feeds())
+        feeds["workers"] = [stream_worker(w) for w in feeds.get("workers") or []]
+        return feeds
 
     def gen():
         seen, cv = registry.version(), live.console_version()

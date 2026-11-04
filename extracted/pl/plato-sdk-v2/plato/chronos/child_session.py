@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled", "error"})
+_TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled", "error", "timeout"})
 
 # Status codes that indicate a transient upstream / gateway issue worth
 # retrying. 502/504 typically come from ALB or other reverse proxies when the
@@ -156,8 +156,8 @@ async def _call_with_transient_retry(
 class ChildSessionOutcome:
     """Normalized outcome of a child-session wait.
 
-    ``status`` is one of ``"completed"``, ``"failed"``, ``"cancelled"``, or
-    ``"error"`` — whatever Chronos reported. ``details`` is the raw
+    ``status`` is one of ``"completed"``, ``"failed"``, ``"cancelled"``,
+    ``"error"`` or ``"timeout"`` — whatever Chronos reported. ``details`` is the raw
     :class:`SessionResponse` passed through unchanged so callers can map it
     into their own world-specific result schema.
     """

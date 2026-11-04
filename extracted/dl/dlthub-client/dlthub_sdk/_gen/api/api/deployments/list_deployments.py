@@ -146,10 +146,10 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ListPageDeploymentResponse]:
     """ListDeployments
 
-    Gets all history of deployments for a workspace. Returns a paginated list of deployments ordered by
-    version number descending.
+    Lists the deployments of a workspace as a paginated list, newest version first unless `sort`
+    is given.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -202,10 +202,10 @@ def sync(
 ) -> ErrorResponse | ListPageDeploymentResponse | None:
     """ListDeployments
 
-    Gets all history of deployments for a workspace. Returns a paginated list of deployments ordered by
-    version number descending.
+    Lists the deployments of a workspace as a paginated list, newest version first unless `sort`
+    is given.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -253,10 +253,10 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | ListPageDeploymentResponse]:
     """ListDeployments
 
-    Gets all history of deployments for a workspace. Returns a paginated list of deployments ordered by
-    version number descending.
+    Lists the deployments of a workspace as a paginated list, newest version first unless `sort`
+    is given.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -307,10 +307,10 @@ async def asyncio(
 ) -> ErrorResponse | ListPageDeploymentResponse | None:
     """ListDeployments
 
-    Gets all history of deployments for a workspace. Returns a paginated list of deployments ordered by
-    version number descending.
+    Lists the deployments of a workspace as a paginated list, newest version first unless `sort`
+    is given.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

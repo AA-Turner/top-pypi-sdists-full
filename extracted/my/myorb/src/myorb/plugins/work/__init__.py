@@ -87,6 +87,8 @@ def merge(parts: list[tuple[str, WidgetData]]) -> WidgetData:
             Stat(overdue, "Overdue", filter="overdue"),
             Stat(tagged("today"), "Due today", filter="today"),
             Stat(tagged("progress"), "In progress", filter="progress"),
+            # Not counted in the number; listed last, and found with this.
+            Stat(tagged("backlog"), "Backlog", filter="backlog"),
         ],
         list_title="Assigned to you",
         group_label="workspaces",

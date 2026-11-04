@@ -44,6 +44,7 @@ class ProductionJobConfig(object):
         'max_retries': 'int',
         'timeout_s': 'int',
         'connection_ids': 'list[str]',
+        'connection_config_ids': 'list[str]',
         'priority': 'int',
         'runtime_env_config': 'RayRuntimeEnvConfig'
     }
@@ -60,11 +61,12 @@ class ProductionJobConfig(object):
         'max_retries': 'max_retries',
         'timeout_s': 'timeout_s',
         'connection_ids': 'connection_ids',
+        'connection_config_ids': 'connection_config_ids',
         'priority': 'priority',
         'runtime_env_config': 'runtime_env_config'
     }
 
-    def __init__(self, entrypoint='', ray_serve_config=None, runtime_env=None, build_id=None, image_uri=None, registry_login_secret=None, compute_config_id=None, compute_config=None, max_retries=5, timeout_s=None, connection_ids=None, priority=None, runtime_env_config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, entrypoint='', ray_serve_config=None, runtime_env=None, build_id=None, image_uri=None, registry_login_secret=None, compute_config_id=None, compute_config=None, max_retries=5, timeout_s=None, connection_ids=None, connection_config_ids=None, priority=None, runtime_env_config=None, local_vars_configuration=None):  # noqa: E501
         """ProductionJobConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -81,6 +83,7 @@ class ProductionJobConfig(object):
         self._max_retries = None
         self._timeout_s = None
         self._connection_ids = None
+        self._connection_config_ids = None
         self._priority = None
         self._runtime_env_config = None
         self.discriminator = None
@@ -105,6 +108,8 @@ class ProductionJobConfig(object):
             self.timeout_s = timeout_s
         if connection_ids is not None:
             self.connection_ids = connection_ids
+        if connection_config_ids is not None:
+            self.connection_config_ids = connection_config_ids
         if priority is not None:
             self.priority = priority
         if runtime_env_config is not None:
@@ -366,6 +371,29 @@ class ProductionJobConfig(object):
         """
 
         self._connection_ids = connection_ids
+
+    @property
+    def connection_config_ids(self):
+        """Gets the connection_config_ids of this ProductionJobConfig.  # noqa: E501
+
+        List of federated connection config IDs to associate with the job.  # noqa: E501
+
+        :return: The connection_config_ids of this ProductionJobConfig.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._connection_config_ids
+
+    @connection_config_ids.setter
+    def connection_config_ids(self, connection_config_ids):
+        """Sets the connection_config_ids of this ProductionJobConfig.
+
+        List of federated connection config IDs to associate with the job.  # noqa: E501
+
+        :param connection_config_ids: The connection_config_ids of this ProductionJobConfig.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._connection_config_ids = connection_config_ids
 
     @property
     def priority(self):

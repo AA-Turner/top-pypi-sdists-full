@@ -1,50 +1,51 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.logs.tool_list_response."""
 
-from typing import List, Optional
-from typing_extensions import Literal
+from __future__ import annotations
 
-from pydantic import Field as FieldInfo
+from typing import Literal, Optional
 
-from ..._models import BaseModel
-
-__all__ = ["ToolListResponse", "Data", "DataApp", "DataMetadata"]
+from pydantic import ConfigDict, Field
+from ..._base_model import BaseModel
 
 
 class DataApp(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     icon: str
-
     name: str
 
 
 class DataMetadata(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     recipe_id: Optional[str] = None
 
 
 class Data(BaseModel):
-    id: str
-
-    action_key: str = FieldInfo(alias="actionKey")
-
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    action_key: str = Field(alias="actionKey")
     app: DataApp
-
-    app_key: str = FieldInfo(alias="appKey")
-
-    connected_account_id: str = FieldInfo(alias="connectedAccountId")
-
-    created_at: float = FieldInfo(alias="createdAt")
-
-    entity_id: str = FieldInfo(alias="entityId")
-
-    execution_time: float = FieldInfo(alias="executionTime")
-
-    minimal_response: str = FieldInfo(alias="minimalResponse")
-
-    status: Literal["success", "failed"]
-
+    app_key: str = Field(alias="appKey")
+    connected_account_id: str = Field(alias="connectedAccountId")
+    created_at: float = Field(alias="createdAt")
+    entity_id: str = Field(alias="entityId")
+    execution_time: float = Field(alias="executionTime")
+    id: str
     metadata: Optional[DataMetadata] = None
+    minimal_response: str = Field(alias="minimalResponse")
+    status: Literal['success', 'failed']
+    credential_source: Literal["connected_account", "instant_account", "custom_auth", "no_auth"] | None = Field(default=None, alias="credentialSource")
+    instant_charge: str | None = Field(default=None, alias="instantCharge")
 
 
 class ToolListResponse(BaseModel):
-    data: List[Data]
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    data: list[Data]
+    next_cursor: Optional[float] = Field(default=None, alias="nextCursor")
 
-    next_cursor: Optional[float] = FieldInfo(alias="nextCursor", default=None)
+
+__all__ = [
+    "ToolListResponse",
+    "Data",
+    "DataApp",
+    "DataMetadata",
+]

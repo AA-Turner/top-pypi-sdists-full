@@ -268,6 +268,7 @@ class SourcePlatform(Enum):
     informatica = 'informatica'
     netezza = 'netezza'
     oracle = 'oracle'
+    pentaho = 'pentaho'
     postgres = 'postgres'
     redshift = 'redshift'
     snowflake = 'snowflake'

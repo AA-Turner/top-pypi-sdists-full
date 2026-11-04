@@ -23,6 +23,8 @@ MIN_TRANSIENT_ATTEMPTS = 50
 #: How soon a pass looks again at a run another drain is sending (holds its lock): a ceiling
 #: on that run's backoff, not a failure.
 _RUN_BUSY_RECHECK_SECONDS = 5.0
+#: A lane's note while the server holds its run's close for queued data (I15d).
+SERVER_STORING_NOTE = "the server is storing this run's queued data; the close is sent again shortly"
 
 
 class DrainSettleMixin:
@@ -45,6 +47,19 @@ class DrainSettleMixin:
             self.report.note_run_progress(op, delivered=False)
             if lane is not None:
                 self.held_runs.add(lane)
+
+    def _record_server_storing(self, pending_points: int, retry_after: float | None, lane: Any, op: dict) -> None:
+        """I15d: the server holds this run's close until its queued data is stored (503
+        `data_pending`). Not a failure: no attempt charged, no stall clock; the lane waits the
+        Retry-After, the run counts as moving, and its pending points reach the waiting finish()."""
+        wait = float(retry_after or 1.0)
+        self.stalled[lane] = LaneStall(SERVER_STORING_NOTE, wait, status=503, wake_by=wait)
+        self.report.in_progress += 1
+        self.report.progressed_runs.add(lane)
+        self.report.note_run_progress(op, delivered=False)
+        ref = op.get("run_ref")
+        if isinstance(ref, str):
+            self.report.server_storing[ref] = pending_points
 
     def _settle_landed(self, path: Path, op: dict, lane: Any, went_away: int) -> None:
         """A delivered op leaves the queue, durably, and is counted."""
@@ -204,6 +219,10 @@ class DrainSettleMixin:
             return "break"
         if isinstance(exc, errors.DeadlineExceeded):
             return self._settle_deadline(path, op, exc)
+        pending_points = get_data_pending_points(exc)
+        if pending_points is not None:
+            self._record_server_storing(pending_points, getattr(exc, "retry_after", None), lane, op)
+            return "continue"
         if self.options.on_error is not None:
             self.options.on_error(exc)
         if errors.names_stale_write_epoch(exc) and not _is_multipart(op):
@@ -460,6 +479,10 @@ class DrainSettleMixin:
         """Transient: park in place, order preserved; its run waits, or the pass ends when the
         server is unreachable for everyone."""
         report = self.report
+        if not was_held(op):
+            # Evidence its server is down (I14); a let-out write failing again is not: it may be
+            # the one bad write, and counting it would let it out again at every landing.
+            report.failing_servers.add(get_server_key(op))
         write_text_atomic(path, json.dumps(op, indent=2) + "\n", mode=0o600)
         self.known[path.name] = _meta_of(op)  # a hashed upload now has a size
         report.stopped_transient = True
@@ -508,6 +531,7 @@ from probe.sdk.delivery.outbox.drain.report import LaneStall  # noqa: E402 -- pi
 from probe.sdk.delivery.outbox.drain.report import OpHeldHere  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.report import OpInProgress  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.ops import _attempts  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.ops.ingest_queue import get_data_pending_points  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.coalesce import _count_producers  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.op_handler import _delivery_scope  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.classify import _edge_already_there  # noqa: E402 -- pieces need each other; the front door loads this one first
@@ -525,6 +549,7 @@ from probe.sdk.delivery.ops.op_handler import multipart_storage  # noqa: E402 --
 from probe.sdk.delivery.outbox.held import (  # noqa: E402 -- pieces need each other; the front door loads this one first
     HeldCause,
     best_effort_retry,
+    get_server_key,
     hold_lane,
     hold_op,
     is_best_effort,

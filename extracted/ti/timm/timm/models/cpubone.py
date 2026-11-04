@@ -4,6 +4,9 @@ CPUBone: Efficient Vision Backbone Design for Devices with Low Parallelization C
 Moritz Nottebaum, Matteo Dunnhofer, Christian Micheloni
 Conference on Computer Vision and Pattern Recognition (CVPR) Findings, 2026
 
+Papers:
+* `CPUBone: Efficient Vision Backbone Design for Devices with Low Parallelization Capabilities` - https://arxiv.org/abs/2603.26425
+
 Adapted from the original implementation at https://github.com/altair199797/CPUBone.
 
 Special thanks to Simon Kundrat for initiating integration of CPUBone into the library. Most of the content was done by him.
@@ -526,6 +529,7 @@ class ClsHead(nn.Module):
         dd = {'device': device, 'dtype': dtype}
         super().__init__()
         _check_global_pool(global_pool)
+        self.in_features = in_channels
         self.num_features = width_list[-1]
         self.dropout = dropout
         self.pool_type = global_pool
@@ -543,6 +547,8 @@ class ClsHead(nn.Module):
             self,
             num_classes: int,
             global_pool: Optional[str] = None,
+            reset_other: bool = False,
+            in_features: Optional[int] = None,
             device=None,
             dtype=None,
     ):
@@ -554,6 +560,14 @@ class ClsHead(nn.Module):
             self.global_pool.train(self.training)
             self.flatten = nn.Flatten(1) if global_pool else nn.Identity()
             self.flatten.train(self.training)
+        if reset_other:
+            # remove the pre-logits conv / mlp, leaving pooling and the classifier
+            self.in_conv = nn.Identity()
+            self.pre_classifier = nn.Identity()
+            self.num_features = self.in_features
+        if in_features is not None and in_features != self.in_features:
+            assert isinstance(self.in_conv, nn.Identity), 'Input features can only change w/ in_conv removed.'
+            self.in_features = self.num_features = in_features
         if num_classes > 0:
             self.classifier = LinearLayer(self.num_features, num_classes, True, self.dropout, **dd)
             self.classifier.train(self.training)
@@ -650,6 +664,7 @@ class CPUBone(nn.Module):
         if downsample_expand_ratios is None:
             downsample_expand_ratios = (expand_ratio,) * num_stages
         assert len(downsample_expand_ratios) == num_stages
+        self.in_chans = in_chans
         self.num_classes = num_classes
         self.num_features = width_list[-1]
         self.head_hidden_size = head_widths[-1]
@@ -875,13 +890,14 @@ class CPUBone(nn.Module):
     def get_classifier(self) -> nn.Module:
         return self.head.classifier
 
-    def reset_classifier(self, num_classes: int, global_pool: Optional[str] = None):
+    def reset_classifier(self, num_classes: int, global_pool: Optional[str] = None, reset_other: bool = False):
         dd = get_device_dtype(self)
         if global_pool is not None:
             _check_global_pool(global_pool)
             self.global_pool = global_pool
         self.num_classes = num_classes
-        self.head.reset(num_classes, global_pool, **dd)
+        self.head.reset(num_classes, global_pool, reset_other=reset_other, in_features=self.num_features, **dd)
+        self.head_hidden_size = self.head.num_features
 
     def forward_intermediates(
             self,
@@ -932,9 +948,13 @@ class CPUBone(nn.Module):
     ):
         """Prune layers not required for specified intermediates."""
         take_indices, max_index = feature_take_indices(len(self.stages), indices)
+        prune_end = max_index < len(self.stages) - 1
         self.stages = self.stages[:max_index + 1]
-        if prune_head:
-            self.reset_classifier(0)
+        if prune_end:
+            # features now end at the last kept tap, the head is sized for the final features so it goes too
+            self.num_features = self.head_hidden_size = self.feature_info[max_index]['num_chs']
+        if prune_head or prune_end:
+            self.reset_classifier(0, reset_other=True)
         return take_indices
 
     def forward_features(self, x: torch.Tensor) -> torch.Tensor:

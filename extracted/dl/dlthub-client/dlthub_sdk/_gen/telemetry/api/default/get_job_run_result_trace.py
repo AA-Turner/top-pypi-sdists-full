@@ -55,6 +55,11 @@ def _parse_response(
 
         return response_404
 
+    if response.status_code == 413:
+        response_413 = ErrorResponse.from_dict(response.json())
+
+        return response_413
+
     if response.status_code == 500:
         response_500 = ErrorResponse.from_dict(response.json())
 
@@ -85,14 +90,12 @@ def sync_detailed(
 ) -> Response[ErrorResponse | JobResultTraceResponse]:
     """GetJobResultTrace
 
-    The job-result envelope exactly as the runner delivered it: the declared output, and the
-    agent trace with its per-turn tool calls, token counts and stop reason.
+    The full result exactly as the job delivered it, including the agent's per-turn tool calls.
+    Fields beyond `type` and `job_ref` are passed through unchanged. `job_run_id` is the job run's
+    id from the runtime API, not a `pipeline_run_id`. Answers 404 when the run declared no result.
 
-    Returned verbatim, so this carries fields no column promotes; only `type` and `job_ref` are
-    declared. `job_run_id` is the platform run id, not a telemetry `pipeline_run_id`.
-
-    An envelope past the size this serves in one response answers 413 with
-    `job_result_trace_too_large`; the promoted scalars stay readable at `/result`.
+    Results over 8 MiB answer 413 `job_result_trace_too_large`; the summary fields stay
+    available at `/result`.
 
     Args:
         workspace_id (UUID):
@@ -125,14 +128,12 @@ def sync(
 ) -> ErrorResponse | JobResultTraceResponse | None:
     """GetJobResultTrace
 
-    The job-result envelope exactly as the runner delivered it: the declared output, and the
-    agent trace with its per-turn tool calls, token counts and stop reason.
+    The full result exactly as the job delivered it, including the agent's per-turn tool calls.
+    Fields beyond `type` and `job_ref` are passed through unchanged. `job_run_id` is the job run's
+    id from the runtime API, not a `pipeline_run_id`. Answers 404 when the run declared no result.
 
-    Returned verbatim, so this carries fields no column promotes; only `type` and `job_ref` are
-    declared. `job_run_id` is the platform run id, not a telemetry `pipeline_run_id`.
-
-    An envelope past the size this serves in one response answers 413 with
-    `job_result_trace_too_large`; the promoted scalars stay readable at `/result`.
+    Results over 8 MiB answer 413 `job_result_trace_too_large`; the summary fields stay
+    available at `/result`.
 
     Args:
         workspace_id (UUID):
@@ -160,14 +161,12 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | JobResultTraceResponse]:
     """GetJobResultTrace
 
-    The job-result envelope exactly as the runner delivered it: the declared output, and the
-    agent trace with its per-turn tool calls, token counts and stop reason.
+    The full result exactly as the job delivered it, including the agent's per-turn tool calls.
+    Fields beyond `type` and `job_ref` are passed through unchanged. `job_run_id` is the job run's
+    id from the runtime API, not a `pipeline_run_id`. Answers 404 when the run declared no result.
 
-    Returned verbatim, so this carries fields no column promotes; only `type` and `job_ref` are
-    declared. `job_run_id` is the platform run id, not a telemetry `pipeline_run_id`.
-
-    An envelope past the size this serves in one response answers 413 with
-    `job_result_trace_too_large`; the promoted scalars stay readable at `/result`.
+    Results over 8 MiB answer 413 `job_result_trace_too_large`; the summary fields stay
+    available at `/result`.
 
     Args:
         workspace_id (UUID):
@@ -198,14 +197,12 @@ async def asyncio(
 ) -> ErrorResponse | JobResultTraceResponse | None:
     """GetJobResultTrace
 
-    The job-result envelope exactly as the runner delivered it: the declared output, and the
-    agent trace with its per-turn tool calls, token counts and stop reason.
+    The full result exactly as the job delivered it, including the agent's per-turn tool calls.
+    Fields beyond `type` and `job_ref` are passed through unchanged. `job_run_id` is the job run's
+    id from the runtime API, not a `pipeline_run_id`. Answers 404 when the run declared no result.
 
-    Returned verbatim, so this carries fields no column promotes; only `type` and `job_ref` are
-    declared. `job_run_id` is the platform run id, not a telemetry `pipeline_run_id`.
-
-    An envelope past the size this serves in one response answers 413 with
-    `job_result_trace_too_large`; the promoted scalars stay readable at `/result`.
+    Results over 8 MiB answer 413 `job_result_trace_too_large`; the summary fields stay
+    available at `/result`.
 
     Args:
         workspace_id (UUID):

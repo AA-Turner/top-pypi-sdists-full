@@ -17,7 +17,8 @@ T = TypeVar("T", bound="WorkspaceVariablesResponse")
 class WorkspaceVariablesResponse:
     """
     Attributes:
-        scopes (list[ScopeVariablesResponse]): Workspace-wide scope first, then each profile scope holding variables
+        scopes (list[ScopeVariablesResponse]): The workspace-wide scope first (always present, possibly empty), then
+            each profile that holds variables, sorted by name.
     """
 
     scopes: list[ScopeVariablesResponse]

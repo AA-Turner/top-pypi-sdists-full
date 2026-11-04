@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ha-mcp-dev
-Version: 9.1.0.dev3330
+Version: 9.1.0.dev3355
 Summary: Home Assistant MCP Server - Complete control of Home Assistant through MCP
 Keywords: mcp,home-assistant,ai,automation,smart-home
 Author: Julien
@@ -17,6 +17,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: anyio>=4.10 ; python_full_version >= '3.14'
 Requires-Dist: anyio>=4.9 ; python_full_version < '3.14'
 Requires-Dist: authlib>=1.6.11
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: cyclopts>=4.0.0
 Requires-Dist: exceptiongroup>=1.2.2
 Requires-Dist: griffelib>=2.0.0
@@ -444,6 +445,19 @@ Leave it off in clients with deferred tool loading (claude.ai, Claude Desktop, C
 > 🔄 **Refresh your client's tool list after changing this (or any) setting.** Toggling `ENABLE_TOOL_SEARCH` (or changing pinned/disabled tools, Read Only Mode, etc.) changes the tools the server exposes, but your AI client keeps serving its **cached** tool list until it re-fetches. Restarting the app or Home Assistant does **not** refresh the client — reconnect or refresh the MCP server in your client (e.g. re-add/refresh the connector in ChatGPT, or close and reopen Claude Desktop). If you skip this, newly enabled tools won't appear in the client at all, and tools the server no longer exposes still show as available but fail when called (`Unknown tool`, or the Read Only Mode error for a write tool that mode hides). ChatGPT sometimes keeps serving the stale list even after the connector is removed and re-added under the same name — if tools are still missing after re-adding, delete the connector and create a new one with a **different name**.
 
 For the HA app, the same option is documented in [`homeassistant-addon/DOCS.md`](homeassistant-addon/DOCS.md#enable_tool_search) along with the in-app settings UI for fine-grained tool enable/disable/pin.
+
+### Per-URL tool catalog
+
+`ENABLE_TOOL_SEARCH` defaults to off, and it sets the catalog of the main endpoint only. When several clients share one server, give each the URL for the catalog it needs: a client with built-in tool search keeps the full list, a small-context client gets the search tools. The suffixes are fixed overrides that ignore `ENABLE_TOOL_SEARCH`:
+
+```text
+Main endpoint (follows ENABLE_TOOL_SEARCH):  https://example.com/private_your_secret
+Always the full catalog:                     https://example.com/private_your_secret/catalog/full
+Always the search tools:                     https://example.com/private_your_secret/catalog/search
+Read-only, search tools:                     https://example.com/private_your_secret/readonly/catalog/search
+```
+
+Each URL keeps its catalog for the life of the connection, so a client picks its catalog only by the URL it is given. Reconnect the client after changing its URL so it refreshes its tool list. Home Assistant webhook URLs accept the same suffixes, alone or after `/readonly`: `https://your-ha.example/api/webhook/<webhook-id>/catalog/search`. This needs an embedded integration or Webhook Proxy app (add-on) release that serves them, with a matching MCP server; an older one returns 404 for a suffixed URL. Stdio runs one client per server process, so set `ENABLE_TOOL_SEARCH` in that client's server environment instead.
 
 ---
 

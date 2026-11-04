@@ -4,6 +4,7 @@
 import base64
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 import ray  # noqa: F401
@@ -12,6 +13,9 @@ from geneva import connect
 from geneva.jobs import JobRecord, JobStateManager, JobStatus
 from geneva.jobs.jobs import JobMetric
 from geneva.runners.ray.pipeline import _submit_ray_job
+
+if TYPE_CHECKING:
+    from lancedb.table import LanceTable
 
 _LOG = logging.getLogger(__name__)
 
@@ -246,6 +250,330 @@ def test_set_failed_updates_updated_at(tmp_path: Path) -> None:
     assert job.status == JobStatus.FAILED.name
     assert job.updated_at > prev_updated_at
     assert "Job failed: Something went wrong" in job.events
+
+
+def _running_job(tmp_path: Path, name: str) -> tuple[JobStateManager, str]:
+    jsm = JobStateManager(genevadb=connect(tmp_path), jobs_table_name=name)
+    job_id = jsm.launch(table_name="test_table", column_name="test_column").job_id
+    jsm.set_running(job_id)
+    return jsm, job_id
+
+
+def _version(jsm: JobStateManager) -> int:
+    return jsm.get_table(True).version
+
+
+@pytest.mark.parametrize(
+    ("finish", "status", "event"),
+    [
+        (
+            lambda jsm, job_id: jsm.set_failed(job_id, "boom"),
+            JobStatus.FAILED,
+            "Job failed: boom",
+        ),
+        (
+            lambda jsm, job_id: jsm.set_completed(job_id),
+            JobStatus.DONE,
+            "Job completed with status DONE",
+        ),
+    ],
+    ids=["failed", "done"],
+)
+def test_terminal_write_sets_completed_at_in_one_version(
+    tmp_path: Path, finish, status: JobStatus, event: str
+) -> None:
+    jsm, job_id = _running_job(tmp_path, f"test_jobs_terminal_{status.value}")
+    version = _version(jsm)
+
+    finish(jsm, job_id)
+
+    job = jsm.get(job_id)[0]
+    assert job.status == status.value
+    assert job.completed_at is not None
+    assert job.completed_at >= job.launched_at
+    assert job.updated_at == job.completed_at
+    assert job.events == [event]
+    assert _version(jsm) == version + 1
+
+
+def test_repeated_terminal_write_is_a_noop(tmp_path: Path) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_terminal_replay")
+    jsm.set_failed(job_id, "boom")
+    first = jsm.get(job_id)[0]
+    version = _version(jsm)
+
+    jsm.set_failed(job_id, "boom")
+
+    job = jsm.get(job_id)[0]
+    assert job.completed_at == first.completed_at
+    assert job.updated_at == first.updated_at
+    assert job.events == ["Job failed: boom"]
+    assert _version(jsm) == version
+
+
+def test_second_failure_message_is_kept_without_moving_completed_at(
+    tmp_path: Path,
+) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_second_failure")
+    jsm.set_failed(job_id, "worker lost")
+    first = jsm.get(job_id)[0]
+
+    jsm.set_failed(job_id, "setup failed")
+
+    job = jsm.get(job_id)[0]
+    assert job.status == JobStatus.FAILED.value
+    assert job.completed_at == first.completed_at
+    assert job.events == ["Job failed: worker lost", "Job failed: setup failed"]
+
+
+def test_failed_job_is_not_flipped_to_done(tmp_path: Path) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_failed_sticky")
+    jsm.set_failed(job_id, "boom")
+    failed = jsm.get(job_id)[0]
+
+    jsm.set_completed(job_id)
+
+    job = jsm.get(job_id)[0]
+    assert job.status == JobStatus.FAILED.value
+    assert job.completed_at == failed.completed_at
+    assert job.events[-1] == (
+        "Job completed with status DONE (job already FAILED; status unchanged)"
+    )
+
+
+def test_cancel_records_request_time_and_keeps_updated_at(tmp_path: Path) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_cancel")
+    running = jsm.get(job_id)[0]
+
+    jsm.set_cancelled(job_id, "requested by user")
+
+    job = jsm.get(job_id)[0]
+    assert job.status == JobStatus.CANCELLED.value
+    assert job.completed_at is not None
+    assert job.completed_at > running.updated_at
+    # updated_at still marks the last write from the job itself.
+    assert job.updated_at == running.updated_at
+    assert job.events == ["Job cancelled: requested by user"]
+
+
+def test_set_completed_cancelled_uses_cancel_semantics(tmp_path: Path) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_cancel_compat")
+    running = jsm.get(job_id)[0]
+
+    jsm.set_completed(job_id, status="CANCELLED")
+
+    job = jsm.get(job_id)[0]
+    assert job.status == JobStatus.CANCELLED.value
+    assert job.completed_at is not None
+    assert job.updated_at == running.updated_at
+    assert job.events == ["Job cancelled"]
+
+
+def test_cancelling_a_finished_job_keeps_its_completion_time(tmp_path: Path) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_cancel_done")
+    jsm.set_completed(job_id)
+    done = jsm.get(job_id)[0]
+
+    jsm.set_cancelled(job_id)
+
+    job = jsm.get(job_id)[0]
+    assert job.status == JobStatus.CANCELLED.value
+    assert job.completed_at == done.completed_at
+
+
+@pytest.mark.parametrize(
+    ("finish", "event"),
+    [
+        (
+            lambda jsm, job_id: jsm.set_completed(job_id),
+            "Job completed with status DONE (job already CANCELLED; status unchanged)",
+        ),
+        (
+            lambda jsm, job_id: jsm.set_failed(job_id, "boom"),
+            "Job failed: boom (job already CANCELLED; status unchanged)",
+        ),
+    ],
+    ids=["done", "failed"],
+)
+def test_cancelled_job_stays_cancelled_when_driver_finishes(
+    tmp_path: Path, finish, event: str
+) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_cancel_sticky")
+    jsm.set_cancelled(job_id)
+    cancelled = jsm.get(job_id)[0]
+
+    finish(jsm, job_id)
+
+    job = jsm.get(job_id)[0]
+    assert job.status == JobStatus.CANCELLED.value
+    assert job.completed_at == cancelled.completed_at
+    assert job.events == ["Job cancelled", event]
+    # The driver's final write still marks when it was last alive.
+    assert job.updated_at > cancelled.completed_at
+
+
+def test_cancel_landing_mid_write_is_not_overwritten(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_cancel_race")
+    jsm.set_cancelled(job_id)
+    real_get = jsm.get
+    stale_reads = [True]
+
+    def get_before_cancel(job_id: str) -> list[JobRecord]:
+        jobs = real_get(job_id)
+        if stale_reads and stale_reads.pop():
+            # The driver read the record just before the cancel landed.
+            jobs[0].status = JobStatus.RUNNING.value
+            jobs[0].events = []
+        return jobs
+
+    monkeypatch.setattr(jsm, "get", get_before_cancel)
+    jsm.set_completed(job_id)
+
+    job = real_get(job_id)[0]
+    assert job.status == JobStatus.CANCELLED.value
+    assert job.events == [
+        "Job cancelled",
+        "Job completed with status DONE (job already CANCELLED; status unchanged)",
+    ]
+
+
+def test_set_running_keeps_a_cancelled_job_cancelled(tmp_path: Path) -> None:
+    jsm = JobStateManager(
+        genevadb=connect(tmp_path), jobs_table_name="test_jobs_cancel_pending"
+    )
+    job_id = jsm.launch(table_name="test_table", column_name="test_column").job_id
+    jsm.set_cancelled(job_id)
+
+    jsm.set_running(job_id)
+    jsm.set_running(job_id)
+
+    job = jsm.get(job_id)[0]
+    assert job.status == JobStatus.CANCELLED.value
+    assert job.events == [
+        "Job cancelled",
+        "Driver started after the job was cancelled",
+    ]
+
+
+def test_failed_job_can_run_again_under_the_same_id(tmp_path: Path) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_rerun")
+    jsm.set_failed(job_id, "pod evicted")
+
+    first_end = jsm.get(job_id)[0].completed_at
+
+    jsm.set_running(job_id)
+    rerun = jsm.get(job_id)[0]
+    assert rerun.status == JobStatus.RUNNING.value
+    assert rerun.completed_at is None
+    jsm.set_completed(job_id)
+
+    job = jsm.get(job_id)[0]
+    assert job.status == JobStatus.DONE.value
+    assert job.completed_at > first_end
+    assert job.events == [
+        "Job failed: pod evicted",
+        "Job completed with status DONE",
+    ]
+
+
+@pytest.mark.parametrize("previously_failed", [False, True])
+def test_driver_failure_does_not_skip_a_stale_object_ref_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, previously_failed: bool
+) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_stale_attempt")
+    if previously_failed:
+        jsm.set_failed(job_id, "old attempt failed")
+    table, stale = jsm._get_for_update(job_id)
+    jsm.set_running(job_id)
+    jsm.set_object_ref(job_id, b"current-ref")
+    monkeypatch.setattr(jsm, "_get_for_update", lambda _: (table, stale))
+
+    jsm.set_failed(job_id, "driver lost", object_ref=b"current-ref")
+
+    job = jsm.get(job_id)[0]
+    assert job.status == JobStatus.FAILED.value
+    assert job.completed_at is not None
+
+
+@pytest.mark.parametrize("previously_failed", [False, True])
+@pytest.mark.parametrize("save_replacement_ref", [False, True])
+def test_attempt_failure_is_fenced_during_atomic_update(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    previously_failed: bool,
+    save_replacement_ref: bool,
+) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_attempt_race")
+    jsm.set_object_ref(job_id, b"old-ref")
+    if previously_failed:
+        jsm.set_failed(job_id, "first failure")
+    original = jsm._get_for_update
+    replaced = False
+
+    def replace_after_read(job_id: str) -> tuple["LanceTable", JobRecord]:
+        nonlocal replaced
+        table, job = original(job_id)
+        if not replaced:
+            replaced = True
+            # A separate manager changes the attempt after the observer read
+            # it. A read/check alone must not let its stale write land.
+            replacement = JobStateManager(
+                genevadb=connect(tmp_path), jobs_table_name="test_jobs_attempt_race"
+            )
+            replacement.launch(
+                "test_table", "test_column", job_id=job_id, reset_object_ref=True
+            )
+            replacement.set_running(job_id)
+            if save_replacement_ref:
+                replacement.set_object_ref(job_id, b"new-ref")
+        return table, job
+
+    monkeypatch.setattr(jsm, "_get_for_update", replace_after_read)
+    jsm.set_failed(job_id, "late observer", object_ref=b"old-ref")
+    job = jsm.get(job_id)[0]
+    assert job.status == JobStatus.RUNNING.value
+    assert job.completed_at is None
+    assert job.events == (["Job failed: first failure"] if previously_failed else [])
+    jsm.set_completed(job_id)
+    assert jsm.get(job_id)[0].status == JobStatus.DONE.value
+
+
+def test_cancelled_rerun_records_its_own_end_time(tmp_path: Path) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_cancelled_rerun")
+    jsm.set_failed(job_id, "driver lost")
+    first_end = jsm.get(job_id)[0].completed_at
+
+    jsm.set_running(job_id)
+    jsm.set_cancelled(job_id)
+    jsm.set_completed(job_id)
+
+    job = jsm.get(job_id)[0]
+    assert job.status == JobStatus.CANCELLED.value
+    assert job.completed_at > first_end
+
+
+@pytest.mark.parametrize(
+    ("status", "error"),
+    [
+        ("RUNNING", "not terminal"),
+        ("PENDING", "not terminal"),
+        ("NOT_A_STATUS", "not a valid JobStatus"),
+    ],
+)
+def test_set_completed_rejects_non_terminal_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: str, error: str
+) -> None:
+    jsm, job_id = _running_job(tmp_path, "test_jobs_bad_status")
+
+    def no_write(*args: object, **kwargs: object) -> None:
+        raise AssertionError("no write expected")
+
+    monkeypatch.setattr(jsm, "_set_terminal", no_write)
+    monkeypatch.setattr(jsm, "set_cancelled", no_write)
+    with pytest.raises(ValueError, match=error):
+        jsm.set_completed(job_id, status=status)
 
 
 def test_safe_job_record_with_none_metrics(tmp_path: Path) -> None:

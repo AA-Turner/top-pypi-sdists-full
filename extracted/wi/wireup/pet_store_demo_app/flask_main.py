@@ -3,12 +3,12 @@ from __future__ import annotations
 import wireup
 import wireup.integration.flask as wireup_flask
 from flask import Flask
-from wireup.integration.flask import GraphEndpointOptions, setup
+from wireup.integration.flask import setup
 
 from pet_store_demo_app import factories
 from pet_store_demo_app.services.adoption import AdoptionService
-from pet_store_demo_app.services.audit import AuditService
-from pet_store_demo_app.services.infra import MetricsClient, RedisConnection, ShelterStore
+from pet_store_demo_app.services.audit import ComplianceAuditService, EventAuditService
+from pet_store_demo_app.services.infra import MetricsClient, ShelterStore, make_redis_connection
 from pet_store_demo_app.services.owners import OwnerService
 from pet_store_demo_app.services.pets import PetCatalogService
 from pet_store_demo_app.services.session import SQLAlchemySession
@@ -19,7 +19,7 @@ app = Flask(__name__)
 @app.get("/")
 def index() -> dict[str, str]:
     return {
-        "message": "Visit /pets, /pets/adoption-preview, /owners/demo-owner, /db-session, or /_wireup",
+        "message": "Visit /pets, /pets/adoption-preview, /owners/demo-owner, or /db-session",
     }
 
 
@@ -46,10 +46,11 @@ def db_session(service: wireup.Injected[SQLAlchemySession]) -> dict[str, str]:
 container = wireup.create_sync_container(
     injectables=[
         factories,
-        RedisConnection,
+        make_redis_connection,
         MetricsClient,
         ShelterStore,
-        AuditService,
+        EventAuditService,
+        ComplianceAuditService,
         SQLAlchemySession,
         PetCatalogService,
         AdoptionService,
@@ -72,12 +73,7 @@ container = wireup.create_sync_container(
     },
 )
 
-setup(
-    container,
-    app,
-    add_graph_endpoint=True,
-    graph_endpoint_options=GraphEndpointOptions(base_module="pet_store_demo_app"),
-)
+setup(container, app)
 
 
 if __name__ == "__main__":

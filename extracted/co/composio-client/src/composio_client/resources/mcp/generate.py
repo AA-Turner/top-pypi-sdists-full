@@ -1,209 +1,555 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""``client.mcp.generate`` — the generated resource classes.
+
+``GenerateResource`` (sync) and ``AsyncGenerateResource`` (async),
+dispatching through the hand-written httpx kernel with Stainless-style
+flat request fields and raw / streaming response wrappers.
+"""
 
 from __future__ import annotations
 
+from functools import cached_property
+
 import httpx
+from typing_extensions import overload
 
-from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from ..._utils import maybe_transform, async_maybe_transform
-from ..._compat import cached_property
-from ..._resource import SyncAPIResource, AsyncAPIResource
-from ..._response import (
-    to_raw_response_wrapper,
-    to_streamed_response_wrapper,
-    async_to_raw_response_wrapper,
-    async_to_streamed_response_wrapper,
-)
-from ...types.mcp import generate_url_params
-from ..._base_client import make_request_options
+from ..._base_client import BodyParam, RequestOptions
+from ..._models import GenerateURLBody
+from ..._operations import OPERATIONS_BY_CHAIN
+from ..._response import APIResponse, AsyncAPIResponse, AsyncResponseContextManager, ResponseContextManager
+from ..._types import NOT_GIVEN, Body, Headers, NotGiven, Omit, Query, SequenceNotStr, omit
 from ...types.mcp.generate_url_response import GenerateURLResponse
+from .._base import (
+    AsyncAPIResource,
+    SyncAPIResource,
+    compact,
+    make_request_options,
+    merge_body,
+    require_fields,
+)
 
-__all__ = ["GenerateResource", "AsyncGenerateResource"]
+_URL_OPERATION = OPERATIONS_BY_CHAIN[("mcp", "generate", "url")]
 
 
 class GenerateResource(SyncAPIResource):
-    """MCP server management"""
-
     @cached_property
     def with_raw_response(self) -> GenerateResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return GenerateResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> GenerateResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return GenerateResourceWithStreamingResponse(self)
 
+    # Deprecated in the input OpenAPI schema.
+    @overload
     def url(
         self,
+        body: BodyParam | None = None,
         *,
         mcp_server_id: str,
-        connected_account_ids: SequenceNotStr[str] | Omit = omit,
         managed_auth_by_composio: bool | Omit = omit,
         user_ids: SequenceNotStr[str] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> GenerateURLResponse: ...
+
+    @overload
+    def url(
+        self,
+        body: BodyParam,
+        *,
+        mcp_server_id: str | Omit = omit,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> GenerateURLResponse: ...
+
+    def url(
+        self,
+        body: BodyParam | None = None,
+        *,
+        mcp_server_id: str | Omit = omit,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> GenerateURLResponse:
-        """
-        Generates a Model Control Protocol (MCP) URL for an existing server with custom
-        query parameters. The URL includes user-specific parameters and configuration
-        flags that control the behavior of the MCP connection.
-
-        Args:
-          mcp_server_id: Unique identifier of the MCP server to generate URL for
-
-          connected_account_ids: List of connected account identifiers
-
-          managed_auth_by_composio: Flag indicating if Composio manages authentication
-
-          user_ids: List of user identifiers for whom the URL is generated
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return self._post(
+        body_fields = compact(
+            {
+                "mcp_server_id": mcp_server_id,
+                "managed_auth_by_composio": managed_auth_by_composio,
+                "user_ids": user_ids,
+                "connected_account_ids": connected_account_ids,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mcp_server_id",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
             "/api/v3.1/mcp/servers/generate",
-            body=maybe_transform(
-                {
-                    "mcp_server_id": mcp_server_id,
-                    "connected_account_ids": connected_account_ids,
-                    "managed_auth_by_composio": managed_auth_by_composio,
-                    "user_ids": user_ids,
-                },
-                generate_url_params.GenerateURLParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=GenerateURLResponse,
+            operation=_URL_OPERATION,
+            body=body_data,
+            body_model=GenerateURLBody,
+            options=options_data,
         )
 
 
 class AsyncGenerateResource(AsyncAPIResource):
-    """MCP server management"""
-
     @cached_property
     def with_raw_response(self) -> AsyncGenerateResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return AsyncGenerateResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> AsyncGenerateResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return AsyncGenerateResourceWithStreamingResponse(self)
 
+    # Deprecated in the input OpenAPI schema.
+    @overload
     async def url(
         self,
+        body: BodyParam | None = None,
         *,
         mcp_server_id: str,
-        connected_account_ids: SequenceNotStr[str] | Omit = omit,
         managed_auth_by_composio: bool | Omit = omit,
         user_ids: SequenceNotStr[str] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> GenerateURLResponse: ...
+
+    @overload
+    async def url(
+        self,
+        body: BodyParam,
+        *,
+        mcp_server_id: str | Omit = omit,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> GenerateURLResponse: ...
+
+    async def url(
+        self,
+        body: BodyParam | None = None,
+        *,
+        mcp_server_id: str | Omit = omit,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> GenerateURLResponse:
-        """
-        Generates a Model Control Protocol (MCP) URL for an existing server with custom
-        query parameters. The URL includes user-specific parameters and configuration
-        flags that control the behavior of the MCP connection.
-
-        Args:
-          mcp_server_id: Unique identifier of the MCP server to generate URL for
-
-          connected_account_ids: List of connected account identifiers
-
-          managed_auth_by_composio: Flag indicating if Composio manages authentication
-
-          user_ids: List of user identifiers for whom the URL is generated
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return await self._post(
+        body_fields = compact(
+            {
+                "mcp_server_id": mcp_server_id,
+                "managed_auth_by_composio": managed_auth_by_composio,
+                "user_ids": user_ids,
+                "connected_account_ids": connected_account_ids,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mcp_server_id",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
             "/api/v3.1/mcp/servers/generate",
-            body=await async_maybe_transform(
-                {
-                    "mcp_server_id": mcp_server_id,
-                    "connected_account_ids": connected_account_ids,
-                    "managed_auth_by_composio": managed_auth_by_composio,
-                    "user_ids": user_ids,
-                },
-                generate_url_params.GenerateURLParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=GenerateURLResponse,
+            operation=_URL_OPERATION,
+            body=body_data,
+            body_model=GenerateURLBody,
+            options=options_data,
         )
 
 
 class GenerateResourceWithRawResponse:
-    def __init__(self, generate: GenerateResource) -> None:
-        self._generate = generate
+    def __init__(self, resource: GenerateResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.url = to_raw_response_wrapper(
-            generate.url,
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def url(
+        self,
+        body: BodyParam | None = None,
+        *,
+        mcp_server_id: str,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[GenerateURLResponse]: ...
+
+    @overload
+    def url(
+        self,
+        body: BodyParam,
+        *,
+        mcp_server_id: str | Omit = omit,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[GenerateURLResponse]: ...
+
+    def url(
+        self,
+        body: BodyParam | None = None,
+        *,
+        mcp_server_id: str | Omit = omit,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[GenerateURLResponse]:
+        body_fields = compact(
+            {
+                "mcp_server_id": mcp_server_id,
+                "managed_auth_by_composio": managed_auth_by_composio,
+                "user_ids": user_ids,
+                "connected_account_ids": connected_account_ids,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mcp_server_id",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "post",
+            "/api/v3.1/mcp/servers/generate",
+            cast_to=GenerateURLResponse,
+            operation=_URL_OPERATION,
+            body=body_data,
+            body_model=GenerateURLBody,
+            options=options_data,
         )
 
 
 class AsyncGenerateResourceWithRawResponse:
-    def __init__(self, generate: AsyncGenerateResource) -> None:
-        self._generate = generate
+    def __init__(self, resource: AsyncGenerateResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.url = async_to_raw_response_wrapper(
-            generate.url,
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    async def url(
+        self,
+        body: BodyParam | None = None,
+        *,
+        mcp_server_id: str,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[GenerateURLResponse]: ...
+
+    @overload
+    async def url(
+        self,
+        body: BodyParam,
+        *,
+        mcp_server_id: str | Omit = omit,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[GenerateURLResponse]: ...
+
+    async def url(
+        self,
+        body: BodyParam | None = None,
+        *,
+        mcp_server_id: str | Omit = omit,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[GenerateURLResponse]:
+        body_fields = compact(
+            {
+                "mcp_server_id": mcp_server_id,
+                "managed_auth_by_composio": managed_auth_by_composio,
+                "user_ids": user_ids,
+                "connected_account_ids": connected_account_ids,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mcp_server_id",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "post",
+            "/api/v3.1/mcp/servers/generate",
+            cast_to=GenerateURLResponse,
+            operation=_URL_OPERATION,
+            body=body_data,
+            body_model=GenerateURLBody,
+            options=options_data,
         )
 
 
 class GenerateResourceWithStreamingResponse:
-    def __init__(self, generate: GenerateResource) -> None:
-        self._generate = generate
+    def __init__(self, resource: GenerateResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.url = to_streamed_response_wrapper(
-            generate.url,
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def url(
+        self,
+        body: BodyParam | None = None,
+        *,
+        mcp_server_id: str,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[GenerateURLResponse]]: ...
+
+    @overload
+    def url(
+        self,
+        body: BodyParam,
+        *,
+        mcp_server_id: str | Omit = omit,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[GenerateURLResponse]]: ...
+
+    def url(
+        self,
+        body: BodyParam | None = None,
+        *,
+        mcp_server_id: str | Omit = omit,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[GenerateURLResponse]]:
+        body_fields = compact(
+            {
+                "mcp_server_id": mcp_server_id,
+                "managed_auth_by_composio": managed_auth_by_composio,
+                "user_ids": user_ids,
+                "connected_account_ids": connected_account_ids,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mcp_server_id",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                "/api/v3.1/mcp/servers/generate",
+                cast_to=GenerateURLResponse,
+                operation=_URL_OPERATION,
+                body=body_data,
+                body_model=GenerateURLBody,
+                options=options_data,
+                stream=True,
+            )
         )
 
 
 class AsyncGenerateResourceWithStreamingResponse:
-    def __init__(self, generate: AsyncGenerateResource) -> None:
-        self._generate = generate
+    def __init__(self, resource: AsyncGenerateResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.url = async_to_streamed_response_wrapper(
-            generate.url,
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def url(
+        self,
+        body: BodyParam | None = None,
+        *,
+        mcp_server_id: str,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[GenerateURLResponse]]: ...
+
+    @overload
+    def url(
+        self,
+        body: BodyParam,
+        *,
+        mcp_server_id: str | Omit = omit,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[GenerateURLResponse]]: ...
+
+    def url(
+        self,
+        body: BodyParam | None = None,
+        *,
+        mcp_server_id: str | Omit = omit,
+        managed_auth_by_composio: bool | Omit = omit,
+        user_ids: SequenceNotStr[str] | Omit = omit,
+        connected_account_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[GenerateURLResponse]]:
+        body_fields = compact(
+            {
+                "mcp_server_id": mcp_server_id,
+                "managed_auth_by_composio": managed_auth_by_composio,
+                "user_ids": user_ids,
+                "connected_account_ids": connected_account_ids,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mcp_server_id",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                "/api/v3.1/mcp/servers/generate",
+                cast_to=GenerateURLResponse,
+                operation=_URL_OPERATION,
+                body=body_data,
+                body_model=GenerateURLBody,
+                options=options_data,
+                stream=True,
+            )
         )

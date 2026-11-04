@@ -1,14 +1,14 @@
-from typing import Any, Dict
+from typing import Any, Dict, cast
 from io import BytesIO
 from pathlib import Path
 import srsly
 import torch
-import warnings
+from safetensors.torch import save, load as safetensors_load
 from thinc.api import get_torch_default_device
 from spacy.util import SimpleFrozenDict
 
 from ..data_classes import HFObjects
-from ..util import make_tempdir
+from ..util import make_tempdir, warn_if_slow_tokenizer_unavailable
 
 from thinc.api import PyTorchGradScaler, PyTorchShim
 
@@ -70,10 +70,7 @@ class HFShim(PyTorchShim):
                 for x in temp_dir.glob("**/*"):
                     if x.is_file():
                         tok_dict[x.name] = x.read_bytes()
-            filelike = BytesIO()
-            torch.save(self._model.state_dict(), filelike)
-            filelike.seek(0)
-            weights_bytes = filelike.getvalue()
+            weights_bytes = save(self._model.state_dict())
         else:
             tok_cfg = hf_model._init_tokenizer_config
             trf_cfg = hf_model._init_transformer_config
@@ -87,7 +84,7 @@ class HFShim(PyTorchShim):
         return srsly.msgpack_dumps(msg)
 
     def from_bytes(self, bytes_data):
-        msg = srsly.msgpack_loads(bytes_data)
+        msg: Dict[str, Any] = cast(Dict[str, Any], srsly.msgpack_loads(bytes_data))
         config_dict = msg["config"]
         tok_dict = msg["tokenizer"]
         if config_dict:
@@ -101,6 +98,7 @@ class HFShim(PyTorchShim):
                 tokenizer = self.tokenizer_cls.from_pretrained(
                     str(temp_dir.absolute()), **tok_kwargs
                 )
+                warn_if_slow_tokenizer_unavailable(tokenizer, tok_kwargs)
                 vocab_file_contents = None
                 if hasattr(tokenizer, "vocab_file"):
                     vocab_file_name = tokenizer.vocab_files_names["vocab_file"]
@@ -108,7 +106,13 @@ class HFShim(PyTorchShim):
                     with open(vocab_file_path, "rb") as fileh:
                         vocab_file_contents = fileh.read()
 
-            transformer = self.model_cls.from_config(config)
+            # from_pretrained switches to eager attention when attentions are
+            # requested, but from_config keeps the default (e.g. sdpa), which
+            # returns no attentions in transformers v5.
+            model_kwargs = {}
+            if getattr(config, "output_attentions", False):
+                model_kwargs["attn_implementation"] = "eager"
+            transformer = self.model_cls.from_config(config, **model_kwargs)
             self._hfmodel = HFObjects(
                 tokenizer,
                 transformer,
@@ -117,27 +121,22 @@ class HFShim(PyTorchShim):
                 SimpleFrozenDict(),
             )
             self._model = transformer
-            filelike = BytesIO(msg["state"])
-            filelike.seek(0)
             device = get_torch_default_device()
-            try:
-                self._model.load_state_dict(torch.load(filelike, map_location=device))
-            except RuntimeError:
-                warn_msg = (
-                    "Error loading saved torch state_dict with strict=True, "
-                    "likely due to differences between 'transformers' "
-                    "versions. Attempting to load with strict=False as a "
-                    "fallback...\n\n"
-                    "If you see errors or degraded performance, download a "
-                    "newer compatible model or retrain your custom model with "
-                    "the current 'transformers' and 'spacy-transformers' "
-                    "versions. For more details and available updates, run: "
-                    "python -m spacy validate"
+            state_bytes = msg["state"]
+            if _is_safetensors(state_bytes):
+                state_dict = safetensors_load(state_bytes)
+            else:
+                state_dict = torch.load(
+                    BytesIO(state_bytes),
+                    map_location=device,
+                    weights_only=True,
                 )
-                warnings.warn(warn_msg)
-                filelike.seek(0)
-                b = torch.load(filelike, map_location=device)
-                self._model.load_state_dict(b, strict=False)
+            # Filter out keys not present in the model to handle
+            # cross-version differences (e.g. position_ids added/removed
+            # between transformers versions).
+            model_keys = set(self._model.state_dict().keys())
+            state_dict = {k: v for k, v in state_dict.items() if k in model_keys}
+            self._model.load_state_dict(state_dict)
             self._model.to(device)
         else:
             self._hfmodel = HFObjects(
@@ -148,3 +147,10 @@ class HFShim(PyTorchShim):
                 msg["_init_transformer_config"],
             )
         return self
+
+
+def _is_safetensors(data: bytes) -> bool:
+    """Check whether bytes are in safetensors format (vs torch pickle)."""
+    # Safetensors starts with a u64 LE header size; torch.save starts with
+    # the PK zip magic bytes.
+    return len(data) >= 8 and data[:2] != b"PK"

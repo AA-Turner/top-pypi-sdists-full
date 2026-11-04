@@ -65,15 +65,16 @@ def sync_detailed(
 ) -> Response[ErrorResponse | MeResponse]:
     """GetMe
 
-    Get the current user's identity and organization memberships.
+    Gets your user profile and organization memberships. `primary_organization` is where new
+    workspaces are created by default; `latest_organization` and `latest_workspace` are the ones
+    you used last. Workspaces are listed per organization by `get_organization_me`.
 
-    Workspaces are listed per organization, via /organizations/{id}/me.
+    Each call also accepts your pending invites and creates your playground workspace in any
+    organization that lacks one. On the first call for a user who has no organization yet, it
+    creates a personal organization and a playground workspace, so a freshly authenticated user
+    always gets a 200.
 
-    On the first call for a user who has no organization yet, bootstraps a personal
-    organization and a playground workspace, so a freshly authenticated user always
-    gets a 200.
-
-    Requires Authorization Header.
+    Requires a personal API key or a user login; a workspace API key answers 403.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -97,15 +98,16 @@ def sync(
 ) -> ErrorResponse | MeResponse | None:
     """GetMe
 
-    Get the current user's identity and organization memberships.
+    Gets your user profile and organization memberships. `primary_organization` is where new
+    workspaces are created by default; `latest_organization` and `latest_workspace` are the ones
+    you used last. Workspaces are listed per organization by `get_organization_me`.
 
-    Workspaces are listed per organization, via /organizations/{id}/me.
+    Each call also accepts your pending invites and creates your playground workspace in any
+    organization that lacks one. On the first call for a user who has no organization yet, it
+    creates a personal organization and a playground workspace, so a freshly authenticated user
+    always gets a 200.
 
-    On the first call for a user who has no organization yet, bootstraps a personal
-    organization and a playground workspace, so a freshly authenticated user always
-    gets a 200.
-
-    Requires Authorization Header.
+    Requires a personal API key or a user login; a workspace API key answers 403.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -125,15 +127,16 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | MeResponse]:
     """GetMe
 
-    Get the current user's identity and organization memberships.
+    Gets your user profile and organization memberships. `primary_organization` is where new
+    workspaces are created by default; `latest_organization` and `latest_workspace` are the ones
+    you used last. Workspaces are listed per organization by `get_organization_me`.
 
-    Workspaces are listed per organization, via /organizations/{id}/me.
+    Each call also accepts your pending invites and creates your playground workspace in any
+    organization that lacks one. On the first call for a user who has no organization yet, it
+    creates a personal organization and a playground workspace, so a freshly authenticated user
+    always gets a 200.
 
-    On the first call for a user who has no organization yet, bootstraps a personal
-    organization and a playground workspace, so a freshly authenticated user always
-    gets a 200.
-
-    Requires Authorization Header.
+    Requires a personal API key or a user login; a workspace API key answers 403.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -155,15 +158,16 @@ async def asyncio(
 ) -> ErrorResponse | MeResponse | None:
     """GetMe
 
-    Get the current user's identity and organization memberships.
+    Gets your user profile and organization memberships. `primary_organization` is where new
+    workspaces are created by default; `latest_organization` and `latest_workspace` are the ones
+    you used last. Workspaces are listed per organization by `get_organization_me`.
 
-    Workspaces are listed per organization, via /organizations/{id}/me.
+    Each call also accepts your pending invites and creates your playground workspace in any
+    organization that lacks one. On the first call for a user who has no organization yet, it
+    creates a personal organization and a playground workspace, so a freshly authenticated user
+    always gets a 200.
 
-    On the first call for a user who has no organization yet, bootstraps a personal
-    organization and a playground workspace, so a freshly authenticated user always
-    gets a 200.
-
-    Requires Authorization Header.
+    Requires a personal API key or a user login; a workspace API key answers 403.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

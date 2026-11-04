@@ -27,6 +27,7 @@ import argcomplete
 from requests.exceptions import RequestException
 
 from . import __version__
+from .base import LazyObject
 from .client import Weblate
 from .config import NoOptionError, WeblateConfig, WLCConfigurationError
 from .const import DEVEL_URL, URL
@@ -38,9 +39,8 @@ from .http_debug import (
 )
 from .models import Component, Project, Translation, Unit
 from .output import (
-    CSV_DANGEROUS_LEADING,
-    CSV_FORMULA_PREFIXES,
     DateTimeEncoder,
+    csv_starts_with_formula,
     format_for_stream,
     sorted_items,
     stream_isatty,
@@ -296,6 +296,13 @@ def _redact_cli_error(error: Exception, config: WeblateConfig) -> str:
     return redact_sensitive_values(str(error), headers)
 
 
+def _row_value(item: Mapping[str, object], key: str) -> object:
+    """Read a rendered row while preserving lazy model loading."""
+    if isinstance(item, LazyObject):
+        return getattr(item, key)
+    return item.get(key, "")
+
+
 class Command:
     """Basic command object."""
 
@@ -366,8 +373,7 @@ class Command:
         """Format value for CSV output and harden dangerous spreadsheet cells."""
         formatted = str(self.format_value(value))
 
-        stripped = formatted.lstrip(CSV_DANGEROUS_LEADING)
-        if stripped and stripped[0] in CSV_FORMULA_PREFIXES:
+        if csv_starts_with_formula(formatted):
             formatted = f"'{formatted}"
 
         return format_for_stream(formatted, self.stdout)
@@ -409,11 +415,11 @@ class Command:
             self.println("  </thead>")
             self.println("  <tbody>")
 
-            for item in value:
+            for item in cast("Iterable[RowT]", value):
                 self.println("    <tr>")
                 for key in header:
                     self.println(
-                        f"      <td>{self.format_html_value(getattr(item, key))}</td>"
+                        f"      <td>{self.format_html_value(_row_value(item, key))}</td>"
                     )
                 self.println("    </tr>")
             self.println("  </tbody>")
@@ -433,11 +439,11 @@ class Command:
     def print_text(self, value: OutputValue[RowT], header: list[str] | None) -> None:
         """Text print."""
         if header is not None:
-            for item in value:
+            for item in cast("Iterable[RowT]", value):
                 for key in header:
                     self.println(
                         f"{self.format_output_value(key)}: "
-                        f"{self.format_output_value(getattr(item, key))}"
+                        f"{self.format_output_value(_row_value(item, key))}"
                     )
                 self.println("")
         else:

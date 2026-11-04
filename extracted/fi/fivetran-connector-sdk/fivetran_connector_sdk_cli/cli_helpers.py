@@ -1,4 +1,6 @@
+import argparse
 import os
+import re
 import select
 import stat
 import shutil
@@ -8,6 +10,7 @@ import traceback
 import importlib.util
 from enum import Enum
 from pathlib import Path
+from typing import Optional
 from prompt_toolkit import prompt
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
@@ -28,9 +31,65 @@ from fivetran_connector_sdk_common.constants import (
     UTF_8,
     FIFO_READ_TIMEOUT_SECONDS
 )
+from fivetran_connector_sdk_cli.regression_test.fixture_helper import RECORD_DATA_DIR, FIXTURE_JSONL
 
 # The module the `Connector` class is defined in, which `from fivetran_connector_sdk import Connector` gives a customer.
 CONNECTOR_MODULE = 'fivetran_connector_sdk_cli.connector'
+
+
+_SCENARIO_NAME_PATTERN = re.compile(r"[A-Za-z0-9_-]+")
+
+
+MAX_RECORDS_REQUIRES_RECORD = "max_records can only be used together with record"
+MAX_RECORDS_NOT_POSITIVE = "max_records must be a positive integer"
+RECORD_WITH_REPLAY = "record and replay cannot be used together"
+MAX_RECORDS_WITH_REPLAY = "max_records cannot be used with replay; the cap comes from the recording"
+
+
+class InvalidRecordOption(ValueError, argparse.ArgumentTypeError):
+    """A bad record option. A ValueError for `Connector.debug()`, and an ArgumentTypeError so argparse keeps the message."""
+
+
+def validate_scenario_name(scenario: str) -> str:
+    """Return `scenario` unchanged if it is a plain folder name, else raise InvalidRecordOption."""
+    if not scenario or not _SCENARIO_NAME_PATTERN.fullmatch(scenario):
+        raise InvalidRecordOption(
+            f"Invalid scenario name '{scenario}'. "
+            "Use only letters, digits, hyphens, and underscores."
+        )
+    return scenario
+
+
+def validate_max_records(max_records) -> int:
+    """Return `max_records` as a positive int, else raise InvalidRecordOption."""
+    try:
+        value = int(max_records)
+    except (TypeError, ValueError):
+        raise InvalidRecordOption(MAX_RECORDS_NOT_POSITIVE) from None
+    if value <= 0:
+        raise InvalidRecordOption(MAX_RECORDS_NOT_POSITIVE)
+    return value
+
+
+def validate_record_options(scenario: Optional[str], max_records: Optional[int]) -> None:
+    """Raise InvalidRecordOption if the record options are invalid. Used by `Connector.debug()`, which the parser's checks bypass."""
+    if scenario is not None:
+        validate_scenario_name(scenario)
+    if max_records is not None:
+        if scenario is None:
+            raise InvalidRecordOption(MAX_RECORDS_REQUIRES_RECORD)
+        if isinstance(max_records, bool) or not isinstance(max_records, int):
+            raise InvalidRecordOption(MAX_RECORDS_NOT_POSITIVE)
+        validate_max_records(max_records)
+
+
+def validate_replay_options(scenario: Optional[str], record: Optional[str], max_records: Optional[int]) -> None:
+    """Raise InvalidRecordOption if the replay options are invalid. Used by `Connector.debug()`."""
+    validate_scenario_name(scenario)
+    if record is not None:
+        raise InvalidRecordOption(RECORD_WITH_REPLAY)
+    if max_records is not None:
+        raise InvalidRecordOption(MAX_RECORDS_WITH_REPLAY)
 
 
 class PromptMode(Enum):
@@ -55,11 +114,6 @@ class PromptMode(Enum):
             flags = " and ".join(m.value for m in active_modes)
             raise ValueError(f"{flags} cannot be used together")
         return active_modes[0] if active_modes else cls.INTERACTIVE
-
-
-
-
-
 
 
 def _file_mode(filepath):
@@ -447,6 +501,30 @@ def resolve_confirmation(prompt: str, default: bool, prompt_mode: PromptMode) ->
     else:
         # Invalid input or empty, return default
         return default
+
+def confirm_overwrite(scenario_path: Path, prompt_mode: PromptMode) -> bool:
+    """
+    Return True if it is safe to (re)record into scenario_path.
+
+    A scenario counts as existing only when record_data/fixture.jsonl exists, so a
+    partial folder left by an aborted first record never prompts. The prompt
+    follows `prompt_mode` (--yes overwrites, --non-interactive declines), and
+    declining is also the outcome when there is no terminal to answer it.
+    """
+    if not (scenario_path / RECORD_DATA_DIR / FIXTURE_JSONL).exists():
+        return True
+
+    try:
+        return resolve_confirmation(
+            f"\nScenario '{scenario_path.name}' already has a recorded fixture.\n"
+            "Continuing will clear all existing data for this scenario.\n"
+            "Proceed? [y/N] ",
+            default=False,
+            prompt_mode=prompt_mode,
+        )
+    except EOFError:
+        return False
+
 
 def enable_debugging_for_verbose_commands(command: str):
     if command is not None and command.lower() in ("debug", "run", "configuration"):

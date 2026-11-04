@@ -10,8 +10,10 @@ from . import config, dockerfile
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from mistralai.vibe_agents.sdk.authoring.connector_selection import AllConnectors
     from mistralai.vibe_agents.sdk.authoring.contracts import Harness
     from mistralai.vibe_agents.sdk.authoring.subagent import Subagent
+    from mistralai.workflows.plugins.mistralai.connectors.decorator import ConnectorSlot
 
     from .loader import AgentApp
 
@@ -81,6 +83,34 @@ def worker_secret_issues(harness: Harness, env: Mapping[str, str] | None = None)
     ]
 
 
+def connector_issues(harness: Harness, subagents: Sequence[Subagent] = ()) -> list[str]:
+    """The connector declarations a Session would refuse to start with, the root's and each Subagent's.
+
+    For example ``all_connectors()`` beside a ``run_as="deployment"`` connector, or one connector twice.
+    Assembly applies these rules only when a Session starts; checking them here turns that failure
+    into one ``agents info`` and ``agents serve`` report up front. A Subagent that leaves
+    ``connectors`` unset inherits its parent's, already checked.
+    """
+    from mistralai.vibe_agents.sdk.assembly import assemble  # noqa: PLC0415
+    from mistralai.vibe_agents.sdk.assembly.subagents import authored_subagent_layers  # noqa: PLC0415
+
+    layers: list[tuple[tuple[str, ...], Sequence[ConnectorSlot], AllConnectors | None]] = [
+        ((), harness.connectors, harness.connector_discovery)
+    ]
+    layers.extend(
+        (path, layer.connectors, layer.connector_discovery)
+        for path, layer in authored_subagent_layers(subagents)
+        if layer.connectors is not None
+    )
+    issues: list[str] = []
+    for path, slots, discovery in layers:
+        try:
+            assemble._build_connector_configuration(tuple(slots), discovery)
+        except ValueError as exc:
+            issues.append(f"In subagent {'/'.join(path)!r}: {exc}" if path else str(exc))
+    return issues
+
+
 def mcp_credential_issues(harness: Harness, subagents: Sequence[Subagent] = ()) -> list[str]:
     """Name each RemoteMCP credential variable that the worker cannot send.
 
@@ -96,7 +126,7 @@ def mcp_credential_issues(harness: Harness, subagents: Sequence[Subagent] = ()) 
     # A managed worker gets its variables only from secret bindings, so the fix is a redeploy.
     fix = (
         "Bind each with `agents deploy --secret-binding NAME=secret:workspace:SECRET`, then deploy again."
-        if _is_managed_worker(os.environ)
+        if config.is_managed_worker()
         else "Export each in your shell, or put it in .env and start the worker with `uv run --env-file .env`."
     )
     issues: list[str] = []
@@ -142,7 +172,11 @@ def load_worker_app(path: Path) -> AgentApp:
         raise PreflightError(issues)
     harness = app.agent._resolve_harness(app.harness)
     require_worker_sandbox_config(harness)
-    issues = [*worker_secret_issues(harness), *mcp_credential_issues(harness, app.agent.subagents)]
+    issues = [
+        *connector_issues(harness, app.agent.subagents),
+        *worker_secret_issues(harness),
+        *mcp_credential_issues(harness, app.agent.subagents),
+    ]
     if issues:
         raise PreflightError(issues)
     return app
@@ -156,7 +190,7 @@ def sandbox_dependency_issues(app: AgentApp, env: Mapping[str, str] | None = Non
 
     if koyeb_sandbox_class() is not None:
         return []
-    if _is_managed_worker(os.environ if env is None else env):
+    if config.is_managed_worker(env):
         # Installing into the running container fixes nothing: the image is rebuilt from the project.
         return [
             f"{_MISSING_KOYEB_EXTRA}, and this deployment's image is missing it or has a version that is too old. "
@@ -168,13 +202,6 @@ def sandbox_dependency_issues(app: AgentApp, env: Mapping[str, str] | None = Non
         f"{_MISSING_KOYEB_EXTRA}, and it is not installed or is too old. Install it with `uv add '{_KOYEB_EXTRA}'` "
         f"(or `pip install '{_KOYEB_EXTRA}'`), then run the command again."
     ]
-
-
-def _is_managed_worker(env: Mapping[str, str]) -> bool:
-    # The aeon operator sets this sentinel on every managed worker; the Workflows SDK reads it the same way.
-    from mistralai.workflows.protocol.v1.workflow import MANAGED_K8S_CLUSTER_SENTINEL  # noqa: PLC0415
-
-    return env.get("DEPLOYMENT_LOCATION_K8S_CLUSTER") == MANAGED_K8S_CLUSTER_SENTINEL
 
 
 def _uses_mistral_sandbox(app: AgentApp) -> bool:

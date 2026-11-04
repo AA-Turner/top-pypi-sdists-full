@@ -76,7 +76,8 @@ class ToolResultEntry:
     tool that returned a string has one text block. ``structured_content`` is the tool's structured
     output, such as a dict, or ``None`` when it returned none. ``is_error`` is ``True`` when the
     call failed: ``content`` then holds the error's message as one text block when the host sends
-    no content, else the host's content blocks. ``meta`` is the
+    no content, else the host's content blocks. ``structured_content`` then holds the failed call's
+    output when the host sent one, such as a failed command's stdout and stderr. ``meta`` is the
     result's host metadata (MCP ``_meta``), as in :class:`ToolResult`; it is empty when the host
     sent none. Do not change ``structured_content`` or ``meta``, copy them first.
     """
@@ -107,6 +108,7 @@ def tool_result_entry(entry: ToolResultHistoryEntry) -> ToolResultEntry:
     structured_content: JsonValue = None
     if entry.error is not None:
         content = tuple(host_content) if host_content is not None else (TextContentBlock(text=entry.error.message),)
+        structured_content = entry.result
     elif host_content is not None:
         content = tuple(host_content)
         structured_content = entry.result

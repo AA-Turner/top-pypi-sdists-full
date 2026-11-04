@@ -5,6 +5,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.list_recent_runs_failed_ids_kind import ListRecentRunsFailedIdsKind
 from ...models.list_recent_runs_response_200 import ListRecentRunsResponse200
 from ...types import UNSET, Response, Unset
 
@@ -13,11 +14,21 @@ def _get_kwargs(
     workspace: str,
     *,
     folder: Union[Unset, None, str] = UNSET,
+    failed_ids_kind: Union[Unset, None, ListRecentRunsFailedIdsKind] = UNSET,
+    failed_ids_path: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
     params: Dict[str, Any] = {}
     params["folder"] = folder
+
+    json_failed_ids_kind: Union[Unset, None, str] = UNSET
+    if not isinstance(failed_ids_kind, Unset):
+        json_failed_ids_kind = failed_ids_kind.value if failed_ids_kind else None
+
+    params["failed_ids_kind"] = json_failed_ids_kind
+
+    params["failed_ids_path"] = failed_ids_path
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -59,12 +70,16 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     folder: Union[Unset, None, str] = UNSET,
+    failed_ids_kind: Union[Unset, None, ListRecentRunsFailedIdsKind] = UNSET,
+    failed_ids_path: Union[Unset, None, str] = UNSET,
 ) -> Response[ListRecentRunsResponse200]:
     """list what ran recently, one entry per script, flow or agent
 
     Args:
         workspace (str):
         folder (Union[Unset, None, str]):
+        failed_ids_kind (Union[Unset, None, ListRecentRunsFailedIdsKind]):
+        failed_ids_path (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -77,6 +92,8 @@ def sync_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         folder=folder,
+        failed_ids_kind=failed_ids_kind,
+        failed_ids_path=failed_ids_path,
     )
 
     response = client.get_httpx_client().request(
@@ -91,12 +108,16 @@ def sync(
     *,
     client: Union[AuthenticatedClient, Client],
     folder: Union[Unset, None, str] = UNSET,
+    failed_ids_kind: Union[Unset, None, ListRecentRunsFailedIdsKind] = UNSET,
+    failed_ids_path: Union[Unset, None, str] = UNSET,
 ) -> Optional[ListRecentRunsResponse200]:
     """list what ran recently, one entry per script, flow or agent
 
     Args:
         workspace (str):
         folder (Union[Unset, None, str]):
+        failed_ids_kind (Union[Unset, None, ListRecentRunsFailedIdsKind]):
+        failed_ids_path (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -110,6 +131,8 @@ def sync(
         workspace=workspace,
         client=client,
         folder=folder,
+        failed_ids_kind=failed_ids_kind,
+        failed_ids_path=failed_ids_path,
     ).parsed
 
 
@@ -118,12 +141,16 @@ async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     folder: Union[Unset, None, str] = UNSET,
+    failed_ids_kind: Union[Unset, None, ListRecentRunsFailedIdsKind] = UNSET,
+    failed_ids_path: Union[Unset, None, str] = UNSET,
 ) -> Response[ListRecentRunsResponse200]:
     """list what ran recently, one entry per script, flow or agent
 
     Args:
         workspace (str):
         folder (Union[Unset, None, str]):
+        failed_ids_kind (Union[Unset, None, ListRecentRunsFailedIdsKind]):
+        failed_ids_path (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -136,6 +163,8 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         folder=folder,
+        failed_ids_kind=failed_ids_kind,
+        failed_ids_path=failed_ids_path,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -148,12 +177,16 @@ async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
     folder: Union[Unset, None, str] = UNSET,
+    failed_ids_kind: Union[Unset, None, ListRecentRunsFailedIdsKind] = UNSET,
+    failed_ids_path: Union[Unset, None, str] = UNSET,
 ) -> Optional[ListRecentRunsResponse200]:
     """list what ran recently, one entry per script, flow or agent
 
     Args:
         workspace (str):
         folder (Union[Unset, None, str]):
+        failed_ids_kind (Union[Unset, None, ListRecentRunsFailedIdsKind]):
+        failed_ids_path (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -168,5 +201,7 @@ async def asyncio(
             workspace=workspace,
             client=client,
             folder=folder,
+            failed_ids_kind=failed_ids_kind,
+            failed_ids_path=failed_ids_path,
         )
     ).parsed

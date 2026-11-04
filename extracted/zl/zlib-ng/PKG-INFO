@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zlib-ng
-Version: 1.0.0
+Version: 1.1.0
 Summary: Drop-in replacement for zlib and gzip modules using zlib-ng
 Author: Leiden University Medical Center
 Author-email: r.h.p.vorderman@lumc.nl
@@ -10,11 +10,11 @@ Project-URL: documentation, https://python-zlib-ng.readthedocs.io
 Keywords: zlib-ng,zlib,compression,deflate,gzip
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: C

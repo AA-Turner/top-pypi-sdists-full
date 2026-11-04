@@ -16,3 +16,22 @@ mod statsig_http_id_lists_adapter;
 mod compact_id_list_tests;
 #[cfg(test)]
 mod id_lists_memory_benchmark;
+
+pub(crate) use shared_id_list_store::{SharedIdListCatalog, SharedIdListLease, SharedIdListStore};
+pub(crate) use statsig_shared_id_lists_adapter::StatsigSharedIdListsAdapter;
+mod shared_id_list_delta;
+#[cfg(test)]
+mod shared_id_list_delta_tests;
+mod shared_id_list_format;
+#[cfg(test)]
+mod shared_id_list_policy_tests;
+mod shared_id_list_store;
+#[cfg(test)]
+mod shared_id_list_store_tests;
+#[cfg(test)]
+mod shared_id_list_streaming_tests;
+#[cfg(test)]
+mod shared_id_lists_adapter_tests;
+#[cfg(test)]
+mod shared_id_lists_freshness_tests;
+mod statsig_shared_id_lists_adapter;

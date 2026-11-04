@@ -49,7 +49,7 @@ def credential(api_key: str | None = None, base_url: str | None = None, *, perso
     if person:
         login = login_for(base)
         if login is None:
-            raise AuthError(PERSON_REFUSAL)
+            raise AuthError(PERSON_REFUSAL, details={"reason": "person_only"})
         return login
     key = api_key or os.environ.get("SEQUENCES_API_KEY")
     if key:

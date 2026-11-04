@@ -233,9 +233,19 @@ class ServerBase(Generic[ConfigT, StateT]):
             token = _call_state.set(state)
             try:
                 before = self._state_adapter.dump_json(state) if sync_state else None
-                result = fn(*args, **kwargs)
-                if inspect.isawaitable(result):
-                    result = await result
+                try:
+                    result = fn(*args, **kwargs)
+                    if inspect.isawaitable(result):
+                        result = await result
+                except Exception as e:
+                    from mcp.server.mcpserver.exceptions import ToolError
+                    from mcp.shared.exceptions import MCPError
+
+                    if isinstance(e, (ToolError, MCPError)):
+                        raise
+                    # MCPServer withholds an unexpected exception's text from the client, but
+                    # tools raise to tell the model what went wrong.
+                    raise ToolError(str(e)) from e
                 if before is not None:
                     await self._push_state(before)
                 return result
@@ -288,6 +298,9 @@ class ServerBase(Generic[ConfigT, StateT]):
         async def serve() -> None:
             import httpx
             from mcp.server.transport_security import TransportSecuritySettings
+            from starlette.responses import PlainTextResponse
+
+            from verifiers.v1.interception.tunnel.base import HEALTH_PATH
 
             try:
                 async with (
@@ -307,6 +320,12 @@ class ServerBase(Generic[ConfigT, StateT]):
                         version=__version__,
                     )
                     self.register(mcp)
+
+                    @mcp.custom_route(HEALTH_PATH, methods=["GET"])
+                    async def health(_request):
+                        # See HEALTH_PATH.
+                        return PlainTextResponse("ok", headers={"Connection": "close"})
+
                     # Modern HTTP is inherently sessionless. Keep the legacy leg stateless too so
                     # older agent clients can use the same reconnect-per-call endpoint.
                     mcp_app = mcp.streamable_http_app(

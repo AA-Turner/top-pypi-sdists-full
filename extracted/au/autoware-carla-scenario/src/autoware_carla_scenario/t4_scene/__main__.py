@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Optional
 
 from ..constants import FIXED_DELTA_SECONDS
-from .convert import LOG_SUFFIX, write_t4_scene
-from .grid import scene_stem
+from .convert import LOG_SUFFIX, checked_rear_axle_offset, write_t4_scene
+from .grid import checked_max_distance, scene_stem
 
 
 def _logs(paths: list[Path]) -> list[Path]:
@@ -65,7 +65,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument(
         "--rear-axle-offset",
         type=float,
-        help="the ego's rear axle from its origin, metres along x (default: half its box back)",
+        help=(
+            "the ego's rear axle from its origin, metres along x (default: the"
+            " log's rear_axle record, else a quarter of its box length back,"
+            " -0.5 * extent.x); negative is behind, any finite value"
+        ),
     )
     parser.add_argument(
         "--no-map", action="store_true", help="write the scene without a map"
@@ -85,6 +89,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+
+    try:
+        checked_max_distance(args.max_distance, "--max-distance", "--all-objects")
+        if args.rear_axle_offset is not None:
+            checked_rear_axle_offset(args.rear_axle_offset, "--rear-axle-offset")
+    except ValueError as error:
+        parser.error(str(error))
 
     logs = _logs(args.paths)
     if not logs:

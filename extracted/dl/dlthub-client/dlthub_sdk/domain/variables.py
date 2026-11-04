@@ -1,8 +1,7 @@
 """Workspace variables — the configuration a run reads at execution time.
 
 Variables live on the workspace's data plane rather than with the rest of its
-record. Reaching them asks nothing of the caller: the SDK obtains and renews
-the access they need.
+record.
 """
 
 from __future__ import annotations
@@ -32,38 +31,36 @@ if TYPE_CHECKING:
 
     VariablePayload = PlainPublicVariable | SecretPublicVariable
 
-#: The scope no profile owns: variables every profile inherits. Pass it as
-#: ``profile`` to read only that scope.
 WORKSPACE_PROFILE: Final[None] = None
+"""The workspace-level variable scope, which every profile inherits.
+
+Pass it as ``profile`` to read or write only that scope.
+"""
 
 
 class VariableChangeStatus(StrEnum):
-    """What became of one name in a change.
-
-    Attributes:
-        UPSERTED: Stored, whether it existed before or not.
-        REMOVED: Deleted.
-        NOT_FOUND: Asked to be deleted, but was not there.
-        UNKNOWN: A status this SDK version does not know.
-    """
+    """What became of one name in a change."""
 
     UPSERTED = "upserted"
+    """Stored, whether it existed before or not."""
     REMOVED = "removed"
+    """Deleted."""
     NOT_FOUND = "not_found"
+    """Asked to be deleted, but was not there."""
     UNKNOWN = "unknown"
+    """A status this SDK version does not know."""
 
 
 @dataclass(frozen=True)
 class VariableChange:
-    """What a change did to one name.
-
-    Attributes:
-        name: The variable named in the request.
-        status: What the platform did with it.
-    """
+    """What a change did to one name."""
 
     name: str
+    """Environment variable name."""
     status: VariableChangeStatus
+    """What happened to this variable: `upserted` (created or updated), `removed`, or
+    `not_found` (a delete named a variable that does not exist).
+    """
 
     @staticmethod
     def _all_from_payload(
@@ -80,24 +77,22 @@ class Variable:
     """One variable, as the platform reports it.
 
     A secret's ``value`` is ``None`` because it is withheld, not empty.
-
-    Attributes:
-        name: The variable's name, unique within its scope.
-        secret: Whether the platform stores it as a secret.
-        value: The value, or ``None`` for a secret.
-        created_at: When it was first set.
-        created_by: Who first set it.
-        updated_at: When it was last changed.
-        updated_by: Who last changed it.
     """
 
     name: str
+    """Environment variable name."""
     secret: bool
+    """Whether the platform stores it as a secret."""
     value: str | None
+    """The value, or ``None`` for a secret."""
     created_at: datetime
+    """When the variable was created."""
     created_by: str
+    """ID of the user who created the variable."""
     updated_at: datetime
+    """When the variable was last updated."""
     updated_by: str
+    """ID of the user who last updated the variable."""
 
     @staticmethod
     def _from_payload(payload: VariablePayload) -> Variable:
@@ -116,16 +111,12 @@ class Variable:
 
 @dataclass(frozen=True)
 class VariableScope:
-    """The variables one profile sees, or the workspace-level set.
-
-    Attributes:
-        profile: The profile these belong to, or ``None`` for the
-            workspace-level scope every profile inherits.
-        variables: The scope's variables, in the platform's order.
-    """
+    """The variables one profile sees, or the workspace-level set."""
 
     profile: str | None
+    """Profile owning this scope; `None` is the workspace-wide scope."""
     variables: tuple[Variable, ...]
+    """Variables in this scope, secrets redacted."""
 
     @staticmethod
     def _from_payload(payload: ScopeVariablesResponse) -> VariableScope:
@@ -173,7 +164,12 @@ class Variables(Namespace[M]):
             selected; awaitable in async mode.
 
         Raises:
-            NotAuthorized: The caller may not read this workspace's variables.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            DataplaneTokenRejected: The data plane rejected the token the
+                platform issued for it.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             ScopeMissing: Reached without a workspace in scope.
         """
         workspace_id = self._ctx.require_workspace()
@@ -233,10 +229,17 @@ class Variables(Namespace[M]):
             One result per name in the request; awaitable in async mode.
 
         Raises:
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
+            DataplaneTokenRejected: The data plane rejected the token the
+                platform issued for it.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
+            ScopeMissing: Reached without a workspace in scope.
             ValueError: Nothing to do, or a name appears in more than one of the
                 three arguments, where the outcome would be undefined.
-            NotAuthorized: The caller may not write this workspace's variables.
-            ScopeMissing: Reached without a workspace in scope.
         """
         plain = dict(upserts or {})
         hidden = dict(secrets or {})
@@ -305,7 +308,14 @@ class Variables(Namespace[M]):
             What the platform did with it; awaitable in async mode.
 
         Raises:
-            NotAuthorized: The caller may not write this workspace's variables.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
+            DataplaneTokenRejected: The data plane rejected the token the
+                platform issued for it.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             ScopeMissing: Reached without a workspace in scope.
         """
         workspace_id = self._ctx.require_workspace()
@@ -344,11 +354,18 @@ class Variables(Namespace[M]):
 
         Returns:
             What the platform did; a name that was not there comes back as
-            :data:`VariableChangeStatus.NOT_FOUND` rather than raising.
+            :attr:`VariableChangeStatus.NOT_FOUND` rather than raising.
             Awaitable in async mode.
 
         Raises:
-            NotAuthorized: The caller may not write this workspace's variables.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
+            DataplaneTokenRejected: The data plane rejected the token the
+                platform issued for it.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             ScopeMissing: Reached without a workspace in scope.
         """
         workspace_id = self._ctx.require_workspace()
@@ -386,8 +403,13 @@ class Variables(Namespace[M]):
             The variable; awaitable in async mode.
 
         Raises:
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            DataplaneTokenRejected: The data plane rejected the token the
+                platform issued for it.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             NotFound: No variable of that name in that scope.
-            NotAuthorized: The caller may not read this workspace's variables.
             ScopeMissing: Reached without a workspace in scope.
         """
         workspace_id = self._ctx.require_workspace()

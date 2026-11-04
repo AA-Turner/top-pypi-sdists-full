@@ -1,5 +1,6 @@
 """Contains all the data models used in inputs/outputs"""
 
+from .attention_reason import AttentionReason
 from .bulk_item_failure import BulkItemFailure
 from .cancel_job_runs_request import CancelJobRunsRequest
 from .cancel_job_runs_response import CancelJobRunsResponse
@@ -74,30 +75,32 @@ from .set_region_organization_request import SetRegionOrganizationRequest
 from .t_agent_definition import TAgentDefinition
 from .t_deliver_spec import TDeliverSpec
 from .t_entry_point import TEntryPoint
-from .t_entry_point_job_type import TEntryPointJobType
+from .t_entry_point_job_type_type_0 import TEntryPointJobTypeType0
 from .t_execute_spec import TExecuteSpec
 from .t_expose_spec import TExposeSpec
-from .t_expose_spec_category import TExposeSpecCategory
-from .t_expose_spec_interface import TExposeSpecInterface
+from .t_expose_spec_category_type_0 import TExposeSpecCategoryType0
+from .t_expose_spec_interface_type_0 import TExposeSpecInterfaceType0
 from .t_interval_spec import TIntervalSpec
-from .t_interval_spec_mode import TIntervalSpecMode
+from .t_interval_spec_mode_type_0 import TIntervalSpecModeType0
 from .t_job_definition import TJobDefinition
-from .t_job_definition_auto_refresh_pipeline_mode import (
-    TJobDefinitionAutoRefreshPipelineMode,
+from .t_job_definition_auto_refresh_pipeline_mode_type_0 import (
+    TJobDefinitionAutoRefreshPipelineModeType0,
 )
-from .t_job_definition_incremental_mode import TJobDefinitionIncrementalMode
+from .t_job_definition_incremental_mode_type_0 import TJobDefinitionIncrementalModeType0
 from .t_job_definition_inputs import TJobDefinitionInputs
 from .t_job_definition_output import TJobDefinitionOutput
-from .t_job_definition_refresh_propagation import TJobDefinitionRefreshPropagation
+from .t_job_definition_refresh_propagation_type_0 import (
+    TJobDefinitionRefreshPropagationType0,
+)
 from .t_job_object_input import TJobObjectInput
 from .t_job_object_input_entity_type_type_0 import TJobObjectInputEntityTypeType0
 from .t_require_spec import TRequireSpec
 from .t_require_spec_instance import TRequireSpecInstance
 from .t_timeout_spec import TTimeoutSpec
 from .t_workspace_access import TWorkspaceAccess
-from .t_workspace_access_context_item import TWorkspaceAccessContextItem
-from .t_workspace_access_data_item import TWorkspaceAccessDataItem
-from .t_workspace_access_local_item import TWorkspaceAccessLocalItem
+from .t_workspace_access_context_item_type_0 import TWorkspaceAccessContextItemType0
+from .t_workspace_access_data_item_type_0 import TWorkspaceAccessDataItemType0
+from .t_workspace_access_local_item_type_0 import TWorkspaceAccessLocalItemType0
 from .trigger_jobs_request import TriggerJobsRequest
 from .trigger_jobs_response import TriggerJobsResponse
 from .trigger_kind import TriggerKind
@@ -112,6 +115,7 @@ from .workspace_response import WorkspaceResponse
 from .workspace_response_predefined_profiles import WorkspaceResponsePredefinedProfiles
 
 __all__ = (
+    "AttentionReason",
     "BulkItemFailure",
     "CancelJobRunsRequest",
     "CancelJobRunsResponse",
@@ -180,19 +184,19 @@ __all__ = (
     "TAgentDefinition",
     "TDeliverSpec",
     "TEntryPoint",
-    "TEntryPointJobType",
+    "TEntryPointJobTypeType0",
     "TExecuteSpec",
     "TExposeSpec",
-    "TExposeSpecCategory",
-    "TExposeSpecInterface",
+    "TExposeSpecCategoryType0",
+    "TExposeSpecInterfaceType0",
     "TIntervalSpec",
-    "TIntervalSpecMode",
+    "TIntervalSpecModeType0",
     "TJobDefinition",
-    "TJobDefinitionAutoRefreshPipelineMode",
-    "TJobDefinitionIncrementalMode",
+    "TJobDefinitionAutoRefreshPipelineModeType0",
+    "TJobDefinitionIncrementalModeType0",
     "TJobDefinitionInputs",
     "TJobDefinitionOutput",
-    "TJobDefinitionRefreshPropagation",
+    "TJobDefinitionRefreshPropagationType0",
     "TJobObjectInput",
     "TJobObjectInputEntityTypeType0",
     "TRequireSpec",
@@ -204,9 +208,9 @@ __all__ = (
     "TriggerKind",
     "TTimeoutSpec",
     "TWorkspaceAccess",
-    "TWorkspaceAccessContextItem",
-    "TWorkspaceAccessDataItem",
-    "TWorkspaceAccessLocalItem",
+    "TWorkspaceAccessContextItemType0",
+    "TWorkspaceAccessDataItemType0",
+    "TWorkspaceAccessLocalItemType0",
     "UpdateWorkspaceRequest",
     "WorkspaceMemberResponse",
     "WorkspaceMembershipResponse",

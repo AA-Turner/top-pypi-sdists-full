@@ -95,6 +95,10 @@ impl GlobalConfigs {
 
         match GLOBAL_CONFIG_INSTANCES.try_write_for(Duration::from_secs(5)) {
             Some(mut write_guard) => {
+                // Another caller may have registered this key after our read lookup.
+                if let Some(existing) = write_guard.get(sdk_key).and_then(Weak::upgrade) {
+                    return existing;
+                }
                 write_guard.insert(sdk_key.into(), Arc::downgrade(&instance));
             }
             None => {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro-datasets
-Version: 9.6.0
+Version: 10.0.0
 Summary: Kedro-Datasets is where you can find all of Kedro's data connectors.
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -47,6 +47,8 @@ Provides-Extra: spark-cloud
 Requires-Dist: kedro-datasets[spark-azure,spark-gcs,spark-s3]; extra == "spark-cloud"
 Provides-Extra: spark-deltatabledataset
 Requires-Dist: kedro-datasets[delta-base,spark-core]; extra == "spark-deltatabledataset"
+Provides-Extra: spark-gbqquerydataset
+Requires-Dist: kedro-datasets[spark-core]; extra == "spark-gbqquerydataset"
 Provides-Extra: spark-sparkdataset
 Requires-Dist: kedro-datasets[spark-core]; extra == "spark-sparkdataset"
 Provides-Extra: spark-sparkhivedataset
@@ -56,7 +58,7 @@ Requires-Dist: kedro-datasets[spark-core]; extra == "spark-sparkjdbcdataset"
 Provides-Extra: spark-sparkstreamingdataset
 Requires-Dist: kedro-datasets[spark-core]; extra == "spark-sparkstreamingdataset"
 Provides-Extra: spark-all
-Requires-Dist: kedro-datasets[spark-cloud,spark-deltatabledataset,spark-local,spark-sparkdataset,spark-sparkhivedataset,spark-sparkjdbcdataset,spark-sparkstreamingdataset]; extra == "spark-all"
+Requires-Dist: kedro-datasets[spark-cloud,spark-deltatabledataset,spark-gbqquerydataset,spark-local,spark-sparkdataset,spark-sparkhivedataset,spark-sparkjdbcdataset,spark-sparkstreamingdataset]; extra == "spark-all"
 Provides-Extra: api-apidataset
 Requires-Dist: requests~=2.20; extra == "api-apidataset"
 Provides-Extra: api
@@ -372,19 +374,16 @@ Requires-Dist: weaviate-client>=4.0; extra == "weaviate-dataset"
 Provides-Extra: weaviate
 Requires-Dist: kedro-datasets[weaviate-dataset]; extra == "weaviate"
 Provides-Extra: docs
-Requires-Dist: mkdocs>=1.6.1; extra == "docs"
-Requires-Dist: mkdocs-material>=9.6.11; extra == "docs"
-Requires-Dist: mkdocs-material-extensions>=1.3.1; extra == "docs"
-Requires-Dist: mkdocs-mermaid2-plugin>=1.2.1; extra == "docs"
+Requires-Dist: zensical>=0.0.58; extra == "docs"
 Requires-Dist: mkdocs-autorefs>=1.4.1; extra == "docs"
-Requires-Dist: mkdocs-get-deps>=0.2.0; extra == "docs"
-Requires-Dist: mkdocstrings-python>=0.29.1; extra == "docs"
+Requires-Dist: mkdocstrings>=1.0.7; extra == "docs"
+Requires-Dist: mkdocstrings-python>=1.0.2; extra == "docs"
+Requires-Dist: griffe; extra == "docs"
 Requires-Dist: linkchecker>=10.2.1; extra == "docs"
 Requires-Dist: ipykernel<7.0,>=5.3; extra == "docs"
 Requires-Dist: Jinja2<3.2.0; extra == "docs"
 Requires-Dist: black; extra == "docs"
 Requires-Dist: ruff; extra == "docs"
-Requires-Dist: mkdocs-llmstxt; extra == "docs"
 Provides-Extra: test
 Requires-Dist: accelerate<0.32; extra == "test"
 Requires-Dist: adlfs~=2023.1; extra == "test"
@@ -400,7 +399,8 @@ Requires-Dist: delta-spark<3.0,>=1.0; python_version <= "3.11" and extra == "tes
 Requires-Dist: delta-spark<4.1,>=4.0; python_version >= "3.12" and extra == "test"
 Requires-Dist: dill~=0.3.1; python_version < "3.14" and extra == "test"
 Requires-Dist: dill~=0.4.1; python_version >= "3.14" and extra == "test"
-Requires-Dist: duckdb>=1.4.0; extra == "test"
+Requires-Dist: duckdb<2.0,>=1.4.0; extra == "test"
+Requires-Dist: fastexcel; extra == "test"
 Requires-Dist: filelock<4.0,>=3.4.0; extra == "test"
 Requires-Dist: fiona<2.0,>=1.8; python_version < "3.14" and extra == "test"
 Requires-Dist: gcsfs>=2023.1; extra == "test"
@@ -408,7 +408,9 @@ Requires-Dist: geopandas<2.0,>=0.8.0; extra == "test"
 Requires-Dist: hdfs<3.0,>=2.5.8; extra == "test"
 Requires-Dist: holoviews>=1.13.0; extra == "test"
 Requires-Dist: ibis-framework[duckdb,examples]; extra == "test"
+Requires-Dist: sqlglot<30.18.0; extra == "test"
 Requires-Dist: ipython<8.0,>=7.31.1; extra == "test"
+Requires-Dist: jsonschema<5.0,>=4.0; extra == "test"
 Requires-Dist: Jinja2<3.2.0; extra == "test"
 Requires-Dist: joblib>=0.14; extra == "test"
 Requires-Dist: jupyterlab>=3.0; extra == "test"
@@ -438,7 +440,7 @@ Requires-Dist: pyspark<4.0,>=3.4; python_version == "3.11" and extra == "test"
 Requires-Dist: pyspark<4.1,>=4.0; python_version >= "3.12" and extra == "test"
 Requires-Dist: pytest-cov<8.0,>=7.0; extra == "test"
 Requires-Dist: pytest-mock<2.0,>=1.7.1; extra == "test"
-Requires-Dist: pytest-xdist[psutil]~=2.2.1; extra == "test"
+Requires-Dist: pytest-xdist[psutil]<4.0,>=3.0; extra == "test"
 Requires-Dist: pytest~=7.2; extra == "test"
 Requires-Dist: python-docx; extra == "test"
 Requires-Dist: python-pptx; extra == "test"
@@ -532,7 +534,7 @@ Requires-Dist: pyspark<4.0,>=3.4; python_version == "3.11" and extra == "experim
 Requires-Dist: pyspark>=4.0; python_version >= "3.12" and extra == "experimental-test"
 Requires-Dist: pytest-cov<8.0,>=7.0; extra == "experimental-test"
 Requires-Dist: pytest-mock<2.0,>=1.7.1; extra == "experimental-test"
-Requires-Dist: pytest-xdist[psutil]~=2.2.1; extra == "experimental-test"
+Requires-Dist: pytest-xdist[psutil]<4.0,>=3.0; extra == "experimental-test"
 Requires-Dist: pytest~=7.2; extra == "experimental-test"
 Requires-Dist: u8darts[all]; extra == "experimental-test"
 Requires-Dist: numpy<2.5; extra == "experimental-test"
@@ -557,7 +559,7 @@ Requires-Dist: kedro-datasets[docs,lint,test]; extra == "all"
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/kedro-org/kedro-plugins/blob/main/LICENSE.md)
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://pypi.org/project/kedro-datasets/)
 [![PyPI Version](https://badge.fury.io/py/kedro-datasets.svg)](https://pypi.org/project/kedro-datasets/)
-[![Code Style: Black](https://img.shields.io/badge/code%20style-black-black.svg)](https://github.com/ambv/black)
+[![Code Style: Black](https://img.shields.io/badge/code%20style-black-black.svg)](https://github.com/psf/black)
 
 Welcome to `kedro_datasets`, the home of Kedro's data connectors. Here you will find `AbstractDataset` implementations powering Kedro's DataCatalog created by QuantumBlack and external contributors.
 
@@ -599,12 +601,12 @@ We support a range of data connectors, including CSV, Excel, Parquet, Feather, H
 
 These data connectors are supported with the APIs of `pandas`, `spark`, `networkx`, `matplotlib`, `yaml` and more.
 
-[The Data Catalog](https://docs.kedro.org/en/stable/data/data_catalog.html) allows you to work with a range of file formats on local file systems, network file systems, cloud object stores, and Hadoop.
+[The Data Catalog](https://docs.kedro.org/en/stable/catalog-data/data_catalog/) allows you to work with a range of file formats on local file systems, network file systems, cloud object stores, and Hadoop.
 
-Here is a full list of [supported data connectors and APIs](https://docs.kedro.org/projects/kedro-datasets/en/stable/api/kedro_datasets.html).
+Here is a full list of [supported data connectors and APIs](https://docs.kedro.org/projects/kedro-datasets/).
 
 ## How can I create my own `AbstractDataset` implementation?
-Take a look at our [instructions on how to create your own `AbstractDataset` implementation](https://docs.kedro.org/en/stable/data/how_to_create_a_custom_dataset.html).
+Take a look at our [instructions on how to create your own `AbstractDataset` implementation](https://docs.kedro.org/en/stable/extend/how_to_create_a_custom_dataset/).
 
 ## Can I contribute?
 

@@ -18,9 +18,9 @@ T = TypeVar("T", bound="TriggerJobsResponse")
 class TriggerJobsResponse:
     """
     Attributes:
-        failed (list[BulkItemFailure]): Requested jobs that do not exist in the workspace.
+        failed (list[BulkItemFailure]): Requested job ids that name no job in the workspace, or an archived job.
         skipped (list[TriggeredJob]): Jobs that did not start; their `status` and `reasons` say why.
-        succeeded (list[TriggeredJob]): Jobs that started a run, or would in dry-run mode.
+        succeeded (list[TriggeredJob]): Jobs that started a run, or in dry-run mode would pass the freshness check.
     """
 
     failed: list[BulkItemFailure]

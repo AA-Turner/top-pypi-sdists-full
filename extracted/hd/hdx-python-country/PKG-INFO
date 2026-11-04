@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: hdx-python-country
-Version: 4.2.8
+Version: 4.3.1
 Summary: HDX Python country code and exchange rate (fx) utilities
 Project-URL: Homepage, https://github.com/OCHA-DAP/hdx-python-country
 Project-URL: Repository, https://github.com/OCHA-DAP/hdx-python-country
@@ -26,12 +26,12 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
-Requires-Dist: hdx-python-utilities<5,>=4.2.6
+Requires-Dist: hdx-python-utilities<5,>=4.2.7
 Requires-Dist: tenacity
 Provides-Extra: docs
 Requires-Dist: mkapi; extra == 'docs'
 Provides-Extra: wfp
-Requires-Dist: data-bridges-client<10,>=9.0.0; extra == 'wfp'
+Requires-Dist: data-bridges-client<10,>=9.0.3; extra == 'wfp'
 Description-Content-Type: text/markdown
 
 [![Build Status](https://github.com/OCHA-DAP/hdx-python-country/actions/workflows/run-python-tests.yaml/badge.svg)](https://github.com/OCHA-DAP/hdx-python-country/actions/workflows/run-python-tests.yaml)

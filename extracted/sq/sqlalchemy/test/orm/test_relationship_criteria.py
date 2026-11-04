@@ -16,6 +16,7 @@ from sqlalchemy import func
 from sqlalchemy import insert
 from sqlalchemy import Integer
 from sqlalchemy import literal_column
+from sqlalchemy import or_
 from sqlalchemy import orm
 from sqlalchemy import select
 from sqlalchemy import sql
@@ -69,6 +70,28 @@ class _Fixtures(_fixtures.FixtureTest):
                 "addresses": relationship(
                     self.mapper_registry.map_imperatively(Address, addresses),
                     order_by=Address.id,
+                )
+            },
+        )
+        return User, Address
+
+    @testing.fixture
+    def user_address_backref_fixture(self):
+        users, Address, addresses, User = (
+            self.tables.users,
+            self.classes.Address,
+            self.tables.addresses,
+            self.classes.User,
+        )
+
+        self.mapper_registry.map_imperatively(
+            User,
+            users,
+            properties={
+                "addresses": relationship(
+                    self.mapper_registry.map_imperatively(Address, addresses),
+                    order_by=Address.id,
+                    backref="user",
                 )
             },
         )
@@ -686,6 +709,121 @@ class LoaderCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
             "FROM addresses WHERE addresses.user_id = users.id) "
             "> :param_1 AND users.name != :name_1",
         )
+
+    @testing.fixture
+    def mutual_criteria_options(self, user_address_backref_fixture):
+        """criteria for User and Address that each refer to the other
+        entity within a subquery"""
+
+        User, Address = user_address_backref_fixture
+
+        def go(style):
+            if style == "relationship":
+                return (
+                    with_loader_criteria(User, User.addresses.any()),
+                    with_loader_criteria(
+                        Address, Address.user.has(User.name != "jack")
+                    ),
+                )
+            elif style == "explicit":
+                return (
+                    with_loader_criteria(
+                        User,
+                        select(Address.id)
+                        .where(Address.user_id == User.id)
+                        .exists(),
+                    ),
+                    with_loader_criteria(
+                        Address,
+                        select(User.id)
+                        .where(User.id == Address.user_id, User.name != "jack")
+                        .exists(),
+                    ),
+                )
+            else:
+                assert False
+
+        return User, Address, go
+
+    @testing.combinations(
+        (
+            "relationship",
+            "user",
+            "SELECT users.id FROM users WHERE EXISTS (SELECT 1 "
+            "FROM addresses WHERE users.id = addresses.user_id AND "
+            "(EXISTS (SELECT 1 FROM users WHERE users.id = "
+            "addresses.user_id AND users.name != :name_1))) "
+            "ORDER BY users.id",
+        ),
+        (
+            "relationship",
+            "address",
+            "SELECT addresses.id FROM addresses WHERE EXISTS (SELECT 1 "
+            "FROM users WHERE users.id = addresses.user_id AND "
+            "users.name != :name_1 AND (EXISTS (SELECT 1 FROM addresses "
+            "WHERE users.id = addresses.user_id))) ORDER BY addresses.id",
+        ),
+        (
+            "explicit",
+            "user",
+            "SELECT users.id FROM users WHERE EXISTS (SELECT addresses.id "
+            "FROM addresses WHERE addresses.user_id = users.id AND "
+            "(EXISTS (SELECT users.id FROM users WHERE users.id = "
+            "addresses.user_id AND users.name != :name_1))) "
+            "ORDER BY users.id",
+        ),
+        (
+            "explicit",
+            "address",
+            "SELECT addresses.id FROM addresses WHERE EXISTS (SELECT "
+            "users.id FROM users WHERE users.id = addresses.user_id AND "
+            "users.name != :name_1 AND (EXISTS (SELECT addresses.id "
+            "FROM addresses WHERE addresses.user_id = users.id))) "
+            "ORDER BY addresses.id",
+        ),
+        argnames="style, entity, expected",
+    )
+    def test_mutual_criteria_compile(
+        self, mutual_criteria_options, style, entity, expected
+    ):
+        """test #13714
+
+        each criteria refers to the other entity within a subquery; a
+        criteria is not applied again within a subquery that is nested
+        inside of its own criteria at any level, which would recurse
+        endlessly
+
+        """
+        User, Address, options = mutual_criteria_options
+
+        if entity == "user":
+            stmt = select(User.id).order_by(User.id)
+        else:
+            stmt = select(Address.id).order_by(Address.id)
+
+        self.assert_compile(stmt.options(*options(style)), expected)
+
+    @testing.combinations(
+        ("relationship", "user", [8, 9]),
+        ("relationship", "address", [2, 3, 4, 5]),
+        ("explicit", "user", [8, 9]),
+        ("explicit", "address", [2, 3, 4, 5]),
+        argnames="style, entity, expected",
+    )
+    def test_mutual_criteria_execute(
+        self, mutual_criteria_options, style, entity, expected
+    ):
+        """test #13714"""
+
+        User, Address, options = mutual_criteria_options
+
+        if entity == "user":
+            stmt = select(User.id).order_by(User.id)
+        else:
+            stmt = select(Address.id).order_by(Address.id)
+
+        sess = fixture_session()
+        eq_(sess.scalars(stmt.options(*options(style))).all(), expected)
 
     def test_select_mapper_mapper_criteria(self, user_address_fixture):
         User, Address = user_address_fixture
@@ -2766,6 +2904,102 @@ class RelationshipCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
                     [{"param_1": 10, "email_address_1": value}],
                 ),
             )
+
+    @testing.combinations(
+        (
+            selectinload,
+            "SELECT addresses.user_id, addresses.id, "
+            "addresses.email_address FROM addresses "
+            "WHERE addresses.user_id IN "
+            "(__[POSTCOMPILE_primary_keys]) "
+            "AND (addresses.email_address = :email_address_1 "
+            "OR addresses.email_address = :email_address_2) "
+            "ORDER BY addresses.id",
+            {"primary_keys": [8]},
+        ),
+        (
+            lazyload,
+            "SELECT addresses.id, addresses.user_id, "
+            "addresses.email_address FROM addresses "
+            "WHERE :param_1 = addresses.user_id "
+            "AND (addresses.email_address = :email_address_1 "
+            "OR addresses.email_address = :email_address_2) "
+            "ORDER BY addresses.id",
+            {"param_1": 8},
+        ),
+        (
+            subqueryload,
+            "SELECT addresses.id AS addresses_id, addresses.user_id "
+            "AS addresses_user_id, addresses.email_address "
+            "AS addresses_email_address, anon_1.users_id "
+            "AS anon_1_users_id FROM (SELECT users.id AS users_id "
+            "FROM users WHERE users.id = :id_1) AS anon_1 "
+            "JOIN addresses ON anon_1.users_id = addresses.user_id "
+            "AND (addresses.email_address = :email_address_1 "
+            "OR addresses.email_address = :email_address_2) "
+            "ORDER BY addresses.id",
+            {"id_1": 8},
+        ),
+        argnames="loader_fn, loader_sql, loader_params",
+        id_="naa",
+    )
+    def test_local_criteria_or_grouping_cached(
+        self, user_address_fixture, loader_fn, loader_sql, loader_params
+    ):
+        """test #13753
+
+        the User statement is cached by a run that loads no rows, so the
+        loader's statement is first compiled given the cached User statement,
+        where the criteria is wrapped in order to apply new bound parameter
+        values.  The OR has to remain grouped against the relationship join
+        condition.
+
+        """
+        User, Address = user_address_fixture
+
+        s = Session(testing.db)
+
+        def go(user_id):
+            s.close()
+            stmt = (
+                select(User)
+                .where(User.id == user_id)
+                .options(
+                    loader_fn(
+                        User.addresses.and_(
+                            or_(
+                                Address.email_address == "ed@lala.com",
+                                Address.email_address == "fred@fred.com",
+                            )
+                        )
+                    ),
+                )
+            )
+            return s.scalars(stmt).all()
+
+        # caches the User statement; no addresses are loaded
+        eq_(go(12), [])
+
+        with self.sql_execution_asserter() as asserter:
+            eq_(go(8), [User(id=8, addresses=[Address(id=4)])])
+
+        asserter.assert_(
+            CompiledSQL(
+                "SELECT users.id, users.name FROM users "
+                "WHERE users.id = :id_1",
+                [{"id_1": 8}],
+            ),
+            CompiledSQL(
+                loader_sql,
+                [
+                    {
+                        **loader_params,
+                        "email_address_1": "ed@lala.com",
+                        "email_address_2": "fred@fred.com",
+                    }
+                ],
+            ),
+        )
 
     def test_subqueryload_local_criteria(self, user_address_fixture):
         User, Address = user_address_fixture

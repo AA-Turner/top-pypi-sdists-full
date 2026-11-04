@@ -84,15 +84,14 @@ def sync_detailed(
 ) -> Response[ErrorResponse | IssueDataplaneTokenWorkspaceResponse]:
     """IssueDataplaneToken
 
-    Mint a short-lived **DataplaneUserJwt** the caller presents directly to data-plane
-    services (telemetry, logs, workspace variables) for this workspace.
+    Issues a data plane token for this workspace, valid for 10 minutes. Send it as
+    `Authorization: Bearer <token>` to the services at the workspace's `dataplane_url`.
 
-    The token carries one grant bound to this workspace, scoped to the capabilities the
-    caller's workspace role allows — readers and developers get reads; owners additionally
-    get workspace variables, including on archived workspaces. Cache it in memory and
-    refresh before ``expires_at``.
+    Viewers and developers can read files, logs and telemetry; owners can also read and change
+    workspace variables, even on an archived workspace. Cache the token and request a new one
+    before `expires_at`.
 
-    Requires READ permission on the workspace.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -122,15 +121,14 @@ def sync(
 ) -> ErrorResponse | IssueDataplaneTokenWorkspaceResponse | None:
     """IssueDataplaneToken
 
-    Mint a short-lived **DataplaneUserJwt** the caller presents directly to data-plane
-    services (telemetry, logs, workspace variables) for this workspace.
+    Issues a data plane token for this workspace, valid for 10 minutes. Send it as
+    `Authorization: Bearer <token>` to the services at the workspace's `dataplane_url`.
 
-    The token carries one grant bound to this workspace, scoped to the capabilities the
-    caller's workspace role allows — readers and developers get reads; owners additionally
-    get workspace variables, including on archived workspaces. Cache it in memory and
-    refresh before ``expires_at``.
+    Viewers and developers can read files, logs and telemetry; owners can also read and change
+    workspace variables, even on an archived workspace. Cache the token and request a new one
+    before `expires_at`.
 
-    Requires READ permission on the workspace.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -155,15 +153,14 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | IssueDataplaneTokenWorkspaceResponse]:
     """IssueDataplaneToken
 
-    Mint a short-lived **DataplaneUserJwt** the caller presents directly to data-plane
-    services (telemetry, logs, workspace variables) for this workspace.
+    Issues a data plane token for this workspace, valid for 10 minutes. Send it as
+    `Authorization: Bearer <token>` to the services at the workspace's `dataplane_url`.
 
-    The token carries one grant bound to this workspace, scoped to the capabilities the
-    caller's workspace role allows — readers and developers get reads; owners additionally
-    get workspace variables, including on archived workspaces. Cache it in memory and
-    refresh before ``expires_at``.
+    Viewers and developers can read files, logs and telemetry; owners can also read and change
+    workspace variables, even on an archived workspace. Cache the token and request a new one
+    before `expires_at`.
 
-    Requires READ permission on the workspace.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -191,15 +188,14 @@ async def asyncio(
 ) -> ErrorResponse | IssueDataplaneTokenWorkspaceResponse | None:
     """IssueDataplaneToken
 
-    Mint a short-lived **DataplaneUserJwt** the caller presents directly to data-plane
-    services (telemetry, logs, workspace variables) for this workspace.
+    Issues a data plane token for this workspace, valid for 10 minutes. Send it as
+    `Authorization: Bearer <token>` to the services at the workspace's `dataplane_url`.
 
-    The token carries one grant bound to this workspace, scoped to the capabilities the
-    caller's workspace role allows — readers and developers get reads; owners additionally
-    get workspace variables, including on archived workspaces. Cache it in memory and
-    refresh before ``expires_at``.
+    Viewers and developers can read files, logs and telemetry; owners can also read and change
+    workspace variables, even on an archived workspace. Cache the token and request a new one
+    before `expires_at`.
 
-    Requires READ permission on the workspace.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

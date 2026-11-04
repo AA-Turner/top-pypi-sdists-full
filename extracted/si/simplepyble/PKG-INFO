@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simplepyble
-Version: 1.3.0
+Version: 1.4.0
 Summary: Python bindings for the cross-platform SimpleBLE Bluetooth Low Energy library, for Windows, macOS, and Linux. Free for non-commercial use; commercial use requires a license.
 Home-page: https://github.com/simpleble/simpleble
 Author: Kevin Dewald
@@ -165,7 +165,9 @@ them before the first call that reaches a backend. Pairing through a Dongl
 happens without the operating system: register a callback with
 `set_passkey_request_callback()`, `set_passkey_display_callback()`, or
 `set_numeric_comparison_callback()` from `simplepyble.advanced.dongl` before
-`connect()`.
+`connect()`. On Linux, set `config.simplebluez.interactive_pairing` and
+register the same callbacks for an adapter in `simplepyble.advanced.linux`;
+they also receive the peer's address.
 
 ## Asyncio
 

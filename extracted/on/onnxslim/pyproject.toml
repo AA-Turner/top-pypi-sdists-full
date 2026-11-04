@@ -1,6 +1,6 @@
 [project]
 name = "onnxslim"
-version = "0.1.98"
+version = "0.1.99"
 description = "OnnxSlim: A Toolkit to Help Optimize Onnx Model"
 authors = [{ name = "inisis", email = "desmond.yao@buaa.edu.cn" }]
 license = "MIT"
@@ -14,7 +14,7 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     "onnx",
-    "sympy>=1.13.1",
+    "sympy>=1.13.3",
     "packaging",
     "colorama",
     "ml_dtypes",
@@ -83,6 +83,7 @@ testpaths = [
     "tests/test_cli_main.py",
     "tests/test_utils.py",
     "tests/test_symbolic_shape_inference.py",
+    "tests/test_symbolic_shape_handlers.py",
     "tests/test_nvidia.py",
     "tests/test_shape_folding.py",
     "tests/test_coverage.py",

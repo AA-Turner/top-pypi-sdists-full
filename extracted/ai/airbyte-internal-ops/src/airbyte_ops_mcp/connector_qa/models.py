@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from typing import ClassVar
 
 from airbyte_ops_mcp.connector_ops.utils import (
     Connector,
@@ -35,6 +36,7 @@ class CheckCategory(Enum):
     METADATA = "📝 Metadata"
     TESTING = "🧪 Testing"
     VERSION = "🔢 Version"
+    FORM_UX = "🎨 Form UX"
 
 
 class CheckStatus(Enum):
@@ -43,6 +45,14 @@ class CheckStatus(Enum):
     PASSED = "✅ Passed"
     FAILED = "❌ Failed"
     SKIPPED = "🔶 Skipped"
+
+
+@dataclass
+class Finding:
+    rule_id: str
+    field_path: str
+    message: str
+    anchor: str
 
 
 @dataclass
@@ -60,12 +70,15 @@ class CheckResult:
     connector: Connector
     status: CheckStatus
     message: str
+    findings: list[Finding] = field(default_factory=list)
 
     def __repr__(self) -> str:
         return f"{self.connector} - {self.status.value} - {self.check.name}: {self.message}."
 
 
 class Check(ABC):
+    # Failures of non-blocking checks are reported but don't fail the QA run.
+    blocking: ClassVar[bool] = True
     requires_metadata: bool = True
     runs_on_released_connectors: bool = True
 
@@ -224,9 +237,18 @@ class Check(ABC):
             connector=connector, check=self, status=CheckStatus.PASSED, message=message
         )
 
-    def fail(self, connector: Connector, message: str) -> CheckResult:
+    def fail(
+        self,
+        connector: Connector,
+        message: str,
+        findings: list[Finding] | None = None,
+    ) -> CheckResult:
         return CheckResult(
-            connector=connector, check=self, status=CheckStatus.FAILED, message=message
+            connector=connector,
+            check=self,
+            status=CheckStatus.FAILED,
+            message=message,
+            findings=findings or [],
         )
 
     def skip(self, connector: Connector, reason: str) -> CheckResult:
@@ -235,11 +257,19 @@ class Check(ABC):
         )
 
     def create_check_result(
-        self, connector: Connector, passed: bool, message: str
+        self,
+        connector: Connector,
+        passed: bool,
+        message: str,
+        findings: list[Finding] | None = None,
     ) -> CheckResult:
         status = CheckStatus.PASSED if passed else CheckStatus.FAILED
         return CheckResult(
-            check=self, connector=connector, status=status, message=message
+            check=self,
+            connector=connector,
+            status=status,
+            message=message,
+            findings=findings or [],
         )
 
 

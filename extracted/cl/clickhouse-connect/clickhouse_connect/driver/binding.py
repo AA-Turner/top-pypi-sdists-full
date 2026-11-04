@@ -1,3 +1,4 @@
+import copy
 import ipaddress
 import re
 import uuid
@@ -5,6 +6,7 @@ import zoneinfo
 from collections.abc import Collection, Sequence
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from enum import Enum
+from functools import lru_cache
 from typing import Any
 from urllib.parse import quote, urlencode
 
@@ -12,7 +14,7 @@ from clickhouse_connect import common
 from clickhouse_connect.driver import tzutil
 from clickhouse_connect.driver.common import dict_copy
 from clickhouse_connect.driver.exceptions import ProgrammingError
-from clickhouse_connect.driver.parser import parse_callable
+from clickhouse_connect.driver.parser import parse_callable, parse_columns
 from clickhouse_connect.json_impl import any_to_json
 
 BS = "\\"
@@ -684,20 +686,30 @@ def _legacy_naive_datetime_binding() -> bool:
 
 
 class DT64Param:
-    def __init__(self, value: datetime):
+    tz: tzinfo | None = None
+
+    def __init__(self, value: datetime, tz: tzinfo | None = None):
         self.value = value
+        self.tz = tz
 
     def format(self, tz: tzinfo | None, top_level: bool) -> str:
+        if self.tz is not None:
+            tz = self.tz
         value = self.value
         if _legacy_naive_datetime_binding():
             if tz:
                 value = value.astimezone(tz)
         elif tz is not None and _datetime_is_aware(value):
             value = value.astimezone(tz)
-        s = value.strftime("%Y-%m-%d %H:%M:%S.%f")
-        if top_level:
-            return s
-        return f"'{s}'"
+        return self._render(value, top_level)
+
+    @staticmethod
+    def _render(value: datetime, top_level: bool) -> str:
+        rendered = value.strftime("%Y-%m-%d %H:%M:%S.%f")
+        nanosecond = getattr(value, "nanosecond", 0)
+        if nanosecond:
+            rendered += f"{nanosecond:03d}"
+        return rendered if top_level else f"'{rendered}'"
 
 
 def quote_identifier(identifier: str) -> str:
@@ -750,6 +762,8 @@ def finalize_query(query: str, parameters: Sequence | dict[str, Any] | None, ser
     return query % tuple(format_query_value(v, server_tz) for v in parameters)
 
 
+# Cached because containers unwrap the same element type for every value
+@lru_cache(maxsize=256)
 def _unwrap_outer(type_str: str) -> tuple[str, tuple]:
     """Strip LowCardinality/Nullable wrappers and return (base_name, args)"""
     base = type_str.strip()
@@ -759,6 +773,27 @@ def _unwrap_outer(type_str: str) -> tuple[str, tuple]:
         base = base[9:-1]
     base_name, values, _ = parse_callable(base)
     return base_name, values
+
+
+@lru_cache(maxsize=256)
+def _container_element_types(type_str: str) -> tuple[str, ...]:
+    """Parse Tuple or Nested element types."""
+    _, values = _unwrap_outer(type_str)
+    return parse_columns(f"({', '.join(str(t).strip() for t in values)})")[1]
+
+
+@lru_cache(maxsize=256)
+def _mentions_datetime(type_str: str) -> bool:
+    """Find datetime types without counting field names or enum labels."""
+    base_name, values = _unwrap_outer(type_str)
+    base_name = base_name.lower()
+    if base_name in ("datetime", "datetime32", "datetime64"):
+        return True
+    if base_name in ("tuple", "nested"):
+        return any(_mentions_datetime(t) for t in _container_element_types(type_str))
+    if base_name in ("array", "map", "variant", "nullable", "lowcardinality"):
+        return any(_mentions_datetime(str(t)) for t in values)
+    return False
 
 
 def _extract_tz_from_type(type_str: str) -> tzinfo | None:
@@ -786,6 +821,12 @@ def _extract_tz_from_type(type_str: str) -> tzinfo | None:
         return None
 
 
+@lru_cache(maxsize=256)
+def _datetime64_type_tz(type_str: str) -> tzinfo | None:
+    """Cached _extract_tz_from_type, since containers resolve the same element type for every value."""
+    return _extract_tz_from_type(type_str)
+
+
 def _promote_datetime64(type_str: str, value):
     """Wrap values bound to a DateTime64 hint in DT64Param to preserve precision."""
     if value is None or "datetime64" not in type_str.lower():
@@ -793,16 +834,62 @@ def _promote_datetime64(type_str: str, value):
     try:
         base_name, values = _unwrap_outer(type_str)
         base_name = base_name.lower()
+        if base_name == "variant" and isinstance(value, (datetime, DT64Param)):
+            datetime_alts = [str(t) for t in values if _mentions_datetime(str(t))]
+            if len(datetime_alts) == 1 and _unwrap_outer(datetime_alts[0])[0].lower() == "datetime64":
+                return _promote_datetime64(datetime_alts[0], value)
         if base_name == "datetime64":
-            return DT64Param(value) if isinstance(value, datetime) else value
+            tz = _datetime64_type_tz(type_str)
+            if isinstance(value, datetime):
+                return DT64Param(value, tz)
+            if isinstance(value, DT64Param) and value.tz is None and tz is not None:
+                promoted = copy.copy(value)
+                promoted.tz = tz
+                return promoted
+            return value
         if base_name == "array" and values and isinstance(value, (list, tuple)):
             inner = str(values[0])
             return type(value)(_promote_datetime64(inner, x) for x in value)
-        if base_name == "tuple" and isinstance(value, tuple) and len(values) == len(value):
-            return tuple(_promote_datetime64(str(t), x) for t, x in zip(values, value))
+        if base_name == "tuple" and isinstance(value, tuple):
+            element_types = _container_element_types(type_str)
+            if len(element_types) == len(value):
+                return tuple(_promote_datetime64(t, x) for t, x in zip(element_types, value))
+        if base_name == "nested" and isinstance(value, (list, tuple)):
+            element_types = _container_element_types(type_str)
+            element_type = f"Tuple({', '.join(element_types)})"
+            return type(value)(_promote_datetime64(element_type, x) for x in value)
+        if base_name == "map" and isinstance(value, dict) and len(values) == 2 and common.get_setting("dict_parameter_format") == "map":
+            key_type, value_type = (str(t) for t in values)
+            return {_promote_datetime64(key_type, k): _promote_datetime64(value_type, v) for k, v in value.items()}
         return value
     except Exception:
         return value
+
+
+def _pyformat_bind_names(query: str) -> set[str]:
+    """Read mapping keys using Python percent formatting rules."""
+    names: set[str] = set()
+    index = query.find("%")
+    end = len(query)
+    while index != -1:
+        index += 1
+        if query.startswith("%", index):
+            index += 1
+        elif query.startswith("(", index):
+            start = index + 1
+            index = start
+            depth = 1
+            while index < end and depth:
+                char = query[index]
+                if char == "(":
+                    depth += 1
+                elif char == ")":
+                    depth -= 1
+                index += 1
+            if depth == 0:
+                names.add(query[start : index - 1])
+        index = query.find("%", index)
+    return names
 
 
 def bind_query(
@@ -857,18 +944,20 @@ def bind_query(
 
         binary_names = binary_binds.keys()
         matches = _server_bind_matches(query, binary_names)
-        placeholder_names = {name for name, _ in matches}
+        placeholder_names: set[str] | None = None
         final_params = {}
         for k, v in params_copy.items():
             # The _64 suffix is a precision hint, not part of the name, unless the
             # query binds the full name itself.
-            if k.endswith("_64") and k not in placeholder_names:
-                if isinstance(v, datetime):
+            if k.endswith("_64") and (isinstance(v, datetime) or (isinstance(v, list) and len(v) > 0 and isinstance(v[0], datetime))):
+                referenced = False
+                if k in query:
+                    if placeholder_names is None:
+                        placeholder_names = {name for name, _ in matches} if matches else _pyformat_bind_names(query)
+                    referenced = k in placeholder_names
+                if not referenced:
                     k = k[:-3]
-                    v = DT64Param(v)
-                elif isinstance(v, list) and len(v) > 0 and isinstance(v[0], datetime):
-                    k = k[:-3]
-                    v = [DT64Param(x) for x in v]
+                    v = DT64Param(v) if isinstance(v, datetime) else [DT64Param(x) for x in v]
             final_params[k] = v
         if not matches:
             query, bound_params = finalize_query(query, final_params, server_tz), {}
@@ -918,6 +1007,12 @@ def bind_query(
 # HTTP 414. The threshold leaves ample headroom under common request line limits.
 MAX_URL_BIND_PARAM_LENGTH = 4096
 
+# The form path moves the SQL itself into a "query" field, which the server caps at
+# http_max_field_value_size (128 KiB by default) while the body path has no such limit.
+# The server accepts one byte past that setting. Measure the final SQL, including any
+# appended LIMIT and FORMAT clauses.
+MAX_FORM_QUERY_BYTES = 128 * 1024 + 1
+
 
 def use_form_encoding(query: str | bytes, bind_params: dict[str, str], force_form: bool = False) -> bool:
     if force_form:
@@ -927,6 +1022,11 @@ def use_form_encoding(query: str | bytes, bind_params: dict[str, str], force_for
     if isinstance(query, bytes):
         return False
     if not bind_params:
+        return False
+    # Promoting a query too large for a form field trades a possible URL rejection for a
+    # certain server rejection, so keep it on the default path. UTF-8 uses at most four bytes
+    # per character, so only encode when the query could be over the limit.
+    if len(query) > MAX_FORM_QUERY_BYTES // 4 and len(query.encode()) > MAX_FORM_QUERY_BYTES:
         return False
     # Raw length is a lower bound on the encoded length, so large payloads short-circuit
     # without materializing the encoded string.

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -20,10 +20,13 @@ class ListRecentRunsResponse200ItemsItem:
     Attributes:
         path (str):
         kind (ListRecentRunsResponse200ItemsItemKind):
-        status (ListRecentRunsResponse200ItemsItemStatus):
-        failed_runs (int): failed runs of the item over the whole window, not only those in runs
+        status (ListRecentRunsResponse200ItemsItemStatus): a failure someone or something marked as handled is
+            `resolved`, not `failure`
+        failed_runs (int): unresolved failed runs of the item over the whole window, not only those in runs
         runs (List['ListRecentRunsResponse200ItemsItemRunsItem']):
         summary (Union[Unset, str]):
+        failed_run_ids (Union[Unset, List[str]]): the ids of those failed runs, only for the item named by
+            failed_ids_kind and failed_ids_path
     """
 
     path: str
@@ -32,6 +35,7 @@ class ListRecentRunsResponse200ItemsItem:
     failed_runs: int
     runs: List["ListRecentRunsResponse200ItemsItemRunsItem"]
     summary: Union[Unset, str] = UNSET
+    failed_run_ids: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -48,6 +52,9 @@ class ListRecentRunsResponse200ItemsItem:
             runs.append(runs_item)
 
         summary = self.summary
+        failed_run_ids: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.failed_run_ids, Unset):
+            failed_run_ids = self.failed_run_ids
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -62,6 +69,8 @@ class ListRecentRunsResponse200ItemsItem:
         )
         if summary is not UNSET:
             field_dict["summary"] = summary
+        if failed_run_ids is not UNSET:
+            field_dict["failed_run_ids"] = failed_run_ids
 
         return field_dict
 
@@ -89,6 +98,8 @@ class ListRecentRunsResponse200ItemsItem:
 
         summary = d.pop("summary", UNSET)
 
+        failed_run_ids = cast(List[str], d.pop("failed_run_ids", UNSET))
+
         list_recent_runs_response_200_items_item = cls(
             path=path,
             kind=kind,
@@ -96,6 +107,7 @@ class ListRecentRunsResponse200ItemsItem:
             failed_runs=failed_runs,
             runs=runs,
             summary=summary,
+            failed_run_ids=failed_run_ids,
         )
 
         list_recent_runs_response_200_items_item.additional_properties = d

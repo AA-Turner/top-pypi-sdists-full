@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from .api.async_concurrency_limits import AsyncConcurrencyLimitsAPI
     from .api.async_files import AsyncFilesAPI
     from .api.async_models import AsyncModelsAPI
+    from .api.async_organization import AsyncOrganizationAPI
     from .api.async_stt import AsyncSttAPI
     from .api.async_tts import AsyncTtsAPI
     from .api.async_tts_models import AsyncTtsModelsAPI
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
     from .api.concurrency_limits import ConcurrencyLimitsAPI
     from .api.files import FilesAPI
     from .api.models import ModelsAPI
+    from .api.organization import OrganizationAPI
     from .api.stt import SttAPI
     from .api.tts import TtsAPI
     from .api.tts_models import TtsModelsAPI
@@ -43,7 +45,13 @@ _DEFAULT_TIMEOUT_SEC = 30.0
 
 
 class _BaseSonioxClient:
-    """Shared configuration holder for sync and async Soniox clients."""
+    """Shared configuration holder for sync and async Soniox clients.
+
+    Each endpoint falls back to an environment variable before the default, so
+    a deployment can be selected without touching code: `SONIOX_API_KEY`,
+    `SONIOX_API_BASE_URL`, `SONIOX_WS_URL`, `SONIOX_TTS_API_URL` and
+    `SONIOX_TTS_WS_URL`. An argument always wins over the environment.
+    """
 
     def __init__(
         self,
@@ -61,10 +69,18 @@ class _BaseSonioxClient:
         if not api_key:
             raise SonioxValidationError("Please provide api_key")
         self.api_key = api_key
-        self.api_base_url = api_base_url or _DEFAULT_API_BASE_URL
-        self.websocket_base_url = websocket_base_url or _DEFAULT_WEBSOCKET_BASE_URL
-        self.tts_api_base_url = tts_api_base_url or _DEFAULT_TTS_API_BASE_URL
-        self.tts_websocket_base_url = tts_websocket_base_url or _DEFAULT_TTS_WEBSOCKET_BASE_URL
+        self.api_base_url = api_base_url or os.environ.get(
+            "SONIOX_API_BASE_URL", _DEFAULT_API_BASE_URL
+        )
+        self.websocket_base_url = websocket_base_url or os.environ.get(
+            "SONIOX_WS_URL", _DEFAULT_WEBSOCKET_BASE_URL
+        )
+        self.tts_api_base_url = tts_api_base_url or os.environ.get(
+            "SONIOX_TTS_API_URL", _DEFAULT_TTS_API_BASE_URL
+        )
+        self.tts_websocket_base_url = tts_websocket_base_url or os.environ.get(
+            "SONIOX_TTS_WS_URL", _DEFAULT_TTS_WEBSOCKET_BASE_URL
+        )
         self.timeout_sec = timeout_sec if timeout_sec is not None else _DEFAULT_TIMEOUT_SEC
         self.webhook_secret = webhook_secret
         self.webhook_signature_header = webhook_signature_header
@@ -176,6 +192,13 @@ class SonioxClient(_BaseSonioxClient):
         from .api.usage_logs import UsageLogsAPI
 
         return UsageLogsAPI(self)
+
+    @cached_property
+    def organization(self) -> OrganizationAPI:
+        """Organization administration API namespace. Needs an organization API key."""
+        from .api.organization import OrganizationAPI
+
+        return OrganizationAPI(self)
 
     @cached_property
     def usage(self) -> UsageAPI:
@@ -332,6 +355,13 @@ class AsyncSonioxClient(_BaseSonioxClient):
         from .api.async_usage_logs import AsyncUsageLogsAPI
 
         return AsyncUsageLogsAPI(self)
+
+    @cached_property
+    def organization(self) -> AsyncOrganizationAPI:
+        """Organization administration API namespace. Needs an organization API key."""
+        from .api.async_organization import AsyncOrganizationAPI
+
+        return AsyncOrganizationAPI(self)
 
     @cached_property
     def usage(self) -> AsyncUsageAPI:

@@ -41,9 +41,17 @@ if TYPE_CHECKING:
     from dlthub_sdk._gen.api.types import Unset
     from dlthub_sdk._glue.transport import AnyTransport, AsyncTransport, Transport
 
-#: Which flavour of transport a context holds. Fixed by ``connect``/``connect_async``.
 Sync = Literal["sync"]
+"""Mode of a client from :func:`connect`, as in `Runtime[Sync]`.
+
+Calls return values and listings return iterables.
+"""
+
 Async = Literal["async"]
+"""Mode of a client from :func:`connect_async`, as in `Runtime[Async]`.
+
+Calls return awaitables and listings return async iterables.
+"""
 
 M = TypeVar("M", Sync, Async)
 R = TypeVar("R")

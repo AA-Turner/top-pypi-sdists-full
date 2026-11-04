@@ -25,25 +25,27 @@ T = TypeVar("T", bound="OrganizationWorkspaceResponse")
 class OrganizationWorkspaceResponse:
     """
     Attributes:
-        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
+        created_at (datetime.datetime): When it was created.
         dataplane_id (str): Identifier of the data plane that holds this workspace's user data. Matches the subdomain of
             the plane's public entrypoint.
-        dataplane_url (str): Public base URL of the data plane that holds this workspace's user data (e.g.
-            ``https://<dataplane_id>.dlthub.com``). Clients attach a DataplaneUserJwt (minted via POST
-            /api/v1/workspaces/{id}/-issue-dataplane-token) when calling data-plane services (telemetry, logs) at this host.
-        description (None | str): The description of the workspace
-        id (UUID): The unique ID of the entity
+        dataplane_url (str): Base URL of the workspace's data plane, `https://<dataplane_id>.dlthub.com`, where the
+            Dataplane, Logs and Telemetry APIs are served. Call them with a token from `POST
+            /api/v1/workspaces/{workspace_id}/-issue-dataplane-token`.
+        description (None | str): Free-text description of the workspace; `null` when none is set.
+        id (UUID): Unique ID (a UUID).
         member_count (int): Number of active human members in the workspace.
         name (str): The name of the workspace
         organization_id (UUID): The ID of the parent organization
         owner_members (list[WorkspaceMemberResponse]): The workspace's active human owners, in the order they joined.
-        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        archived_at (datetime.datetime | None | Unset): Timestamp when the workspace was archived; null when live.
-            Archived workspaces reject all mutations except unarchive.
-        is_playground (bool | Unset): Whether this is the user's auto-created personal playground workspace. Playgrounds
-            are single-member and cannot be renamed or deleted. Default: False.
-        predefined_profiles (OrganizationWorkspaceResponsePredefinedProfiles | Unset): Predefined profile names keyed by
-            access level name, e.g. {'DATA_WRITE': 'prod', 'DATA_READ': 'access'}
+        updated_at (datetime.datetime): When it was last changed.
+        archived_at (datetime.datetime | None | Unset): When the workspace was archived; `null` when live. An archived
+            workspace rejects all changes except unarchiving, though owners can still manage its workspace variables.
+        credit_threshold (int | None | Unset): Monthly credit consumption threshold that triggers an email alert; null
+            when disabled.
+        is_playground (bool | Unset): Whether this is the user's auto-created personal playground workspace. A
+            playground has a single member and cannot be updated, archived, shared, or given API keys. Default: False.
+        predefined_profiles (OrganizationWorkspaceResponsePredefinedProfiles | Unset): Built-in profiles by data access:
+            `DATA_WRITE` → `prod` (runs need developer or owner), `DATA_READ` → `access` (viewers may run).
     """
 
     created_at: datetime.datetime
@@ -57,6 +59,7 @@ class OrganizationWorkspaceResponse:
     owner_members: list[WorkspaceMemberResponse]
     updated_at: datetime.datetime
     archived_at: datetime.datetime | None | Unset = UNSET
+    credit_threshold: int | None | Unset = UNSET
     is_playground: bool | Unset = False
     predefined_profiles: OrganizationWorkspaceResponsePredefinedProfiles | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -94,6 +97,12 @@ class OrganizationWorkspaceResponse:
         else:
             archived_at = self.archived_at
 
+        credit_threshold: int | None | Unset
+        if isinstance(self.credit_threshold, Unset):
+            credit_threshold = UNSET
+        else:
+            credit_threshold = self.credit_threshold
+
         is_playground = self.is_playground
 
         predefined_profiles: dict[str, Any] | Unset = UNSET
@@ -118,6 +127,8 @@ class OrganizationWorkspaceResponse:
         )
         if archived_at is not UNSET:
             field_dict["archived_at"] = archived_at
+        if credit_threshold is not UNSET:
+            field_dict["credit_threshold"] = credit_threshold
         if is_playground is not UNSET:
             field_dict["is_playground"] = is_playground
         if predefined_profiles is not UNSET:
@@ -182,6 +193,15 @@ class OrganizationWorkspaceResponse:
 
         archived_at = _parse_archived_at(d.pop("archived_at", UNSET))
 
+        def _parse_credit_threshold(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        credit_threshold = _parse_credit_threshold(d.pop("credit_threshold", UNSET))
+
         is_playground = d.pop("is_playground", UNSET)
 
         _predefined_profiles = d.pop("predefined_profiles", UNSET)
@@ -207,6 +227,7 @@ class OrganizationWorkspaceResponse:
             owner_members=owner_members,
             updated_at=updated_at,
             archived_at=archived_at,
+            credit_threshold=credit_threshold,
             is_playground=is_playground,
             predefined_profiles=predefined_profiles,
         )

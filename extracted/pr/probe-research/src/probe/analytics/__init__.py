@@ -42,6 +42,8 @@ _HOMES = {
     # analytics
     "DESKTOP_HUMAN_ENV": "analytics",
     "DESKTOP_SURFACE": "analytics",
+    "ASKED_BY_ENV": "analytics",
+    "is_person_asking": "analytics",
     "_now_iso": "analytics",
     "TelemetryContext": "analytics",
     "null_context": "analytics",
@@ -74,6 +76,7 @@ _HOMES = {
     "EVENT_WIZARD_CONFIGURE_COMPLETED": "events",
     "EVENT_INTEGRATION_REINSTALL_STARTED": "events",
     "EVENT_INTEGRATION_REINSTALL_COMPLETED": "events",
+    "EVENT_INSTALL_UNSUPPORTED_PLATFORM": "events",
     "EVENT_BACKFILL_INVOKED": "events",
     "EVENT_BACKFILL_STARTED": "events",
     "EVENT_BACKFILL_SCANNED": "events",

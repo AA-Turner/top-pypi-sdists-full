@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-WTForms"
-version = "3.2.1.20260518"
+version = "3.3.0.20261103"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for WTForms"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`WTForms`](https://github.com/pallets-eco/wtforms) package. It can be used by type checkers
 to check code that uses `WTForms`. This version of
 `types-WTForms` aims to provide accurate annotations for
-`WTForms~=3.2.1`.
+`WTForms==3.3.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,18 +25,22 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [mypy](https://www.mypy-lang.org/) 2.4.0
+* [pyrefly](https://pyrefly.org/) 1.4.0
+* [pyright](https://microsoft.github.io/pyright/) 1.1.414
+* [ty](https://docs.astral.sh/ty/) 0.0.92
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`92b4407b6ed288e6d7cc4a0f7017e18991854e41`](https://github.com/python/typeshed/commit/92b4407b6ed288e6d7cc4a0f7017e18991854e41).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = ['MarkupSafe']
+
+
 
 [project.urls]
 "Homepage" = "https://github.com/python/typeshed"
@@ -50,4 +54,4 @@ packages = ['wtforms-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'wtforms-stubs' = ['__init__.pyi', 'csrf/__init__.pyi', 'csrf/core.pyi', 'csrf/session.pyi', 'fields/__init__.pyi', 'fields/choices.pyi', 'fields/core.pyi', 'fields/datetime.pyi', 'fields/form.pyi', 'fields/list.pyi', 'fields/numeric.pyi', 'fields/simple.pyi', 'form.pyi', 'i18n.pyi', 'meta.pyi', 'utils.pyi', 'validators.pyi', 'widgets/__init__.pyi', 'widgets/core.pyi', 'METADATA.toml', 'py.typed']
+'wtforms-stubs' = ['__init__.pyi', '_compat.pyi', 'csrf/__init__.pyi', 'csrf/core.pyi', 'csrf/session.pyi', 'datalist.pyi', 'fields/__init__.pyi', 'fields/choices.pyi', 'fields/core.pyi', 'fields/datetime.pyi', 'fields/form.pyi', 'fields/list.pyi', 'fields/numeric.pyi', 'fields/simple.pyi', 'form.pyi', 'i18n.pyi', 'meta.pyi', 'utils.pyi', 'validators.pyi', 'widgets/__init__.pyi', 'widgets/core.pyi', 'METADATA.toml', 'py.typed']

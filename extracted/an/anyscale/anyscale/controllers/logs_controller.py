@@ -3,15 +3,19 @@ from collections import OrderedDict
 from datetime import timedelta
 import errno
 import json
+import math
 import os
 import shutil
 import tempfile
-from typing import Any, List, Optional, Tuple
+import time
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import aiohttp
 import click
+import humanize
 from rich.console import Console
 from rich.progress import track
+import urllib3
 
 from anyscale.api_utils.job_util import _get_job_run_id
 from anyscale.api_utils.logs_util import decode_log_bytes
@@ -43,6 +47,10 @@ DEFAULT_READ_TIMEOUT = 30
 
 DEFAULT_TTL = 14400
 DEFAULT_PARALLELISM = 10
+
+# Listing stops this long before the first page's presigned URLs expire, so the
+# chunks found so far can still be downloaded. Halved for a TTL under two hours.
+LIST_DOWNLOAD_MARGIN_SECONDS = 3600
 
 # Most users should have be able to handle this many open file descriptors,
 # but add ability to override just in case.
@@ -502,9 +510,17 @@ class LogsController(BaseController):
         timeout: timedelta,
     ) -> Tuple[List[LogFileChunk], Optional[str]]:
         next_page_token: Optional[str] = None
-        all_log_chunks: List[LogFileChunk] = []
+        sent_page_tokens: Set[str] = set()
+        # A listing that restarts sends chunks again; keep each one once, with its newest URL.
+        chunks_by_name: Dict[str, LogFileChunk] = {}
         bearer_token = None
+        ttl = DEFAULT_TTL if ttl_seconds is None else ttl_seconds
+        listing_budget = max(0, ttl - min(LIST_DOWNLOAD_MARGIN_SECONDS, ttl // 2))
+        connect_timeout = max(1, int(timeout.total_seconds()))
+        stopped_early = False
 
+        start = time.monotonic()
+        deadline = start + listing_budget
         with self.console.status("Scanning available logs...") as status:
             while True:
                 request = LogDownloadRequest(
@@ -516,22 +532,65 @@ class LogsController(BaseController):
                         use_bearer_token=True,
                     ),
                 )
-                result: LogDownloadResult = (
-                    self.api_client.get_log_files_api_v2_logs_get_log_files_post(
-                        log_download_request=request, _request_timeout=timeout
-                    ).result
-                )
+                # Reads get the time left, so a server that stops answering can't
+                # hold the listing past the deadline.
+                read_timeout = max(1, math.ceil(deadline - time.monotonic()))
+                try:
+                    result: LogDownloadResult = (
+                        self.api_client.get_log_files_api_v2_logs_get_log_files_post(
+                            log_download_request=request,
+                            _request_timeout=(connect_timeout, read_timeout),
+                        ).result
+                    )
+                except (urllib3.exceptions.TimeoutError, urllib3.exceptions.MaxRetryError) as err:
+                    # Connect timeouts arrive wrapped in MaxRetryError once retries run out.
+                    cause = (
+                        err.reason if isinstance(err, urllib3.exceptions.MaxRetryError) else err
+                    )
+                    if (
+                        not isinstance(cause, urllib3.exceptions.TimeoutError)
+                        or time.monotonic() < deadline
+                    ):
+                        raise
+                    stopped_early = True
+                    break
                 bearer_token = result.bearer_token
-                all_log_chunks.extend(result.log_chunks)
+                for chunk in result.log_chunks:
+                    chunks_by_name[chunk.chunk_name] = chunk
                 if status:
                     status.update(
-                        f"Scanning available logs...discovered {len(all_log_chunks)} log file chunks."
+                        f"Scanning available logs...discovered {len(chunks_by_name)} log file chunks."
                     )
-                if result.next_page_token is None or result.next_page_token == next_page_token:
+                token = result.next_page_token
+                # The operator ends a listing with "" (proto3 has no absent string) and
+                # restarts it at page 1 if "" is sent back.
+                if not token or token in sent_page_tokens:
                     break
-                next_page_token = result.next_page_token
+                if time.monotonic() >= deadline:
+                    stopped_early = True
+                    break
+                sent_page_tokens.add(token)
+                next_page_token = token
 
-        return all_log_chunks, bearer_token
+        if stopped_early:
+            self._warn_listing_stopped_early(
+                elapsed_seconds=time.monotonic() - start,
+                chunk_count=len(chunks_by_name),
+                ttl_seconds=ttl,
+            )
+        return list(chunks_by_name.values()), bearer_token
+
+    def _warn_listing_stopped_early(
+        self, elapsed_seconds: float, chunk_count: int, ttl_seconds: int
+    ) -> None:
+        self.log.warning(
+            f"Stopped listing log files after {humanize.naturaldelta(elapsed_seconds)}, "
+            f"before reaching the end. Using the {chunk_count} unique log file chunks "
+            "found so far; some log files may be missing. Listing stops early so that "
+            f"their download links, valid for {humanize.naturaldelta(ttl_seconds)} from "
+            "the first page, can still be used. Narrow the request with --head-only, "
+            "--worker-only, --node-ip, --instance-id or a glob."
+        )
 
     def _list_job_log_chunks(
         self,

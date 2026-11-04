@@ -119,9 +119,7 @@ type ScalarValue = bool | int | str | None
 def graph_deadline(client: SnapshotClient) -> int:
     from captain_hook.util import reqenv
 
-    deadline = int((time.time() + GRAPH_WORK_SECONDS) * 1000)
-    if client.foreground_deadline_unix_ms is not None:
-        deadline = min(deadline, client.foreground_deadline_unix_ms)
+    deadline = client.foreground_deadline_unix_ms or int((time.time() + GRAPH_WORK_SECONDS) * 1000)
     if (request := reqenv.current()) is not None and request.deadline_unix_ms:
         deadline = min(deadline, request.deadline_unix_ms - 1000)
     if deadline <= int(time.time() * 1000):
@@ -388,6 +386,7 @@ class SnapshotClient:
         root_warm_scheduler: Callable[[SnapshotClient, Path, Mapping[str, str], int | None], None] | None = None,
         defer_cleanup: bool = False,
         foreground_seconds: float | None = None,
+        retry_retained: bool = True,
     ) -> None:
         self._exchange = exchange
         self._cleanup_exchange = cleanup_exchange or exchange
@@ -398,6 +397,7 @@ class SnapshotClient:
         self._defer_cleanup = defer_cleanup
         self._deferred_cursors: set[tuple[str, str | None]] = set()
         self._foreground_seconds = foreground_seconds
+        self._retry_retained = retry_retained
         self.foreground_deadline_unix_ms: int | None = None
         self._prefix = uuid.uuid4().hex
         self._counter = 0
@@ -495,6 +495,7 @@ class SnapshotClient:
         retry_until = started + CLEANUP_SECONDS if operation == "release" else None
         admission_deadline_unix_ms = int((time.time() + self._preparation_seconds) * 1000)
         retry_delay = 0.01
+        refused: dict[str, Any] | None = None
         while True:
             with self._guard:
                 self._counter += 1
@@ -506,6 +507,8 @@ class SnapshotClient:
                 and operation != "release"
                 and int(time.time() * 1000) >= self.foreground_deadline_unix_ms
             ):
+                if refused is not None:
+                    return with_observed_usage(refused, observed)
                 from loguru import logger
 
                 logger.bind(
@@ -516,6 +519,8 @@ class SnapshotClient:
                     elapsed_ms=round((time.monotonic() - started) * 1000, 1),
                 ).info("foreground transcript deadline exhausted")
                 raise EvidenceIncomplete("deadline", "foreground transcript deadline exhausted")
+            if refused is not None:
+                observed |= summed_usage(observed, refused["usage"])
             request: dict[str, object] = {
                 "schema": HOST_SCHEMA if domain else CORE_SCHEMA,
                 "id": request_id,
@@ -545,7 +550,11 @@ class SnapshotClient:
             ):
                 observed |= summed_usage(observed, result["usage"])
                 raise EvidenceIncomplete("deadline", "lease expired at the foreground transcript deadline")
-            if result.get("status") != "retained_limit" or operation in CURSOR_CONSUMING_OPERATIONS:
+            if (
+                result.get("status") != "retained_limit"
+                or operation in CURSOR_CONSUMING_OPERATIONS
+                or not (self._retry_retained or operation == "release")
+            ):
                 return with_observed_usage(result, observed)
             if retry_until is None:
                 horizon = int(request.get("deadline_unix_ms", admission_deadline_unix_ms))
@@ -554,7 +563,7 @@ class SnapshotClient:
                 retry_until = monotonic_deadline(horizon)
             if (remaining := retry_until - time.monotonic()) <= 0:
                 return with_observed_usage(result, observed)
-            observed |= summed_usage(observed, result["usage"])
+            refused = result
             time.sleep(min(retry_delay, remaining))
             retry_delay = min(retry_delay * 2, 0.1)
 
@@ -562,9 +571,12 @@ class SnapshotClient:
         result = self.call(operation, domain=domain, **arguments)
         output_bytes = 0
         cursor = result.get("cursor")
+        deadline_unix_ms = arguments.get("deadline_unix_ms")
         try:
             while True:
                 status = result.get("status")
+                if status == "stale_cursor" and deadline_unix_ms and time.time() * 1000 >= int(deadline_unix_ms):
+                    status, result = "deadline", result | {"reason": "a paged query outlasted its deadline"}
                 if status not in {"ok", "incomplete"}:
                     from loguru import logger
 
@@ -1670,6 +1682,24 @@ class RemoteSession:
     def has_edit_to(self, *globs: str, subagents: bool = True) -> bool:
         return self.query(list_predicate("has_edit_to", globs, subagents=subagents))
 
+    def has_source_edit(
+        self,
+        root: Path | None,
+        *,
+        exclude_suffixes: Sequence[str],
+        exclude_prefixes: Sequence[str],
+        subagents: bool,
+    ) -> bool:
+        return self.query(
+            {
+                "kind": "has_source_edit",
+                "root": None if root is None else str(root),
+                "exclude_suffixes": list(exclude_suffixes),
+                "exclude_prefixes": list(exclude_prefixes),
+                "subagents": subagents,
+            }
+        )
+
     def has_read(self, pattern: str, *, subagents: bool = True) -> bool:
         return self.query(tool_predicate("has_read", pattern, subagents=subagents))
 
@@ -1832,14 +1862,18 @@ def observing(predicates: Iterable[tuple[str, str]]) -> Iterator[ObserverPlan | 
 
 
 @contextmanager
-def client_scope(*, defer_cleanup: bool = False, event: int = 0) -> Iterator[SnapshotClient]:
+def client_scope(
+    *, defer_cleanup: bool = False, event: int = 0, retry_retained: bool = True
+) -> Iterator[SnapshotClient]:
     from captain_hook.snapshots.validation import wire_numbers
 
     if (current := CURRENT_CLIENT.get()) is not None:
         yield current
         return
     bridge = Bridge(event=event)
-    client = SnapshotClient(lambda value: wire_numbers(bridge(value)), defer_cleanup=defer_cleanup)
+    client = SnapshotClient(
+        lambda value: wire_numbers(bridge(value)), defer_cleanup=defer_cleanup, retry_retained=retry_retained
+    )
     token = CURRENT_CLIENT.set(client)
     try:
         yield client

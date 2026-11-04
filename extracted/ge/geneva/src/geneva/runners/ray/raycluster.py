@@ -24,6 +24,7 @@ import attrs
 import kubernetes
 import kubernetes.client.exceptions
 import ray
+import ray.exceptions
 import yaml
 from kubernetes import client
 
@@ -42,6 +43,7 @@ from geneva.cluster import K8sConfigMethod
 from geneva.config import ConfigBase
 from geneva.constants import DEFAULT_K8S_NS
 from geneva.runners.kuberay.client import KuberayClients
+from geneva.runners.ray.jobstate import JOB_STATE_TIMEOUT_S, RayJobState
 from geneva.runners.ray.kuberay import (
     KuberaySummary,
     WorkerGroupBrief,
@@ -87,6 +89,25 @@ GENEVA_RAY_CLUSTER_NAMESPACE_ENV = "GENEVA_RAY_CLUSTER_NAMESPACE"
 # Poll completion probes in a Ray-safe bounded slice. Slow probes retain their
 # ObjectRef across slices instead of submitting duplicate actor calls.
 _DEFAULT_JOB_TRACKER_PROBE_TIMEOUT_SECS = 5.0
+
+
+# Annotations by which a cloud provider binds a Kubernetes service account to an
+# IAM identity. Only one of them needs to be present.
+_CLOUD_IDENTITY_ANNOTATIONS = frozenset(
+    {
+        "iam.gke.io/gcp-service-account",
+        "azure.workload.identity/client-id",
+        "eks.amazonaws.com/role-arn",
+    }
+)
+
+_CLOUD_IDENTITY_HINT = (
+    ". Expected one of: "
+    + ", ".join(sorted(_CLOUD_IDENTITY_ANNOTATIONS))
+    + ". If this cluster has no cloud IAM provider (e.g. bare metal) and storage "
+    "credentials are supplied via storage_options, pass "
+    "require_cloud_identity=False to skip this check."
+)
 
 
 class _HeadPodNotFoundError(RuntimeError):
@@ -742,6 +763,21 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
     e.g. if we don't have permission to create local subject access reviews
     """
 
+    require_cloud_identity: bool = attrs.field(
+        default=True,
+    )
+    """
+    Require the service account to carry a cloud identity annotation
+    (``iam.gke.io/gcp-service-account``, ``azure.workload.identity/client-id``
+    or ``eks.amazonaws.com/role-arn``).
+
+    Set to ``False`` on clusters that are not backed by a cloud IAM provider --
+    e.g. bare metal -- where object storage credentials are supplied directly
+    via ``storage_options`` rather than by the pod's identity. The RBAC access
+    review is unaffected: the autoscaler still has to be able to list pods and
+    patch the RayCluster, so that check always runs.
+    """
+
     config_method: K8sConfigMethod = attrs.field(default=K8sConfigMethod.LOCAL)
     """
     Method to retrieve kubeconfig
@@ -802,6 +838,8 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
     List of (job_id, ObjectRef, JobTracker) tuples registered during the context.
     Used by _wait_for_tracked_jobs to block until all async jobs complete.
     """
+
+    _tracked_job_states: dict[Any, RayJobState] = attrs.field(factory=dict, init=False)
 
     _jobs_had_failures: bool = attrs.field(default=False, init=False)
     """
@@ -1288,6 +1326,7 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
         Returns ``(None, ref)`` while the existing probe is still running,
         ``(True, None)`` only when the actor explicitly reports completion,
         and ``(False, None)`` when a completed probe reports not-done or fails.
+        Permanent actor death is propagated for saved-state confirmation.
         """
         try:
             if probe_ref is None:
@@ -1296,15 +1335,19 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
             if not ready:
                 return None, probe_ref
             return bool(ray.get(ready[0])), None
+        except ray.exceptions.ActorDiedError:
+            raise
         except Exception:
-            _LOG.warning(
-                "JobTracker unreachable; treating as not-yet-done (will retry)",
-                exc_info=True,
-            )
+            _LOG.debug("JobTracker completion probe failed", exc_info=True)
             return False, None
 
     def register_tracked_job(
-        self, job_id: str, obj_ref: ray.ObjectRef, job_tracker: Any = None
+        self,
+        job_id: str,
+        obj_ref: ray.ObjectRef,
+        job_tracker: Any = None,
+        *,
+        job_state: RayJobState | None = None,
     ) -> None:
         """Register a job so _wait_for_tracked_jobs can await it.
 
@@ -1312,6 +1355,8 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
         JobTracker actor handle (for ``is_job_done`` confirmation).
         """
         self._tracked_refs.append((job_id, obj_ref, job_tracker))
+        if job_state is not None:
+            self._tracked_job_states[obj_ref] = job_state
 
     def _wait_for_tracked_jobs(self, poll_interval: float = 5.0) -> bool:
         """Block until all tracked jobs complete.
@@ -1371,14 +1416,26 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
                 # can't confirm those jobs succeeded.
                 return True
 
-            ready, refs = ray.wait(refs, num_returns=len(refs), timeout=poll_interval)
+            wait_secs = poll_interval
+            if deadline is not None:
+                wait_secs = min(wait_secs, max(0.0, deadline - time.monotonic()))
+            ready, refs = ray.wait(refs, num_returns=len(refs), timeout=wait_secs)
             for r in ready:
                 try:
                     ray.get(r)
                     _LOG.info(
                         f"{self.name}: job {ref_to_job[r]} completed successfully"
                     )
-                except Exception:  # noqa: PERF203 — each ref needs independent failure tracking
+                except Exception as exc:  # noqa: PERF203 — each ref needs independent failure tracking
+                    state = self._tracked_job_states.get(r)
+                    if state is not None:
+                        failure_timeout = JOB_STATE_TIMEOUT_S
+                        if deadline is not None:
+                            failure_timeout = min(
+                                failure_timeout,
+                                max(0.0, deadline - time.monotonic()),
+                            )
+                        state.finish_failure(exc, timeout=failure_timeout)
                     has_failures = True
                     _LOG.warning(
                         f"{self.name}: job {ref_to_job[r]} failed", exc_info=True
@@ -1396,8 +1453,8 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
 
         # Phase 2: confirm JobTrackers report done
         trackers = [
-            (jid, tracker)
-            for jid, _ref, tracker in self._tracked_refs
+            (jid, tracker, self._tracked_job_states.get(ref))
+            for jid, ref, tracker in self._tracked_refs
             if tracker is not None
         ]
         if trackers:
@@ -1406,13 +1463,15 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
             )
             # Per-tracker consecutive-failure counter.  If a tracker is
             # unreachable (actor dead, OOMKilled, node lost) for this many
-            # polls in a row, we give up on confirming it and report the
-            # job as failed.  This prevents an infinite spin when
+            # polls in a row, fall back to the saved attempt's status. This
+            # prevents an infinite spin when
             # wait_timeout is None (the default) and the tracker actor is
             # genuinely gone.
             max_consecutive_failures = 6
-            failure_counts: dict[str, int] = {jid: 0 for jid, _tracker in trackers}
-            pending = [(jid, tracker, None) for jid, tracker in trackers]
+            failure_counts: dict[str, int] = {
+                jid: 0 for jid, _tracker, _state in trackers
+            }
+            pending = [(jid, tracker, state, None) for jid, tracker, state in trackers]
             while pending:
                 if deadline is not None and time.monotonic() > deadline:
                     _LOG.warning(
@@ -1423,7 +1482,7 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
 
                 still_pending = []
                 has_inflight_probe = False
-                for jid, tracker, probe_ref in pending:
+                for jid, tracker, state, probe_ref in pending:
                     probe_timeout = _DEFAULT_JOB_TRACKER_PROBE_TIMEOUT_SECS
                     if deadline is not None:
                         remaining = deadline - time.monotonic()
@@ -1435,31 +1494,47 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
                             return True
                         probe_timeout = min(probe_timeout, remaining)
 
-                    done, probe_ref = self._poll_tracker_done(
-                        tracker,
-                        probe_ref,
-                        timeout=probe_timeout,
-                    )
+                    try:
+                        done, probe_ref = self._poll_tracker_done(
+                            tracker,
+                            probe_ref,
+                            timeout=probe_timeout,
+                        )
+                    except ray.exceptions.ActorDiedError:
+                        done, probe_ref = False, None
+                        failure_counts[jid] = max_consecutive_failures - 1
                     if done is True:
                         _LOG.info(f"{self.name}: JobTracker {jid} confirmed done")
                         failure_counts[jid] = 0
-                    elif done is None:
-                        has_inflight_probe = True
-                        still_pending.append((jid, tracker, probe_ref))
                     else:
+                        # Also bound a probe that never returns, even when
+                        # the context has no overall wait_timeout.
                         failure_counts[jid] += 1
                         if failure_counts[jid] >= max_consecutive_failures:
-                            _LOG.error(
-                                f"{self.name}: JobTracker {jid} unreachable "
-                                f"for {max_consecutive_failures} consecutive "
-                                "probes; treating job as "
-                                "FAILED rather than assuming success"
+                            saved_timeout = JOB_STATE_TIMEOUT_S
+                            if deadline is not None:
+                                saved_timeout = min(
+                                    saved_timeout, max(0.0, deadline - time.monotonic())
+                                )
+                            saved = (
+                                state.saved_record(timeout=saved_timeout, refresh=True)
+                                if state is not None
+                                else None
                             )
-                            has_failures = True
+                            if saved is not None and saved.status == "DONE":
+                                _LOG.info("Job %s is DONE in saved state", jid)
+                            else:
+                                _LOG.warning(
+                                    "JobTracker %s unavailable; saved attempt "
+                                    "does not confirm success",
+                                    jid,
+                                )
+                                has_failures = True
                             # Drop this tracker from pending — don't keep
                             # polling a dead actor.
                             continue
-                        still_pending.append((jid, tracker, None))
+                        has_inflight_probe |= done is None
+                        still_pending.append((jid, tracker, state, probe_ref))
                 pending = still_pending
                 if pending:
                     if has_inflight_probe:
@@ -1526,6 +1601,7 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
             visitor.with_namespace(self.namespace),
             visitor.with_cluster_name(self.name),
             visitor.with_strict_access_review(self.strict_access_review),
+            visitor.with_require_cloud_identity(self.require_cloud_identity),
             visitor.with_core_api(self.clients.core_api),
             visitor.with_auth_api(self.clients.auth_api),
             visitor.with_scheduling_api(self.clients.scheduling_api),
@@ -1632,6 +1708,7 @@ class _ValidationVisitor:
     cluster_name: str | None = attrs.field(init=False, default=None)
     namespace: str | None = attrs.field(init=False, default=None)
     strict_access_review: bool = attrs.field(init=False, default=False)
+    require_cloud_identity: bool = attrs.field(init=False, default=True)
     core_api: kubernetes.client.CoreV1Api | None = attrs.field(init=False, default=None)
     auth_api: kubernetes.client.AuthorizationV1Api | None = attrs.field(
         init=False, default=None
@@ -1660,6 +1737,13 @@ class _ValidationVisitor:
         self.strict_access_review = value
         yield
         self.strict_access_review = old
+
+    @contextlib.contextmanager
+    def with_require_cloud_identity(self, value: bool) -> Generator[None, None, None]:
+        old = self.require_cloud_identity
+        self.require_cloud_identity = value
+        yield
+        self.require_cloud_identity = old
 
     @contextlib.contextmanager
     def with_core_api(self, value) -> Generator[None, None, None]:
@@ -1770,26 +1854,36 @@ class _ValidationVisitor:
                 sa.service_account,
             )
 
+        # A cloud identity annotation only means something when the pod's
+        # identity is what grants access to object storage. On clusters with no
+        # cloud IAM provider -- bare metal, on-prem -- credentials are supplied
+        # through ``storage_options`` instead, and demanding the annotation
+        # rejects a service account that works perfectly well.
+        if not self.require_cloud_identity:
+            _LOG.debug(
+                "Skipping cloud identity check for service account %s "
+                "(require_cloud_identity=False)",
+                sa.service_account,
+            )
+            return
+
         if (
             service_account.metadata is None
             or service_account.metadata.annotations is None
         ):
             raise ValueError(
                 f"Service account {sa.service_account} does not have any annotations"
+                f"{_CLOUD_IDENTITY_HINT}"
             )
 
         # TODO: need different modes of permission check here
         annotations = (
             service_account.metadata.annotations if service_account.metadata else {}
         )
-        if (
-            "iam.gke.io/gcp-service-account" not in annotations
-            and "azure.workload.identity/client-id" not in annotations
-            and "eks.amazonaws.com/role-arn" not in annotations
-        ):
+        if not _CLOUD_IDENTITY_ANNOTATIONS & annotations.keys():
             raise ValueError(
                 f"Service account {sa.service_account} does not have a "
-                f"cloud service account or role"
+                f"cloud service account or role{_CLOUD_IDENTITY_HINT}"
             )
 
     def visit_priority_class(self, pri: _PriorityClassMixin) -> None:

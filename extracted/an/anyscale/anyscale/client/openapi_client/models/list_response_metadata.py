@@ -34,26 +34,31 @@ class ListResponseMetadata(object):
     """
     openapi_types = {
         'total': 'int',
+        'total_is_lower_bound': 'bool',
         'next_paging_token': 'str'
     }
 
     attribute_map = {
         'total': 'total',
+        'total_is_lower_bound': 'total_is_lower_bound',
         'next_paging_token': 'next_paging_token'
     }
 
-    def __init__(self, total=None, next_paging_token=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, total=None, total_is_lower_bound=False, next_paging_token=None, local_vars_configuration=None):  # noqa: E501
         """ListResponseMetadata - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._total = None
+        self._total_is_lower_bound = None
         self._next_paging_token = None
         self.discriminator = None
 
         if total is not None:
             self.total = total
+        if total_is_lower_bound is not None:
+            self.total_is_lower_bound = total_is_lower_bound
         if next_paging_token is not None:
             self.next_paging_token = next_paging_token
 
@@ -77,6 +82,29 @@ class ListResponseMetadata(object):
         """
 
         self._total = total
+
+    @property
+    def total_is_lower_bound(self):
+        """Gets the total_is_lower_bound of this ListResponseMetadata.  # noqa: E501
+
+        True when `total` is only a lower bound: more results exist than it counts, and the exact count is unknown.  # noqa: E501
+
+        :return: The total_is_lower_bound of this ListResponseMetadata.  # noqa: E501
+        :rtype: bool
+        """
+        return self._total_is_lower_bound
+
+    @total_is_lower_bound.setter
+    def total_is_lower_bound(self, total_is_lower_bound):
+        """Sets the total_is_lower_bound of this ListResponseMetadata.
+
+        True when `total` is only a lower bound: more results exist than it counts, and the exact count is unknown.  # noqa: E501
+
+        :param total_is_lower_bound: The total_is_lower_bound of this ListResponseMetadata.  # noqa: E501
+        :type: bool
+        """
+
+        self._total_is_lower_bound = total_is_lower_bound
 
     @property
     def next_paging_token(self):

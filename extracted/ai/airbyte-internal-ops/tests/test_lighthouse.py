@@ -42,7 +42,7 @@ def _connection(**overrides: Any) -> dict[str, Any]:
         "destination_connector_name": "Snowflake",
         "cloud_url": "https://cloud.airbyte.com/workspaces/workspace/connections/connection",
         "last_error": "A sync failed",
-        "usd_ok_30d": 125.5,
+        "gb_ok_30d": 125.5,
         "days_of_syncs": 45,
         "conn_rank": 2,
         **overrides,
@@ -375,6 +375,7 @@ def test_no_contact_falls_back_to_moonbot_and_note_warning() -> None:
     )
     assert "No admin contact found — set the requester before replying." in note
     assert "Hi there," in note
+    assert "30-day volume: 125.50 GB" in note
 
 
 def test_dry_run_writes_plan_without_any_external_writes(

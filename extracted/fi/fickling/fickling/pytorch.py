@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
 import warnings
 import zipfile
+from io import BytesIO
 from pathlib import Path
 
 import fickling.polyglot
@@ -10,12 +10,12 @@ from fickling.fickle import Pickled
 
 try:
     import torch
-except ModuleNotFoundError:
+except ModuleNotFoundError as e:
     raise ImportError(
         "The 'torch' module is required for this functionality."
         "PyTorch is now an optional dependency in Fickling."
         "Please use `pip install fickling[torch]`"
-    )
+    ) from e
 
 
 class BaseInjection(torch.nn.Module):
@@ -37,7 +37,7 @@ class PyTorchModelWrapper:
         self.path: Path = path
         self._pickled: Pickled | None = None
         self.force: bool = force
-        self._formats: set[str] = set()
+        self._formats: list[str] = []
 
     def validate_file_format(self):
         self._formats = fickling.polyglot.identify_pytorch_file_format(self.path)
@@ -56,6 +56,7 @@ class PyTorchModelWrapper:
                     If it is a PyTorch file, raise an issue on GitHub
                     """,
                     UserWarning,
+                    stacklevel=2,
                 )
             else:
                 raise ValueError(
@@ -73,6 +74,7 @@ class PyTorchModelWrapper:
                         Try Pickled.load() or StackedPickle.load() if this fails
                         """,
                         UserWarning,
+                        stacklevel=2,
                     )
                 else:
                     raise ValueError(
@@ -88,16 +90,18 @@ class PyTorchModelWrapper:
                         """A fickling wrapper and injection method does not exist for that format.
                         Please raise an issue on our GitHub.""",
                         UserWarning,
+                        stacklevel=2,
                     )
                 else:
                     raise NotImplementedError(
                         """A fickling wrapper and injection method does not exist for that format.
                         Please raise an issue on our GitHub or use the argument `force=True`."""
                     )
-        if self._formats[0] == "TorchScript v1.4":
+        if "TorchScript v1.4" in self._formats:
             warnings.warn(
                 """Support for TorchScript v1.4 files is experimental.""",
                 UserWarning,
+                stacklevel=2,
             )
         return self._formats
 
@@ -111,25 +115,21 @@ class PyTorchModelWrapper:
     def pickled(self) -> Pickled:
         if self._pickled is None:
             self.validate_file_format()
-            with zipfile.ZipFile(self.path, "r") as zip_ref:
-                data_pkl_path = next(
-                    (name for name in zip_ref.namelist() if name.endswith("/data.pkl")), None
-                )
-                if data_pkl_path is None:
-                    raise ValueError("data.pkl not found in the zip archive")
-                with zip_ref.open(data_pkl_path, "r") as pickle_file:
-                    self._pickled = Pickled.load(pickle_file)
+            # Analyze the same data.pkl record that torch.load would read.
+            reader = torch._C.PyTorchFileReader(str(self.path))
+            self._pickled = Pickled.load(BytesIO(reader.get_record("data.pkl")))
         return self._pickled
 
     def inject_payload(
         self, payload: str, output_path: Path, injection: str = "all", overwrite: bool = False
     ) -> None:
         self.output_path = output_path
-        if self.formats[0] == "TorchScript v1.4":
+        if "TorchScript v1.4" in self.formats:
             warnings.warn(
                 """Support for TorchScript  v1.4 files is experimental.
                 Injections may not be effective depending on the model and the target parser.""",
                 UserWarning,
+                stacklevel=2,
             )
         if injection == "insertion":
             # This does NOT bypass the weights based unpickler
@@ -138,14 +138,16 @@ class PyTorchModelWrapper:
             pickled.insert_python_exec(payload)
 
             # Create a new ZIP file to store the modified data
-            with zipfile.ZipFile(output_path, "w") as new_zip_ref:
-                with zipfile.ZipFile(self.path, "r") as zip_ref:
-                    for item in zip_ref.infolist():
-                        with zip_ref.open(item.filename) as entry:
-                            if item.filename.endswith("/data.pkl"):
-                                new_zip_ref.writestr(item.filename, pickled.dumps())
-                            else:
-                                new_zip_ref.writestr(item.filename, entry.read())
+            with (
+                zipfile.ZipFile(output_path, "w") as new_zip_ref,
+                zipfile.ZipFile(self.path, "r") as zip_ref,
+            ):
+                for item in zip_ref.infolist():
+                    with zip_ref.open(item.filename) as entry:
+                        if item.filename.endswith("/data.pkl"):
+                            new_zip_ref.writestr(item.filename, pickled.dumps())
+                        else:
+                            new_zip_ref.writestr(item.filename, entry.read())
         if injection == "combination":
             injected_model = BaseInjection(self.pickled, payload)
             torch.save(injected_model, output_path)
@@ -154,4 +156,4 @@ class PyTorchModelWrapper:
             Path(output_path).rename(self.path)
             output_path = Path(self.output_path)
             if output_path.exists():
-                os.remove(output_path)
+                output_path.unlink()

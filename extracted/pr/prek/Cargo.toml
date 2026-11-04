@@ -3,7 +3,7 @@ members = ["crates/*"]
 resolver = "3"
 
 [workspace.package]
-version = "0.5.9"
+version = "0.5.10"
 edition = "2024"
 rust-version = "1.97"
 repository = "https://github.com/j178/prek"
@@ -12,11 +12,11 @@ license = "MIT"
 
 # tombi: format.rules.table-keys-order = "ascending"
 [workspace.dependencies]
-prek-consts = { path = "crates/prek-consts", version = "0.5.9" }
-prek-identify = { path = "crates/prek-identify", version = "0.5.9" }
-prek-ignore = { path = "crates/prek-ignore", version = "0.5.9" }
-prek-pty = { path = "crates/prek-pty", version = "0.5.9" }
-prek-update = { path = "crates/prek-update", version = "0.5.9" }
+prek-consts = { path = "crates/prek-consts", version = "0.5.10" }
+prek-identify = { path = "crates/prek-identify", version = "0.5.10" }
+prek-ignore = { path = "crates/prek-ignore", version = "0.5.10" }
+prek-pty = { path = "crates/prek-pty", version = "0.5.10" }
+prek-update = { path = "crates/prek-update", version = "0.5.10" }
 
 aho-corasick = { version = "1.1.4" }
 annotate-snippets = { version = "0.12.13" }
@@ -37,12 +37,12 @@ console = { version = "0.16", default-features = false, features = ["ansi-parsin
 ctrlc = { version = "3.4.5" }
 dunce = { version = "1.0.5" }
 etcetera = { version = "0.11.0" }
-fancy-regex = { version = "0.19.0" }
+fancy-regex = { version = "0.20.0" }
 fastrand = { version = "2.4.1", default-features = false }
 fs-err = { version = "3.3.0", features = ["tokio"] }
 futures-util = { version = "0.3.31", default-features = false, features = ["alloc"] }
 globset = { version = "0.4.18" }
-granit-parser = { version = "1.2.1" }
+granit-parser = { version = "2.1.0", default-features = false, features = ["std", "error_messages"] }
 hex = { version = "0.4.3" }
 http = { version = "1.1.0" }
 indicatif = { version = "0.18.0" }
@@ -69,7 +69,7 @@ seahash = { version = "4.1.0" }
 self-replace = { version = "1.5.0" }
 semver = { version = "1.0.24", features = ["serde"] }
 serde = { version = "1.0.210", features = ["derive"] }
-serde-saphyr = { version = "1.2.0", default-features = false, features = ["deserialize", "serialize"] }
+serde-saphyr = { version = "2.1.0", default-features = false, features = ["deserialize", "serialize"] }
 serde_json = { version = "1.0.132", features = ["preserve_order", "unbounded_depth"] }
 serde_stacker = { version = "0.1.12" }
 shlex = { version = "2.0.0" }

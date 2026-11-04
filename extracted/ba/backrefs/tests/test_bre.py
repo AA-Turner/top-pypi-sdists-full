@@ -161,6 +161,19 @@ class TestSearchTemplate(unittest.TestCase):
         with pytest.warns(FutureWarning):
             self.assertTrue(bre.compile(r'[[:graph:a]').match('a') is not None)
 
+    def test_bare_letter_after_inner_bracket_is_literal(self):
+        """Test that a letter right after an inner `[` is a literal char, not a property."""
+
+        pattern = bre.compile(r'[x[l]]')
+        self.assertTrue(pattern.match('[]') is not None)
+        self.assertTrue(pattern.match('l]') is not None)
+        self.assertTrue(pattern.match('x]') is not None)
+        self.assertTrue(pattern.match('a]') is None)
+        pattern = bre.compile(r'[}[d]')
+        self.assertTrue(pattern.match('[') is not None)
+        self.assertTrue(pattern.match('d') is not None)
+        self.assertTrue(pattern.match('}') is not None)
+
     def test_unicode_property_failures(self):
         """Test Unicode property."""
 
@@ -199,6 +212,12 @@ class TestSearchTemplate(unittest.TestCase):
 
         with pytest.raises(PatternError):
             bre.compile(r'\N{A')
+
+        with pytest.raises(PatternError):
+            bre.compile(r'\N{Undefined character}')
+
+        with pytest.raises(PatternError):
+            bre.compile_replace(re.compile(r'(a)'), r'\N{Undefined character}')
 
     def test_word_boundary(self):
         """Test word boundary."""
@@ -482,6 +501,31 @@ class TestSearchTemplate(unittest.TestCase):
 
         pattern = bre.compile_search(r'Test [[:graph:]]', re.ASCII)
         pattern2 = bre.compile_search('Test [!-\\~]', re.ASCII)
+        self.assertEqual(pattern.pattern, pattern2.pattern)
+
+    def test_age_canonical_value(self):
+        """Test the `UCD` canonical age value form (`1.1`, not just the `V1_1` alias)."""
+
+        pattern = bre.compile_search(r'\p{Age=1.1}')
+        pattern2 = bre.compile_search(r'\p{Age=V1_1}')
+        self.assertEqual(pattern.pattern, pattern2.pattern)
+
+        pattern = bre.compile_search(r'\p{Age:1.1}')
+        pattern2 = bre.compile_search(r'\p{Age:V1_1}')
+        self.assertEqual(pattern.pattern, pattern2.pattern)
+
+    def test_age_canonical_value_in_group(self):
+        """Test the canonical age value form inside a character group."""
+
+        pattern = bre.compile_search(r'[\p{Age=13.0}]')
+        pattern2 = bre.compile_search(r'[\p{Age=V13_0}]')
+        self.assertEqual(pattern.pattern, pattern2.pattern)
+
+    def test_age_canonical_value_negated(self):
+        """Test the canonical age value form with a negated property."""
+
+        pattern = bre.compile_search(r'\p{^Age=1.1}')
+        pattern2 = bre.compile_search(r'\p{^Age=V1_1}')
         self.assertEqual(pattern.pattern, pattern2.pattern)
 
     def test_not_posix_at_start_group(self):
@@ -1857,6 +1901,8 @@ class TestReplaceTemplate(unittest.TestCase):
         self.assertEqual(pattern.subf(r'{1:1^30}', 'Testing'), '11111111111111Te11111111111111')
         self.assertEqual(pattern.subf(r'{1:<30s}', 'Testing'), 'Te                            ')
         self.assertEqual(pattern.subf(r'{1:s}', 'Testing'), 'Te')
+        self.assertEqual(pattern.subf(r'{1:}', 'Testing'), 'Te')
+        self.assertEqual(pattern.subf(r'{1:}-x', 'Testing'), 'Te-x')
         self.assertEqual(pattern.subf(r'{2!r}', 'Testing'), "'st'")
 
         with pytest.raises(PatternError):
@@ -1889,6 +1935,8 @@ class TestReplaceTemplate(unittest.TestCase):
         self.assertEqual(pattern.subf(br'{1:1^30}', b'Testing'), b'11111111111111Te11111111111111')
         self.assertEqual(pattern.subf(br'{1:<30s}', b'Testing'), b'Te                            ')
         self.assertEqual(pattern.subf(br'{1:s}', b'Testing'), b'Te')
+        self.assertEqual(pattern.subf(br'{1:}', b'Testing'), b'Te')
+        self.assertEqual(pattern.subf(br'{1:}-x', b'Testing'), b'Te-x')
         self.assertEqual(pattern.subf(br'{2!r}', b'Testing'), b"b'st'")
 
         with pytest.raises(PatternError):
@@ -1908,6 +1956,40 @@ class TestReplaceTemplate(unittest.TestCase):
 
         with pytest.raises(PatternError):
             pattern.subf(br'{:030}', b'Testing')
+
+    def test_case_hex_above_byte_range(self):
+        """Test case conversion of hex escapes beyond the byte range."""
+
+        pattern = re.compile('Test')
+        for template, expected in (
+            (r'\c\xb5', '\u039c'),
+            (r'\C\xff\E', '\u0178'),
+            (r'\C\l\xb5\E', '\u03bc'),
+            (r'\C\x5c\E', '\\')
+        ):
+            with self.subTest(template=template):
+                expand = bre.compile_replace(pattern, template)
+                results = expand(pattern.match('Test'))
+                self.assertEqual(expected, results)
+
+    def test_case_escape_multiple_chars(self):
+        """Test case conversion of escapes that give more than one character."""
+
+        pattern = re.compile('Test')
+        for template, expected in (
+            (r'\C\xdf\E', 'SS'),
+            (r'\c\337', 'SS'),
+            (r'\C\N{LATIN SMALL LETTER SHARP S}\E', 'SS'),
+            (r'\C\u00df\E', 'SS'),
+            (r'\L\u0130\E', 'i\u0307'),
+            (r'\C\l\460\E', 'i\u0307'),
+            (r'\C\l\N{LATIN CAPITAL LETTER I WITH DOT ABOVE}\E', 'i\u0307'),
+            (r'\C\l\u0130\E', 'i\u0307')
+        ):
+            with self.subTest(template=template):
+                expand = bre.compile_replace(pattern, template)
+                results = expand(pattern.match('Test'))
+                self.assertEqual(expected, results)
 
     def test_dont_case_special_refs(self):
         """Test that we don't case Unicode and bytes tokens, but case the character."""
@@ -1978,6 +2060,27 @@ class TestReplaceTemplate(unittest.TestCase):
 
 class TestExceptions(unittest.TestCase):
     """Test Exceptions."""
+
+    def test_bad_char_in_numeric_group_name(self):
+        """Test bad character in a numeric group name."""
+
+        p = bre.compile_search(r'(a)(b)')
+        with pytest.raises(PatternError):
+            bre.compile_replace(p, r'Replace \g<1X>')
+
+    def test_bad_char_in_group_name(self):
+        """Test bad character in a named group reference."""
+
+        p = bre.compile_search(r'(?P<word>a)(b)')
+        with pytest.raises(PatternError):
+            bre.compile_replace(p, r'Replace \g<w-ord>')
+
+    def test_bad_char_in_group_name_spacing(self):
+        """Test spacing in a group name reference."""
+
+        p = bre.compile_search(r'(?P<word>a)(b)')
+        with pytest.raises(PatternError):
+            bre.compile_replace(p, r'Replace \g<word >')
 
     def test_bad_flag(self):
         """Test bad flag."""

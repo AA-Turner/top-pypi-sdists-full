@@ -1,231 +1,603 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""``client.mcp.custom`` — the generated resource classes.
+
+``CustomResource`` (sync) and ``AsyncCustomResource`` (async),
+dispatching through the hand-written httpx kernel with Stainless-style
+flat request fields and raw / streaming response wrappers.
+"""
 
 from __future__ import annotations
 
+from functools import cached_property
+
 import httpx
+from typing_extensions import overload
 
-from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from ..._utils import maybe_transform, async_maybe_transform
-from ..._compat import cached_property
-from ..._resource import SyncAPIResource, AsyncAPIResource
-from ..._response import (
-    to_raw_response_wrapper,
-    to_streamed_response_wrapper,
-    async_to_raw_response_wrapper,
-    async_to_streamed_response_wrapper,
-)
-from ...types.mcp import custom_create_params
-from ..._base_client import make_request_options
+from ..._base_client import BodyParam, RequestOptions
+from ..._models import CustomCreateBody
+from ..._operations import OPERATIONS_BY_CHAIN
+from ..._response import APIResponse, AsyncAPIResponse, AsyncResponseContextManager, ResponseContextManager
+from ..._types import NOT_GIVEN, Body, Headers, NotGiven, Omit, Query, SequenceNotStr, omit
 from ...types.mcp.custom_create_response import CustomCreateResponse
+from .._base import (
+    AsyncAPIResource,
+    SyncAPIResource,
+    compact,
+    make_request_options,
+    merge_body,
+    require_fields,
+)
 
-__all__ = ["CustomResource", "AsyncCustomResource"]
+_CREATE_OPERATION = OPERATIONS_BY_CHAIN[("mcp", "custom", "create")]
 
 
 class CustomResource(SyncAPIResource):
-    """MCP server management"""
-
     @cached_property
     def with_raw_response(self) -> CustomResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return CustomResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> CustomResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return CustomResourceWithStreamingResponse(self)
 
+    # Deprecated in the input OpenAPI schema.
+    @overload
     def create(
         self,
+        body: BodyParam | None = None,
         *,
         name: str,
-        allowed_tools: SequenceNotStr[str] | Omit = omit,
         auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
         custom_tools: SequenceNotStr[str] | Omit = omit,
         managed_auth_via_composio: bool | Omit = omit,
-        toolkits: SequenceNotStr[str] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> CustomCreateResponse: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> CustomCreateResponse: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> CustomCreateResponse:
-        """
-        Creates a new Model Control Protocol (MCP) server instance that can integrate
-        with multiple applications or toolkits simultaneously. This endpoint allows you
-        to create a server that can access tools from different applications, making it
-        suitable for complex workflows that span multiple services.
-
-        Args:
-          name: Human-readable name to identify this custom MCP server (4-30 characters,
-              alphanumeric, spaces, and hyphens only)
-
-          allowed_tools: Tool identifiers to enable that aren't part of standard toolkits
-
-          auth_config_ids: ID references to existing authentication configurations
-
-          custom_tools: DEPRECATED: Use allowed_tools instead. Tool identifiers to enable that aren't
-              part of standard toolkits
-
-          managed_auth_via_composio: Whether to manage authentication via Composio
-
-          toolkits: List of application/toolkit identifiers to enable for this server
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return self._post(
+        body_fields = compact(
+            {
+                "name": name,
+                "auth_config_ids": auth_config_ids,
+                "toolkits": toolkits,
+                "allowed_tools": allowed_tools,
+                "custom_tools": custom_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("name",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
             "/api/v3.1/mcp/servers/custom",
-            body=maybe_transform(
-                {
-                    "name": name,
-                    "allowed_tools": allowed_tools,
-                    "auth_config_ids": auth_config_ids,
-                    "custom_tools": custom_tools,
-                    "managed_auth_via_composio": managed_auth_via_composio,
-                    "toolkits": toolkits,
-                },
-                custom_create_params.CustomCreateParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=CustomCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=CustomCreateBody,
+            options=options_data,
         )
 
 
 class AsyncCustomResource(AsyncAPIResource):
-    """MCP server management"""
-
     @cached_property
     def with_raw_response(self) -> AsyncCustomResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return AsyncCustomResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> AsyncCustomResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return AsyncCustomResourceWithStreamingResponse(self)
 
+    # Deprecated in the input OpenAPI schema.
+    @overload
     async def create(
         self,
+        body: BodyParam | None = None,
         *,
         name: str,
-        allowed_tools: SequenceNotStr[str] | Omit = omit,
         auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
         custom_tools: SequenceNotStr[str] | Omit = omit,
         managed_auth_via_composio: bool | Omit = omit,
-        toolkits: SequenceNotStr[str] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> CustomCreateResponse: ...
+
+    @overload
+    async def create(
+        self,
+        body: BodyParam,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> CustomCreateResponse: ...
+
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> CustomCreateResponse:
-        """
-        Creates a new Model Control Protocol (MCP) server instance that can integrate
-        with multiple applications or toolkits simultaneously. This endpoint allows you
-        to create a server that can access tools from different applications, making it
-        suitable for complex workflows that span multiple services.
-
-        Args:
-          name: Human-readable name to identify this custom MCP server (4-30 characters,
-              alphanumeric, spaces, and hyphens only)
-
-          allowed_tools: Tool identifiers to enable that aren't part of standard toolkits
-
-          auth_config_ids: ID references to existing authentication configurations
-
-          custom_tools: DEPRECATED: Use allowed_tools instead. Tool identifiers to enable that aren't
-              part of standard toolkits
-
-          managed_auth_via_composio: Whether to manage authentication via Composio
-
-          toolkits: List of application/toolkit identifiers to enable for this server
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return await self._post(
+        body_fields = compact(
+            {
+                "name": name,
+                "auth_config_ids": auth_config_ids,
+                "toolkits": toolkits,
+                "allowed_tools": allowed_tools,
+                "custom_tools": custom_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("name",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
             "/api/v3.1/mcp/servers/custom",
-            body=await async_maybe_transform(
-                {
-                    "name": name,
-                    "allowed_tools": allowed_tools,
-                    "auth_config_ids": auth_config_ids,
-                    "custom_tools": custom_tools,
-                    "managed_auth_via_composio": managed_auth_via_composio,
-                    "toolkits": toolkits,
-                },
-                custom_create_params.CustomCreateParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=CustomCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=CustomCreateBody,
+            options=options_data,
         )
 
 
 class CustomResourceWithRawResponse:
-    def __init__(self, custom: CustomResource) -> None:
-        self._custom = custom
+    def __init__(self, resource: CustomResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = to_raw_response_wrapper(
-            custom.create,
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[CustomCreateResponse]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[CustomCreateResponse]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[CustomCreateResponse]:
+        body_fields = compact(
+            {
+                "name": name,
+                "auth_config_ids": auth_config_ids,
+                "toolkits": toolkits,
+                "allowed_tools": allowed_tools,
+                "custom_tools": custom_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("name",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "post",
+            "/api/v3.1/mcp/servers/custom",
+            cast_to=CustomCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=CustomCreateBody,
+            options=options_data,
         )
 
 
 class AsyncCustomResourceWithRawResponse:
-    def __init__(self, custom: AsyncCustomResource) -> None:
-        self._custom = custom
+    def __init__(self, resource: AsyncCustomResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = async_to_raw_response_wrapper(
-            custom.create,
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[CustomCreateResponse]: ...
+
+    @overload
+    async def create(
+        self,
+        body: BodyParam,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[CustomCreateResponse]: ...
+
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[CustomCreateResponse]:
+        body_fields = compact(
+            {
+                "name": name,
+                "auth_config_ids": auth_config_ids,
+                "toolkits": toolkits,
+                "allowed_tools": allowed_tools,
+                "custom_tools": custom_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("name",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "post",
+            "/api/v3.1/mcp/servers/custom",
+            cast_to=CustomCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=CustomCreateBody,
+            options=options_data,
         )
 
 
 class CustomResourceWithStreamingResponse:
-    def __init__(self, custom: CustomResource) -> None:
-        self._custom = custom
+    def __init__(self, resource: CustomResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = to_streamed_response_wrapper(
-            custom.create,
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[CustomCreateResponse]]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[CustomCreateResponse]]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[CustomCreateResponse]]:
+        body_fields = compact(
+            {
+                "name": name,
+                "auth_config_ids": auth_config_ids,
+                "toolkits": toolkits,
+                "allowed_tools": allowed_tools,
+                "custom_tools": custom_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("name",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                "/api/v3.1/mcp/servers/custom",
+                cast_to=CustomCreateResponse,
+                operation=_CREATE_OPERATION,
+                body=body_data,
+                body_model=CustomCreateBody,
+                options=options_data,
+                stream=True,
+            )
         )
 
 
 class AsyncCustomResourceWithStreamingResponse:
-    def __init__(self, custom: AsyncCustomResource) -> None:
-        self._custom = custom
+    def __init__(self, resource: AsyncCustomResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = async_to_streamed_response_wrapper(
-            custom.create,
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[CustomCreateResponse]]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[CustomCreateResponse]]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        custom_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[CustomCreateResponse]]:
+        body_fields = compact(
+            {
+                "name": name,
+                "auth_config_ids": auth_config_ids,
+                "toolkits": toolkits,
+                "allowed_tools": allowed_tools,
+                "custom_tools": custom_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("name",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                "/api/v3.1/mcp/servers/custom",
+                cast_to=CustomCreateResponse,
+                operation=_CREATE_OPERATION,
+                body=body_data,
+                body_model=CustomCreateBody,
+                options=options_data,
+                stream=True,
+            )
         )

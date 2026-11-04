@@ -18,11 +18,12 @@ This module is experimental: a minor release may change it. Importing or using i
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncGenerator, AsyncIterator, Callable, Collection
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Collection
 from contextlib import aclosing, asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Protocol, Self
 
 import temporalio.workflow
 
@@ -41,9 +42,10 @@ with temporalio.workflow.unsafe.imports_passed_through():
             AgentConfig,
             ApprovalCallback,
             ArtifactCreatedEvent,
-            AskEnableConnectorCallback,
             AudioContentBlock,
-            CallbackHandler,
+            AuthCallback,
+            AuthRequest,
+            AuthResult,
             CallbackKind,
             CallbackOpenedEvent,
             CallbackResolvedEvent,
@@ -82,6 +84,7 @@ with temporalio.workflow.unsafe.imports_passed_through():
             RootsScope,
             SessionBusyError,
             SessionCallback,
+            SessionCallbackRejectedError,
             SessionCallbackSettledError,
             SessionCancelResponse,
             SessionCatalogScope,
@@ -108,6 +111,7 @@ with temporalio.workflow.unsafe.imports_passed_through():
             TurnSteerResponse,
             TurnTerminatedEvent,
             TurnUpdatedEvent,
+            UnknownContentBlock,
             UnknownEventPayload,
             UnsupportedSessionProcedureError,
             UserInputCallback,
@@ -120,11 +124,16 @@ with temporalio.workflow.unsafe.imports_passed_through():
         from mistralai.vibe.harness.app_server.session.local_record import (
             LocalSessionProcedureError as _LocalSessionProcedureError,
         )
+        from mistralai.vibe.harness.app_server.session.models import AllowApproval, DenyApproval
         from mistralai.vibe.harness.app_server.session.models.base import SessionModel as _SessionModel
         from mistralai.vibe.harness.app_server.session.models.common import (
             DEFAULT_INTERRUPT_REASON as _DEFAULT_INTERRUPT_REASON,
         )
         from mistralai.vibe.harness.app_server.session.models.common import HistoryEntryId
+        from mistralai.vibe_agents.sdk.authoring import errors as _errors
+        from mistralai.vibe_agents.sdk.authoring.contracts import KeepCallbackOpen
+        from mistralai.vibe_agents.sdk.authoring.errors import SdkError
+        from mistralai.vibe_agents.sdk.authoring.errors import described_value as _described
         from mistralai.vibe_agents.sdk.client.handles import Session as _Session
     finally:
         _silence.restore_runtime_warning_levels()
@@ -136,6 +145,7 @@ __all__ = [
     "attach",
     # Arguments and results of its methods
     "AgentConfig",
+    "ApprovalResult",
     "CallbackHandler",
     "CallbackKind",
     "CallbackResult",
@@ -172,9 +182,12 @@ __all__ = [
     "ImageContentBlock",
     "ResourceLinkContentBlock",
     "TextContentBlock",
+    "UnknownContentBlock",
     # Callbacks
     "ApprovalCallback",
-    "AskEnableConnectorCallback",
+    "AuthCallback",
+    "AuthRequest",
+    "AuthResult",
     "ClientHookCallback",
     "ClientToolCallback",
     "ExecuteCodeCallback",
@@ -199,6 +212,7 @@ __all__ = [
     "UnknownEventPayload",
     # Errors of the client
     "ChildSessionProcedureRefusedError",
+    "SessionCallbackRejectedError",
     "SessionCallbackSettledError",
     "SessionEventStreamLostError",
     "SessionNotAttachedError",
@@ -210,6 +224,53 @@ __all__ = [
     "SessionTerminatedError",
     "SessionTurnConflictError",
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovalResult:
+    """The answer to an approval: ``answer_callback`` sends it, and a ``provide_callbacks`` handler returns it.
+
+    ``answer`` is ``agents.AllowApproval`` or ``agents.DenyApproval``. An approval takes no other
+    answer: a ``CallbackResult`` sent to an approval raises ``agents.SdkError``.
+
+    Raises:
+        SdkError: ``answer`` is not ``AllowApproval`` or ``DenyApproval``: ``True``, a dict or ``None``.
+    """
+
+    callback_id: str
+    answer: AllowApproval | DenyApproval
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.answer, AllowApproval | DenyApproval):
+            raise SdkError(
+                "ApprovalResult takes agents.AllowApproval() or agents.DenyApproval() as its answer, "
+                f"not {type(self.answer).__name__}"
+            )
+
+    def _callback_result(self) -> CallbackResult:
+        return CallbackResult(callback_id=self.callback_id, output=self.answer.model_dump(mode="json"))
+
+
+class CallbackHandler(Protocol):
+    """What ``provide_callbacks`` calls for each open callback: an async function that returns its answer.
+
+    ``agents.KeepCallbackOpen()`` keeps any callback open. An approval takes an ``ApprovalResult``;
+    any other return for an approval, ``None`` or a ``CallbackResult`` included, raises
+    ``agents.SdkError`` from the block. Any other callback takes a ``CallbackResult``; ``None``
+    also keeps it open.
+    """
+
+    def __call__(
+        self, callback: SessionCallback, /
+    ) -> Awaitable[CallbackResult | ApprovalResult | KeepCallbackOpen | None]: ...
+
+
+def _approval_refusal(callback_id: str) -> SdkError:
+    return SdkError(
+        f"Callback {callback_id} is an approval: answer it with "
+        "session_protocol.ApprovalResult(callback_id, agents.AllowApproval() or agents.DenyApproval()), "
+        "not a CallbackResult"
+    )
 
 
 def attach(session: _Session) -> SessionClient:
@@ -375,6 +436,7 @@ class SessionClient:
             CatalogArchiveResponse,
         )
 
+    @_errors.public_errors
     async def upload_file(
         self,
         source: str | Path | bytes | AsyncIterator[bytes],
@@ -401,7 +463,7 @@ class SessionClient:
         self._refuse_if_closed()
         uploader = self._uploads() if self._uploads is not None else None
         if uploader is None:
-            raise UnsupportedSessionProcedureError(
+            raise _errors.UnsupportedSessionProcedureError(
                 method="upload_file",
                 backend=type(self._transport).__name__,
                 reason="File uploads are not available in the current configuration.",
@@ -417,8 +479,10 @@ class SessionClient:
     ) -> MessageSendResponse:
         """Start a turn when none is active, else steer the active turn.
 
-        The receipt is returned once the message is durably accepted. It does not say whether a
-        turn started. The idempotency key defaults to ``message_entry_id``.
+        The receipt is returned once the message is durably accepted. Its ``steered`` is ``True``
+        when the message joined the running turn and ``False`` when it started one; an Agent or
+        Agent Controller deployed before the field existed leaves it ``None``. The idempotency key
+        defaults to ``message_entry_id``.
         """
         return await self._request(
             "app_server/session/message/send",
@@ -517,8 +581,17 @@ class SessionClient:
             ConfigWriteResponse,
         )
 
-    async def answer_callback(self, result: CallbackResult, *, session_id: str | None = None) -> CallbackResultResponse:
+    async def answer_callback(
+        self, result: CallbackResult | ApprovalResult, *, session_id: str | None = None
+    ) -> CallbackResultResponse:
         """Answer one open callback, named by ``result.callback_id``, and return the protocol's receipt.
+
+        An approval takes an ``ApprovalResult``, with ``agents.AllowApproval()`` or
+        ``agents.DenyApproval()``; any other callback takes a ``CallbackResult``. Before it sends an
+        answer, the client reads the open callbacks of its session and its subagents once: a
+        ``CallbackResult`` for an approval the session has open, or an ``ApprovalResult`` for an
+        open callback that is not an approval, raises ``agents.SdkError``, and nothing is sent.
+        When that read fails, the answer is sent unchecked.
 
         ``session_id`` names the session that opened the callback, so a root client answers a
         callback of one of its subagents: pass the ``session_id`` of the callback that
@@ -528,19 +601,44 @@ class SessionClient:
         the first. The receipt does not say whose answer the session applied: read the
         ``CallbackResolvedEvent`` of the callback from ``events()``. Its ``outcome`` says how the
         callback ended. For an approval, ``outcome.output`` holds the applied decision, such as
-        ``{"decision": "allow", "scope": "once"}`` or ``{"decision": "deny"}``: answer in that form
-        and compare it with yours. A client tool's ``outcome.output`` is empty.
+        ``{"decision": "allow", "scope": "once"}`` or ``{"decision": "deny"}``: compare it with
+        your answer's ``model_dump(mode="json")``. A client tool's ``outcome.output`` is empty.
 
         Raises:
             SessionCallbackSettledError: The session has ended, or never opened the callback:
-                answering a subagent's callback without its ``session_id`` raises it. A local
-                session also raises it for a callback that timed out or was cancelled, which a
-                deployed session accepts with no effect.
+                answering a subagent's callback without its ``session_id`` raises it. Both hosts
+                also raise it for a callback that timed out or was cancelled, which a deployed
+                session on an older control plane or agent accepts with no effect.
+            SessionCallbackRejectedError: The session refuses the answer: it does not fit the
+                callback, such as an error answer to an approval, or an approval answer that
+                neither allows nor denies. Nothing was applied and the callback stays open. It is
+                also an ``agents.SdkError``, and its message says why the session refused it.
+            SdkError: ``result`` is neither a ``CallbackResult`` nor an ``ApprovalResult``, it is
+                a ``CallbackResult`` for an approval the session has open, or an ``ApprovalResult``
+                for an open callback that is not an approval; nothing is sent.
+            OutcomeUnknownError: A deployed session did not show the answer applied within 30
+                seconds.
         """
+        session_id = session_id or self._session_id
+        if not isinstance(result, CallbackResult | ApprovalResult):
+            raise SdkError(
+                "answer_callback takes a CallbackResult, or an ApprovalResult for an approval, "
+                f"not {type(result).__name__}"
+            )
+        kind = await self._open_callback_kind(session_id, result.callback_id)
+        if isinstance(result, ApprovalResult):
+            if kind is not None and kind != "approval":
+                raise SdkError(
+                    f"Callback {result.callback_id} is a {kind} callback, not an approval: answer it "
+                    "with a CallbackResult, not an ApprovalResult"
+                )
+            result = result._callback_result()
+        elif kind == "approval":
+            raise _approval_refusal(result.callback_id)
         try:
             return await self._request(
                 "app_server/session/callback/result",
-                _protocol.CallbackResultParams(session_id=session_id or self._session_id, result=result),
+                _protocol.CallbackResultParams(session_id=session_id, result=result),
                 CallbackResultResponse,
             )
         except _LocalSessionProcedureError as error:
@@ -561,15 +659,42 @@ class SessionClient:
 
         On a root session, one block also gets the callbacks its subagents open: the callback's
         ``session_id`` names the session that opened it, and the answer goes to that session. The
-        handler gets each open callback once, and returns its ``CallbackResult``, or ``None`` to
-        leave it open; answer it later with ``answer_callback(result, session_id=callback.session_id)``.
-        Leaving the block stops answering, and leaves open callbacks open. An error the handler
-        raises leaves the block. The first block reads the session once, to find the callbacks
-        already open; that read does not move ``last_event_id``.
+        handler gets each open callback once, and returns its answer: for an approval, an
+        ``ApprovalResult``; for any other callback, a ``CallbackResult``. It returns
+        ``agents.KeepCallbackOpen()`` to keep any callback open (``None`` also keeps a callback
+        that is not an approval open). Answer it later with
+        ``answer_callback(result, session_id=callback.session_id)``. Leaving the block stops
+        answering, and leaves open callbacks open. An error the handler raises leaves the block, and
+        so does ``agents.SdkError`` for a return that does not answer the callback's kind (for an
+        approval: ``None`` or a ``CallbackResult``); the callback stays open. The first block reads
+        the session once, to find the callbacks already open; that read does not move
+        ``last_event_id``.
         """
         self._refuse_if_closed()
         raw = await self._attached()
-        async with raw.provide_callbacks(kinds=kinds, handler=handler):
+
+        async def answer(callback: SessionCallback) -> CallbackResult | None:
+            result = await handler(callback)
+            if isinstance(result, KeepCallbackOpen):
+                return None
+            if isinstance(callback, ApprovalCallback):
+                if isinstance(result, ApprovalResult):
+                    return result._callback_result()
+                if isinstance(result, CallbackResult):
+                    raise _approval_refusal(callback.id)
+                raise SdkError(
+                    f"Callback {callback.id} is an approval: a provide_callbacks handler returns "
+                    "session_protocol.ApprovalResult, or agents.KeepCallbackOpen() to keep it open, "
+                    f"not {_described(result)}"
+                )
+            if result is None or isinstance(result, CallbackResult):
+                return result
+            raise SdkError(
+                f"Callback {callback.id} is a {callback.kind} callback: a provide_callbacks handler returns "
+                f"a CallbackResult, or agents.KeepCallbackOpen() to keep it open, not {_described(result)}"
+            )
+
+        async with raw.provide_callbacks(kinds=kinds, handler=answer):
             yield
 
     async def events(self, *, after: EventId | None = None, batch_size: int = 100) -> AsyncGenerator[ClientEvent, None]:
@@ -634,6 +759,32 @@ class SessionClient:
     ) -> ResultT:
         self._refuse_if_closed()
         return await self._raw.request(method, params, result_type)
+
+    async def _open_callback_kind(self, session_id: str, callback_id: str) -> str | None:
+        """The kind of ``callback_id`` if ``session_id`` has it open; ``None`` when it does not, or the read fails.
+
+        It reads the open callbacks of this client's session and its subagents, as ``turn.answer``
+        does, so a subagent's callback has its kind too: a read of the subagent's session would not
+        show it on a deployed session.
+        """
+        try:
+            tree = await self._request(
+                "app_server/session/callbacks/tree",
+                _protocol.CallbacksTreeParams(session_id=self._session_id),
+                _protocol.CallbacksTreeResponse,
+            )
+        except SessionTerminatedError:
+            raise
+        except Exception:  # noqa: BLE001 - the answer goes unchecked; the host still refuses one it cannot read
+            return None
+        return next(
+            (
+                item.callback.kind
+                for item in tree.callbacks
+                if item.session_id == session_id and item.callback.id == callback_id
+            ),
+            None,
+        )
 
     def _refuse_if_closed(self) -> None:
         # A closed local transport refuses with this error; a closed remote one raises a bare

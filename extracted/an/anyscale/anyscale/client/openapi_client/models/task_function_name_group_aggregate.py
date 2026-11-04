@@ -34,6 +34,8 @@ class TaskFunctionNameGroupAggregate(object):
     """
     openapi_types = {
         'function_name': 'str',
+        'function_name_hash': 'str',
+        'function_name_batch_id': 'str',
         'task_type': 'TaskType',
         'ray_session_name': 'str',
         'metrics': 'TaskGroupedAggregateMetrics'
@@ -41,24 +43,32 @@ class TaskFunctionNameGroupAggregate(object):
 
     attribute_map = {
         'function_name': 'function_name',
+        'function_name_hash': 'function_name_hash',
+        'function_name_batch_id': 'function_name_batch_id',
         'task_type': 'task_type',
         'ray_session_name': 'ray_session_name',
         'metrics': 'metrics'
     }
 
-    def __init__(self, function_name=None, task_type=None, ray_session_name=None, metrics=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, function_name=None, function_name_hash=None, function_name_batch_id=None, task_type=None, ray_session_name=None, metrics=None, local_vars_configuration=None):  # noqa: E501
         """TaskFunctionNameGroupAggregate - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._function_name = None
+        self._function_name_hash = None
+        self._function_name_batch_id = None
         self._task_type = None
         self._ray_session_name = None
         self._metrics = None
         self.discriminator = None
 
         self.function_name = function_name
+        if function_name_hash is not None:
+            self.function_name_hash = function_name_hash
+        if function_name_batch_id is not None:
+            self.function_name_batch_id = function_name_batch_id
         self.task_type = task_type
         self.ray_session_name = ray_session_name
         self.metrics = metrics
@@ -85,6 +95,48 @@ class TaskFunctionNameGroupAggregate(object):
             raise ValueError("Invalid value for `function_name`, must not be `None`")  # noqa: E501
 
         self._function_name = function_name
+
+    @property
+    def function_name_hash(self):
+        """Gets the function_name_hash of this TaskFunctionNameGroupAggregate.  # noqa: E501
+
+
+        :return: The function_name_hash of this TaskFunctionNameGroupAggregate.  # noqa: E501
+        :rtype: str
+        """
+        return self._function_name_hash
+
+    @function_name_hash.setter
+    def function_name_hash(self, function_name_hash):
+        """Sets the function_name_hash of this TaskFunctionNameGroupAggregate.
+
+
+        :param function_name_hash: The function_name_hash of this TaskFunctionNameGroupAggregate.  # noqa: E501
+        :type: str
+        """
+
+        self._function_name_hash = function_name_hash
+
+    @property
+    def function_name_batch_id(self):
+        """Gets the function_name_batch_id of this TaskFunctionNameGroupAggregate.  # noqa: E501
+
+
+        :return: The function_name_batch_id of this TaskFunctionNameGroupAggregate.  # noqa: E501
+        :rtype: str
+        """
+        return self._function_name_batch_id
+
+    @function_name_batch_id.setter
+    def function_name_batch_id(self, function_name_batch_id):
+        """Sets the function_name_batch_id of this TaskFunctionNameGroupAggregate.
+
+
+        :param function_name_batch_id: The function_name_batch_id of this TaskFunctionNameGroupAggregate.  # noqa: E501
+        :type: str
+        """
+
+        self._function_name_batch_id = function_name_batch_id
 
     @property
     def task_type(self):

@@ -1,23 +1,24 @@
-import typing as t
-from typing import Any
 import secrets
 import warnings
+from typing import Any, Self
+
+from cryptography import x509
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.serialization import (
     load_der_public_key,
     load_pem_public_key,
     load_ssh_public_key,
 )
+
+from .._rfc7517.models import NativeKeyBinding, SymmetricKey
+from .._rfc7517.types import AnyKey, DictKey, KeyParameters
 from ..errors import SecurityWarning
+from ..registry import KeyParameter
 from ..util import (
     to_bytes,
     urlsafe_b64decode,
     urlsafe_b64encode,
 )
-from ..registry import KeyParameter
-from .._rfc7517.models import SymmetricKey, NativeKeyBinding
-from .._rfc7517.types import KeyParameters, DictKey, AnyKey
-
 
 POSSIBLE_UNSAFE_KEYS = (
     b"-----BEGIN ",
@@ -26,6 +27,14 @@ POSSIBLE_UNSAFE_KEYS = (
     b"ssh-dss ",
     b"ssh-ed25519 ",
     b"ecdsa-sha2-",
+)
+
+UNSAFE_KEY_LOADERS = (
+    load_pem_public_key,
+    load_der_public_key,
+    load_ssh_public_key,
+    x509.load_pem_x509_certificate,
+    x509.load_der_x509_certificate,
 )
 
 
@@ -40,28 +49,20 @@ class OctBinding(NativeKeyBinding):
         return cls.import_from_bytes(urlsafe_b64decode(to_bytes(value["k"])))
 
     @classmethod
-    def import_from_bytes(cls, value: bytes, password: Any | None = None) -> bytes:
-        # Reject recognized public keys, while retaining warnings for input
-        # that only resembles an asymmetric key (see issue #32).
-        if value.startswith(b"0"):
-            loader = load_der_public_key
-        elif value.startswith(b"-----BEGIN "):
-            loader = load_pem_public_key
-        elif value.startswith((b"ssh-", b"ecdsa-sha2-")):
-            loader = load_ssh_public_key
-        else:
-            loader = None
-
-        if loader is not None:
+    def import_from_bytes(cls, value: bytes, password: str | bytes | None = None) -> bytes:
+        # Parse instead of dispatching on a prefix: PEM loaders accept leading
+        # bytes, and certificates also contain public keys that must not be
+        # treated as HMAC secrets.
+        for loader in UNSAFE_KEY_LOADERS:
             try:
                 loader(value)
             except (ValueError, UnsupportedAlgorithm):
-                pass
-            else:
-                raise ValueError("Asymmetric public keys must not be used as oct keys")
+                continue
+            raise ValueError("Asymmetric public keys must not be used as oct keys")
 
-        if value.startswith(POSSIBLE_UNSAFE_KEYS):
-            warnings.warn("This key should not be used as an oct key", SecurityWarning)
+        # Retain warnings for unparsable input that merely resembles a key.
+        if any(marker in value for marker in POSSIBLE_UNSAFE_KEYS):
+            warnings.warn("This key should not be used as an oct key", SecurityWarning, stacklevel=2)
         return value
 
 
@@ -76,12 +77,12 @@ class OctKey(SymmetricKey):
 
     @classmethod
     def import_key(
-        cls: Any,
+        cls,
         value: AnyKey,
         parameters: KeyParameters | None = None,
-        password: Any = None,
-    ) -> "OctKey":
-        key: OctKey = super(OctKey, cls).import_key(value, parameters, password)
+        password: str | bytes | None = None,
+    ) -> Self:
+        key = super().import_key(value, parameters, password)
         if not key.raw_value:
             # An empty oct key material produces a deterministic HMAC digest
             # that any party can reproduce, allowing trivial signature forgery
@@ -90,7 +91,7 @@ class OctKey(SymmetricKey):
             raise ValueError("oct key material must not be empty")
         if len(key.raw_value) < 14:
             # https://csrc.nist.gov/publications/detail/sp/800-131a/rev-2/final
-            warnings.warn("Key size should be >= 112 bits", SecurityWarning)
+            warnings.warn("Key size should be >= 112 bits", SecurityWarning, stacklevel=2)
         return key
 
     @classmethod
@@ -100,7 +101,7 @@ class OctKey(SymmetricKey):
         parameters: KeyParameters | None = None,
         private: bool = True,
         auto_kid: bool = False,
-    ) -> "OctKey":
+    ) -> Self:
         """Generate a ``OctKey`` with the given bit size (not bytes).
 
         :param key_size: size in bit
@@ -119,13 +120,13 @@ class OctKey(SymmetricKey):
 
         if key_size < 112:
             # https://csrc.nist.gov/publications/detail/sp/800-131a/rev-2/final
-            warnings.warn("Key size should be >= 112 bits", SecurityWarning)
+            warnings.warn("Key size should be >= 112 bits", SecurityWarning, stacklevel=2)
 
         raw_key = secrets.token_bytes(key_size // 8)
-        key: OctKey = cls(raw_key, raw_key, parameters)
+        key = cls(raw_key, raw_key, parameters)
         if auto_kid:
             key.ensure_kid()
         return key
 
-    def as_dict(self, private: bool = False, **params: t.Any) -> DictKey:
+    def as_dict(self, private: bool = False, **params: Any) -> DictKey:
         return super().as_dict(private=True, **params)

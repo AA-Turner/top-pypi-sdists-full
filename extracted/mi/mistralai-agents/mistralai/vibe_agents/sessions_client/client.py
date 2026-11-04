@@ -6,7 +6,7 @@ import json
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from http import HTTPMethod, HTTPStatus
-from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 from uuid import UUID, uuid4
 
 import httpx
@@ -44,10 +44,7 @@ from mistralai.vibe_agents.sessions_client.api_models import (
     SubmitCallbackResultRequest,
     SubmitCallbackResultResponse,
 )
-from mistralai.vibe_agents.sessions_client.rendered_session import (
-    Callback,
-    SessionRenderer,
-)
+from mistralai.vibe_agents.sessions_client.rendered_session_v1 import Callback, RenderedSessionV1
 
 if TYPE_CHECKING:
     from mistralai.vibe.harness.app_server.session import (
@@ -59,7 +56,6 @@ if TYPE_CHECKING:
     )
     from mistralai.vibe.harness.app_server.session.models.common import HistoryEntryId
     from mistralai.vibe_agents.sessions_client.api_models_v1 import MessageSendResponse
-    from mistralai.vibe_agents.sessions_client.rendered_session_v1 import RenderedSessionV1
 
 logger = structlog.get_logger(__name__)
 
@@ -69,7 +65,6 @@ _SSE_DATA_PREFIX = "data: "
 _T_APIModel = TypeVar("_T_APIModel", bound=BaseModel)
 # The Session protocol routes, ``POST /sessions/{id}/<route>``.
 type ProcedureRoute = Literal["message/send", "turn/start", "turn/steer", "turn/interrupt", "cancel", "callback/result"]
-RendererT = TypeVar("RendererT", bound=SessionRenderer)
 
 
 def _parse_sse_data_line(line: str, model: type[_T_APIModel]) -> _T_APIModel | None:
@@ -89,7 +84,7 @@ def _parse_sse_data_line(line: str, model: type[_T_APIModel]) -> _T_APIModel | N
         return model.model_validate(json.loads(payload))
     except (json.JSONDecodeError, ValidationError) as error:
         # A single malformed frame must not tear down the whole stream: skip it and
-        # keep folding subsequent events, mirroring RenderedSession's count-and-continue.
+        # keep folding subsequent events.
         logger.debug("Skipping malformed SSE frame", model=model.__name__, error=str(error))
         return None
 
@@ -140,12 +135,6 @@ def _detail_message(detail: object) -> str | None:
     if isinstance(detail, dict):
         detail = detail.get("message") or detail.get("code")
     return str(detail) if detail else None
-
-
-def _default_renderer() -> SessionRenderer:
-    from mistralai.vibe_agents.sessions_client.rendered_session_v1 import RenderedSessionV1  # noqa: PLC0415
-
-    return RenderedSessionV1()
 
 
 class SessionCommandRejectedError(RuntimeError):
@@ -199,7 +188,6 @@ class SessionsClient(_InternalHTTPClient):
         app_context: JsonObject | None = None,
         initial_subscriptions: tuple[SessionWorkflowSubscription, ...] = (),
         idempotency_key: IdempotencyKey | None = None,
-        session_protocol: SessionProtocol | None = SessionProtocol.SESSION_V1,
         session_inputs: JsonObject | None = None,
         initial_turn: "InitialTurn | None" = None,
     ) -> StartAgentSessionResponse:
@@ -212,12 +200,8 @@ class SessionsClient(_InternalHTTPClient):
         session: if your call site retries, pass a UUID generated once per
         request.
 
-        ``session_protocol`` selects the session event format and is fixed
-        for the life of the session. It defaults to
-        ``SessionProtocol.SESSION_V1``, the canonical Session v1 events the
-        UI traces are built from. Pass
-        ``SessionProtocol.LEGACY_TASK_PROTOCOL`` to opt into the legacy task
-        protocol, or ``None`` for the server default.
+        The session runs on Session v1, the event protocol the UI traces are
+        built from.
 
         ``session_inputs`` carries the Session inputs keyed by input ID,
         fixed for the Session's lifetime.
@@ -231,12 +215,7 @@ class SessionsClient(_InternalHTTPClient):
             idempotency_key = str(uuid4())
         initial_turn_json: JsonObject | None = None
         if initial_turn is not None:
-            # A control plane that predates context messages refuses the key, even empty.
-            initial_turn_json = initial_turn.model_dump(
-                mode="json",
-                exclude_none=True,
-                exclude=None if initial_turn.context_messages else {"context_messages"},
-            )
+            initial_turn_json = initial_turn.model_dump(mode="json", exclude_none=True)
         body = StartAgentSessionRequest(
             idempotency_key=idempotency_key,
             agent_name=agent_name,
@@ -244,7 +223,7 @@ class SessionsClient(_InternalHTTPClient):
             initial_command=initial_command,
             app_context=app_context,
             initial_subscriptions=list(initial_subscriptions),
-            session_protocol=session_protocol,
+            session_protocol=SessionProtocol.SESSION_V1,
             session_inputs=session_inputs,
             initial_turn=initial_turn_json,
         )
@@ -529,37 +508,15 @@ class SessionsClient(_InternalHTTPClient):
                 if frame is not None:
                     yield frame
 
-    @overload
     async def stream_until(
         self,
         *,
         agent_session_id: UUID,
-        until: Callable[["RenderedSessionV1"], bool],
-        timeout_seconds: float = ...,
-        reconnect_delay_seconds: float = ...,
-        renderer: None = None,
-    ) -> "RenderedSessionV1": ...
-
-    @overload
-    async def stream_until(
-        self,
-        *,
-        agent_session_id: UUID,
-        until: Callable[[RendererT], bool],
-        timeout_seconds: float = ...,
-        reconnect_delay_seconds: float = ...,
-        renderer: RendererT,
-    ) -> RendererT: ...
-
-    async def stream_until(
-        self,
-        *,
-        agent_session_id: UUID,
-        until: Callable[[Any], bool],
+        until: Callable[[RenderedSessionV1], bool],
         timeout_seconds: float = 120.0,
         reconnect_delay_seconds: float = 1.0,
-        renderer: SessionRenderer | None = None,
-    ) -> SessionRenderer:
+        renderer: RenderedSessionV1 | None = None,
+    ) -> RenderedSessionV1:
         """Fold ``/events`` into a rendered session until ``until`` holds.
 
         Observation only: the stream stays open between events, so this reads
@@ -568,14 +525,11 @@ class SessionsClient(_InternalHTTPClient):
         On a transient stream error within the deadline it reconnects, resuming
         the same rendered session from the last cursor.
 
-        ``renderer`` defaults to a ``RenderedSessionV1``, matching the
-        ``create_session`` default. Pass a legacy :class:`RenderedSession` for a
-        session started with ``SessionProtocol.LEGACY_TASK_PROTOCOL``; the two
-        event formats never mix on one session, so the renderer is chosen once
-        alongside the protocol.
+        Pass ``renderer`` to keep folding into a session rendered earlier;
+        a fresh ``RenderedSessionV1`` otherwise.
         """
         deadline = time.monotonic() + timeout_seconds
-        rendered = renderer if renderer is not None else _default_renderer()
+        rendered = renderer if renderer is not None else RenderedSessionV1()
         cursor: str | None = None
         while time.monotonic() < deadline:
             try:
@@ -596,28 +550,6 @@ class SessionsClient(_InternalHTTPClient):
             await asyncio.sleep(reconnect_delay_seconds)
         raise TimeoutError(f"session {agent_session_id} did not reach the awaited state within {timeout_seconds:g}s")
 
-    @overload
-    async def stream_until_waiting(
-        self,
-        *,
-        agent_session_id: UUID,
-        on_callback: Callable[[Callback], Awaitable[CallbackResultPayload | None]] | None = None,
-        timeout_seconds: float = ...,
-        reconnect_delay_seconds: float = ...,
-        renderer: None = None,
-    ) -> "RenderedSessionV1": ...
-
-    @overload
-    async def stream_until_waiting(
-        self,
-        *,
-        agent_session_id: UUID,
-        on_callback: Callable[[Callback], Awaitable[CallbackResultPayload | None]] | None = None,
-        timeout_seconds: float = ...,
-        reconnect_delay_seconds: float = ...,
-        renderer: RendererT,
-    ) -> RendererT: ...
-
     async def stream_until_waiting(
         self,
         *,
@@ -625,31 +557,29 @@ class SessionsClient(_InternalHTTPClient):
         on_callback: Callable[[Callback], Awaitable[CallbackResultPayload | None]] | None = None,
         timeout_seconds: float = 120.0,
         reconnect_delay_seconds: float = 1.0,
-        renderer: SessionRenderer | None = None,
-    ) -> SessionRenderer:
+        renderer: RenderedSessionV1 | None = None,
+    ) -> RenderedSessionV1:
         """Drive the session until it is waiting for user input.
 
         Returns once the session is blocked on the user, which is signaled two
         ways:
 
-        - the agent handed control back, surfaced as ``waiting_for_input`` on the
-          renderer (legacy: the ``workflow_status = waiting_for_input`` state row;
-          Session v1: a waiting session status or a terminated turn). This is the
+        - the agent handed control back: a waiting session status or a terminated
+          turn, surfaced as ``waiting_for_input`` on the renderer. This is the
           ordinary between-turn wait; the next turn is delivered as a message via
           ``submit_message``.
-        - an unanswered waiting callback (legacy ``ask_user_question``; Session v1
-          ``user_input`` / ``approval`` / ``client_tool``), which does not flip the status, so the
-          callback itself is the only signal. ``on_callback`` (when given) is
-          offered each actionable callback and may answer it via the callback API;
-          the wait returns once a waiting callback is left unanswered
-          (``on_callback`` is absent or returned ``None``).
+        - an unanswered ``user_input``, ``approval`` or ``client_tool`` callback,
+          which does not flip the status, so the callback itself is the only
+          signal. ``on_callback`` (when given) is offered each actionable callback
+          and may answer it via the callback API; the wait returns once a waiting
+          callback is left unanswered (``on_callback`` is absent or returned
+          ``None``).
 
-        ``renderer`` defaults to a ``RenderedSessionV1``; pass a legacy
-        :class:`RenderedSession` for a ``SessionProtocol.LEGACY_TASK_PROTOCOL``
-        session.
+        Pass ``renderer`` to keep folding into a session rendered earlier;
+        a fresh ``RenderedSessionV1`` otherwise.
         """
         deadline = time.monotonic() + timeout_seconds
-        rendered = renderer if renderer is not None else _default_renderer()
+        rendered = renderer if renderer is not None else RenderedSessionV1()
         cursor: str | None = None
         answered: set[UUID] = set()
         while time.monotonic() < deadline:
@@ -657,15 +587,13 @@ class SessionsClient(_InternalHTTPClient):
                 async for observed in self.stream_session_events(agent_session_id=agent_session_id, cursor=cursor):
                     cursor = observed.sequence
                     rendered.apply_public_session_event(observed.event)
-                    callback = await self._answer_callback(
+                    await self._answer_callback(
                         agent_session_id=agent_session_id,
                         event=observed.event,
                         renderer=rendered,
                         on_callback=on_callback,
                         answered=answered,
                     )
-                    if callback is not None and callback.is_waiting and callback.id not in answered:
-                        return rendered
                     if rendered.waiting_for_input:
                         return rendered
                     if time.monotonic() >= deadline:
@@ -685,18 +613,14 @@ class SessionsClient(_InternalHTTPClient):
         *,
         agent_session_id: UUID,
         event: dict[str, Any],
-        renderer: SessionRenderer,
+        renderer: RenderedSessionV1,
         on_callback: Callable[[Callback], Awaitable[CallbackResultPayload | None]] | None,
         answered: set[UUID],
-    ) -> Callback | None:
-        """Offer the event's callback (if any) to ``on_callback`` and submit a result.
-
-        Returns the callback the event carried, answered or not, so callers can
-        detect when the session is blocked waiting for input.
-        """
+    ) -> None:
+        """Offer the event's callback (if any) to ``on_callback`` and submit a result."""
         callback = renderer.callback_from_event(event)
         if callback is None or on_callback is None or callback.id in answered:
-            return callback
+            return
         result = await on_callback(callback)
         if result is not None:
             await self.submit_callback_result(
@@ -708,7 +632,6 @@ class SessionsClient(_InternalHTTPClient):
             # The renderer is re-read for ``waiting_for_input`` right after this
             # returns, so an answered callback has to stop counting as blocking.
             renderer.resolve_callback(callback.id)
-        return callback
 
     async def cancel_session(
         self,

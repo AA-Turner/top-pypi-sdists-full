@@ -6,14 +6,18 @@ import asyncio
 import json as _json
 import logging
 import os
+import random
 import re
+import threading
 import time
 import warnings
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar
 from urllib.parse import urlparse
 
 import httpx
+
+from plato.v2.env_utils import is_proctor_env
 
 from .api.bash.bash import asyncio as _bash_async
 from .api.bash.bash import sync as _bash_sync
@@ -23,7 +27,8 @@ from .api.edit.edit import asyncio as _edit_async
 from .api.edit.edit import sync as _edit_sync
 from .api.status.get_status import asyncio as _status_async
 from .api.status.get_status import sync as _status_sync
-from .models import BashRequest, ComputerRequest, EditRequest, StatusResponse, ToolResult
+from .errors import APIError, raise_for_status
+from .models import Action, BashRequest, ComputerRequest, EditRequest, StatusResponse, ToolResult
 
 logger = logging.getLogger(__name__)
 
@@ -36,42 +41,59 @@ DESKTOP_AGENT_PORT = 9000
 # (Host rewrite -> localhost:9225) — one port, one connection path for both.
 CDP_PORT = 9224
 
-# Pattern: https://{job_id}--{port}.sims.plato.so or https://{job_id}.sims.plato.so
-_JOB_ID_RE = re.compile(r"https?://([a-f0-9-]+?)(?:--\d+)?\..*sims\.plato\.so")
+# Pattern: https://{job_id}--{port}.{gateway} where {gateway} is a connect
+# gateway (connect.plato.so, fakedomain.connect.plato.so, ...) or a sims gateway
+# (sims.plato.so, fakedomain.sims.plato.so, ...).
+_JOB_ID_RE = re.compile(r"https?://([a-f0-9-]+?)(?:--\d+)?\..*(?:connect|sims)\.plato\.so")
 
 
-def _base_url_from_job_id(job_id: str, port: int = DESKTOP_AGENT_PORT, gateway_host: str = "sims.plato.so") -> str:
-    """Build a sims base URL from a job ID and port for the given gateway host.
+def _playwright_cdp_headers(headers: dict[str, str]) -> dict[str, str] | None:
+    """Return routing headers in the shape expected by Playwright.
 
-    ``gateway_host`` defaults to the prod ``sims.plato.so`` gateway. Pass a
-    per-deployment host (e.g. ``testing.sims.plato.so``) to target another
-    deployment — see :func:`_deployment_sims_gateway`.
+    Playwright 1.57 serializes non-empty header mappings to its wire-format
+    array, but forwards an explicitly supplied empty mapping as an object. Its
+    Node driver then rejects that payload with ``headers: expected array, got
+    object``. Direct connect gateways do not need routing cookies, so represent
+    that case as ``None`` and let Playwright omit the protocol field entirely.
+    """
+    return headers or None
+
+
+def _base_url_from_job_id(job_id: str, port: int = DESKTOP_AGENT_PORT, gateway_host: str = "connect.plato.so") -> str:
+    """Build a desktop-agent base URL from a job ID and port for the given gateway host.
+
+    ``gateway_host`` defaults to the prod ``connect.plato.so`` gateway. Pass a
+    per-deployment host (e.g. ``fakedomain.connect.plato.so``) to target another
+    deployment — see :func:`_deployment_connect_gateway` — or a sims gateway
+    (``sims.plato.so``) to use the legacy redirect/cookie routing.
     """
     return f"https://{job_id}--{port}.{gateway_host}"
 
 
 def _extract_job_id(base_url: str) -> str:
-    """Extract the job ID from a sims.plato.so base URL."""
+    """Extract the job ID from a connect/sims gateway base URL."""
     m = _JOB_ID_RE.match(base_url)
     if m:
         return m.group(1)
     raise ValueError(
         f"Cannot extract job_id from base_url '{base_url}'. "
-        "Expected format: https://{{job_id}}--{{port}}.sims.plato.so"
+        "Expected format: https://{{job_id}}--{{port}}.connect.plato.so "
+        "(or a sims gateway host)"
     )
 
 
 def _gateway_from_base_url(base_url: str) -> str:
-    """Return the sims gateway host embedded in a ``{job}--{port}.{gateway}`` URL.
+    """Return the gateway host embedded in a ``{job}--{port}.{gateway}`` URL.
 
-    Preserves whatever deployment gateway the client's base URL already targets
-    (prod ``sims.plato.so`` or a per-deployment host like ``testing.sims.plato.so``)
-    so CDP/liveview URLs follow the same deployment. Falls back to prod when the
+    Preserves whatever gateway the client's base URL already targets — the
+    connect gateway (prod ``connect.plato.so`` or per-deployment hosts like
+    ``fakedomain.connect.plato.so``) or a legacy sims gateway — so CDP/liveview
+    URLs follow the same path. Falls back to the prod connect gateway when the
     host can't be parsed.
     """
     host = urlparse(base_url).hostname or ""
     _, _, gateway = host.partition(".")  # strip the "{job}--{port}" first label
-    return gateway or "sims.plato.so"
+    return gateway or "connect.plato.so"
 
 
 def _deployment_sims_gateway(api_base_url: str | None) -> str:
@@ -89,6 +111,36 @@ def _deployment_sims_gateway(api_base_url: str | None) -> str:
     if domain:
         return f"{subdomain}.sims.{domain}"
     return "sims.plato.so"
+
+
+def _job_id_or_none(base_url: str) -> str | None:
+    """Best-effort job-id extraction: ``None`` when *base_url* has no job hostname."""
+    try:
+        return _extract_job_id(base_url)
+    except ValueError:
+        return None
+
+
+def _deployment_connect_gateway(api_base_url: str | None) -> str:
+    """Map an API base URL (PLATO_BASE_URL) to its connect gateway host.
+
+    ``https://plato.so`` -> ``connect.plato.so``;
+    ``https://fakedomain.plato.so`` -> ``fakedomain.connect.plato.so``. Defaults to
+    prod ``connect.plato.so`` when the deployment can't be determined.
+
+    The connect gateway routes ``{job}--{port}`` hostnames directly to the VM
+    (no redirect/cookie dance, no web-router ALB with its 60s idle timeout —
+    which 504'd long-running computer-use actions on the sims path). The sims
+    gateway (:func:`_deployment_sims_gateway`) remains supported for
+    explicitly-passed base URLs.
+    """
+    hostname = urlparse(api_base_url or os.getenv("PLATO_BASE_URL", "https://plato.so")).hostname
+    if not hostname or hostname == "plato.so" or hostname == "localhost" or hostname.startswith("127."):
+        return "connect.plato.so"
+    subdomain, _, domain = hostname.partition(".")
+    if domain:
+        return f"{subdomain}.connect.{domain}"
+    return "connect.plato.so"
 
 
 def _api_base_url_from_environment(environment: Any) -> str | None:
@@ -138,6 +190,269 @@ def _get_env_config() -> tuple[str | None, dict[str, str]]:
 # pooling bought nothing across the long idle gaps anyway.
 _NO_KEEPALIVE = httpx.Limits(max_keepalive_connections=0)
 
+# -- Retry policy --------------------------------------------------------------
+#
+# The clients accept ``max_retries``/``retry_on_status`` and the endpoint
+# wrappers (``status``/``bash``/``edit``/``computer``) honor them: transient
+# gateway errors (e.g. 502s from the sims proxy while the in-guest desktop
+# agent is still booting — Windows/QEMU guests take ~40s+ after job assignment
+# before the agent serves HTTP) and transient transport errors are retried
+# with exponential backoff + jitter instead of propagating on first failure.
+
+_T = TypeVar("_T")
+
+_RETRY_BACKOFF_BASE = 0.5
+_RETRY_BACKOFF_CAP = 8.0
+
+# Transport errors worth retrying: the connection never got established, the
+# read was cut short, or the server closed an idle-looking connection mid-use.
+_RETRYABLE_TRANSPORT_ERRORS = (httpx.ConnectError, httpx.ReadError, httpx.RemoteProtocolError)
+
+# /computer actions that are read-only and therefore safe to re-issue after
+# *any* failure, including an HTTP error response. Every other action injects
+# input (typing, key chords, clicks, drags, scrolls) or otherwise mutates
+# desktop state: a 502/504 from the sims gateway means the action may already
+# have executed inside the guest, so re-sending it could double-type text or
+# double-click. Those actions only retry pure connect-phase errors, where the
+# request never left the client (see ``_should_retry``).
+_READ_ONLY_COMPUTER_ACTIONS = frozenset({Action.screenshot, Action.cursor_position})
+
+# Gateway statuses that mean "the guest agent isn't serving HTTP yet" while a
+# VM boots — treated as still-booting by ``wait_for_desktop_ready``.
+_BOOTING_STATUS_CODES = (502, 503, 504)
+
+
+def _retry_backoff_delay(attempt: int) -> float:
+    """Exponential backoff with jitter: 0.5s base doubling per attempt, capped at 8s."""
+    cap = min(_RETRY_BACKOFF_CAP, _RETRY_BACKOFF_BASE * (2**attempt))
+    return random.uniform(cap / 2, cap)
+
+
+def _should_retry(exc: Exception, retry_on_status: tuple[int, ...], idempotent: bool) -> bool:
+    """Decide whether a failed endpoint call may be re-issued.
+
+    Idempotent calls retry on any :class:`APIError` whose status is in
+    *retry_on_status* and on transient transport errors. Non-idempotent calls
+    (input-injecting ``/computer`` actions) only retry connect-phase transport
+    errors — an HTTP error response or a mid-request transport failure means
+    the request reached (or may have reached) the server, so the action may
+    already have executed.
+    """
+    if not idempotent:
+        return isinstance(exc, httpx.ConnectError)
+    if isinstance(exc, APIError):
+        return exc.status_code in retry_on_status
+    return isinstance(exc, _RETRYABLE_TRANSPORT_ERRORS)
+
+
+# Best-effort startup command that disables the XFCE screensaver on ubuntu
+# desktops. The Xvfb ``xfce4-screensaver`` daemon blanks the framebuffer to
+# solid black after idle and only wakes on an *input* event — never on a
+# screenshot read — so a run that opens with screenshot-only calls gets black
+# frames until the first click/keypress (the classic "first few screenshots are
+# black"). We turn off idle activation, disable X11 blanking, deactivate any
+# active blank, and kill the daemon. Every step is guarded (``|| true``) so the
+# command is a no-op on images without the screensaver; ``timeout 1`` caps the
+# only step that talks over D-Bus in case the session bus is wedged. Ubuntu
+# (firecracker) only — Windows/QEMU has no XFCE screensaver.
+_DISABLE_SCREENSAVER_CMD = (
+    "export DISPLAY=:0; "
+    "xfconf-query -c xfce4-screensaver -p /saver/enabled -n -t bool -s false 2>/dev/null || true; "
+    "xfconf-query -c xfce4-screensaver -p /saver/idle-activation/enabled -n -t bool -s false 2>/dev/null || true; "
+    "xfconf-query -c xfce4-screensaver -p /lock/enabled -n -t bool -s false 2>/dev/null || true; "
+    "xset s off 2>/dev/null || true; xset s noblank 2>/dev/null || true; "
+    "timeout 1 xfce4-screensaver-command --deactivate 2>/dev/null || true; "
+    "pkill -x xfce4-screensaver 2>/dev/null || true"
+)
+
+# -- Timezone offset setup ----------------------------------------------------
+# Pin the VM clock to a whole-hour UTC offset. The two providers need different
+# commands, so the OS branch (via ``_is_qemu``) picks the right one:
+#
+# * Ubuntu (firecracker) uses the tz database. Note the POSIX sign inversion —
+#   ``UTC+4`` is the zone ``Etc/GMT-4`` and ``UTC-3`` is ``Etc/GMT+3``. We try
+#   ``timedatectl`` first and fall back to symlinking ``/etc/localtime`` for
+#   images where systemd isn't managing the clock.
+# * Windows (qemu) has no tz database / symlink path, so we set the zone by its
+#   Windows registry ID via ``tzutil``. Windows lacks a pure ``UTC±NN`` ID for
+#   most offsets, so each offset maps to a representative *non-DST* regional
+#   zone — that keeps the offset fixed year-round instead of jumping with DST.
+#
+# Supported offsets span the Windows table below (-12..+14), which is also the
+# range of valid ``Etc/GMT`` zones; anything outside raises ``ValueError``.
+_WINDOWS_TZID_BY_OFFSET: dict[int, str] = {
+    -12: "Dateline Standard Time",
+    -11: "UTC-11",
+    -10: "Hawaiian Standard Time",
+    -9: "UTC-09",
+    -8: "UTC-08",
+    -7: "US Mountain Standard Time",
+    -6: "Central America Standard Time",
+    -5: "SA Pacific Standard Time",
+    -4: "SA Western Standard Time",
+    -3: "SA Eastern Standard Time",
+    -2: "UTC-02",
+    -1: "Cape Verde Standard Time",
+    0: "UTC",
+    1: "W. Central Africa Standard Time",
+    2: "South Africa Standard Time",
+    3: "E. Africa Standard Time",
+    4: "Arabian Standard Time",
+    5: "West Asia Standard Time",
+    6: "Central Asia Standard Time",
+    7: "SE Asia Standard Time",
+    8: "Singapore Standard Time",
+    9: "Tokyo Standard Time",
+    10: "West Pacific Standard Time",
+    11: "Central Pacific Standard Time",
+    12: "UTC+12",
+    13: "UTC+13",
+    14: "Line Islands Standard Time",
+}
+
+_MIN_UTC_OFFSET = min(_WINDOWS_TZID_BY_OFFSET)
+_MAX_UTC_OFFSET = max(_WINDOWS_TZID_BY_OFFSET)
+
+
+def _validate_utc_offset(utc_offset: int) -> None:
+    if not isinstance(utc_offset, int) or isinstance(utc_offset, bool):
+        raise ValueError(f"utc_offset must be an int (whole hours), got {utc_offset!r}")
+    if not _MIN_UTC_OFFSET <= utc_offset <= _MAX_UTC_OFFSET:
+        raise ValueError(f"utc_offset {utc_offset:+d} out of range [{_MIN_UTC_OFFSET:+d}, {_MAX_UTC_OFFSET:+d}]")
+
+
+def _ubuntu_set_timezone_cmd(utc_offset: int) -> str:
+    """Bash to set an Ubuntu VM to a whole-hour UTC offset (POSIX sign inverted)."""
+    _validate_utc_offset(utc_offset)
+    zone = f"Etc/GMT{-utc_offset:+d}"  # UTC+4 -> Etc/GMT-4, UTC-3 -> Etc/GMT+3
+    return (
+        f'timedatectl set-timezone "{zone}" 2>/dev/null || '
+        f'{{ ln -sf "/usr/share/zoneinfo/{zone}" /etc/localtime && '
+        f"printf '%s\\n' \"{zone}\" > /etc/timezone; }}"
+    )
+
+
+def _windows_set_timezone_cmd(utc_offset: int) -> str:
+    """Command to set a Windows (qemu) VM to a whole-hour UTC offset via tzutil."""
+    _validate_utc_offset(utc_offset)
+    return f'tzutil /s "{_WINDOWS_TZID_BY_OFFSET[utc_offset]}"'
+
+
+# -- Windows (qemu) Chrome CDP launch helpers ---------------------------------
+#
+# Windows Chrome is launched directly over the agent's POST /bash endpoint
+# (PowerShell) instead of the agent's POST /browser/start (which schtasks-runs
+# the baked C:\plato\start-edge-cdp.cmd launcher). The baked launcher does not
+# pass --ignore-certificate-errors, and it can't be updated in already-baked
+# snapshots — see _windows_chrome_launch_cmd for why the flag is required.
+
+_WINDOWS_CHROME_EXE = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+_WINDOWS_CHROME_PROFILE_DIR = r"C:\plato\chrome-cdp-profile"
+
+# One-shot limited-token scheduled task the SDK registers on demand to launch
+# Chrome. Deliberately NOT the baked "PlatoChromeCDP" task: we must not
+# overwrite the baked task's action (its flags feed /browser/start), only
+# replicate its RunLevel Limited principal under our own name.
+_WINDOWS_CHROME_TASK_NAME = "PlatoChromeCDPDirect"
+
+# Sentinels printed by the probe so callers don't parse localized PS errors.
+_CDP_UP = "__CDP_UP__"
+_NO_CDP = "__NO_CDP__"
+
+_WINDOWS_CHROME_KILL_CMD = "Stop-Process -Name chrome -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2"
+
+_UBUNTU_CHROME_PROFILE_DIR = "/tmp/chrome-cdp-profile"
+_UBUNTU_CHROME_COMMS = "chrome|chromium|chromium-browse"
+_CHROME_STILL_RUNNING = "__CHROME_STILL_RUNNING__"
+
+# -x, not -f: a -f "chrome" pattern also kills this command's own shell. Chrome
+# is single-instance per profile, so the relaunch exits at once if the old one
+# (or its stale Singleton* lock) is still around: wait it out (<=10s), then
+# clear the lock.
+_UBUNTU_CHROME_KILL_CMD = (
+    f"pkill -9 -x '{_UBUNTU_CHROME_COMMS}' 2>/dev/null; "
+    f"for _ in $(seq 1 50); do pgrep -x '{_UBUNTU_CHROME_COMMS}' >/dev/null || break; sleep 0.2; done; "
+    f"pgrep -x '{_UBUNTU_CHROME_COMMS}' >/dev/null && echo {_CHROME_STILL_RUNNING}; "
+    f"rm -f {_UBUNTU_CHROME_PROFILE_DIR}/SingletonLock {_UBUNTU_CHROME_PROFILE_DIR}/SingletonSocket "
+    f"{_UBUNTU_CHROME_PROFILE_DIR}/SingletonCookie"
+)
+
+
+def _windows_cdp_probe_cmd(internal_port: int) -> str:
+    """PowerShell probe of the loopback Chrome CDP port inside a Windows VM.
+
+    A raw ``TcpClient`` connect (not ``Test-NetConnection``, which is slow and
+    chatty) that prints ``__CDP_UP__`` / ``__NO_CDP__`` sentinels.
+    """
+    return (
+        f"try {{ $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', {internal_port}); "
+        f"$c.Close(); Write-Output '{_CDP_UP}' }} catch {{ Write-Output '{_NO_CDP}' }}"
+    )
+
+
+def _windows_chrome_launch_cmd(internal_port: int) -> str:
+    """PowerShell to launch Chrome with CDP on *internal_port* inside a Windows VM.
+
+    Mirrors the flags of the baked ``C:\\plato\\start-edge-cdp.cmd`` launcher,
+    plus two additions:
+
+    * ``--ignore-certificate-errors`` — Windows snapshots resume with a frozen
+      clock, and the sims proxy's (sims.plato.so) TLS cert rotates; once the
+      cert's notBefore postdates the frozen clock, every page load fails with
+      ``ERR_CERT_DATE_INVALID``. Certs rotate routinely so this can't be fixed
+      server-side, and Playwright's ``ignoreHTTPSErrors`` is opt-in, so the
+      flag must be on the browser process itself.
+    * ``--test-type`` — ``--ignore-certificate-errors`` is on Chromium's
+      bad-flags list, and without ``--test-type`` Chrome pins a persistent
+      "unsupported command-line flag" warning bubble over the window, which
+      shifts layout and contaminates pixel-driven screenshots/trajectories.
+      The ubuntu launch passes it for the same reason.
+
+    Chrome is started via a one-shot ``RunLevel Limited`` scheduled task, not
+    a bare ``Start-Process``: the desktop agent's uvicorn runs elevated
+    (``RunLevel Highest``), so a direct child would inherit the elevated
+    token. The baked ``PlatoChromeCDP`` task that ``/browser/start`` ran is
+    ``RunLevel Limited`` precisely so Chrome gets a normal desktop token
+    (UIPI interactions with non-elevated processes, file ownership of
+    downloads/profile artifacts, in-VM integrity-level checks all match the
+    snapshot-baked environment). This replicates that principal shape under a
+    separate task name so the baked task itself is left untouched.
+    ``ExecutionTimeLimit`` is 0 because the task action is chrome.exe itself
+    (no ``cmd /c start`` indirection like the baked launcher), so any finite
+    limit would have Task Scheduler kill Chrome mid-session.
+
+    Single quotes throughout: the command travels as a JSON string into
+    ``powershell.exe -NoProfile -NonInteractive -Command``, where embedded
+    double quotes would be stripped by argument parsing. (None of the flag
+    values contain spaces, so the -Argument string needs no inner quoting.)
+    """
+    flags = " ".join(
+        (
+            f"--remote-debugging-port={internal_port}",
+            "--remote-allow-origins=*",
+            f"--user-data-dir={_WINDOWS_CHROME_PROFILE_DIR}",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--disable-default-apps",
+            "--disable-popup-blocking",
+            "--disable-session-crashed-bubble",
+            "--hide-crash-restore-bubble",
+            "--ignore-certificate-errors",
+            "--test-type",
+            "--start-maximized",
+            "about:blank",
+        )
+    )
+    return (
+        f"$action = New-ScheduledTaskAction -Execute '{_WINDOWS_CHROME_EXE}' -Argument '{flags}'; "
+        "$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited; "
+        "$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries "
+        "-ExecutionTimeLimit (New-TimeSpan -Seconds 0) -MultipleInstances Parallel; "
+        f"Register-ScheduledTask -TaskName '{_WINDOWS_CHROME_TASK_NAME}' "
+        "-Action $action -Principal $principal -Settings $settings -Force | Out-Null; "
+        f"Start-ScheduledTask -TaskName '{_WINDOWS_CHROME_TASK_NAME}'"
+    )
+
 
 class Client:
     """Sync HTTP client for Desktop Agent API."""
@@ -153,6 +468,8 @@ class Client:
         on_response: Callable[[httpx.Response], None] | None = None,
         provider: str | None = None,
         cdp_port: int | None = None,
+        *,
+        job_id: str | None = None,
         **kwargs: Any,
     ):
         """Initialize the HTTP client.
@@ -165,6 +482,9 @@ class Client:
             retry_on_status: HTTP status codes that trigger a retry
             on_request: Hook called before each request
             on_response: Hook called after each response
+            job_id: Job ID backing this client, when known. Used for sibling
+                ``{job}--{port}`` URL building (liveview, CDP); extracted from
+                ``base_url`` when omitted.
             **kwargs: Additional arguments passed to httpx.Client
         """
         self._base_url = base_url.rstrip("/")
@@ -174,6 +494,14 @@ class Client:
         self._retry_on_status = retry_on_status
         self._provider = provider
         self._cdp_port = cdp_port if cdp_port is not None else CDP_PORT
+        # Sibling {job}--{port} URLs (liveview, CDP) must derive from the
+        # ORIGINAL job hostname: the legacy sims cookie dance rebases the
+        # underlying httpx client to a per-sim ``*.web.plato.so`` host from
+        # which the job id cannot be regex-recovered. ``_base_url`` keeps the
+        # original host, but storing the id at construction makes sibling-URL
+        # building independent of URL re-parsing (and lets callers with an
+        # opaque base_url pass ``job_id`` explicitly).
+        self._job_id = job_id if job_id is not None else _job_id_or_none(self._base_url)
         self._closed = False
 
         event_hooks: dict[str, list[Callable]] = {"request": [], "response": []}
@@ -184,6 +512,8 @@ class Client:
 
         self._timeout = timeout
         self._initialized = False
+        self._screensaver_kicked = False
+        self._screensaver_task: threading.Thread | None = None
         self._client = httpx.Client(
             base_url=self._base_url,
             timeout=timeout,
@@ -197,11 +527,47 @@ class Client:
     def _resolve_cdp_port(self, port: int | None) -> int:
         return self._cdp_port if port is None else port
 
+    def _sibling_job_id(self) -> str:
+        """Job id for sibling ``{job}--{port}`` URL building (liveview, CDP).
+
+        Prefers the job id captured at construction; falls back to regex
+        extraction from the base URL for URL-only construction, raising the
+        same ``ValueError`` as before when neither is available.
+        """
+        return self._job_id if self._job_id is not None else _extract_job_id(self._base_url)
+
     def _is_qemu(self) -> bool:
         return self._provider == "qemu"
 
+    def _kick_screensaver(self) -> None:
+        """Fire-and-forget, best-effort disable of the desktop screensaver.
+
+        Runs :data:`_DISABLE_SCREENSAVER_CMD` once, at startup, in a daemon
+        thread so it never blocks the caller. Skipped on Windows/QEMU and after
+        the first invocation. Any error is swallowed — this is purely a quality
+        fix for the "first few screenshots are black" symptom, never load-bearing.
+        """
+        if self._screensaver_kicked or self._is_qemu():
+            return
+        self._screensaver_kicked = True
+
+        def _run() -> None:
+            try:
+                self.bash(BashRequest(command=_DISABLE_SCREENSAVER_CMD))
+            except Exception as exc:  # best-effort: never surface to the caller
+                logger.debug("screensaver disable failed (ignored): %s", exc)
+
+        self._screensaver_task = threading.Thread(target=_run, name="ubuntu-vm-disable-screensaver", daemon=True)
+        self._screensaver_task.start()
+
     def _ensure_init(self) -> None:
-        """Complete the sims proxy redirect/cookie dance on first use.
+        """Latch first-use init; complete the sims redirect/cookie dance if needed.
+
+        On the (default) connect gateway the first ``/status`` probe answers
+        directly with a 2xx — no redirect — so this just latches
+        ``_initialized`` and fires the screensaver kick. The redirect handling
+        below is the legacy sims-gateway fallback for explicitly-passed sims
+        base URLs.
 
         The sims proxy has two routing modes:
 
@@ -223,7 +589,16 @@ class Client:
 
         response = self._client.request(method="GET", url="/status")
         if response.status_code not in (301, 302, 307, 308):
-            self._initialized = True
+            if response.is_success:
+                self._initialized = True
+                self._kick_screensaver()
+                return
+            # Non-redirect error (e.g. 502 while the guest agent is still
+            # booting): do NOT latch initialization — the redirect/cookie
+            # dance hasn't happened yet, and latching here would skip it
+            # forever once the agent comes up. Raise instead so the retry
+            # wrappers / wait_for_desktop_ready re-probe from scratch.
+            raise_for_status(response)
             return
 
         location = response.headers.get("location", "")
@@ -253,6 +628,8 @@ class Client:
             cookies=cookies,
         )
         old_client.close()
+        # Client is now reconfigured/stable — safe to fire the background task.
+        self._kick_screensaver()
 
     @property
     def httpx(self) -> httpx.Client:
@@ -269,38 +646,163 @@ class Client:
         """HTTP status codes that trigger a retry."""
         return self._retry_on_status
 
+    def _call_with_retries(self, call: Callable[[], _T], idempotent: bool = True) -> _T:
+        """Run *call*, retrying up to ``max_retries`` times per the retry policy.
+
+        Retries with exponential backoff + jitter on ``APIError`` statuses in
+        ``retry_on_status`` and on transient transport errors; non-idempotent
+        calls only retry connect-phase errors (see :func:`_should_retry`).
+        """
+        for attempt in range(self._max_retries + 1):
+            try:
+                return call()
+            except (APIError, httpx.HTTPError) as exc:
+                if attempt >= self._max_retries or not _should_retry(exc, self._retry_on_status, idempotent):
+                    raise
+                delay = _retry_backoff_delay(attempt)
+                logger.debug(
+                    "Retrying after %r (attempt %d/%d, backing off %.2fs)",
+                    exc,
+                    attempt + 1,
+                    self._max_retries,
+                    delay,
+                )
+                time.sleep(delay)
+        raise RuntimeError("unreachable")  # pragma: no cover
+
+    def _request_with_retries(self, send: Callable[[], _T], idempotent: bool = True) -> _T:
+        """Init dance + endpoint call, each under the retry policy.
+
+        The init probe is retried independently of *send* so that even a
+        non-idempotent action gets a resilient init: the probe is a plain GET
+        that is always safe to re-issue.
+        """
+        self._call_with_retries(self._ensure_init)
+        return self._call_with_retries(send, idempotent=idempotent)
+
     def get_liveview_url(self) -> str:
         """Get the noVNC liveview URL for this VM."""
-        job_id = _extract_job_id(self._base_url)
+        job_id = self._sibling_job_id()
         gateway = _gateway_from_base_url(self._base_url)
         return f"https://{job_id}--{LIVEVIEW_PORT}.{gateway}?resize=scale&autoconnect=true"
 
-    def bash(self, body: BashRequest) -> ToolResult:
-        """Execute a shell command."""
-        self._ensure_init()
-        return _bash_sync(self._client, body=body)
+    def bash(self, body: BashRequest, *, idempotent: bool = True) -> ToolResult:
+        """Execute a shell command.
+
+        ``idempotent=False`` is for commands with side effects: after an HTTP
+        error response or a mid-request transport failure the command may
+        already have run in the guest, so only connect-phase errors (request
+        never sent) are retried, as for input-injecting ``/computer`` actions.
+        The default keeps full retries, which read-only probes rely on while a
+        guest is still booting.
+        """
+        return self._request_with_retries(lambda: _bash_sync(self._client, body=body), idempotent=idempotent)
+
+    def _try_bash(self, command: str) -> ToolResult | None:
+        """Run *command* over /bash, returning ``None`` on any transport error.
+
+        The Windows ``ensure_chrome_cdp`` path must tolerate transient
+        failures — 502s from the sims proxy while the desktop agent's
+        post-logon scheduled task is still coming up on a cold boot, timeouts
+        mid-poll — the way the old ``/browser/start`` retry loop did. Callers
+        treat ``None`` as "agent not ready yet" and keep polling until their
+        deadline.
+        """
+        try:
+            return self.bash(BashRequest(command=command))
+        except Exception as exc:
+            logger.debug("bash call failed (tolerated, will retry): %s", exc)
+            return None
 
     def computer(self, body: ComputerRequest) -> ToolResult:
-        """Execute computer actions (mouse, keyboard, screenshot)."""
-        self._ensure_init()
-        return _computer_sync(self._client, body=body)
+        """Execute computer actions (mouse, keyboard, screenshot).
+
+        Read-only actions (screenshot, cursor_position) retry on transient
+        gateway errors like every other endpoint; input-injecting actions only
+        retry connect-phase failures because the action may already have
+        executed in the guest (see :data:`_READ_ONLY_COMPUTER_ACTIONS`).
+        """
+        return self._request_with_retries(
+            lambda: _computer_sync(self._client, body=body),
+            idempotent=body.action in _READ_ONLY_COMPUTER_ACTIONS,
+        )
 
     def edit(self, body: EditRequest) -> ToolResult:
         """File operations (view, create, str_replace, insert, undo_edit)."""
-        self._ensure_init()
-        return _edit_sync(self._client, body=body)
+        return self._request_with_retries(lambda: _edit_sync(self._client, body=body))
 
     def status(self) -> StatusResponse:
         """Health check and display info."""
-        self._ensure_init()
-        return _status_sync(self._client)
+        return self._request_with_retries(lambda: _status_sync(self._client))
+
+    def wait_for_desktop_ready(self, timeout: float = 180.0, interval: float = 2.0) -> StatusResponse:
+        """Poll ``/status`` until the in-guest desktop agent serves HTTP.
+
+        Session-level ``wait_for_ready`` only asserts the job is RUNNING with
+        a worker IP; Windows/QEMU guests take ~40s+ after that before the
+        desktop agent answers HTTP, during which the sims gateway returns 502.
+        This polls single-shot (no per-attempt retry stacking): 502/503/504
+        and transient transport errors count as "still booting", any other
+        error propagates immediately.
+
+        Args:
+            timeout: Maximum seconds to wait for a successful ``/status``.
+            interval: Seconds between polls.
+
+        Returns:
+            The first successful :class:`StatusResponse`.
+
+        Raises:
+            TimeoutError: If the agent is not serving by the deadline; the
+                message includes the last error seen.
+        """
+        deadline = time.monotonic() + timeout
+        last_error: Exception | None = None
+        while True:
+            try:
+                self._ensure_init()
+                return _status_sync(self._client)
+            except APIError as exc:
+                if exc.status_code not in _BOOTING_STATUS_CODES:
+                    raise
+                last_error = exc
+            except _RETRYABLE_TRANSPORT_ERRORS as exc:
+                last_error = exc
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Desktop agent not ready after {timeout:.0f}s; last error: {last_error!r}"
+                ) from last_error
+            time.sleep(interval)
+
+    def set_timezone_offset(self, utc_offset: int, timeout: int = 30) -> ToolResult:
+        """Pin the VM clock to a whole-hour UTC offset.
+
+        Runs the OS-appropriate command over the desktop_agent bash endpoint,
+        branching on provider: Ubuntu (firecracker) sets the ``Etc/GMT`` zone via
+        ``timedatectl`` (with a symlink fallback); Windows (qemu) sets the zone by
+        its registry ID via ``tzutil``. See the module-level timezone helpers for
+        the sign-inversion and Windows-mapping details.
+
+        Args:
+            utc_offset: Signed whole-hour offset from UTC, e.g. ``4`` for UTC+4,
+                ``-3`` for UTC-3. Must be within ``[-12, +14]``.
+            timeout: Bash command timeout in seconds.
+
+        Returns:
+            The bash :class:`ToolResult`.
+
+        Raises:
+            ValueError: If ``utc_offset`` is not a whole hour in range.
+        """
+        command = _windows_set_timezone_cmd(utc_offset) if self._is_qemu() else _ubuntu_set_timezone_cmd(utc_offset)
+        return self.bash(BashRequest(command=command, timeout=timeout))
 
     # -- CDP helpers ----------------------------------------------------------
 
     def get_cdp_url(self, port: int | None = None) -> str:
         """Return the sims proxy URL for the Chrome CDP port."""
         port = self._resolve_cdp_port(port)
-        job_id = _extract_job_id(self._base_url)
+        job_id = self._sibling_job_id()
         gateway = _gateway_from_base_url(self._base_url)
         return f"https://{job_id}--{port}.{gateway}"
 
@@ -321,31 +823,78 @@ class Client:
         port = self._resolve_cdp_port(port)
         if self._is_qemu():
             self._ensure_init()
-            # Windows has no google-chrome-stable / bash launch path, so Chrome
-            # is started via the agent's POST /browser/start (not present on
-            # ubuntu). Its readiness signal is running=True (its own server-side
-            # ~20s CDP wait). A cold start can miss that window; retry until it
-            # succeeds or we hit the overall timeout. Once up, CDP is reachable
-            # over the sims proxy on 9224 (nginx Host rewrite), same as ubuntu.
+            # Windows Chrome is launched directly over the agent's /bash
+            # endpoint (PowerShell) instead of POST /browser/start: the baked
+            # launcher /browser/start runs lacks --ignore-certificate-errors,
+            # which is required because snapshots resume with a frozen clock
+            # that predates the sims proxy's rotating TLS cert (notBefore),
+            # making every page load fail with ERR_CERT_DATE_INVALID (see
+            # _windows_chrome_launch_cmd). Structure mirrors the ubuntu branch
+            # below: probe the loopback CDP port, kill + relaunch Chrome if
+            # unresponsive, then poll until CDP answers. Once up, CDP is
+            # reachable over the sims proxy on 9224 (nginx Host rewrite),
+            # same as ubuntu. Every /bash call here is failure-tolerant
+            # (_try_bash): on a cold boot the agent's post-logon task may not
+            # be listening yet, so transient 502s/timeouts count as "not
+            # ready" and we keep retrying until the deadline — matching the
+            # old /browser/start retry loop.
             effective_timeout = max(timeout, 90)
+            internal_port = 9225 if port == 9224 else port
+            cdp_probe = _windows_cdp_probe_cmd(internal_port)
             deadline = time.monotonic() + effective_timeout
-            last_err: Any = None
-            while time.monotonic() < deadline:
+
+            check = self._try_bash(cdp_probe)
+            if check is None:
+                logger.debug("First bash call failed; warming up client via status()")
                 try:
-                    response = self._client.request("POST", "/browser/start")
-                    response.raise_for_status()
-                    payload = response.json()
-                    if payload.get("running"):
-                        logger.info("Windows Chrome CDP started on port %s", port)
-                        return self.get_cdp_url(port)
-                    last_err = payload.get("error") or payload
-                    logger.warning("Windows browser CDP not up yet, retrying: %s", last_err)
+                    self.status()
                 except Exception as exc:
-                    last_err = exc
-                    logger.warning("browser/start call failed, retrying: %s", exc)
-                time.sleep(3)
+                    logger.debug("status() warmup failed (tolerated): %s", exc)
+                check = self._try_bash(cdp_probe)
+            if check is not None and _CDP_UP in (check.output or ""):
+                logger.info("Windows Chrome CDP already responding on port %s", port)
+                return self.get_cdp_url(port)
+
+            # Quick poll — if the snapshot restored cleanly Chrome may just
+            # need a moment for the socket to come back.
+            logger.info("Waiting for Windows Chrome CDP on port %s ...", port)
+            for _ in range(5):
+                time.sleep(1)
+                probe = self._try_bash(cdp_probe)
+                if probe is not None and _CDP_UP in (probe.output or ""):
+                    logger.info("Windows Chrome CDP ready on port %s", port)
+                    return self.get_cdp_url(port)
+
+            # Snapshot restore likely left Chrome with dead sockets — restart.
+            # Kill + relaunch retry until the deadline too: the probes above
+            # failing may just mean the agent itself is still coming up.
+            logger.info("Windows Chrome CDP unresponsive; restarting Chrome")
+            launch_cmd = _windows_chrome_launch_cmd(internal_port)
+            launched = False
+            last_err = ""
+            while time.monotonic() < deadline:
+                kill = self._try_bash(_WINDOWS_CHROME_KILL_CMD)
+                launch = self._try_bash(launch_cmd) if kill is not None else None
+                if launch is not None and not launch.error:
+                    launched = True
+                    break
+                last_err = launch.error if launch is not None and launch.error else "agent unreachable"
+                time.sleep(2)
+            if not launched:
+                raise TimeoutError(
+                    f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s: "
+                    f"could not restart Chrome ({last_err})"
+                )
+
+            while time.monotonic() < deadline:
+                time.sleep(2)
+                probe = self._try_bash(cdp_probe)
+                if probe is not None and _CDP_UP in (probe.output or ""):
+                    logger.info("Windows Chrome CDP ready on port %s after restart", port)
+                    return self.get_cdp_url(port)
+                last_err = (probe.output or "").strip() if probe is not None else "agent unreachable"
             raise TimeoutError(
-                f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s. Last: {last_err}"
+                f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s. Last probe: {last_err}"
             )
 
         cdp_probe = f"curl -sf --max-time 2 http://localhost:{port}/json/version 2>/dev/null || echo __NO_CDP__"
@@ -371,7 +920,9 @@ class Client:
 
         # Snapshot restore likely left Chrome with dead sockets — restart.
         logger.info("Chrome CDP unresponsive; restarting Chrome")
-        self.bash(BashRequest(command="pkill -9 -f 'chrome' 2>/dev/null; sleep 2"))
+        kill = self.bash(BashRequest(command=_UBUNTU_CHROME_KILL_CMD))
+        if _CHROME_STILL_RUNNING in (kill.output or ""):
+            logger.warning("Old Chrome still running 10s after kill; relaunching anyway")
 
         chrome_internal_port = 9225 if port == 9224 else port
         self.bash(
@@ -382,8 +933,11 @@ class Client:
                     f"--disable-features=PasswordManager,PasswordManagerOnboarding,PasswordLeakDetection "
                     f"--no-first-run --no-default-browser-check --disable-default-apps "
                     f"--disable-popup-blocking --disable-translate --disable-infobars "
+                    # Snapshots resume with a frozen clock that can predate the
+                    # sims proxy's rotating TLS cert -> ERR_CERT_DATE_INVALID.
+                    f"--ignore-certificate-errors "
                     f"--test-type --start-maximized --window-size=1280,720 "
-                    f"--user-data-dir=/tmp/chrome-cdp-profile "
+                    f"--user-data-dir={_UBUNTU_CHROME_PROFILE_DIR} "
                     f"--remote-debugging-port={chrome_internal_port} "
                     f"about:blank >/dev/null 2>&1 &"
                 )
@@ -465,8 +1019,19 @@ class Client:
         """Open *url* in a new Chrome tab via CDP."""
         port = self._resolve_cdp_port(port)
         if self._is_qemu():
+            # The CDP endpoint sits behind the two-tier sims proxy: the
+            # {job}--{port} subdomain 302s to the base host to complete the
+            # routing/cookie dance (see prepare_cdp_connection). A bare PUT that
+            # blindly follows that 302 lands on web routing and 405s — and a
+            # target URL carrying its own query (e.g. ?_plato_router_target=...)
+            # makes it worse by re-triggering web routing. So prime the cookie +
+            # resolve the base host with GET /json/version first, then PUT there.
+            cdp_proxy_url = self.get_cdp_url(port)
             with httpx.Client(follow_redirects=True, timeout=30) as tmp:
-                response = tmp.put(f"{self.get_cdp_url(port)}/json/new?{url}")
+                primer = tmp.get(f"{cdp_proxy_url}/json/version")
+                primer.raise_for_status()
+                base_url = f"{primer.url.scheme}://{primer.url.host}"
+                response = tmp.put(f"{base_url}/json/new?{url}")
                 response.raise_for_status()
                 return response.json()
 
@@ -537,17 +1102,28 @@ class Client:
 
         from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
         from plato._generated.api.v2.jobs import public_url as jobs_public_url
+        from plato._generated.errors import NotFoundError
         from plato._generated.models import Flow
         from plato.v2.sync.flow_executor import FlowExecutor
 
+        # Windows/QEMU guests can take ~40s+ after job assignment before the
+        # in-guest desktop agent serves HTTP; going straight to Chrome CDP
+        # would hit gateway 502s. Wait for the agent first.
+        self.wait_for_desktop_ready()
         self.ensure_chrome_cdp(cdp_port)
         ws_url, cdp_headers = self.prepare_cdp_connection(cdp_port)
-        logger.info("Connecting Playwright to CDP: %s", ws_url)
+        playwright_headers = _playwright_cdp_headers(cdp_headers)
+        logger.debug(
+            "Connecting Playwright to CDP: %s (routing_header_names=%s headers_argument=%s)",
+            ws_url,
+            sorted(cdp_headers),
+            "provided" if playwright_headers is not None else "omitted",
+        )
 
         pages_logged_in: list[str] = []
 
         with sync_playwright() as pw:
-            browser = pw.chromium.connect_over_cdp(ws_url, headers=cdp_headers)
+            browser = pw.chromium.connect_over_cdp(ws_url, headers=playwright_headers)
             default_context = browser.contexts[0]
             logger.info(
                 "Connected – %d existing page(s): %s",
@@ -565,7 +1141,7 @@ class Client:
                 first_page = default_context.new_page()
                 first_page.goto("about:blank")
 
-            my_job_id = _extract_job_id(self._base_url)
+            my_job_id = self._sibling_job_id()
             login_count = 0
             for env in session.envs:
                 if not getattr(env, "artifact_id", None):
@@ -573,6 +1149,9 @@ class Client:
                     continue
                 if getattr(env, "job_id", None) == my_job_id:
                     logger.info("Skipping login for %s (desktop env)", env.alias)
+                    continue
+                if is_proctor_env(env):
+                    logger.info("Skipping login for %s (proctor service)", env.alias)
                     continue
 
                 page = first_page if login_count == 0 else default_context.new_page()
@@ -593,23 +1172,44 @@ class Client:
                 page.goto(public_url, timeout=120_000)
                 print(f"  [{env.alias}] Page loaded: {page.url}", flush=True)
 
-                # Fetch flows
+                # Fetch flows. A sim with no flows at all is a LEGITIMATE
+                # configuration, not an error: the cloned-SaaS family (hubspot,
+                # salesforce, amazon, ...) ships pre-baked auth cookies and has
+                # no login page to drive, so those artifacts define no
+                # flows.yaml and the server 404s the fetch. Hard-failing here
+                # killed every episode on those sims before the agent ever ran
+                # (~1,800 tasks in the output-only catalog alone). The page is
+                # already on the sim URL at this point, which is all a
+                # pre-authenticated sim needs -- so skip login and move on.
+                # Genuine failures (network errors, 5xx) still raise: silently
+                # skipping login on a sim that DOES need it would make every
+                # episode unwinnable, which is worse than failing loudly.
                 try:
                     flows_response = jobs_get_flows.sync(
                         client=session._http,
                         job_id=env.job_id,
                         x_api_key=session._api_key,
                     )
+                except NotFoundError:
+                    logger.info("Skipping login for %s (artifact has no flows; pre-authenticated sim)", env.alias)
+                    print(f"  [{env.alias}] No flows for artifact — skipping login (pre-authenticated sim)", flush=True)
+                    continue
                 except Exception as exc:
                     raise RuntimeError(f"Failed to get flows for {env.alias}: {exc}") from exc
 
                 if not flows_response:
-                    raise RuntimeError(f"No flows found for {env.alias}")
+                    logger.info("Skipping login for %s (empty flows list)", env.alias)
+                    print(f"  [{env.alias}] Empty flows list — skipping login", flush=True)
+                    continue
 
                 flows_list = [Flow.model_validate(f) for f in flows_response]
                 login_flow = next((f for f in flows_list if f.name == "login"), None)
                 if not login_flow:
-                    raise RuntimeError(f"No 'login' flow found for {env.alias}")
+                    # Same handling the CDP world path has had for this case
+                    # (cua_benchmark_world.world warns and continues).
+                    logger.info("Skipping login for %s (no 'login' flow defined)", env.alias)
+                    print(f"  [{env.alias}] No 'login' flow defined — skipping login", flush=True)
+                    continue
 
                 flow_executor = FlowExecutor(page, login_flow, log=logger)
 
@@ -746,9 +1346,9 @@ class Client:
             **kwargs: Additional arguments passed to Client.__init__
         """
         provider = getattr(environment, "provider", None)
-        gateway = _deployment_sims_gateway(_api_base_url_from_environment(environment))
+        gateway = _deployment_connect_gateway(_api_base_url_from_environment(environment))
         base_url = _base_url_from_job_id(environment.job_id, gateway_host=gateway)
-        return cls(base_url=base_url, provider=provider, **kwargs)
+        return cls(base_url=base_url, provider=provider, job_id=environment.job_id, **kwargs)
 
 
 class AsyncClient:
@@ -765,9 +1365,16 @@ class AsyncClient:
         on_response: Callable[[httpx.Response], None] | None = None,
         provider: str | None = None,
         cdp_port: int | None = None,
+        *,
+        job_id: str | None = None,
         **kwargs: Any,
     ):
-        """Initialize the async HTTP client."""
+        """Initialize the async HTTP client.
+
+        See :meth:`Client.__init__` — ``job_id`` is stored for sibling
+        ``{job}--{port}`` URL building and extracted from ``base_url`` when
+        omitted.
+        """
         self._base_url = base_url.rstrip("/")
         # Always include Accept header for JSON APIs
         self._headers = {"Accept": "application/json", **(headers or {})}
@@ -775,6 +1382,9 @@ class AsyncClient:
         self._retry_on_status = retry_on_status
         self._provider = provider
         self._cdp_port = cdp_port if cdp_port is not None else CDP_PORT
+        # See Client.__init__: stored so sibling-URL building survives the
+        # legacy sims cookie dance and works with an explicit job_id.
+        self._job_id = job_id if job_id is not None else _job_id_or_none(self._base_url)
         self._closed = False
 
         event_hooks: dict[str, list[Callable]] = {"request": [], "response": []}
@@ -785,6 +1395,8 @@ class AsyncClient:
 
         self._timeout = timeout
         self._initialized = False
+        self._screensaver_kicked = False
+        self._screensaver_task: asyncio.Future[None] | None = None
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             timeout=timeout,
@@ -798,20 +1410,58 @@ class AsyncClient:
     def _resolve_cdp_port(self, port: int | None) -> int:
         return self._cdp_port if port is None else port
 
+    def _sibling_job_id(self) -> str:
+        """Job id for sibling ``{job}--{port}`` URL building (liveview, CDP).
+
+        Prefers the job id captured at construction; falls back to regex
+        extraction from the base URL for URL-only construction, raising the
+        same ``ValueError`` as before when neither is available.
+        """
+        return self._job_id if self._job_id is not None else _extract_job_id(self._base_url)
+
     def _is_qemu(self) -> bool:
         return self._provider == "qemu"
 
-    async def _ensure_init(self) -> None:
-        """Complete the sims proxy redirect/cookie dance on first use.
+    def _kick_screensaver(self) -> None:
+        """Async version of :meth:`Client._kick_screensaver`.
 
-        See :meth:`Client._ensure_init` for details.
+        Schedules a fire-and-forget task on the running loop (``_ensure_init``
+        is always awaited, so a loop exists). Skipped on Windows/QEMU and after
+        the first invocation; all errors are swallowed.
+        """
+        if self._screensaver_kicked or self._is_qemu():
+            return
+        self._screensaver_kicked = True
+
+        async def _run() -> None:
+            try:
+                await self.bash(BashRequest(command=_DISABLE_SCREENSAVER_CMD))
+            except Exception as exc:  # best-effort: never surface to the caller
+                logger.debug("screensaver disable failed (ignored): %s", exc)
+
+        try:
+            self._screensaver_task = asyncio.ensure_future(_run())
+        except RuntimeError:  # no running loop — nothing to schedule onto
+            logger.debug("no running loop; skipping screensaver disable")
+
+    async def _ensure_init(self) -> None:
+        """Latch first-use init; complete the sims redirect/cookie dance if needed.
+
+        See :meth:`Client._ensure_init` for details — on the default connect
+        gateway the first ``/status`` answers directly and no dance occurs.
         """
         if self._initialized:
             return
 
         response = await self._client.request(method="GET", url="/status")
         if response.status_code not in (301, 302, 307, 308):
-            self._initialized = True
+            if response.is_success:
+                self._initialized = True
+                self._kick_screensaver()
+                return
+            # See Client._ensure_init: don't latch init on a booting-guest
+            # error response, or the redirect/cookie dance is skipped forever.
+            raise_for_status(response)
             return
 
         location = response.headers.get("location", "")
@@ -841,6 +1491,8 @@ class AsyncClient:
             cookies=cookies,
         )
         await old_client.aclose()
+        # Client is now reconfigured/stable — safe to fire the background task.
+        self._kick_screensaver()
 
     @property
     def httpx(self) -> httpx.AsyncClient:
@@ -857,38 +1509,98 @@ class AsyncClient:
         """HTTP status codes that trigger a retry."""
         return self._retry_on_status
 
+    async def _call_with_retries(self, call: Callable[[], Awaitable[_T]], idempotent: bool = True) -> _T:
+        """Async version of :meth:`Client._call_with_retries`."""
+        for attempt in range(self._max_retries + 1):
+            try:
+                return await call()
+            except (APIError, httpx.HTTPError) as exc:
+                if attempt >= self._max_retries or not _should_retry(exc, self._retry_on_status, idempotent):
+                    raise
+                delay = _retry_backoff_delay(attempt)
+                logger.debug(
+                    "Retrying after %r (attempt %d/%d, backing off %.2fs)",
+                    exc,
+                    attempt + 1,
+                    self._max_retries,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+        raise RuntimeError("unreachable")  # pragma: no cover
+
+    async def _request_with_retries(self, send: Callable[[], Awaitable[_T]], idempotent: bool = True) -> _T:
+        """Async version of :meth:`Client._request_with_retries`."""
+        await self._call_with_retries(self._ensure_init)
+        return await self._call_with_retries(send, idempotent=idempotent)
+
     def get_liveview_url(self) -> str:
         """Get the noVNC liveview URL for this VM."""
-        job_id = _extract_job_id(self._base_url)
+        job_id = self._sibling_job_id()
         gateway = _gateway_from_base_url(self._base_url)
         return f"https://{job_id}--{LIVEVIEW_PORT}.{gateway}?resize=scale&autoconnect=true"
 
-    async def bash(self, body: BashRequest) -> ToolResult:
-        """Execute a shell command."""
-        await self._ensure_init()
-        return await _bash_async(self._client, body=body)
+    async def bash(self, body: BashRequest, *, idempotent: bool = True) -> ToolResult:
+        """Execute a shell command. See :meth:`Client.bash` for ``idempotent``."""
+        return await self._request_with_retries(lambda: _bash_async(self._client, body=body), idempotent=idempotent)
+
+    async def _try_bash(self, command: str) -> ToolResult | None:
+        """Async version of :meth:`Client._try_bash` — ``None`` on transport error."""
+        try:
+            return await self.bash(BashRequest(command=command))
+        except Exception as exc:
+            logger.debug("bash call failed (tolerated, will retry): %s", exc)
+            return None
 
     async def computer(self, body: ComputerRequest) -> ToolResult:
-        """Execute computer actions (mouse, keyboard, screenshot)."""
-        await self._ensure_init()
-        return await _computer_async(self._client, body=body)
+        """Execute computer actions (mouse, keyboard, screenshot).
+
+        See :meth:`Client.computer` for the retry semantics of read-only vs
+        input-injecting actions.
+        """
+        return await self._request_with_retries(
+            lambda: _computer_async(self._client, body=body),
+            idempotent=body.action in _READ_ONLY_COMPUTER_ACTIONS,
+        )
 
     async def edit(self, body: EditRequest) -> ToolResult:
         """File operations (view, create, str_replace, insert, undo_edit)."""
-        await self._ensure_init()
-        return await _edit_async(self._client, body=body)
+        return await self._request_with_retries(lambda: _edit_async(self._client, body=body))
 
     async def status(self) -> StatusResponse:
         """Health check and display info."""
-        await self._ensure_init()
-        return await _status_async(self._client)
+        return await self._request_with_retries(lambda: _status_async(self._client))
+
+    async def wait_for_desktop_ready(self, timeout: float = 180.0, interval: float = 2.0) -> StatusResponse:
+        """Async version of :meth:`Client.wait_for_desktop_ready`."""
+        deadline = time.monotonic() + timeout
+        last_error: Exception | None = None
+        while True:
+            try:
+                await self._ensure_init()
+                return await _status_async(self._client)
+            except APIError as exc:
+                if exc.status_code not in _BOOTING_STATUS_CODES:
+                    raise
+                last_error = exc
+            except _RETRYABLE_TRANSPORT_ERRORS as exc:
+                last_error = exc
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Desktop agent not ready after {timeout:.0f}s; last error: {last_error!r}"
+                ) from last_error
+            await asyncio.sleep(interval)
+
+    async def set_timezone_offset(self, utc_offset: int, timeout: int = 30) -> ToolResult:
+        """Async version of :meth:`Client.set_timezone_offset`."""
+        command = _windows_set_timezone_cmd(utc_offset) if self._is_qemu() else _ubuntu_set_timezone_cmd(utc_offset)
+        return await self.bash(BashRequest(command=command, timeout=timeout))
 
     # -- CDP helpers ----------------------------------------------------------
 
     def get_cdp_url(self, port: int | None = None) -> str:
         """Return the sims proxy URL for the Chrome CDP port."""
         port = self._resolve_cdp_port(port)
-        job_id = _extract_job_id(self._base_url)
+        job_id = self._sibling_job_id()
         gateway = _gateway_from_base_url(self._base_url)
         return f"https://{job_id}--{port}.{gateway}"
 
@@ -901,31 +1613,75 @@ class AsyncClient:
         port = self._resolve_cdp_port(port)
         if self._is_qemu():
             await self._ensure_init()
-            # Windows has no google-chrome-stable / bash launch path, so Chrome
-            # is started via the agent's POST /browser/start (not present on
-            # ubuntu). Its readiness signal is running=True (its own server-side
-            # ~20s CDP wait). A cold start can miss that window; retry until it
-            # succeeds or we hit the overall timeout. Once up, CDP is reachable
-            # over the sims proxy on 9224 (nginx Host rewrite), same as ubuntu.
+            # Windows Chrome is launched directly over the agent's /bash
+            # endpoint (PowerShell) instead of POST /browser/start: the baked
+            # launcher /browser/start runs lacks --ignore-certificate-errors,
+            # which is required because snapshots resume with a frozen clock
+            # that predates the sims proxy's rotating TLS cert (notBefore),
+            # making every page load fail with ERR_CERT_DATE_INVALID (see
+            # _windows_chrome_launch_cmd). Structure mirrors the ubuntu branch
+            # below: probe the loopback CDP port, kill + relaunch Chrome if
+            # unresponsive, then poll until CDP answers. Once up, CDP is
+            # reachable over the sims proxy on 9224 (nginx Host rewrite),
+            # same as ubuntu. Every /bash call here is failure-tolerant
+            # (_try_bash): on a cold boot the agent's post-logon task may not
+            # be listening yet, so transient 502s/timeouts count as "not
+            # ready" and we keep retrying until the deadline — matching the
+            # old /browser/start retry loop.
             effective_timeout = max(timeout, 90)
+            internal_port = 9225 if port == 9224 else port
+            cdp_probe = _windows_cdp_probe_cmd(internal_port)
             deadline = time.monotonic() + effective_timeout
-            last_err: Any = None
-            while time.monotonic() < deadline:
+
+            check = await self._try_bash(cdp_probe)
+            if check is None:
+                logger.debug("First bash call failed; warming up client via status()")
                 try:
-                    response = await self._client.request("POST", "/browser/start")
-                    response.raise_for_status()
-                    payload = response.json()
-                    if payload.get("running"):
-                        logger.info("Windows Chrome CDP started on port %s", port)
-                        return self.get_cdp_url(port)
-                    last_err = payload.get("error") or payload
-                    logger.warning("Windows browser CDP not up yet, retrying: %s", last_err)
+                    await self.status()
                 except Exception as exc:
-                    last_err = exc
-                    logger.warning("browser/start call failed, retrying: %s", exc)
-                await asyncio.sleep(3)
+                    logger.debug("status() warmup failed (tolerated): %s", exc)
+                check = await self._try_bash(cdp_probe)
+            if check is not None and _CDP_UP in (check.output or ""):
+                logger.info("Windows Chrome CDP already responding on port %s", port)
+                return self.get_cdp_url(port)
+
+            logger.info("Waiting for Windows Chrome CDP on port %s ...", port)
+            for _ in range(5):
+                await asyncio.sleep(1)
+                probe = await self._try_bash(cdp_probe)
+                if probe is not None and _CDP_UP in (probe.output or ""):
+                    logger.info("Windows Chrome CDP ready on port %s", port)
+                    return self.get_cdp_url(port)
+
+            # Kill + relaunch retry until the deadline too: the probes above
+            # failing may just mean the agent itself is still coming up.
+            logger.info("Windows Chrome CDP unresponsive; restarting Chrome")
+            launch_cmd = _windows_chrome_launch_cmd(internal_port)
+            launched = False
+            last_err = ""
+            while time.monotonic() < deadline:
+                kill = await self._try_bash(_WINDOWS_CHROME_KILL_CMD)
+                launch = await self._try_bash(launch_cmd) if kill is not None else None
+                if launch is not None and not launch.error:
+                    launched = True
+                    break
+                last_err = launch.error if launch is not None and launch.error else "agent unreachable"
+                await asyncio.sleep(2)
+            if not launched:
+                raise TimeoutError(
+                    f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s: "
+                    f"could not restart Chrome ({last_err})"
+                )
+
+            while time.monotonic() < deadline:
+                await asyncio.sleep(2)
+                probe = await self._try_bash(cdp_probe)
+                if probe is not None and _CDP_UP in (probe.output or ""):
+                    logger.info("Windows Chrome CDP ready on port %s after restart", port)
+                    return self.get_cdp_url(port)
+                last_err = (probe.output or "").strip() if probe is not None else "agent unreachable"
             raise TimeoutError(
-                f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s. Last: {last_err}"
+                f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s. Last probe: {last_err}"
             )
 
         cdp_probe = f"curl -sf --max-time 2 http://localhost:{port}/json/version 2>/dev/null || echo __NO_CDP__"
@@ -948,7 +1704,9 @@ class AsyncClient:
                 return self.get_cdp_url(port)
 
         logger.info("Chrome CDP unresponsive; restarting Chrome")
-        await self.bash(BashRequest(command="pkill -9 -f 'chrome' 2>/dev/null; sleep 2"))
+        kill = await self.bash(BashRequest(command=_UBUNTU_CHROME_KILL_CMD))
+        if _CHROME_STILL_RUNNING in (kill.output or ""):
+            logger.warning("Old Chrome still running 10s after kill; relaunching anyway")
 
         chrome_internal_port = 9225 if port == 9224 else port
         await self.bash(
@@ -959,8 +1717,11 @@ class AsyncClient:
                     f"--disable-features=PasswordManager,PasswordManagerOnboarding,PasswordLeakDetection "
                     f"--no-first-run --no-default-browser-check --disable-default-apps "
                     f"--disable-popup-blocking --disable-translate --disable-infobars "
+                    # Snapshots resume with a frozen clock that can predate the
+                    # sims proxy's rotating TLS cert -> ERR_CERT_DATE_INVALID.
+                    f"--ignore-certificate-errors "
                     f"--test-type --start-maximized --window-size=1280,720 "
-                    f"--user-data-dir=/tmp/chrome-cdp-profile "
+                    f"--user-data-dir={_UBUNTU_CHROME_PROFILE_DIR} "
                     f"--remote-debugging-port={chrome_internal_port} "
                     f"about:blank >/dev/null 2>&1 &"
                 )
@@ -1021,8 +1782,14 @@ class AsyncClient:
         """Open *url* in a new Chrome tab via CDP."""
         port = self._resolve_cdp_port(port)
         if self._is_qemu():
+            # See the sync open_url for why we prime the cookie / base host
+            # first instead of firing a bare PUT that follows the proxy 302.
+            cdp_proxy_url = self.get_cdp_url(port)
             async with httpx.AsyncClient(follow_redirects=True, timeout=30) as tmp:
-                response = await tmp.put(f"{self.get_cdp_url(port)}/json/new?{url}")
+                primer = await tmp.get(f"{cdp_proxy_url}/json/version")
+                primer.raise_for_status()
+                base_url = f"{primer.url.scheme}://{primer.url.host}"
+                response = await tmp.put(f"{base_url}/json/new?{url}")
                 response.raise_for_status()
                 return response.json()
 
@@ -1067,6 +1834,7 @@ class AsyncClient:
 
         from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
         from plato._generated.api.v2.jobs import public_url as jobs_public_url
+        from plato._generated.errors import NotFoundError
         from plato._generated.models import Flow
         from plato.v2.async_.flow_executor import FlowExecutor
 
@@ -1078,15 +1846,25 @@ class AsyncClient:
 
         from playwright.async_api import async_playwright
 
+        # Windows/QEMU guests can take ~40s+ after job assignment before the
+        # in-guest desktop agent serves HTTP; going straight to Chrome CDP
+        # would hit gateway 502s. Wait for the agent first.
+        await self.wait_for_desktop_ready()
         await self.ensure_chrome_cdp(cdp_port)
 
         pages_logged_in: list[str] = []
 
         ws_url, cdp_headers = await self.prepare_cdp_connection(cdp_port)
-        logger.info("Connecting Playwright to CDP: %s", ws_url)
+        playwright_headers = _playwright_cdp_headers(cdp_headers)
+        logger.debug(
+            "Connecting Playwright to CDP: %s (routing_header_names=%s headers_argument=%s)",
+            ws_url,
+            sorted(cdp_headers),
+            "provided" if playwright_headers is not None else "omitted",
+        )
 
         async with async_playwright() as pw:
-            browser = await pw.chromium.connect_over_cdp(ws_url, headers=cdp_headers)
+            browser = await pw.chromium.connect_over_cdp(ws_url, headers=playwright_headers)
             default_context = browser.contexts[0]
             logger.info(
                 "Connected – %d existing page(s): %s",
@@ -1103,7 +1881,7 @@ class AsyncClient:
                 first_page = await default_context.new_page()
                 await first_page.goto("about:blank")
 
-            my_job_id = _extract_job_id(self._base_url)
+            my_job_id = self._sibling_job_id()
             login_count = 0
             for env in session.envs:
                 if not getattr(env, "artifact_id", None):
@@ -1111,6 +1889,9 @@ class AsyncClient:
                     continue
                 if getattr(env, "job_id", None) == my_job_id:
                     logger.info("Skipping login for %s (desktop env)", env.alias)
+                    continue
+                if is_proctor_env(env):
+                    logger.info("Skipping login for %s (proctor service)", env.alias)
                     continue
 
                 page = first_page if login_count == 0 else await default_context.new_page()
@@ -1128,22 +1909,37 @@ class AsyncClient:
                 logger.info("Navigating to %s for %s", public_url, env.alias)
                 await page.goto(public_url, timeout=120_000)
 
+                # A sim with no flows at all is a LEGITIMATE configuration --
+                # see the sync login() above for the full rationale
+                # (pre-authenticated cloned-SaaS sims define no flows.yaml, the
+                # server 404s, and the page is already on the sim URL). Skip
+                # login rather than kill the episode; genuine failures
+                # (network errors, 5xx) still raise.
                 try:
                     flows_response = await jobs_get_flows.asyncio(
                         client=session._http,
                         job_id=env.job_id,
                         x_api_key=session._api_key,
                     )
+                except NotFoundError:
+                    logger.info("Skipping login for %s (artifact has no flows; pre-authenticated sim)", env.alias)
+                    print(f"  [{env.alias}] No flows for artifact — skipping login (pre-authenticated sim)", flush=True)
+                    continue
                 except Exception as exc:
                     raise RuntimeError(f"Failed to get flows for {env.alias}: {exc}") from exc
 
                 if not flows_response:
-                    raise RuntimeError(f"No flows found for {env.alias}")
+                    logger.info("Skipping login for %s (empty flows list)", env.alias)
+                    print(f"  [{env.alias}] Empty flows list — skipping login", flush=True)
+                    continue
 
                 flows_list = [Flow.model_validate(f) for f in flows_response]
                 login_flow = next((f for f in flows_list if f.name == "login"), None)
                 if not login_flow:
-                    raise RuntimeError(f"No 'login' flow found for {env.alias}")
+                    # Same handling the CDP world path has had for this case.
+                    logger.info("Skipping login for %s (no 'login' flow defined)", env.alias)
+                    print(f"  [{env.alias}] No 'login' flow defined — skipping login", flush=True)
+                    continue
 
                 flow_executor = FlowExecutor(page, login_flow, log=logger)
 
@@ -1260,6 +2056,6 @@ class AsyncClient:
             **kwargs: Additional arguments passed to AsyncClient.__init__
         """
         provider = getattr(environment, "provider", None)
-        gateway = _deployment_sims_gateway(_api_base_url_from_environment(environment))
+        gateway = _deployment_connect_gateway(_api_base_url_from_environment(environment))
         base_url = _base_url_from_job_id(environment.job_id, gateway_host=gateway)
-        return cls(base_url=base_url, provider=provider, **kwargs)
+        return cls(base_url=base_url, provider=provider, job_id=environment.job_id, **kwargs)

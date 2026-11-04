@@ -113,6 +113,7 @@ from tenacity import (
 import geneva
 from geneva import telemetry
 from geneva._context import LocalRayContext
+from geneva.jobs.compaction_pause import COMPACTION_PAUSE_ENV_PREFIX
 from geneva.manifest.mgr import GenevaManifest
 from geneva.packager.autodetect import upload_local_env
 from geneva.packager.uploader import Uploader
@@ -518,6 +519,12 @@ def init_ray(
         )
         if key in os.environ
     }
+    # Forward compaction-pause settings so drivers can pause compaction (GEN-994).
+    compaction_pause_env = {
+        key: value
+        for key, value in os.environ.items()
+        if key.startswith(COMPACTION_PAUSE_ENV_PREFIX)
+    }
 
     runtime_env = {
         "env_vars": {
@@ -528,6 +535,7 @@ def init_ray(
             # export the hook.
             telemetry.TELEMETRY_INIT_ON_IMPORT_ENV: "1",
             **telemetry_env,
+            **compaction_pause_env,
             **(extra_env or {}),
         },
         **(

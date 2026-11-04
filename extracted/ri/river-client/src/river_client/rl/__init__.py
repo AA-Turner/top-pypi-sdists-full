@@ -4,6 +4,8 @@ from .advantages import Batchwise, GroupCentered, build_batch, decouple_ppo
 from .checkpoint import Checkpointing
 from .config import (
     Adam,
+    Admission,
+    DynamicSampling,
     Budget,
     Cosine,
     ForwardBackwardBatch,
@@ -27,6 +29,7 @@ from .env import (
     tool,
 )
 from .evaluation import CheckpointSampler, Evaluation, Evaluator, WandbSink
+from .deployment import EvaluationDeployment
 from .losses import (
     CISPO,
     CustomLoss,
@@ -37,7 +40,7 @@ from .losses import (
     ScoreCentering,
 )
 from .requirements import LossRequirements
-from .trainer import AsyncTrainer, PolicyRewoundError, Step, run
+from .trainer import AsyncTrainer, PolicyRewoundError, SamplingExhausted, Step, run
 from .trajectory import Span, Trajectory
 
 __all__ = [
@@ -50,6 +53,9 @@ __all__ = [
     "ScoreCentering",
     "LossRequirements",
     "Adam",
+    "Admission",
+    "DynamicSampling",
+    "SamplingExhausted",
     "AsyncTrainer",
     "Batchwise",
     "Budget",
@@ -63,6 +69,7 @@ __all__ = [
     "ErrorOperation",
     "Recover",
     "Evaluation",
+    "EvaluationDeployment",
     "Evaluator",
     "ForwardBackwardBatch",
     "GroupCentered",

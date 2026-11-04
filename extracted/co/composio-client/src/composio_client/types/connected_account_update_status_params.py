@@ -1,12 +1,16 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.connected_account_update_status_params."""
 
 from __future__ import annotations
 
 from typing_extensions import Required, TypedDict
 
-__all__ = ["ConnectedAccountUpdateStatusParams"]
-
 
 class ConnectedAccountUpdateStatusParams(TypedDict, total=False):
     enabled: Required[bool]
-    """Set to true to enable the account or false to disable it"""
+    "Set to true to enable the account or false to disable it"
+
+
+__all__ = [
+    "ConnectedAccountUpdateStatusParams",
+]

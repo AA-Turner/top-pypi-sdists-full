@@ -5,6 +5,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::value::RawValue;
 use serde_with::skip_serializing_none;
 
+use crate::evaluation::cron_window::CronWindow;
 use crate::evaluation::dynamic_string::DynamicString;
 use crate::evaluation::{
     dynamic_returnable::DynamicReturnable,
@@ -186,6 +187,7 @@ pub(crate) enum ConditionOperator {
     ArrayContainsNone,
     ArrayContainsAll,
     NotArrayContainsAll,
+    InCronWindow,
     Unknown,
 }
 
@@ -230,6 +232,7 @@ impl ConditionOperator {
             Some("array_contains_none") => Self::ArrayContainsNone,
             Some("array_contains_all") => Self::ArrayContainsAll,
             Some("not_array_contains_all") => Self::NotArrayContainsAll,
+            Some("in_cron_window") => Self::InCronWindow,
             Some(_) => Self::Unknown,
         }
     }
@@ -246,6 +249,8 @@ pub struct Condition {
     pub operator: Option<InternedString>,
     #[serde(skip)]
     pub(crate) compiled_operator: ConditionOperator,
+    #[serde(skip)]
+    pub(crate) compiled_cron_window: Option<Arc<CronWindow>>,
     pub field: Option<DynamicString>,
     pub additional_values: Option<HashMap<InternedString, InternedString>>,
     pub id_type: DynamicString,
@@ -425,6 +430,24 @@ pub struct SpecsResponseNoUpdates {
     pub has_updates: bool,
 }
 
+impl Condition {
+    pub(crate) fn compile_cron_window(&mut self) {
+        self.compiled_cron_window = None;
+        if !matches!(self.compiled_condition_type, ConditionType::CurrentTime)
+            || !matches!(self.compiled_operator, ConditionOperator::InCronWindow)
+        {
+            return;
+        }
+
+        self.compiled_cron_window = self
+            .target_value
+            .as_ref()
+            .and_then(|value| value.as_value_ref().string_value())
+            .and_then(|value| CronWindow::parse(value).ok())
+            .map(Arc::new);
+    }
+}
+
 impl<'de> Deserialize<'de> for Condition {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -463,25 +486,68 @@ impl<'de> Deserialize<'de> for Condition {
             }
         }
 
-        Ok(Condition {
+        let mut condition = Condition {
             condition_type: internal.condition_type,
             compiled_condition_type,
             target_value,
             operator: internal.operator,
             compiled_operator,
+            compiled_cron_window: None,
             field: internal.field,
             additional_values: internal.additional_values,
             id_type: internal.id_type,
             checksum: internal.checksum,
-        })
+        };
+        condition.compile_cron_window();
+        Ok(condition)
     }
 }
 
 #[cfg(test)]
 mod condition_dispatch_tests {
+    use chrono::DateTime;
     use serde_json::json;
 
-    use super::{Condition, ConditionOperator, ConditionType};
+    use super::{Condition, ConditionOperator, ConditionType, SpecsResponseFull};
+
+    fn console_cron_window_e2e_payload(condition: serde_json::Value) -> serde_json::Value {
+        json!({
+            "dynamic_configs": {
+                "e2e_cron_window_2026-09-22_ada": {
+                    "type": "dynamic_config",
+                    "salt": "ca8fba93-c621-404a-afe9-a7d9774f9a63",
+                    "enabled": true,
+                    "defaultValue": { "enabled": false },
+                    "rules": [{
+                        "name": "43yUbYMbtevJ7vxUMsL5xG-43yUbX790WmeO5ZZbkPseE",
+                        "passPercentage": 100,
+                        "conditions": ["1349838392"],
+                        "returnValue": { "enabled": true },
+                        "id": "43yUbYMbtevJ7vxUMsL5xG-43yUbX790WmeO5ZZbkPseE",
+                        "salt": "8182045d-cb5c-4d69-8c61-504ef42ecbad",
+                        "idType": "userID"
+                    }],
+                    "idType": "userID",
+                    "entity": "dynamic_config",
+                    "version": 2,
+                    "checksum": "244349174"
+                }
+            },
+            "feature_gates": {},
+            "layer_configs": {},
+            "experiment_to_layer": {},
+            "condition_map": { "1349838392": condition },
+            "has_updates": true,
+            "response_format": "dcs-v2",
+            "time": 1790107014475_u64
+        })
+    }
+
+    fn millis(value: &str) -> i64 {
+        DateTime::parse_from_rfc3339(value)
+            .unwrap()
+            .timestamp_millis()
+    }
 
     #[test]
     fn dispatch_tags_are_one_byte() {
@@ -516,6 +582,10 @@ mod condition_dispatch_tests {
             ConditionOperator::Gte
         );
         assert_eq!(
+            ConditionOperator::from_str(Some("in_cron_window")),
+            ConditionOperator::InCronWindow
+        );
+        assert_eq!(
             ConditionOperator::from_str(Some("future_operator")),
             ConditionOperator::Unknown
         );
@@ -547,5 +617,76 @@ mod condition_dispatch_tests {
         assert_eq!(serialized["operator"], "any");
         assert!(serialized.get("compiledConditionType").is_none());
         assert!(serialized.get("compiledOperator").is_none());
+    }
+
+    #[test]
+    fn json_decode_compiles_cron_window() {
+        let condition: Condition = serde_json::from_value(json!({
+            "type": "current_time",
+            "targetValue": "0 22 * * *|43200",
+            "operator": "in_cron_window",
+            "field": null,
+            "idType": "userID"
+        }))
+        .unwrap();
+
+        assert_eq!(
+            condition.compiled_condition_type,
+            ConditionType::CurrentTime
+        );
+        assert_eq!(condition.compiled_operator, ConditionOperator::InCronWindow);
+        assert!(condition.compiled_cron_window.is_some());
+
+        let serialized = serde_json::to_value(condition).unwrap();
+        assert!(serialized.get("compiledCronWindow").is_none());
+    }
+
+    #[test]
+    fn deployed_console_e2e_payload_safely_marks_missing_cron_operator() {
+        let response: SpecsResponseFull =
+            serde_json::from_value(console_cron_window_e2e_payload(json!({
+                "type": "current_time",
+                "operator": null,
+                "field": null,
+                "additionalValues": {},
+                "idType": "userID",
+                "checksum": "2648535423"
+            })))
+            .unwrap();
+        let condition = response.condition_map.values().next().unwrap();
+
+        assert_eq!(
+            condition.compiled_condition_type,
+            ConditionType::CurrentTime
+        );
+        assert_eq!(condition.compiled_operator, ConditionOperator::Missing);
+        assert!(condition.target_value.is_none());
+        assert!(condition.compiled_cron_window.is_none());
+    }
+
+    #[test]
+    fn corrected_console_e2e_payload_compiles_and_observes_window_boundaries() {
+        let response: SpecsResponseFull =
+            serde_json::from_value(console_cron_window_e2e_payload(json!({
+                "type": "current_time",
+                "operator": "in_cron_window",
+                "targetValue": "0 22 * * *|43200",
+                "field": null,
+                "additionalValues": {},
+                "idType": "userID"
+            })))
+            .unwrap();
+        let condition = response.condition_map.values().next().unwrap();
+        let window = condition.compiled_cron_window.as_ref().unwrap();
+
+        assert_eq!(
+            condition.compiled_condition_type,
+            ConditionType::CurrentTime
+        );
+        assert_eq!(condition.compiled_operator, ConditionOperator::InCronWindow);
+        assert!(!window.is_active_at_millis(millis("2026-09-18T21:59:59Z")));
+        assert!(window.is_active_at_millis(millis("2026-09-18T22:00:00Z")));
+        assert!(window.is_active_at_millis(millis("2026-09-19T09:59:59Z")));
+        assert!(!window.is_active_at_millis(millis("2026-09-19T10:00:00Z")));
     }
 }

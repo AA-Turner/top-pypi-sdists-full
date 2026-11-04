@@ -125,7 +125,7 @@ class Layout:
 def layout() -> Layout:
     from hugpy_resources.imports.functions import application_paths as app_dirs
     cfg = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
-    return Layout(os.path.join(cfg, "hugpy"), app_dirs.data_dir(), os.path.join(cfg, "systemd", "user"),
+    return Layout(app_dirs.resolve_paths()["config"], app_dirs.data_dir(), os.path.join(cfg, "systemd", "user"),
                   os.path.dirname(sys.executable))
 
 

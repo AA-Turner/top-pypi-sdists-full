@@ -76,7 +76,13 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
 ) -> Response[Any | ErrorResponse]:
-    """StreamWorkspaceRunLogs
+    r"""StreamWorkspaceRunLogs
+
+    Follows a job run's log as server-sent events (`text/event-stream`), starting from the
+    beginning of the run. Each `log` event's `data` is one log line object as JSON. The stream ends
+    when the run finishes. An `error` event with `{\"error\": \"...\"}` also ends it, for example
+    `Run unavailable` when no run is found within about 60 seconds. Unknown run ids therefore
+    return 200 followed by an `error` event, not 404.
 
     Args:
         workspace_id (UUID):
@@ -107,7 +113,13 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
 ) -> Any | ErrorResponse | None:
-    """StreamWorkspaceRunLogs
+    r"""StreamWorkspaceRunLogs
+
+    Follows a job run's log as server-sent events (`text/event-stream`), starting from the
+    beginning of the run. Each `log` event's `data` is one log line object as JSON. The stream ends
+    when the run finishes. An `error` event with `{\"error\": \"...\"}` also ends it, for example
+    `Run unavailable` when no run is found within about 60 seconds. Unknown run ids therefore
+    return 200 followed by an `error` event, not 404.
 
     Args:
         workspace_id (UUID):
@@ -133,7 +145,13 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
 ) -> Response[Any | ErrorResponse]:
-    """StreamWorkspaceRunLogs
+    r"""StreamWorkspaceRunLogs
+
+    Follows a job run's log as server-sent events (`text/event-stream`), starting from the
+    beginning of the run. Each `log` event's `data` is one log line object as JSON. The stream ends
+    when the run finishes. An `error` event with `{\"error\": \"...\"}` also ends it, for example
+    `Run unavailable` when no run is found within about 60 seconds. Unknown run ids therefore
+    return 200 followed by an `error` event, not 404.
 
     Args:
         workspace_id (UUID):
@@ -162,7 +180,13 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
 ) -> Any | ErrorResponse | None:
-    """StreamWorkspaceRunLogs
+    r"""StreamWorkspaceRunLogs
+
+    Follows a job run's log as server-sent events (`text/event-stream`), starting from the
+    beginning of the run. Each `log` event's `data` is one log line object as JSON. The stream ends
+    when the run finishes. An `error` event with `{\"error\": \"...\"}` also ends it, for example
+    `Run unavailable` when no run is found within about 60 seconds. Unknown run ids therefore
+    return 200 followed by an `error` event, not 404.
 
     Args:
         workspace_id (UUID):

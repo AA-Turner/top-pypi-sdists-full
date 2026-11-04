@@ -19,11 +19,15 @@ mod update;
 mod update_arrow;
 mod value_utils;
 
+pub(crate) use super::shared_subscriptions::state_delivery::StateDeliveryReceipt;
 pub use bql::BqlState;
 pub use bsrch::BsrchState;
 pub use bulkdata::BulkDataState;
-pub(crate) use channel::SubscriptionTerminator;
-pub use channel::{SubscriptionReceiver, SubscriptionSender, subscription_channel};
+pub(crate) use channel::{SubscriptionEvent, SubscriptionTerminator, plain_delivery_error};
+pub use channel::{
+    SubscriptionReceiver, SubscriptionSender, subscription_channel,
+    subscription_channel_with_policy,
+};
 pub use fieldinfo::FieldInfoState;
 pub use generic::GenericState;
 pub use histdata::HistDataState;
@@ -42,8 +46,7 @@ pub use update::{
 pub use update_arrow::{SubscriptionArrowBatcher, subscription_update_to_record_batch};
 pub(crate) use value_utils::ResponseMetadata;
 pub use value_utils::{
-    BloombergRequestIds, DelayedMeta, FieldExceptionMeta, METADATA_KEY_BLOOMBERG_REQUEST_ID,
+    BloombergRequestIds, DelayedMeta, METADATA_KEY_BLOOMBERG_REQUEST_ID,
     METADATA_KEY_BLOOMBERG_REQUEST_IDS, METADATA_KEY_DELAYED, METADATA_KEY_EID_DATA,
-    METADATA_KEY_FIELD_EXCEPTIONS, METADATA_KEY_SECURITY_ERRORS, METADATA_KEY_TYPE_MISSES,
-    SecurityErrorMeta, delayed_metadata,
+    METADATA_KEY_SECURITY_ERRORS, METADATA_KEY_TYPE_MISSES, SecurityErrorMeta, delayed_metadata,
 };

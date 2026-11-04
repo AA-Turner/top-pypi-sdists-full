@@ -2,7 +2,9 @@
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
 import contextlib
+import difflib
 import hashlib
+import inspect
 import itertools
 import json
 import logging
@@ -13,7 +15,7 @@ import threading
 import time
 import uuid
 import warnings
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from datetime import timedelta
 from functools import cached_property
 from typing import Any, Literal, cast
@@ -356,6 +358,52 @@ def _normalize_backfill_resources(
         if memory < 0:
             raise ValueError("memory must be non-negative")
     return num_cpus, num_gpus, memory
+
+
+# Extra keyword arguments ``backfill_async()`` accepts through ``**kwargs`` on
+# the direct (non-remote) path. Each is consumed by name further down the
+# dispatch chain (``dispatch_run_ray_add_column`` through ``_run_pipeline``).
+# The remote path forwards extras to the server instead; see
+# ``geneva.utils.remote_options``.
+_BACKFILL_DIRECT_KWARGS = frozenset(
+    {
+        "batch_size",
+        "blob_read_buffer_size",
+        "blob_read_strategy",
+        "checkpoint_size",
+        "commit_granularity",
+        "num_frags",
+        "read_version",
+        "shuffle_buffer_size",
+        "skip_frags",
+        "task_shuffle_diversity",
+        "task_size",
+        "update_mode",
+        "use_cpu_only_pool",
+        "_skip_checkpoint_index_scan",
+        "_skip_planner_filter_count",
+    }
+)
+
+
+def _reject_unknown_backfill_kwargs(kwargs: Mapping[str, Any]) -> None:
+    """Raise ``TypeError`` for keyword arguments ``backfill()`` does not accept.
+
+    Runs before the job is recorded or planned; without it an unknown name
+    fails only when the pipeline starts.
+    """
+    unknown = sorted(set(kwargs) - _BACKFILL_DIRECT_KWARGS)
+    if not unknown:
+        return
+    known = sorted(_BACKFILL_DIRECT_KWARGS | _BACKFILL_NAMED_PARAMS)
+    described = []
+    for name in unknown:
+        match = difflib.get_close_matches(name, known, n=1)
+        hint = f" (did you mean '{match[0]}'?)" if match else ""
+        described.append(f"'{name}'{hint}")
+    raise TypeError(
+        f"backfill() got unexpected keyword argument(s): {', '.join(described)}"
+    )
 
 
 def _backfill_resource_metadata(
@@ -3227,7 +3275,6 @@ class Table(LanceTable):
                 name=job_tracker_name(job_id, prefix="jobtracker-udtf"),
                 num_cpus=rc.jobtracker_num_cpus,
                 memory=rc.jobtracker_memory,
-                max_restarts=-1,
             ).remote(  # type: ignore[call-arg]
                 job_id,
                 table_ref,
@@ -3804,6 +3851,12 @@ class Table(LanceTable):
             terminal/forced saves always bypass the throttle. If None, the
             global config is used.
         """
+        # Whether the caller chose the read version, rather than taking the
+        # current one; a job that waits for a compaction re-reads an automatic
+        # snapshot before planning (GEN-994). The sync path resolves it first.
+        read_version_pinned = kwargs.pop(
+            "_read_version_pinned", kwargs.get("read_version") is not None
+        )
         col_name = _normalize_backfill_columns(columns)
         col_name = self._canonical_backfill_output_column(col_name)
         num_cpus, num_gpus, memory = _normalize_backfill_resources(
@@ -3852,6 +3905,8 @@ class Table(LanceTable):
                 _return_future=_return_future,
                 **{k: v for k, v in kwargs.items() if k not in ("cluster", "manifest")},
             )
+
+        _reject_unknown_backfill_kwargs(kwargs)
 
         from geneva.runners.ray.pipeline import dispatch_run_ray_add_column
 
@@ -4021,6 +4076,7 @@ class Table(LanceTable):
                 fut = dispatch_run_ray_add_column(
                     self.get_reference(),
                     col_name,
+                    read_version_pinned=read_version_pinned,
                     udf=udf,
                     where=where,
                     default_where_generated=default_where_generated,
@@ -4237,6 +4293,13 @@ class Table(LanceTable):
         A sparse pass does not use those checkpoints: a rerun scans the rows
         that currently match, so the ``IS NULL`` condition is what skips rows
         already populated, and any uncommitted work simply runs again.
+
+        Ray driver death requires explicit resubmission after relieving memory
+        pressure. Resubmitting an ordinary backfill with the same UDF/version,
+        read_version, filter, and checkpoint configuration reuses compatible
+        saved checkpoints; work not yet checkpointed may run again. Driver
+        tasks are not automatically retried. JobTrackers may restart twice to
+        recover saved progress independently of driver resubmission.
         """
         col_name = _normalize_backfill_columns(columns)
         col_name = self._canonical_backfill_output_column(col_name)
@@ -4262,6 +4325,7 @@ class Table(LanceTable):
         self._normalize_backfill_batch_kwargs(kwargs)
 
         read_version = kwargs.get("read_version")
+        read_version_pinned = read_version is not None
         if read_version is None:
             read_version = self.version
             kwargs["read_version"] = read_version
@@ -4321,6 +4385,7 @@ class Table(LanceTable):
                     _return_future=True,
                     # Sync path owns _bf_span above; async must not double-open.
                     _root_span=False,
+                    _read_version_pinned=read_version_pinned,
                     **kwargs,
                 )
 
@@ -6137,3 +6202,9 @@ class Table(LanceTable):
 # Backward-compatible alias (previously a subclass that guarded the
 # remote ``db://`` dispatch paths).
 NativeTable = Table
+
+# Named ``backfill_async()`` parameters, offered as hints when rejecting an
+# unknown keyword argument. Captured once at import, before any wrapping.
+_BACKFILL_NAMED_PARAMS = frozenset(
+    inspect.signature(Table.backfill_async).parameters
+) - {"self", "kwargs"}

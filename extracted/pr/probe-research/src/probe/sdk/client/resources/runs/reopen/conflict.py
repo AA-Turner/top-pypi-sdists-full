@@ -11,6 +11,7 @@ from typing import Any
 from ..... import agent_session
 
 from ..... import errors
+from ......foundation.process_rank import read_process_rank
 
 
 # Late import to avoid a cycle at module load (Run needs Client, Client returns Run).
@@ -70,20 +71,6 @@ def _repin_bracket_lease(run_id: str, write_epoch: object) -> None:
 
 #: SDK reliability 2.8: the server takes per-writer leases (0271).
 _LEASES_FEATURE = "run_writer_leases"
-#: (rank, world size, local rank) environment variables, most specific first,
-#: the same schemes `fluent._GLOBAL_RANK_VARS` reads.
-_LEASE_RANK_VARS = (
-    ("RANK", "WORLD_SIZE", "LOCAL_RANK"),
-    ("SLURM_PROCID", "SLURM_NTASKS", "SLURM_LOCALID"),
-    ("OMPI_COMM_WORLD_RANK", "OMPI_COMM_WORLD_SIZE", "OMPI_COMM_WORLD_LOCAL_RANK"),
-)
-
-
-def _env_int(name: str) -> int | None:
-    raw = (os.environ.get(name) or "").strip()
-    return int(raw) if raw.isdigit() else None
-
-
 #: The attach beat's spread: this many seconds per rank of the job, capped.
 _ATTACH_JITTER_PER_RANK = 0.005
 _ATTACH_JITTER_MAX = 2.0
@@ -116,18 +103,13 @@ def _writer_lease(role: str, session_id: str) -> dict:
     interval = _heartbeat_interval()
     if interval > 0:
         lease["interval_seconds"] = float(interval)
-    for rank_var, size_var, local_var in _LEASE_RANK_VARS:
-        rank = _env_int(rank_var)
-        if rank is None:
-            continue
-        lease["rank"] = rank
-        size = _env_int(size_var)
-        if size:
-            lease["world_size"] = size
-        local = _env_int(local_var)
-        if local is not None:
-            lease["local_rank"] = local
-        break
+    launched = read_process_rank(os.environ)
+    if launched is not None:
+        lease["rank"] = launched.rank
+        if launched.size is not None and launched.size >= 1:
+            lease["world_size"] = launched.size
+        if launched.local_rank is not None and launched.local_rank >= 0:
+            lease["local_rank"] = launched.local_rank
     return lease
 
 

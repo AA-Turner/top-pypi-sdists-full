@@ -1,56 +1,57 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""``client.tool_router.session.files`` — the generated resource classes.
+
+``FilesResource`` (sync) and ``AsyncFilesResource`` (async),
+dispatching through the hand-written httpx kernel with Stainless-style
+flat request fields and raw / streaming response wrappers.
+"""
 
 from __future__ import annotations
 
+from functools import cached_property
+
 import httpx
+from typing_extensions import overload
 
-from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ...._utils import path_template, maybe_transform, async_maybe_transform
-from ...._compat import cached_property
-from ...._resource import SyncAPIResource, AsyncAPIResource
-from ...._response import (
-    to_raw_response_wrapper,
-    to_streamed_response_wrapper,
-    async_to_raw_response_wrapper,
-    async_to_streamed_response_wrapper,
-)
-from ...._base_client import make_request_options
-from ....types.tool_router.session import (
-    file_list_params,
-    file_delete_params,
-    file_create_upload_url_params,
-    file_create_download_url_params,
-)
-from ....types.tool_router.session.file_list_response import FileListResponse
-from ....types.tool_router.session.file_delete_response import FileDeleteResponse
-from ....types.tool_router.session.file_create_upload_url_response import FileCreateUploadURLResponse
+from ...._base_client import BodyParam, QueryParam, RequestOptions
+from ...._models import FileCreateDownloadURLBody, FileCreateUploadURLBody, FileDeleteBody
+from ...._operations import OPERATIONS_BY_CHAIN
+from ...._response import APIResponse, AsyncAPIResponse, AsyncResponseContextManager, ResponseContextManager
+from ...._types import NOT_GIVEN, Body, Headers, NotGiven, Omit, Query, omit
 from ....types.tool_router.session.file_create_download_url_response import FileCreateDownloadURLResponse
+from ....types.tool_router.session.file_create_upload_url_response import FileCreateUploadURLResponse
+from ....types.tool_router.session.file_delete_response import FileDeleteResponse
+from ....types.tool_router.session.file_list_response import FileListResponse
+from ..._base import (
+    AsyncAPIResource,
+    SyncAPIResource,
+    build_path,
+    compact,
+    make_request_options,
+    merge_body,
+    merge_mapping,
+    normalize_path_arguments,
+    require_fields,
+)
 
-__all__ = ["FilesResource", "AsyncFilesResource"]
+_LIST_OPERATION = OPERATIONS_BY_CHAIN[("tool_router", "session", "files", "list")]
+_DELETE_OPERATION = OPERATIONS_BY_CHAIN[("tool_router", "session", "files", "delete")]
+_CREATE_DOWNLOAD_URL_OPERATION = OPERATIONS_BY_CHAIN[
+    ("tool_router", "session", "files", "create_download_url")
+]
+_CREATE_UPLOAD_URL_OPERATION = OPERATIONS_BY_CHAIN[("tool_router", "session", "files", "create_upload_url")]
 
 
 class FilesResource(SyncAPIResource):
-    """(Labs) Tool router endpoints"""
-
     @cached_property
     def with_raw_response(self) -> FilesResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return FilesResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> FilesResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return FilesResourceWithStreamingResponse(self)
 
+    @overload
     def list(
         self,
         mount_id: str,
@@ -59,166 +60,347 @@ class FilesResource(SyncAPIResource):
         cursor: str | Omit = omit,
         limit: float | Omit = omit,
         mount_relative_prefix: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> FileListResponse: ...
+
+    @overload
+    def list(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> FileListResponse: ...
+
+    def list(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> FileListResponse:
-        """
-        Lists files in a workbench session storage mount with cursor-based pagination.
-        Use the download_url endpoint with the returned mount_relative_path to get a
-        presigned download URL.
-
-        Args:
-          session_id: The unique identifier of the tool router session
-
-          mount_id: ID of the storage mount
-
-          cursor: Pagination cursor from the previous response next_cursor field
-
-          limit: Maximum number of files to return per page (1-500)
-
-          mount_relative_prefix: Relative path prefix within the mount for filtering
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not session_id:
-            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
-        if not mount_id:
-            raise ValueError(f"Expected a non-empty value for `mount_id` but received {mount_id!r}")
-        return self._get(
-            path_template(
+        mount_id, (session_id,), _legacy_body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            accepts_body=False,
+        )
+        query_fields = compact(
+            {
+                "cursor": cursor,
+                "limit": limit,
+                "mount_relative_prefix": mount_relative_prefix,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
+            build_path(
                 "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/items",
-                session_id=session_id,
-                mount_id=mount_id,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=maybe_transform(
-                    {
-                        "cursor": cursor,
-                        "limit": limit,
-                        "mount_relative_prefix": mount_relative_prefix,
-                    },
-                    file_list_params.FileListParams,
-                ),
+                {"session_id": session_id, "mount_id": mount_id},
             ),
             cast_to=FileListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
+    @overload
     def delete(
         self,
         mount_id: str,
         *,
         session_id: str,
         mount_relative_path: str,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        body: BodyParam | None = None,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileDeleteResponse: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileDeleteResponse: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileDeleteResponse: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileDeleteResponse: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileDeleteResponse: ...
+
+    def delete(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> FileDeleteResponse:
-        """Deletes a file from a workbench session storage mount.
-
-        S3 delete is idempotent —
-        deleting a non-existent file succeeds silently.
-
-        Args:
-          session_id: The unique identifier of the tool router session
-
-          mount_id: ID of the storage mount
-
-          mount_relative_path: Relative file path within the mount
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not session_id:
-            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
-        if not mount_id:
-            raise ValueError(f"Expected a non-empty value for `mount_id` but received {mount_id!r}")
-        return self._post(
-            path_template(
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
+            build_path(
                 "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/delete",
-                session_id=session_id,
-                mount_id=mount_id,
-            ),
-            body=maybe_transform({"mount_relative_path": mount_relative_path}, file_delete_params.FileDeleteParams),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                {"session_id": session_id, "mount_id": mount_id},
             ),
             cast_to=FileDeleteResponse,
+            operation=_DELETE_OPERATION,
+            body=body_data,
+            body_model=FileDeleteBody,
+            options=options_data,
         )
 
+    @overload
     def create_download_url(
         self,
         mount_id: str,
         *,
         session_id: str,
         mount_relative_path: str,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        body: BodyParam | None = None,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateDownloadURLResponse: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateDownloadURLResponse: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateDownloadURLResponse: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateDownloadURLResponse: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateDownloadURLResponse: ...
+
+    def create_download_url(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> FileCreateDownloadURLResponse:
-        """
-        Generates a presigned download URL for a file in a workbench session mount.
-        Accepts a relative path within the mount.
-
-        Args:
-          session_id: The unique identifier of the tool router session
-
-          mount_id: ID of the storage mount
-
-          mount_relative_path: Relative file path within the mount
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not session_id:
-            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
-        if not mount_id:
-            raise ValueError(f"Expected a non-empty value for `mount_id` but received {mount_id!r}")
-        return self._post(
-            path_template(
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
+            build_path(
                 "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/download_url",
-                session_id=session_id,
-                mount_id=mount_id,
-            ),
-            body=maybe_transform(
-                {"mount_relative_path": mount_relative_path},
-                file_create_download_url_params.FileCreateDownloadURLParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                {"session_id": session_id, "mount_id": mount_id},
             ),
             cast_to=FileCreateDownloadURLResponse,
+            operation=_CREATE_DOWNLOAD_URL_OPERATION,
+            body=body_data,
+            body_model=FileCreateDownloadURLBody,
+            options=options_data,
         )
 
+    @overload
     def create_upload_url(
         self,
         mount_id: str,
@@ -226,80 +408,148 @@ class FilesResource(SyncAPIResource):
         session_id: str,
         mount_relative_path: str,
         mimetype: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        body: BodyParam | None = None,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateUploadURLResponse: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateUploadURLResponse: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateUploadURLResponse: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateUploadURLResponse: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateUploadURLResponse: ...
+
+    def create_upload_url(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> FileCreateUploadURLResponse:
-        """
-        Generates a presigned upload URL for uploading a file to a workbench session
-        mount. The caller should PUT the file content directly to the returned URL.
-
-        Args:
-          session_id: The unique identifier of the tool router session
-
-          mount_id: ID of the storage mount
-
-          mount_relative_path: Supports subdirectories (e.g. "data/output.csv", "images/charts/chart.png")
-
-          mimetype: MIME type of the file being uploaded
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not session_id:
-            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
-        if not mount_id:
-            raise ValueError(f"Expected a non-empty value for `mount_id` but received {mount_id!r}")
-        return self._post(
-            path_template(
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+                "mimetype": mimetype,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
+            build_path(
                 "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/upload_url",
-                session_id=session_id,
-                mount_id=mount_id,
-            ),
-            body=maybe_transform(
-                {
-                    "mount_relative_path": mount_relative_path,
-                    "mimetype": mimetype,
-                },
-                file_create_upload_url_params.FileCreateUploadURLParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                {"session_id": session_id, "mount_id": mount_id},
             ),
             cast_to=FileCreateUploadURLResponse,
+            operation=_CREATE_UPLOAD_URL_OPERATION,
+            body=body_data,
+            body_model=FileCreateUploadURLBody,
+            options=options_data,
         )
 
 
 class AsyncFilesResource(AsyncAPIResource):
-    """(Labs) Tool router endpoints"""
-
     @cached_property
     def with_raw_response(self) -> AsyncFilesResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return AsyncFilesResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> AsyncFilesResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return AsyncFilesResourceWithStreamingResponse(self)
 
+    @overload
     async def list(
         self,
         mount_id: str,
@@ -308,168 +558,347 @@ class AsyncFilesResource(AsyncAPIResource):
         cursor: str | Omit = omit,
         limit: float | Omit = omit,
         mount_relative_prefix: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> FileListResponse: ...
+
+    @overload
+    async def list(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> FileListResponse: ...
+
+    async def list(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> FileListResponse:
-        """
-        Lists files in a workbench session storage mount with cursor-based pagination.
-        Use the download_url endpoint with the returned mount_relative_path to get a
-        presigned download URL.
-
-        Args:
-          session_id: The unique identifier of the tool router session
-
-          mount_id: ID of the storage mount
-
-          cursor: Pagination cursor from the previous response next_cursor field
-
-          limit: Maximum number of files to return per page (1-500)
-
-          mount_relative_prefix: Relative path prefix within the mount for filtering
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not session_id:
-            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
-        if not mount_id:
-            raise ValueError(f"Expected a non-empty value for `mount_id` but received {mount_id!r}")
-        return await self._get(
-            path_template(
+        mount_id, (session_id,), _legacy_body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            accepts_body=False,
+        )
+        query_fields = compact(
+            {
+                "cursor": cursor,
+                "limit": limit,
+                "mount_relative_prefix": mount_relative_prefix,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
+            build_path(
                 "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/items",
-                session_id=session_id,
-                mount_id=mount_id,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=await async_maybe_transform(
-                    {
-                        "cursor": cursor,
-                        "limit": limit,
-                        "mount_relative_prefix": mount_relative_prefix,
-                    },
-                    file_list_params.FileListParams,
-                ),
+                {"session_id": session_id, "mount_id": mount_id},
             ),
             cast_to=FileListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
+    @overload
     async def delete(
         self,
         mount_id: str,
         *,
         session_id: str,
         mount_relative_path: str,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        body: BodyParam | None = None,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileDeleteResponse: ...
+
+    @overload
+    async def delete(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileDeleteResponse: ...
+
+    @overload
+    async def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileDeleteResponse: ...
+
+    @overload
+    async def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileDeleteResponse: ...
+
+    @overload
+    async def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileDeleteResponse: ...
+
+    async def delete(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> FileDeleteResponse:
-        """Deletes a file from a workbench session storage mount.
-
-        S3 delete is idempotent —
-        deleting a non-existent file succeeds silently.
-
-        Args:
-          session_id: The unique identifier of the tool router session
-
-          mount_id: ID of the storage mount
-
-          mount_relative_path: Relative file path within the mount
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not session_id:
-            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
-        if not mount_id:
-            raise ValueError(f"Expected a non-empty value for `mount_id` but received {mount_id!r}")
-        return await self._post(
-            path_template(
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
+            build_path(
                 "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/delete",
-                session_id=session_id,
-                mount_id=mount_id,
-            ),
-            body=await async_maybe_transform(
-                {"mount_relative_path": mount_relative_path}, file_delete_params.FileDeleteParams
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                {"session_id": session_id, "mount_id": mount_id},
             ),
             cast_to=FileDeleteResponse,
+            operation=_DELETE_OPERATION,
+            body=body_data,
+            body_model=FileDeleteBody,
+            options=options_data,
         )
 
+    @overload
     async def create_download_url(
         self,
         mount_id: str,
         *,
         session_id: str,
         mount_relative_path: str,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        body: BodyParam | None = None,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateDownloadURLResponse: ...
+
+    @overload
+    async def create_download_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateDownloadURLResponse: ...
+
+    @overload
+    async def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateDownloadURLResponse: ...
+
+    @overload
+    async def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateDownloadURLResponse: ...
+
+    @overload
+    async def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateDownloadURLResponse: ...
+
+    async def create_download_url(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> FileCreateDownloadURLResponse:
-        """
-        Generates a presigned download URL for a file in a workbench session mount.
-        Accepts a relative path within the mount.
-
-        Args:
-          session_id: The unique identifier of the tool router session
-
-          mount_id: ID of the storage mount
-
-          mount_relative_path: Relative file path within the mount
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not session_id:
-            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
-        if not mount_id:
-            raise ValueError(f"Expected a non-empty value for `mount_id` but received {mount_id!r}")
-        return await self._post(
-            path_template(
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
+            build_path(
                 "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/download_url",
-                session_id=session_id,
-                mount_id=mount_id,
-            ),
-            body=await async_maybe_transform(
-                {"mount_relative_path": mount_relative_path},
-                file_create_download_url_params.FileCreateDownloadURLParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                {"session_id": session_id, "mount_id": mount_id},
             ),
             cast_to=FileCreateDownloadURLResponse,
+            operation=_CREATE_DOWNLOAD_URL_OPERATION,
+            body=body_data,
+            body_model=FileCreateDownloadURLBody,
+            options=options_data,
         )
 
+    @overload
     async def create_upload_url(
         self,
         mount_id: str,
@@ -477,125 +906,2133 @@ class AsyncFilesResource(AsyncAPIResource):
         session_id: str,
         mount_relative_path: str,
         mimetype: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        body: BodyParam | None = None,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateUploadURLResponse: ...
+
+    @overload
+    async def create_upload_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateUploadURLResponse: ...
+
+    @overload
+    async def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateUploadURLResponse: ...
+
+    @overload
+    async def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateUploadURLResponse: ...
+
+    @overload
+    async def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> FileCreateUploadURLResponse: ...
+
+    async def create_upload_url(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> FileCreateUploadURLResponse:
-        """
-        Generates a presigned upload URL for uploading a file to a workbench session
-        mount. The caller should PUT the file content directly to the returned URL.
-
-        Args:
-          session_id: The unique identifier of the tool router session
-
-          mount_id: ID of the storage mount
-
-          mount_relative_path: Supports subdirectories (e.g. "data/output.csv", "images/charts/chart.png")
-
-          mimetype: MIME type of the file being uploaded
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not session_id:
-            raise ValueError(f"Expected a non-empty value for `session_id` but received {session_id!r}")
-        if not mount_id:
-            raise ValueError(f"Expected a non-empty value for `mount_id` but received {mount_id!r}")
-        return await self._post(
-            path_template(
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+                "mimetype": mimetype,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
+            build_path(
                 "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/upload_url",
-                session_id=session_id,
-                mount_id=mount_id,
-            ),
-            body=await async_maybe_transform(
-                {
-                    "mount_relative_path": mount_relative_path,
-                    "mimetype": mimetype,
-                },
-                file_create_upload_url_params.FileCreateUploadURLParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                {"session_id": session_id, "mount_id": mount_id},
             ),
             cast_to=FileCreateUploadURLResponse,
+            operation=_CREATE_UPLOAD_URL_OPERATION,
+            body=body_data,
+            body_model=FileCreateUploadURLBody,
+            options=options_data,
         )
 
 
 class FilesResourceWithRawResponse:
-    def __init__(self, files: FilesResource) -> None:
-        self._files = files
+    def __init__(self, resource: FilesResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.list = to_raw_response_wrapper(
-            files.list,
+    @overload
+    def list(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileListResponse]: ...
+
+    @overload
+    def list(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileListResponse]: ...
+
+    def list(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileListResponse]:
+        mount_id, (session_id,), _legacy_body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            accepts_body=False,
         )
-        self.delete = to_raw_response_wrapper(
-            files.delete,
+        query_fields = compact(
+            {
+                "cursor": cursor,
+                "limit": limit,
+                "mount_relative_prefix": mount_relative_prefix,
+            }
         )
-        self.create_download_url = to_raw_response_wrapper(
-            files.create_download_url,
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.create_upload_url = to_raw_response_wrapper(
-            files.create_upload_url,
+        return self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/items",
+                {"session_id": session_id, "mount_id": mount_id},
+            ),
+            cast_to=FileListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileDeleteResponse]: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileDeleteResponse]: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileDeleteResponse]: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileDeleteResponse]: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileDeleteResponse]: ...
+
+    def delete(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileDeleteResponse]:
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/delete",
+                {"session_id": session_id, "mount_id": mount_id},
+            ),
+            cast_to=FileDeleteResponse,
+            operation=_DELETE_OPERATION,
+            body=body_data,
+            body_model=FileDeleteBody,
+            options=options_data,
+        )
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileCreateDownloadURLResponse]: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileCreateDownloadURLResponse]: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileCreateDownloadURLResponse]: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileCreateDownloadURLResponse]: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileCreateDownloadURLResponse]: ...
+
+    def create_download_url(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileCreateDownloadURLResponse]:
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/download_url",
+                {"session_id": session_id, "mount_id": mount_id},
+            ),
+            cast_to=FileCreateDownloadURLResponse,
+            operation=_CREATE_DOWNLOAD_URL_OPERATION,
+            body=body_data,
+            body_model=FileCreateDownloadURLBody,
+            options=options_data,
+        )
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileCreateUploadURLResponse]: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileCreateUploadURLResponse]: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileCreateUploadURLResponse]: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileCreateUploadURLResponse]: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileCreateUploadURLResponse]: ...
+
+    def create_upload_url(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[FileCreateUploadURLResponse]:
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+                "mimetype": mimetype,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/upload_url",
+                {"session_id": session_id, "mount_id": mount_id},
+            ),
+            cast_to=FileCreateUploadURLResponse,
+            operation=_CREATE_UPLOAD_URL_OPERATION,
+            body=body_data,
+            body_model=FileCreateUploadURLBody,
+            options=options_data,
         )
 
 
 class AsyncFilesResourceWithRawResponse:
-    def __init__(self, files: AsyncFilesResource) -> None:
-        self._files = files
+    def __init__(self, resource: AsyncFilesResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.list = async_to_raw_response_wrapper(
-            files.list,
+    @overload
+    async def list(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileListResponse]: ...
+
+    @overload
+    async def list(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileListResponse]: ...
+
+    async def list(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileListResponse]:
+        mount_id, (session_id,), _legacy_body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            accepts_body=False,
         )
-        self.delete = async_to_raw_response_wrapper(
-            files.delete,
+        query_fields = compact(
+            {
+                "cursor": cursor,
+                "limit": limit,
+                "mount_relative_prefix": mount_relative_prefix,
+            }
         )
-        self.create_download_url = async_to_raw_response_wrapper(
-            files.create_download_url,
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.create_upload_url = async_to_raw_response_wrapper(
-            files.create_upload_url,
+        return await self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/items",
+                {"session_id": session_id, "mount_id": mount_id},
+            ),
+            cast_to=FileListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    @overload
+    async def delete(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileDeleteResponse]: ...
+
+    @overload
+    async def delete(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileDeleteResponse]: ...
+
+    @overload
+    async def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileDeleteResponse]: ...
+
+    @overload
+    async def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileDeleteResponse]: ...
+
+    @overload
+    async def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileDeleteResponse]: ...
+
+    async def delete(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileDeleteResponse]:
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/delete",
+                {"session_id": session_id, "mount_id": mount_id},
+            ),
+            cast_to=FileDeleteResponse,
+            operation=_DELETE_OPERATION,
+            body=body_data,
+            body_model=FileDeleteBody,
+            options=options_data,
+        )
+
+    @overload
+    async def create_download_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileCreateDownloadURLResponse]: ...
+
+    @overload
+    async def create_download_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileCreateDownloadURLResponse]: ...
+
+    @overload
+    async def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileCreateDownloadURLResponse]: ...
+
+    @overload
+    async def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileCreateDownloadURLResponse]: ...
+
+    @overload
+    async def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileCreateDownloadURLResponse]: ...
+
+    async def create_download_url(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileCreateDownloadURLResponse]:
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/download_url",
+                {"session_id": session_id, "mount_id": mount_id},
+            ),
+            cast_to=FileCreateDownloadURLResponse,
+            operation=_CREATE_DOWNLOAD_URL_OPERATION,
+            body=body_data,
+            body_model=FileCreateDownloadURLBody,
+            options=options_data,
+        )
+
+    @overload
+    async def create_upload_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileCreateUploadURLResponse]: ...
+
+    @overload
+    async def create_upload_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileCreateUploadURLResponse]: ...
+
+    @overload
+    async def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileCreateUploadURLResponse]: ...
+
+    @overload
+    async def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileCreateUploadURLResponse]: ...
+
+    @overload
+    async def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileCreateUploadURLResponse]: ...
+
+    async def create_upload_url(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[FileCreateUploadURLResponse]:
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+                "mimetype": mimetype,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/upload_url",
+                {"session_id": session_id, "mount_id": mount_id},
+            ),
+            cast_to=FileCreateUploadURLResponse,
+            operation=_CREATE_UPLOAD_URL_OPERATION,
+            body=body_data,
+            body_model=FileCreateUploadURLBody,
+            options=options_data,
         )
 
 
 class FilesResourceWithStreamingResponse:
-    def __init__(self, files: FilesResource) -> None:
-        self._files = files
+    def __init__(self, resource: FilesResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.list = to_streamed_response_wrapper(
-            files.list,
+    @overload
+    def list(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileListResponse]]: ...
+
+    @overload
+    def list(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileListResponse]]: ...
+
+    def list(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileListResponse]]:
+        mount_id, (session_id,), _legacy_body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            accepts_body=False,
         )
-        self.delete = to_streamed_response_wrapper(
-            files.delete,
+        query_fields = compact(
+            {
+                "cursor": cursor,
+                "limit": limit,
+                "mount_relative_prefix": mount_relative_prefix,
+            }
         )
-        self.create_download_url = to_streamed_response_wrapper(
-            files.create_download_url,
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.create_upload_url = to_streamed_response_wrapper(
-            files.create_upload_url,
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/items",
+                    {"session_id": session_id, "mount_id": mount_id},
+                ),
+                cast_to=FileListResponse,
+                operation=_LIST_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileDeleteResponse]]: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileDeleteResponse]]: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileDeleteResponse]]: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileDeleteResponse]]: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileDeleteResponse]]: ...
+
+    def delete(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileDeleteResponse]]:
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/delete",
+                    {"session_id": session_id, "mount_id": mount_id},
+                ),
+                cast_to=FileDeleteResponse,
+                operation=_DELETE_OPERATION,
+                body=body_data,
+                body_model=FileDeleteBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileCreateDownloadURLResponse]]: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileCreateDownloadURLResponse]]: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileCreateDownloadURLResponse]]: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileCreateDownloadURLResponse]]: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileCreateDownloadURLResponse]]: ...
+
+    def create_download_url(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileCreateDownloadURLResponse]]:
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/download_url",
+                    {"session_id": session_id, "mount_id": mount_id},
+                ),
+                cast_to=FileCreateDownloadURLResponse,
+                operation=_CREATE_DOWNLOAD_URL_OPERATION,
+                body=body_data,
+                body_model=FileCreateDownloadURLBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileCreateUploadURLResponse]]: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileCreateUploadURLResponse]]: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileCreateUploadURLResponse]]: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileCreateUploadURLResponse]]: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileCreateUploadURLResponse]]: ...
+
+    def create_upload_url(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[FileCreateUploadURLResponse]]:
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+                "mimetype": mimetype,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/upload_url",
+                    {"session_id": session_id, "mount_id": mount_id},
+                ),
+                cast_to=FileCreateUploadURLResponse,
+                operation=_CREATE_UPLOAD_URL_OPERATION,
+                body=body_data,
+                body_model=FileCreateUploadURLBody,
+                options=options_data,
+                stream=True,
+            )
         )
 
 
 class AsyncFilesResourceWithStreamingResponse:
-    def __init__(self, files: AsyncFilesResource) -> None:
-        self._files = files
+    def __init__(self, resource: AsyncFilesResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.list = async_to_streamed_response_wrapper(
-            files.list,
+    @overload
+    def list(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileListResponse]]: ...
+
+    @overload
+    def list(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileListResponse]]: ...
+
+    def list(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        cursor: str | Omit = omit,
+        limit: float | Omit = omit,
+        mount_relative_prefix: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileListResponse]]:
+        mount_id, (session_id,), _legacy_body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            accepts_body=False,
         )
-        self.delete = async_to_streamed_response_wrapper(
-            files.delete,
+        query_fields = compact(
+            {
+                "cursor": cursor,
+                "limit": limit,
+                "mount_relative_prefix": mount_relative_prefix,
+            }
         )
-        self.create_download_url = async_to_streamed_response_wrapper(
-            files.create_download_url,
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.create_upload_url = async_to_streamed_response_wrapper(
-            files.create_upload_url,
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/items",
+                    {"session_id": session_id, "mount_id": mount_id},
+                ),
+                cast_to=FileListResponse,
+                operation=_LIST_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileDeleteResponse]]: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileDeleteResponse]]: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileDeleteResponse]]: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileDeleteResponse]]: ...
+
+    @overload
+    def delete(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileDeleteResponse]]: ...
+
+    def delete(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileDeleteResponse]]:
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/delete",
+                    {"session_id": session_id, "mount_id": mount_id},
+                ),
+                cast_to=FileDeleteResponse,
+                operation=_DELETE_OPERATION,
+                body=body_data,
+                body_model=FileDeleteBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileCreateDownloadURLResponse]]: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileCreateDownloadURLResponse]]: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileCreateDownloadURLResponse]]: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileCreateDownloadURLResponse]]: ...
+
+    @overload
+    def create_download_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileCreateDownloadURLResponse]]: ...
+
+    def create_download_url(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileCreateDownloadURLResponse]]:
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/download_url",
+                    {"session_id": session_id, "mount_id": mount_id},
+                ),
+                cast_to=FileCreateDownloadURLResponse,
+                operation=_CREATE_DOWNLOAD_URL_OPERATION,
+                body=body_data,
+                body_model=FileCreateDownloadURLBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileCreateUploadURLResponse]]: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        *,
+        session_id: str,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileCreateUploadURLResponse]]: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileCreateUploadURLResponse]]: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileCreateUploadURLResponse]]: ...
+
+    @overload
+    def create_upload_url(
+        self,
+        mount_id: str,
+        legacy_path: str,
+        legacy_body: BodyParam,
+        /,
+        *,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileCreateUploadURLResponse]]: ...
+
+    def create_upload_url(
+        self,
+        mount_id: str,
+        *legacy_args: object,
+        session_id: str | None = None,
+        mount_relative_path: str | Omit = omit,
+        mimetype: str | Omit = omit,
+        body: BodyParam | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[FileCreateUploadURLResponse]]:
+        mount_id, (session_id,), body = normalize_path_arguments(
+            mount_id,
+            legacy_args,
+            leading_values=(session_id,),
+            leading_names=("session_id",),
+            trailing_name="mount_id",
+            body=body,
+            accepts_body=True,
+        )
+        body_fields = compact(
+            {
+                "mount_relative_path": mount_relative_path,
+                "mimetype": mimetype,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("mount_relative_path",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/tool_router/session/{session_id}/mounts/{mount_id}/upload_url",
+                    {"session_id": session_id, "mount_id": mount_id},
+                ),
+                cast_to=FileCreateUploadURLResponse,
+                operation=_CREATE_UPLOAD_URL_OPERATION,
+                body=body_data,
+                body_model=FileCreateUploadURLBody,
+                options=options_data,
+                stream=True,
+            )
         )

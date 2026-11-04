@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.resource_ios import ResourceTypes
 from cognite_toolkit._cdf_tk.resource_ios._base_ios import ReadExtra, ResourceType
 from cognite_toolkit._cdf_tk.yaml_classes.base import T_Resource, ToolkitResource
 
-from ._insights import BuildError, BuildWarning
+from ._insights import BuildError, BuildWarning, Recommendation
 from ._types import AbsoluteFilePath, RelativeDirPath, RelativeFilePath
 
 FileSuffix: TypeAlias = Literal[".yaml", ".sql", ".yml", ".json", ".md", ".ttl"]
@@ -333,17 +333,17 @@ class FailedReadYAMLFile(ReadYAMLFile):
 class ReadResource(BaseModel, Generic[T_Resource]):
     raw: dict[str, JsonValue | datetime]
     identifier: Identifier
+    resource_type: ResourceType
     validated: ToolkitResource | None = None
     extra_files: list[ReadExtra] = Field(default_factory=list)
 
 
 class SuccessfulReadYAMLFile(ReadYAMLFile):
     source_hash: str
-    resource_type: ResourceType
     source_type: ResourceType
     resources: list[ReadResource[ToolkitResource]]
     syntax_error: BuildError | None = None
-    syntax_warnings: list[BuildWarning] = Field(default_factory=list)
+    syntax_warnings: list[BuildWarning | Recommendation] = Field(default_factory=list)
     line_count: int
     rules_ignore: set[str] = Field(default_factory=set, description="The set of rules to ignore for this file. ")
 

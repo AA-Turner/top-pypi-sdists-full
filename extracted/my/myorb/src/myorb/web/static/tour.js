@@ -162,6 +162,8 @@
 
   // Once the part is on the screen and stays where it is (or after a while without): slid in
   // with its screen, or loaded into a dialog just opened. So the box is placed by where it stays.
+  // A dialog that loads anew as it opens (the brief) first shows what it had: the part is the
+  // one in place once that load is done, not the one it replaces.
   const settled = (selector, then) => {
     const since = Date.now();
     let last = null;
@@ -169,7 +171,8 @@
       const box = selector && document.querySelector(selector)?.getBoundingClientRect();
       const at = box ? [box.left, box.top, box.height].map(Math.round).join() : null;
       const inView = box && box.height > 0 && box.left >= -1 && box.right <= innerWidth + 1;
-      if ((inView && at === last) || Date.now() - since > 2500) then();
+      const loading = document.querySelector("dialog[open] :is(.htmx-request, .htmx-settling)");
+      if ((inView && !loading && at === last) || Date.now() - since > 2500) then();
       else {
         last = at;
         setTimeout(check, 100);

@@ -17,7 +17,9 @@ T = TypeVar("T", bound="TelemetryWatermarkResponse")
 class TelemetryWatermarkResponse:
     """
     Attributes:
-        updated_at (datetime.datetime | None | Unset):
+        updated_at (datetime.datetime | None | Unset): When a pipeline run in the workspace was last recorded or
+            updated; `null` when there are none. If it is older than the time range you read, empty results may mean
+            telemetry is behind rather than that nothing ran.
     """
 
     updated_at: datetime.datetime | None | Unset = UNSET

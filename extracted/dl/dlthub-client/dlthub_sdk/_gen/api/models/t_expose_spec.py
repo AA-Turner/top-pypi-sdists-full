@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.t_expose_spec_category import TExposeSpecCategory
-from ..models.t_expose_spec_interface import TExposeSpecInterface
+from ..models.t_expose_spec_category_type_0 import TExposeSpecCategoryType0
+from ..models.t_expose_spec_interface_type_0 import TExposeSpecInterfaceType0
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -21,18 +21,18 @@ T = TypeVar("T", bound="TExposeSpec")
 class TExposeSpec:
     """
     Attributes:
-        category (TExposeSpecCategory | Unset):
+        category (str | TExposeSpecCategoryType0 | Unset):
         display_name (str | Unset):
-        interface (TExposeSpecInterface | Unset):
+        interface (str | TExposeSpecInterfaceType0 | Unset):
         manual (bool | Unset):
         object_input (TJobObjectInput | Unset):
         starred (bool | Unset):
         tags (list[str] | str | Unset):
     """
 
-    category: TExposeSpecCategory | Unset = UNSET
+    category: str | TExposeSpecCategoryType0 | Unset = UNSET
     display_name: str | Unset = UNSET
-    interface: TExposeSpecInterface | Unset = UNSET
+    interface: str | TExposeSpecInterfaceType0 | Unset = UNSET
     manual: bool | Unset = UNSET
     object_input: TJobObjectInput | Unset = UNSET
     starred: bool | Unset = UNSET
@@ -40,15 +40,23 @@ class TExposeSpec:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        category: str | Unset = UNSET
-        if not isinstance(self.category, Unset):
+        category: str | Unset
+        if isinstance(self.category, Unset):
+            category = UNSET
+        elif isinstance(self.category, TExposeSpecCategoryType0):
             category = self.category.value
+        else:
+            category = self.category
 
         display_name = self.display_name
 
-        interface: str | Unset = UNSET
-        if not isinstance(self.interface, Unset):
+        interface: str | Unset
+        if isinstance(self.interface, Unset):
+            interface = UNSET
+        elif isinstance(self.interface, TExposeSpecInterfaceType0):
             interface = self.interface.value
+        else:
+            interface = self.interface
 
         manual = self.manual
 
@@ -92,21 +100,38 @@ class TExposeSpec:
         from ..models.t_job_object_input import TJobObjectInput
 
         d = dict(src_dict)
-        _category = d.pop("category", UNSET)
-        category: TExposeSpecCategory | Unset
-        if isinstance(_category, Unset):
-            category = UNSET
-        else:
-            category = TExposeSpecCategory(_category)
+
+        def _parse_category(data: object) -> str | TExposeSpecCategoryType0 | Unset:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                category_type_0 = TExposeSpecCategoryType0(data)
+
+                return category_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(str | TExposeSpecCategoryType0 | Unset, data)
+
+        category = _parse_category(d.pop("category", UNSET))
 
         display_name = d.pop("display_name", UNSET)
 
-        _interface = d.pop("interface", UNSET)
-        interface: TExposeSpecInterface | Unset
-        if isinstance(_interface, Unset):
-            interface = UNSET
-        else:
-            interface = TExposeSpecInterface(_interface)
+        def _parse_interface(data: object) -> str | TExposeSpecInterfaceType0 | Unset:
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                interface_type_0 = TExposeSpecInterfaceType0(data)
+
+                return interface_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(str | TExposeSpecInterfaceType0 | Unset, data)
+
+        interface = _parse_interface(d.pop("interface", UNSET))
 
         manual = d.pop("manual", UNSET)
 

@@ -8,6 +8,7 @@ same OTLP endpoint used for traces so Chronos can store them alongside spans.
 from __future__ import annotations
 
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +62,27 @@ def instrument_system_metrics(
 
     # Route the batch by header so chronos doesn't have to peek into the
     # OTLP payload to recover the session id (see useplato/plato#2962).
-    exporter = OTLPMetricExporter(
-        endpoint=f"{otlp_endpoint.rstrip('/')}/v1/metrics",
-        headers={"X-Plato-Session-Id": session_id},
-    )
+    #
+    # Per-request timeout for the OTLP HTTP POST. The upstream default is 10s,
+    # which we routinely hit under bursty chronos load (the backend returns
+    # 502 or responds slower than 10s). The exporter only retries on
+    # ConnectionError — a read timeout bubbles all the way up and is logged
+    # as a noisy urllib3 traceback — so a too-short timeout both loses the
+    # batch and spams logs. Bump the default to 30s (matching the trace
+    # exporter in plato/otel.py), but defer to the OTel SDK's native env-var
+    # resolution when OTEL_EXPORTER_OTLP_METRICS_TIMEOUT (signal-specific,
+    # takes precedence per spec) or OTEL_EXPORTER_OTLP_TIMEOUT is set —
+    # passing timeout= ourselves would shadow those env vars.
+    metrics_endpoint = f"{otlp_endpoint.rstrip('/')}/v1/metrics"
+    metrics_headers = {"X-Plato-Session-Id": session_id}
+    if "OTEL_EXPORTER_OTLP_METRICS_TIMEOUT" in os.environ or "OTEL_EXPORTER_OTLP_TIMEOUT" in os.environ:
+        exporter = OTLPMetricExporter(endpoint=metrics_endpoint, headers=metrics_headers)
+    else:
+        exporter = OTLPMetricExporter(
+            endpoint=metrics_endpoint,
+            headers=metrics_headers,
+            timeout=30,
+        )
     reader = PeriodicExportingMetricReader(
         exporter,
         export_interval_millis=int(collect_interval_s * 1000),

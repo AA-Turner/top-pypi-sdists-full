@@ -549,6 +549,34 @@ def test_init_ray_forwards_lance_metrics_env(monkeypatch) -> None:
     assert env_vars["LANCE_OBJECT_STORE_METRICS_LABEL"] == "full"
 
 
+def test_init_ray_forwards_compaction_pause_env(monkeypatch) -> None:
+    """Compaction-pause settings reach Ray workers so drivers can pause (GEN-994)."""
+    import geneva.runners.ray._mgr as ray_mgr_mod
+
+    ray_init_called: dict[str, Any] = {}
+
+    def mock_ray_init(*args: Any, **kwargs: Any) -> None:
+        ray_init_called["kwargs"] = kwargs
+
+    monkeypatch.setattr("ray.init", mock_ray_init)
+    monkeypatch.setattr("ray.shutdown", lambda: None)
+    monkeypatch.setattr("ray.is_initialized", lambda: False)
+    monkeypatch.setenv("GENEVA_COMPACTION_PAUSE__ENABLED", "true")
+    monkeypatch.setenv(
+        "GENEVA_COMPACTION_PAUSE__JOB_REGISTRY_ROOT_URI", "s3://bucket/system"
+    )
+
+    with ray_mgr_mod.ray_cluster(local=True):
+        pass
+
+    env_vars = ray_init_called["kwargs"]["runtime_env"]["env_vars"]
+    assert env_vars["GENEVA_COMPACTION_PAUSE__ENABLED"] == "true"
+    assert (
+        env_vars["GENEVA_COMPACTION_PAUSE__JOB_REGISTRY_ROOT_URI"]
+        == "s3://bucket/system"
+    )
+
+
 def test_init_ray_sets_telemetry_init_flag(monkeypatch) -> None:
     """Workers get the telemetry init-on-import flag; extra_env overrides."""
     import geneva.runners.ray._mgr as ray_mgr_mod

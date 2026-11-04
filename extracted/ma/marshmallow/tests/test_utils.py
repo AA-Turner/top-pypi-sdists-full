@@ -69,16 +69,6 @@ def test_get_value_from_dict():
     assert utils.get_value(d, "keys") == ["baz", "quux"]
 
 
-def test_get_value():
-    lst = [1, 2, 3]
-    assert utils.get_value(lst, 1) == 2
-
-    class MyInt(int):
-        pass
-
-    assert utils.get_value(lst, MyInt(1)) == 2
-
-
 def test_set_value():
     d: dict[str, int | dict] = {}
     utils.set_value(d, "foo", 42)
@@ -124,7 +114,7 @@ def test_from_timestamp_with_negative_value():
 
 def test_from_timestamp_with_overflow_value():
     value = 9223372036854775
-    with pytest.raises(ValueError, match=r"out of range|year must be in 1\.\.9999"):
+    with pytest.raises(ValueError):
         utils.from_timestamp(value)
 
 

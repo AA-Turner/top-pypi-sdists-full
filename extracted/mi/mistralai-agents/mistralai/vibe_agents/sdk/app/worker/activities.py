@@ -63,7 +63,7 @@ from mistralai.vibe.harness.runtime.hosts.workflows.mcp import (
     WorkflowMcpListToolsActivityResult,
 )
 from mistralai.vibe_agents.sdk.app.worker import sandbox_access
-from mistralai.vibe_agents.sdk.app.worker.heartbeat import heartbeat_while_running
+from mistralai.vibe_agents.sdk.app.worker.heartbeat import heartbeat_while_running, stop_when_cancelled
 from mistralai.vibe_agents.sdk.assembly import capabilities, connectors
 from mistralai.vibe_agents.sdk.assembly.stateful import SavedStateTooLargeError, StateMap
 
@@ -129,7 +129,8 @@ async def invoke_agent_tool(
 ) -> CapabilityActivityResult:
     """Invoke an authored Tool whose side effects must not repeat after a lost execution."""
 
-    async with heartbeat_while_running():
+    # An interrupt stops the tool within about a second; the worker's heartbeat alone takes up to 48 s.
+    async with heartbeat_while_running(), stop_when_cancelled():
         # Race the call against the deadline: a tool that ignores cancellation must not hold the call.
         call = asyncio.create_task(_invoke_agent_capability(definition, binding_id, invocation, None, state))
         try:

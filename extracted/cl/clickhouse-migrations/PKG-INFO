@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clickhouse-migrations
-Version: 0.16.1
+Version: 0.16.2
 Summary: Simple file-based migrations for clickhouse
 Author-email: Aleh Strakachuk <zifter.ai+clickhouse.migrations@gmail.com>
 License: MIT

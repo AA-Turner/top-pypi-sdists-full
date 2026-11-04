@@ -29,7 +29,7 @@ from cc_transcript.models import AttachmentEvent, QueuedCommand, UserEvent
 from cc_transcript.tools import AskUserQuestionResult, parse_tool_result
 
 from captain_hook.tickets.records import Answer, Evidence, Proposal
-from captain_hook.transcripts import LazyTranscript
+from captain_hook.transcripts import LazyTranscript, root_excerpt
 from captain_hook.util import reqenv
 
 if TYPE_CHECKING:
@@ -457,7 +457,7 @@ class TranscriptSources:
 
     Attributes:
         evt: The event being decided.
-        needles: Text whose root-session mentions are read however far back they sit.
+        needles: Text whose mentions in the session whose prompts are the user's are read however far back they sit.
         window: How many recent messages of each session to read.
         machine: Markers of a prompt a tool wrote on the user's behalf; such a prompt is never their words.
     """
@@ -468,10 +468,14 @@ class TranscriptSources:
     machine: tuple[str, ...] = ()
 
     def sessions(self) -> list[tuple[Session | RemoteSession, bool]]:
-        """The sessions to read from, each with whether its prompts are the user's."""
+        """The sessions to read from, each with whether its prompts are the user's.
+
+        A lazy transcript reaching here selected its own tail or brought its own loader, and keeps that scope.
+        """
         ctx = self.evt.ctx
         if (root := ctx.root_transcript) is None:
-            return [(ctx.t, True)]
+            path = None if isinstance(ctx.transcript, LazyTranscript) or not self.needles else ctx.transcript_path
+            return [*([(root_excerpt(path, self.needles), True)] if path else []), (ctx.t, True)]
         excerpt = ctx.root_excerpt(self.needles) if self.needles else None
         return [*([(excerpt, True)] if excerpt is not None else []), (resolved(root), True), (ctx.t, False)]
 
@@ -490,13 +494,14 @@ class TranscriptSources:
 
         items: dict[str, Evidence] = {}
         with sessions(self) as sources:
+            contiguous = next((source for source in reversed(sources) if source.prompts_are_user), None)
             for source in sources:
                 prompts_are_user = source.prompts_are_user
                 turns = instruction_turns(source, self.window)
                 offered = {
                     turn.prompt: before.assistant_tail
                     for before, turn in pairwise(turns)
-                    if prompts_are_user and before.assistant_tail and turn.prompt
+                    if source is contiguous and before.assistant_tail and turn.prompt
                 }
                 for turn in turns:
                     said: list[tuple[str, datetime | None, str, str]] = []

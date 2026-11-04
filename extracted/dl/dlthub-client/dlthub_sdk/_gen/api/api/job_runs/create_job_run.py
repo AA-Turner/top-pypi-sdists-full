@@ -103,20 +103,24 @@ def sync_detailed(
 ) -> Response[DetailedJobRunResponse | ErrorResponse]:
     """CreateJobRun
 
-    Triggers a new run for a job in a workspace. The latest job version will be used. The profile
-    associated with the job version will be used, of which
-    the latest profile_version will be used. You may specify a specific profile to use.
+    Starts a run of the job's latest version with the workspace's latest deployment and
+    configuration, under `profile` or the job's own profile. A paused job still runs; pausing
+    only stops scheduled runs.
 
-    The mode parameter controls run creation behavior:
-    - 'always' (default): Always creates a new run
-    - 'when_not_running': Returns an existing active run (200) if one exists, otherwise creates a new
-    one
+    `mode` controls run creation:
+    - `always` (default): always creates a new run (201).
+    - `when_not_running`: returns the job's pending, starting or running run (200) if it has one,
+      otherwise creates a new one (201).
 
-    A run the platform declines to start — upstream not fresh, outside the job's interval, a
-    concurrency limit, an expired trial or exhausted compute minutes — answers 409 or 403 with a
-    `code` naming why and the reasons in `extra`.
+    Answers 400 for an archived job, and 404 when the job has no version or the workspace has no
+    deployment or configuration yet. A run the platform declines to start answers 409 or 403 with
+    a `code` naming why and the reasons in `extra`: `upstream_not_fresh`, `outside_job_interval`,
+    `job_concurrency_limit`, `organization_concurrency_limit` (409), `trial_expired`,
+    `compute_minutes_exhausted` (403), or `run_not_started` for any other reason (409).
 
-    Requires CREATE_RUN permission on the workspace.
+    Requires the viewer role (or higher) in the workspace. Viewers may only run jobs that use the
+    read-only `access` profile (by default interactive and agent jobs); any other profile needs
+    the developer role and answers 403.
 
     Args:
         workspace_id (UUID):
@@ -149,20 +153,24 @@ def sync(
 ) -> DetailedJobRunResponse | ErrorResponse | None:
     """CreateJobRun
 
-    Triggers a new run for a job in a workspace. The latest job version will be used. The profile
-    associated with the job version will be used, of which
-    the latest profile_version will be used. You may specify a specific profile to use.
+    Starts a run of the job's latest version with the workspace's latest deployment and
+    configuration, under `profile` or the job's own profile. A paused job still runs; pausing
+    only stops scheduled runs.
 
-    The mode parameter controls run creation behavior:
-    - 'always' (default): Always creates a new run
-    - 'when_not_running': Returns an existing active run (200) if one exists, otherwise creates a new
-    one
+    `mode` controls run creation:
+    - `always` (default): always creates a new run (201).
+    - `when_not_running`: returns the job's pending, starting or running run (200) if it has one,
+      otherwise creates a new one (201).
 
-    A run the platform declines to start — upstream not fresh, outside the job's interval, a
-    concurrency limit, an expired trial or exhausted compute minutes — answers 409 or 403 with a
-    `code` naming why and the reasons in `extra`.
+    Answers 400 for an archived job, and 404 when the job has no version or the workspace has no
+    deployment or configuration yet. A run the platform declines to start answers 409 or 403 with
+    a `code` naming why and the reasons in `extra`: `upstream_not_fresh`, `outside_job_interval`,
+    `job_concurrency_limit`, `organization_concurrency_limit` (409), `trial_expired`,
+    `compute_minutes_exhausted` (403), or `run_not_started` for any other reason (409).
 
-    Requires CREATE_RUN permission on the workspace.
+    Requires the viewer role (or higher) in the workspace. Viewers may only run jobs that use the
+    read-only `access` profile (by default interactive and agent jobs); any other profile needs
+    the developer role and answers 403.
 
     Args:
         workspace_id (UUID):
@@ -190,20 +198,24 @@ async def asyncio_detailed(
 ) -> Response[DetailedJobRunResponse | ErrorResponse]:
     """CreateJobRun
 
-    Triggers a new run for a job in a workspace. The latest job version will be used. The profile
-    associated with the job version will be used, of which
-    the latest profile_version will be used. You may specify a specific profile to use.
+    Starts a run of the job's latest version with the workspace's latest deployment and
+    configuration, under `profile` or the job's own profile. A paused job still runs; pausing
+    only stops scheduled runs.
 
-    The mode parameter controls run creation behavior:
-    - 'always' (default): Always creates a new run
-    - 'when_not_running': Returns an existing active run (200) if one exists, otherwise creates a new
-    one
+    `mode` controls run creation:
+    - `always` (default): always creates a new run (201).
+    - `when_not_running`: returns the job's pending, starting or running run (200) if it has one,
+      otherwise creates a new one (201).
 
-    A run the platform declines to start — upstream not fresh, outside the job's interval, a
-    concurrency limit, an expired trial or exhausted compute minutes — answers 409 or 403 with a
-    `code` naming why and the reasons in `extra`.
+    Answers 400 for an archived job, and 404 when the job has no version or the workspace has no
+    deployment or configuration yet. A run the platform declines to start answers 409 or 403 with
+    a `code` naming why and the reasons in `extra`: `upstream_not_fresh`, `outside_job_interval`,
+    `job_concurrency_limit`, `organization_concurrency_limit` (409), `trial_expired`,
+    `compute_minutes_exhausted` (403), or `run_not_started` for any other reason (409).
 
-    Requires CREATE_RUN permission on the workspace.
+    Requires the viewer role (or higher) in the workspace. Viewers may only run jobs that use the
+    read-only `access` profile (by default interactive and agent jobs); any other profile needs
+    the developer role and answers 403.
 
     Args:
         workspace_id (UUID):
@@ -234,20 +246,24 @@ async def asyncio(
 ) -> DetailedJobRunResponse | ErrorResponse | None:
     """CreateJobRun
 
-    Triggers a new run for a job in a workspace. The latest job version will be used. The profile
-    associated with the job version will be used, of which
-    the latest profile_version will be used. You may specify a specific profile to use.
+    Starts a run of the job's latest version with the workspace's latest deployment and
+    configuration, under `profile` or the job's own profile. A paused job still runs; pausing
+    only stops scheduled runs.
 
-    The mode parameter controls run creation behavior:
-    - 'always' (default): Always creates a new run
-    - 'when_not_running': Returns an existing active run (200) if one exists, otherwise creates a new
-    one
+    `mode` controls run creation:
+    - `always` (default): always creates a new run (201).
+    - `when_not_running`: returns the job's pending, starting or running run (200) if it has one,
+      otherwise creates a new one (201).
 
-    A run the platform declines to start — upstream not fresh, outside the job's interval, a
-    concurrency limit, an expired trial or exhausted compute minutes — answers 409 or 403 with a
-    `code` naming why and the reasons in `extra`.
+    Answers 400 for an archived job, and 404 when the job has no version or the workspace has no
+    deployment or configuration yet. A run the platform declines to start answers 409 or 403 with
+    a `code` naming why and the reasons in `extra`: `upstream_not_fresh`, `outside_job_interval`,
+    `job_concurrency_limit`, `organization_concurrency_limit` (409), `trial_expired`,
+    `compute_minutes_exhausted` (403), or `run_not_started` for any other reason (409).
 
-    Requires CREATE_RUN permission on the workspace.
+    Requires the viewer role (or higher) in the workspace. Viewers may only run jobs that use the
+    read-only `access` profile (by default interactive and agent jobs); any other profile needs
+    the developer role and answers 403.
 
     Args:
         workspace_id (UUID):

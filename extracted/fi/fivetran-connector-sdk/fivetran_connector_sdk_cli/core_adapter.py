@@ -34,11 +34,15 @@ class ConnectorSource:
         self.connector.run_update(configuration, state)
 
 
-def run(connector, project_path: str, configuration, state, apply_renaming: bool = True, destination=None, state_path=None):
+def run(connector, project_path: str, configuration, state, apply_renaming: bool = True, destination=None, state_path=None,
+        fixture_dir: str = None):
     """Runs `connector` in this process against `<project_path>/files/warehouse.db`, or against the Iceberg catalog `destination` (the
-    content of destination.json) describes, with the SDK's logging."""
+    content of destination.json) describes, with the SDK's logging. `fixture_dir` replaces `<project_path>/files/` (record uses it to
+    leave `files/` untouched)."""
     try:
-        return core.run(ConnectorSource(connector), project_path, configuration, state, apply_renaming, destination, state_path)
+        arguments = (ConnectorSource(connector), project_path, configuration, state, apply_renaming, destination, state_path)
+        # Only record and replay pass fixture_dir, so an ordinary run keeps the call that earlier cores accept.
+        return core.run(*arguments, fixture_dir) if fixture_dir else core.run(*arguments)
     finally:
         # Not when update() returns: the core still flushes and writes the state after that, and a connector thread that is
         # still emitting then is accepted, as it always was.

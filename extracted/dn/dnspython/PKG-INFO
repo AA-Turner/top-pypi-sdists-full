@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dnspython
-Version: 2.9.1
+Version: 2.9.2
 Summary: DNS toolkit
 Author: Bob Halley
 Author-email: Bob Halley <halley@dnspython.org>
@@ -85,7 +85,7 @@ testing of DNS software.
 
 ## ABOUT THIS RELEASE
 
-This is `dnspython` 2.9.1.
+This is `dnspython` 2.9.2.
 Please read
 [What's New](https://dnspython.readthedocs.io/en/stable/whatsnew.html) for
 information about the changes in this release.

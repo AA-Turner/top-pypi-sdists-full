@@ -39,6 +39,12 @@ class ServerFeaturesMixin:
             self._server_features_cache = feats
         return name in feats
 
+    def _forget_server_features(self) -> None:
+        """Ask again on the next look, for a client kept longer than one deployment may live:
+        the outbox worker's (I13), reused across its passes."""
+        self._server_features_cache = None
+        self._team_features_cache = None
+
     def supports_team_feature(self, name: str) -> bool:
         """Whether ``GET /v1/teams/features`` lists ``name`` for this client's team.
 

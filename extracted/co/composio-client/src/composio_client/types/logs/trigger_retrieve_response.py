@@ -1,66 +1,54 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.logs.trigger_retrieve_response."""
 
-from typing import Optional
-from typing_extensions import Literal
+from __future__ import annotations
 
-from pydantic import Field as FieldInfo
+from typing import Literal, Optional
 
-from ..._models import BaseModel
-
-__all__ = ["TriggerRetrieveResponse", "Log", "LogMeta"]
+from pydantic import ConfigDict, Field
+from ..._base_model import BaseModel
 
 
 class LogMeta(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    client_id: str = Field(alias="clientId")
+    connection_id: str = Field(alias="connectionId")
+    created_at: str = Field(alias="createdAt")
     id: str
-
-    client_id: str = FieldInfo(alias="clientId")
-
-    connection_id: str = FieldInfo(alias="connectionId")
-
-    created_at: str = FieldInfo(alias="createdAt")
-
     provider: str
-
-    type: Literal["trigger", "action"]
-    """Log entity type (trigger or action)"""
-
-    updated_at: str = FieldInfo(alias="updatedAt")
-
-    trigger_client_error: Optional[str] = FieldInfo(alias="triggerClientError", default=None)
-
-    trigger_client_payload: Optional[str] = FieldInfo(alias="triggerClientPayload", default=None)
-
-    trigger_client_response: Optional[str] = FieldInfo(alias="triggerClientResponse", default=None)
-
-    trigger_id: Optional[str] = FieldInfo(alias="triggerId", default=None)
-
-    trigger_name: Optional[str] = FieldInfo(alias="triggerName", default=None)
-
-    trigger_nano_id: Optional[str] = FieldInfo(alias="triggerNanoId", default=None)
-
-    trigger_provider_payload: Optional[str] = FieldInfo(alias="triggerProviderPayload", default=None)
+    trigger_client_error: Optional[str] = Field(default=None, alias="triggerClientError")
+    trigger_client_payload: Optional[str] = Field(default=None, alias="triggerClientPayload")
+    trigger_client_response: Optional[str] = Field(default=None, alias="triggerClientResponse")
+    trigger_id: Optional[str] = Field(default=None, alias="triggerId")
+    trigger_name: Optional[str] = Field(default=None, alias="triggerName")
+    trigger_nano_id: Optional[str] = Field(default=None, alias="triggerNanoId")
+    trigger_provider_payload: Optional[str] = Field(default=None, alias="triggerProviderPayload")
+    type: Literal['trigger', 'action']
+    "Log entity type (trigger or action)"
+    updated_at: str = Field(alias="updatedAt")
 
 
 class Log(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    app_name: str = Field(alias="appName")
+    client_id: str = Field(alias="clientId")
+    connection_id: str = Field(alias="connectionId")
+    created_at: str = Field(alias="createdAt")
+    entity_id: str = Field(alias="entityId")
     id: str
-
-    app_name: str = FieldInfo(alias="appName")
-
-    client_id: str = FieldInfo(alias="clientId")
-
-    connection_id: str = FieldInfo(alias="connectionId")
-
-    created_at: str = FieldInfo(alias="createdAt")
-
-    entity_id: str = FieldInfo(alias="entityId")
-
     meta: LogMeta
-
     status: str
-
-    type: Literal["trigger", "action"]
-    """Log entity type (trigger or action)"""
+    type: Literal['trigger', 'action']
+    "Log entity type (trigger or action)"
 
 
 class TriggerRetrieveResponse(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     log: Log
+
+
+__all__ = [
+    "TriggerRetrieveResponse",
+    "Log",
+    "LogMeta",
+]

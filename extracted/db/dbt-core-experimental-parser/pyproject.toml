@@ -5,5 +5,5 @@ backend-path = ["."]
 
 [project]
 name = "dbt-core-experimental-parser"
-version = "2.0.8"
+version = "2.0.11"
 requires-python = ">=3.9"

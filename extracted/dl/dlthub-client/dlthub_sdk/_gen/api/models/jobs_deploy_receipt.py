@@ -16,10 +16,10 @@ T = TypeVar("T", bound="JobsDeployReceipt")
 
 @_attrs_define
 class JobsDeployReceipt:
-    """What the deploy did to jobs.
-
+    """
     Attributes:
-        failed (list[BulkItemFailure]): Jobs that could not be deployed; a deploy is all or nothing.
+        failed (list[BulkItemFailure]): Always empty: a deploy is all or nothing, so a failure answers with an error
+            instead.
         skipped (list[DeployedJob]): Jobs with no changes.
         succeeded (list[DeployedJob]): Jobs created, updated or archived.
     """

@@ -71,12 +71,15 @@ def deployment_observe(rig: Any, runner: Callable[[], Any]) -> Callable[..., Any
 
     def observe(ctx=None):
         deployment = getattr(runner().policy, "deployment", None)
-        keys = so101_camera_keys(deployment)
+        # A deployment that names its SO-101 cameras itself (GR00T N1.7's preset), else FLUX's
+        # BFL layout.
+        keys = (deployment.so101_cameras if hasattr(deployment, "so101_cameras")
+                else so101_camera_keys(deployment))
         if keys is None:
             raise errors.DreamscaleError(errors.ErrorInfo(
                 code="invalid_deployment",
                 problem="this deployment isn't SO-101 joint targets from scene and wrist cameras",
-                cause=f"`{COMMAND}` drives FLUX deployments of BFL's SO-101 layout only",
+                cause=f"`{COMMAND}` drives SO-101 deployments in degrees only",
                 fix="drive it from Python: dreamscale.connect(...), then policy.next_action(...)",
             ))
         return DeploymentObservation(rig.observe(ctx), keys)

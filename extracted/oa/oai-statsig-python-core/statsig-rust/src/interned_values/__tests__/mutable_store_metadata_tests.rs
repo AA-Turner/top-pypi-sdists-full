@@ -120,12 +120,10 @@ fn default_unit_metadata_preserves_replacement_and_drain() {
 rusty_fork_test! {
     #[test]
     fn local_returnable_hits_preserve_eager_hash_and_json() {
-        let raw = serde_json::value::RawValue::from_string(
-            r#"{"nested":{"a":1,"b":true},"values":[1,2]}"#.into(),
-        ).unwrap();
-        let hash = hashing::hash_one(raw.get().as_bytes());
-        let first = get_returnable_from_local(hash, Cow::Borrowed(&raw));
-        let second = get_returnable_from_local(hash, Cow::Borrowed(&raw));
+        let raw = r#"{"nested":{"a":1,"b":true},"values":[1,2]}"#;
+        let hash = hashing::hash_one(raw.as_bytes());
+        let first = get_returnable_from_local(hash, raw);
+        let second = get_returnable_from_local(hash, raw);
         let (DynamicReturnableValue::JsonPointer(first_ptr), DynamicReturnableValue::JsonPointer(second_ptr)) =
             (&first.value, &second.value)
         else {
@@ -207,9 +205,9 @@ rusty_fork_test! {
 
     #[test]
     fn invalid_local_returnable_is_not_interned() {
-        let raw = serde_json::value::RawValue::from_string("[]".into()).unwrap();
-        let hash = hashing::hash_one(raw.get().as_bytes());
-        let fallback = get_returnable_from_local(hash, Cow::Borrowed(&raw));
+        let raw = "[]";
+        let hash = hashing::hash_one(raw.as_bytes());
+        let fallback = get_returnable_from_local(hash, raw);
         assert!(super::MUTABLE_RETURNABLES.get_with_metadata(hash).is_none());
         assert_eq!(fallback.get_json(), Some(HashMap::new()));
         assert_eq!(fallback.get_hash(), hash);

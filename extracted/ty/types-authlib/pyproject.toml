@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-Authlib"
-version = "1.8.0.20261102"
+version = "1.8.0.20261103"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for Authlib"
@@ -28,10 +28,10 @@ This package was tested with the following type checkers:
 * [mypy](https://www.mypy-lang.org/) 2.4.0
 * [pyrefly](https://pyrefly.org/) 1.4.0
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.91
+* [ty](https://docs.astral.sh/ty/) 0.0.92
 
 It was generated from typeshed commit
-[`272d38680771baf39c7ea503ae5d042c3295e47c`](https://github.com/python/typeshed/commit/272d38680771baf39c7ea503ae5d042c3295e47c).
+[`92b4407b6ed288e6d7cc4a0f7017e18991854e41`](https://github.com/python/typeshed/commit/92b4407b6ed288e6d7cc4a0f7017e18991854e41).
 
 ## Optional dependencies
 
@@ -40,6 +40,7 @@ The following extras are available:
 
 ```console
 pip install 'types-Authlib[all]' # installs all optional dependencies
+pip install 'types-Authlib[django]' # installs django-stubs
 pip install 'types-Authlib[Flask]' # installs Flask>=2.0.0
 pip install 'types-Authlib[httpx2]' # installs httpx2
 pip install 'types-Authlib[requests]' # installs requests
@@ -54,7 +55,8 @@ requires-python = ">=3.10"
 dependencies = ['cryptography']
 
 [project.optional-dependencies]
-all = ['Flask>=2.0.0', 'httpx2', 'requests', 'types-oauthlib']
+all = ['django-stubs', 'Flask>=2.0.0', 'httpx2', 'requests', 'types-oauthlib']
+django = ['django-stubs']
 Flask = ['Flask>=2.0.0']
 httpx2 = ['httpx2']
 requests = ['requests']

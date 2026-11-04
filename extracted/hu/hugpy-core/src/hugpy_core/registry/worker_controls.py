@@ -283,11 +283,26 @@ _THIN = ("hugpy_worker is a thin harness serving only /health,/infer,"
          "/infer/stream,/infer/cancel")
 
 
-def workers_load(worker_id=None, **_):
-    return _not_in_build(
-        "load",
-        f"no explicit pre-load verb: fitevict loads a model on demand "
-        f"(evict-to-fit) when a request is routed to it; {_FD}.")
+def workers_load(worker_id=None, model_key=None, operator="console", **_):
+    """Fit and load one model on the worker now.
+
+    The Wrapper performs the same central-to-worker transfer, reap-to-fit and
+    central-read fallback used by a routed call, then records the measured
+    allocation. A successful load is also the point at which a temporary route
+    may be promoted to an allocation.
+    """
+    key = (model_key or "").strip()
+    if not key:
+        return {"ok": False, "error": "model_key is required"}
+    result = _operator_action(worker_id, "activate-model", key, operator or "console")
+    if result.get("ok") and result.get("state") == "done":
+        # A manual load has crossed the same fit/load boundary as a routed
+        # call; promote a temporary pair only after the Wrapper reports done.
+        from hugpy_core.relay.pick import confirm_routed_allocation
+        worker = registry.lookup_worker(worker_id)
+        if worker is not None:
+            result["allocation_recorded"] = confirm_routed_allocation(key, worker, source="operator-load")
+    return result
 
 
 def workers_unload(worker_id=None, operator="console", all=None, model_key=None, **_):

@@ -1,29 +1,34 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.toolkit_retrieve_categories_response."""
 
-from typing import List, Optional
+from __future__ import annotations
 
-from .._models import BaseModel
+from typing import Optional
 
-__all__ = ["ToolkitRetrieveCategoriesResponse", "Item"]
+from pydantic import ConfigDict
+from .._base_model import BaseModel
 
 
 class Item(BaseModel):
-    """Information about a single toolkit category"""
+    "Information about a single toolkit category"
 
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     id: str
-    """URL-friendly unique identifier for the category, used for filtering toolkits"""
-
+    "URL-friendly unique identifier for the category, used for filtering toolkits"
     name: str
-    """Display name of the toolkit category"""
+    "Display name of the toolkit category"
 
 
 class ToolkitRetrieveCategoriesResponse(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
     current_page: float
-
-    items: List[Item]
-
+    items: list[Item]
+    next_cursor: Optional[str] = None
     total_items: float
-
     total_pages: float
 
-    next_cursor: Optional[str] = None
+
+__all__ = [
+    "ToolkitRetrieveCategoriesResponse",
+    "Item",
+]

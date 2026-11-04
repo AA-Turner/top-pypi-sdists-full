@@ -48,7 +48,7 @@ class RawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SessionOut]:
         """
-        Retrieve a paginated list of agent sessions (conversations) with optional title search, state filtering, source channel filtering, date range filtering, and sorting. By default, AOP/workflow runs and branched sub-sessions are excluded, and only sessions in the caller's current workspace are visible — pass `workspace_id` to list sessions in another workspace the caller belongs to.
+        Retrieve a paginated list of agent sessions (conversations) with optional title search, state filtering, source channel filtering, date range filtering, and sorting. By default, AOP/workflow runs, Automation runs and branched sub-sessions are excluded, and only sessions in the caller's current workspace are visible — pass `workspace_id` to list sessions in another workspace the caller belongs to.
 
         Parameters
         ----------
@@ -71,7 +71,7 @@ class RawSessionsClient:
             Include branched sub-sessions (excluded by default)
 
         include_task_sessions : typing.Optional[bool]
-            Include AOP/workflow task runs (excluded by default)
+            Include AOP/workflow task runs and Automation runs (excluded by default)
 
         aop_asset_id : typing.Optional[str]
             Only include task sessions originating from this AOP asset identifier
@@ -509,7 +509,7 @@ class AsyncRawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SessionOut]:
         """
-        Retrieve a paginated list of agent sessions (conversations) with optional title search, state filtering, source channel filtering, date range filtering, and sorting. By default, AOP/workflow runs and branched sub-sessions are excluded, and only sessions in the caller's current workspace are visible — pass `workspace_id` to list sessions in another workspace the caller belongs to.
+        Retrieve a paginated list of agent sessions (conversations) with optional title search, state filtering, source channel filtering, date range filtering, and sorting. By default, AOP/workflow runs, Automation runs and branched sub-sessions are excluded, and only sessions in the caller's current workspace are visible — pass `workspace_id` to list sessions in another workspace the caller belongs to.
 
         Parameters
         ----------
@@ -532,7 +532,7 @@ class AsyncRawSessionsClient:
             Include branched sub-sessions (excluded by default)
 
         include_task_sessions : typing.Optional[bool]
-            Include AOP/workflow task runs (excluded by default)
+            Include AOP/workflow task runs and Automation runs (excluded by default)
 
         aop_asset_id : typing.Optional[str]
             Only include task sessions originating from this AOP asset identifier

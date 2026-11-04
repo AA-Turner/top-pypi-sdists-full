@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hugpy-core"
-version = "0.4.81"
+version = "0.4.82"
 description = "Hugpy Core: a small fleet API, worker console, dispatch and consolidated history."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -23,7 +23,7 @@ classifiers = [
 # The installed console is the Flask/abstract_flask app. Storage provides its
 # Add Models routes (HF search/spec/downloads) and Flask is its web runtime;
 # keeping either in the legacy extra produced a console whose visible tabs 404.
-dependencies = ["hugpy-resources>=0.1.2.8,<0.2", "hugpy-settings>=0.1.2", "aiohttp>=3.9", "flask>=2", "hugpy-storage>=0.2.17", "hugpy-engine>=0.3.14", "hugpy-wrapper>=0.1.183", "hugpy-terminal>=0.1.23,<0.2", "psycopg[binary]>=3", "abstract_toolserver>=0.0.106", "abstract_database>=0.0.2.199", "abstract_flask>=0.0.0.1071", "abstract_utilities>=0.2.2.794", "flask-sock>=0.7"]
+dependencies = ["hugpy-resources>=0.1.5,<0.2", "hugpy-settings>=0.1.8,<0.2", "aiohttp>=3.9", "flask>=2", "hugpy-storage>=0.2.17", "hugpy-engine>=0.3.14", "hugpy-wrapper>=0.1.183.5", "hugpy-terminal>=0.1.24,<0.2", "psycopg[binary]>=3", "abstract_toolserver>=0.0.106", "abstract_database>=0.0.2.199", "abstract_flask>=0.0.0.1071", "abstract_utilities>=0.2.2.794", "flask-sock>=0.7"]
 
 [project.optional-dependencies]
 terminal = ["hugpy-fleet>=0.1.0"]

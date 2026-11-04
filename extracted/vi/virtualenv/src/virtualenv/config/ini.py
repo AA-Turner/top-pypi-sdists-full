@@ -27,7 +27,8 @@ class IniConfig:
 
     def __init__(self, env: Mapping[str, str] | None = None) -> None:
         env = os.environ if env is None else env
-        config_file = env.get(self.VIRTUALENV_CONFIG_FILE_ENV_VAR, None)
+        # an empty value counts as unset, as it does for the VIRTUALENV_<OPTION> variables, instead of naming the cwd
+        config_file = env.get(self.VIRTUALENV_CONFIG_FILE_ENV_VAR) or None
         self.is_env_var = config_file is not None
         if config_file is None:
             config_file = Path(user_config_dir(appname="virtualenv", appauthor="pypa")) / "virtualenv.ini"
@@ -38,7 +39,8 @@ class IniConfig:
 
         self.has_config_file: bool | None = None
         self.has_virtualenv_section = False
-        self.config_parser: Final[ConfigParser] = ConfigParser()
+        # no interpolation: values are literal, as env vars and flags are, so a % in a prompt or path survives
+        self.config_parser: Final[ConfigParser] = ConfigParser(interpolation=None)
         exception = None
         try:
             self.has_config_file = self.config_file.exists()

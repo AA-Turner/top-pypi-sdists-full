@@ -7,9 +7,15 @@ class _FrozenDict(dict):
 
     __slots__ = ()
 
+    def __new__(cls, *args, **kwargs):
+        frozen = dict.__new__(cls)
+        for key, value in dict(*args, **kwargs).items():
+            dict.__setitem__(frozen, key, _deep_freeze(value))
+        return frozen
+
     def __init__(self, *args, **kwargs):
-        if args or kwargs:
-            self._immutable()
+        # Construction happens in __new__; reinitialization cannot mutate it.
+        pass
 
     def _immutable(self, *args, **kwargs):
         raise TypeError("Statsig cached evaluation values are immutable")
@@ -38,9 +44,15 @@ class _FrozenList(list):
 
     __slots__ = ()
 
+    def __new__(cls, *args, **kwargs):
+        frozen = list.__new__(cls)
+        for value in list(*args, **kwargs):
+            list.append(frozen, _deep_freeze(value))
+        return frozen
+
     def __init__(self, *args, **kwargs):
-        if args or kwargs:
-            self._immutable()
+        # Match immutable builtins: a second __init__ leaves the value intact.
+        pass
 
     def _immutable(self, *args, **kwargs):
         raise TypeError("Statsig cached evaluation values are immutable")
@@ -69,17 +81,37 @@ class _FrozenList(list):
 
 
 def _restore_frozen_dict(items: list[tuple[Any, Any]]) -> _FrozenDict:
-    frozen = _FrozenDict()
+    frozen = dict.__new__(_FrozenDict)
     for key, value in items:
         dict.__setitem__(frozen, key, value)
     return frozen
 
 
 def _restore_frozen_list(items: list[Any]) -> _FrozenList:
-    frozen = _FrozenList()
+    frozen = list.__new__(_FrozenList)
     for item in items:
         list.append(frozen, item)
     return frozen
+
+
+def _deep_freeze(value: Any) -> Any:
+    """Freeze a JSON tree without sizing it or allocating already frozen values."""
+    frozen: _FrozenDict | _FrozenList
+    if isinstance(value, dict):
+        if type(value) is _FrozenDict:
+            return value
+        frozen = dict.__new__(_FrozenDict)
+        for key, child in value.items():
+            dict.__setitem__(frozen, key, _deep_freeze(child))
+        return frozen
+    if isinstance(value, list):
+        if type(value) is _FrozenList:
+            return value
+        frozen = list.__new__(_FrozenList)
+        for child in value:
+            list.append(frozen, _deep_freeze(child))
+        return frozen
+    return value
 
 
 def _deep_freeze_and_measure(value: Any) -> tuple[Any, int]:
@@ -89,7 +121,7 @@ def _deep_freeze_and_measure(value: Any) -> tuple[Any, int]:
 
     def freeze(item: Any) -> tuple[Any, int]:
         if isinstance(item, dict):
-            frozen_dict = _FrozenDict()
+            frozen_dict = dict.__new__(_FrozenDict)
             size = 0
             for key, child in item.items():
                 frozen_child, child_size = freeze(child)
@@ -103,7 +135,7 @@ def _deep_freeze_and_measure(value: Any) -> tuple[Any, int]:
             return frozen_dict, size + sys.getsizeof(frozen_dict)
 
         if isinstance(item, list):
-            frozen_list = _FrozenList()
+            frozen_list = list.__new__(_FrozenList)
             size = 0
             for child in item:
                 frozen_child, child_size = freeze(child)

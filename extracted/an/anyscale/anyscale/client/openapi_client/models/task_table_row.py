@@ -38,14 +38,19 @@ class TaskTableRow(object):
         'total_attempts': 'int',
         'job_id': 'str',
         'function_name': 'str',
+        'function_name_hash': 'str',
+        'function_name_batch_id': 'str',
         'task_type': 'TaskType',
         'current_state': 'TaskState',
         'error_message': 'str',
+        'error_message_hash': 'str',
+        'error_message_batch_id': 'str',
         'start_time_ns': 'int',
         'start_running_time_ns': 'int',
         'end_time_ns': 'int',
         'required_resources': 'str',
         'runtime_env': 'str',
+        'runtime_env_hash': 'str',
         'node_id': 'str',
         'worker_id': 'str',
         'worker_pid': 'str',
@@ -61,14 +66,19 @@ class TaskTableRow(object):
         'total_attempts': 'total_attempts',
         'job_id': 'job_id',
         'function_name': 'function_name',
+        'function_name_hash': 'function_name_hash',
+        'function_name_batch_id': 'function_name_batch_id',
         'task_type': 'task_type',
         'current_state': 'current_state',
         'error_message': 'error_message',
+        'error_message_hash': 'error_message_hash',
+        'error_message_batch_id': 'error_message_batch_id',
         'start_time_ns': 'start_time_ns',
         'start_running_time_ns': 'start_running_time_ns',
         'end_time_ns': 'end_time_ns',
         'required_resources': 'required_resources',
         'runtime_env': 'runtime_env',
+        'runtime_env_hash': 'runtime_env_hash',
         'node_id': 'node_id',
         'worker_id': 'worker_id',
         'worker_pid': 'worker_pid',
@@ -78,7 +88,7 @@ class TaskTableRow(object):
         'data_operator_id': 'data_operator_id'
     }
 
-    def __init__(self, id=None, attempt_number=None, total_attempts=None, job_id=None, function_name=None, task_type=None, current_state=None, error_message=None, start_time_ns=None, start_running_time_ns=None, end_time_ns=None, required_resources=None, runtime_env=None, node_id=None, worker_id=None, worker_pid=None, parent_task_id=None, ray_session_name=None, exception_type=None, data_operator_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, attempt_number=None, total_attempts=None, job_id=None, function_name=None, function_name_hash=None, function_name_batch_id=None, task_type=None, current_state=None, error_message=None, error_message_hash=None, error_message_batch_id=None, start_time_ns=None, start_running_time_ns=None, end_time_ns=None, required_resources=None, runtime_env=None, runtime_env_hash=None, node_id=None, worker_id=None, worker_pid=None, parent_task_id=None, ray_session_name=None, exception_type=None, data_operator_id=None, local_vars_configuration=None):  # noqa: E501
         """TaskTableRow - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -89,14 +99,19 @@ class TaskTableRow(object):
         self._total_attempts = None
         self._job_id = None
         self._function_name = None
+        self._function_name_hash = None
+        self._function_name_batch_id = None
         self._task_type = None
         self._current_state = None
         self._error_message = None
+        self._error_message_hash = None
+        self._error_message_batch_id = None
         self._start_time_ns = None
         self._start_running_time_ns = None
         self._end_time_ns = None
         self._required_resources = None
         self._runtime_env = None
+        self._runtime_env_hash = None
         self._node_id = None
         self._worker_id = None
         self._worker_pid = None
@@ -112,19 +127,32 @@ class TaskTableRow(object):
             self.total_attempts = total_attempts
         self.job_id = job_id
         self.function_name = function_name
-        self.task_type = task_type
+        if function_name_hash is not None:
+            self.function_name_hash = function_name_hash
+        if function_name_batch_id is not None:
+            self.function_name_batch_id = function_name_batch_id
+        if task_type is not None:
+            self.task_type = task_type
         if current_state is not None:
             self.current_state = current_state
         if error_message is not None:
             self.error_message = error_message
-        self.start_time_ns = start_time_ns
-        self.start_running_time_ns = start_running_time_ns
+        if error_message_hash is not None:
+            self.error_message_hash = error_message_hash
+        if error_message_batch_id is not None:
+            self.error_message_batch_id = error_message_batch_id
+        if start_time_ns is not None:
+            self.start_time_ns = start_time_ns
+        if start_running_time_ns is not None:
+            self.start_running_time_ns = start_running_time_ns
         if end_time_ns is not None:
             self.end_time_ns = end_time_ns
         if required_resources is not None:
             self.required_resources = required_resources
         if runtime_env is not None:
             self.runtime_env = runtime_env
+        if runtime_env_hash is not None:
+            self.runtime_env_hash = runtime_env_hash
         if node_id is not None:
             self.node_id = node_id
         if worker_id is not None:
@@ -253,6 +281,48 @@ class TaskTableRow(object):
         self._function_name = function_name
 
     @property
+    def function_name_hash(self):
+        """Gets the function_name_hash of this TaskTableRow.  # noqa: E501
+
+
+        :return: The function_name_hash of this TaskTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._function_name_hash
+
+    @function_name_hash.setter
+    def function_name_hash(self, function_name_hash):
+        """Sets the function_name_hash of this TaskTableRow.
+
+
+        :param function_name_hash: The function_name_hash of this TaskTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._function_name_hash = function_name_hash
+
+    @property
+    def function_name_batch_id(self):
+        """Gets the function_name_batch_id of this TaskTableRow.  # noqa: E501
+
+
+        :return: The function_name_batch_id of this TaskTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._function_name_batch_id
+
+    @function_name_batch_id.setter
+    def function_name_batch_id(self, function_name_batch_id):
+        """Sets the function_name_batch_id of this TaskTableRow.
+
+
+        :param function_name_batch_id: The function_name_batch_id of this TaskTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._function_name_batch_id = function_name_batch_id
+
+    @property
     def task_type(self):
         """Gets the task_type of this TaskTableRow.  # noqa: E501
 
@@ -270,8 +340,6 @@ class TaskTableRow(object):
         :param task_type: The task_type of this TaskTableRow.  # noqa: E501
         :type: TaskType
         """
-        if self.local_vars_configuration.client_side_validation and task_type is None:  # noqa: E501
-            raise ValueError("Invalid value for `task_type`, must not be `None`")  # noqa: E501
 
         self._task_type = task_type
 
@@ -318,6 +386,48 @@ class TaskTableRow(object):
         self._error_message = error_message
 
     @property
+    def error_message_hash(self):
+        """Gets the error_message_hash of this TaskTableRow.  # noqa: E501
+
+
+        :return: The error_message_hash of this TaskTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._error_message_hash
+
+    @error_message_hash.setter
+    def error_message_hash(self, error_message_hash):
+        """Sets the error_message_hash of this TaskTableRow.
+
+
+        :param error_message_hash: The error_message_hash of this TaskTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._error_message_hash = error_message_hash
+
+    @property
+    def error_message_batch_id(self):
+        """Gets the error_message_batch_id of this TaskTableRow.  # noqa: E501
+
+
+        :return: The error_message_batch_id of this TaskTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._error_message_batch_id
+
+    @error_message_batch_id.setter
+    def error_message_batch_id(self, error_message_batch_id):
+        """Sets the error_message_batch_id of this TaskTableRow.
+
+
+        :param error_message_batch_id: The error_message_batch_id of this TaskTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._error_message_batch_id = error_message_batch_id
+
+    @property
     def start_time_ns(self):
         """Gets the start_time_ns of this TaskTableRow.  # noqa: E501
 
@@ -335,8 +445,6 @@ class TaskTableRow(object):
         :param start_time_ns: The start_time_ns of this TaskTableRow.  # noqa: E501
         :type: int
         """
-        if self.local_vars_configuration.client_side_validation and start_time_ns is None:  # noqa: E501
-            raise ValueError("Invalid value for `start_time_ns`, must not be `None`")  # noqa: E501
 
         self._start_time_ns = start_time_ns
 
@@ -358,8 +466,6 @@ class TaskTableRow(object):
         :param start_running_time_ns: The start_running_time_ns of this TaskTableRow.  # noqa: E501
         :type: int
         """
-        if self.local_vars_configuration.client_side_validation and start_running_time_ns is None:  # noqa: E501
-            raise ValueError("Invalid value for `start_running_time_ns`, must not be `None`")  # noqa: E501
 
         self._start_running_time_ns = start_running_time_ns
 
@@ -425,6 +531,27 @@ class TaskTableRow(object):
         """
 
         self._runtime_env = runtime_env
+
+    @property
+    def runtime_env_hash(self):
+        """Gets the runtime_env_hash of this TaskTableRow.  # noqa: E501
+
+
+        :return: The runtime_env_hash of this TaskTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._runtime_env_hash
+
+    @runtime_env_hash.setter
+    def runtime_env_hash(self, runtime_env_hash):
+        """Sets the runtime_env_hash of this TaskTableRow.
+
+
+        :param runtime_env_hash: The runtime_env_hash of this TaskTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._runtime_env_hash = runtime_env_hash
 
     @property
     def node_id(self):

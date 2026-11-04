@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import tomllib
 from fnmatch import fnmatch
+from functools import cache
 from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING, final
@@ -13,7 +14,15 @@ import regex as re
 import yaml
 from click import BadParameter, UsageError, echo, style
 
-from djlint.const import HTML_TAG_NAMES, HTML_VOID_ELEMENTS, SKIP_TEMPLATE_TAG, TEMPLATE_TAG_NAME
+from djlint.const import (
+    HTML_TAG_NAMES,
+    HTML_VOID_ELEMENTS,
+    QUOTED_ATTRIBUTE_VALUE,
+    SKIP_TEMPLATE_TAG,
+    TAG_START,
+    TEMPLATE_TAG_NAME,
+    TEMPLATE_TAG_WHOLE,
+)
 from djlint.helpers import (
     RE_FLAGS_IMSX,
     RE_FLAGS_IMX,
@@ -237,8 +246,12 @@ def _named_settings(config: Path | None) -> dict[str, Any]:
         return {}
 
 
-def _project_settings(src: Path) -> dict[str, Any]:
-    """Settings from the project's own file, the first one that holds any."""
+def _project_settings(src: Path) -> tuple[dict[str, Any], str]:
+    """Settings from the project's own file, the first one that holds any.
+
+    The name of that file comes with them, for the messages about a value
+    it sets.
+    """
     if pyproject_file := find_pyproject(src):
         try:
             content = load_pyproject_config(pyproject_file)
@@ -246,38 +259,50 @@ def _project_settings(src: Path) -> dict[str, Any]:
             echo(style(f"Failed to load pyproject.toml file. {error}", fg="red"), err=True)
         else:
             if content:
-                return dict(content)
+                return dict(content), pyproject_file.name
 
     if djlint_toml_file := find_djlint_toml(src):
         try:
-            return dict(load_djlint_toml_config(djlint_toml_file))
+            return dict(load_djlint_toml_config(djlint_toml_file)), djlint_toml_file.name
         except Exception as error:
             echo(style(f"Failed to load {djlint_toml_file.name} file. {error}", fg="red"), err=True)
 
     elif djlintrc_file := find_djlintrc(src):
         try:
-            return dict(load_djlintrc_config(djlintrc_file))
+            return dict(load_djlintrc_config(djlintrc_file)), djlintrc_file.name
         except Exception as error:
             echo(style(f"Failed to load .djlintrc file. {error}", fg="red"), err=True)
 
-    return {}
+    return {}, ""
+
+
+@cache
+def _warn_once(message: str) -> None:
+    """Warn about a setting once per run.
+
+    The language server builds a Config for every change to a file, and
+    repeating the same warning each time would only fill its log.
+    """
+    echo(style(f"Warning: {message}", fg="yellow"), err=True)
 
 
 def load_project_settings(
     src: Path, config: Path | None, *, prefer_configuration: bool = False
-) -> dict[str, Any]:
-    """Load djlint config.
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Load djlint config, and the file each setting was read from.
 
     `--configuration` names a global file, so the project's own file wins
     where the two set the same thing. `--prefer-configuration` turns that
     around, which is what naming a file on the command line usually means.
     """
     named = _named_settings(config)
-    project = _project_settings(src)
+    project, project_file = _project_settings(src)
+    named_sources = dict.fromkeys(named, str(config))
+    project_sources = dict.fromkeys(project, project_file)
 
     if prefer_configuration:
-        return {**project, **named}
-    return {**named, **project}
+        return {**project, **named}, {**project_sources, **named_sources}
+    return {**named, **project}, {**named_sources, **project_sources}
 
 
 def validate_rules(rules: Iterable[_TMappingStrAny]) -> Iterator[_TMappingStrAny]:
@@ -382,6 +407,7 @@ _CODES_EXCLUDED_BY_PROFILE: Final[dict[str, tuple[str, ...]]] = {
     "askama": ("D", "J", "N", "M"),
     "tera": ("D", "J", "N", "M"),
     "liquid": ("D", "J", "N", "M"),
+    "mako": ("D", "J", "T", "N", "M"),
     "nunjucks": ("D", "J", "M"),
     "handlebars": ("D", "J", "N"),
     "golang": ("D", "J", "N", "M"),
@@ -547,6 +573,11 @@ _INDENT_TEMPLATE_TAGS: Final = r""" (?:if
     | asyncEach
     | asyncAll
     | embed
+    | apply
+    | sandbox
+    | guard
+    | ifequal
+    | ifnotequal
     | block(?!trans|translate)
     | spaceless
     | compress
@@ -577,6 +608,11 @@ _START_TEMPLATE_TAGS: Final = r"""
     | ifchanged
     | unless
     | embed
+    | apply
+    | sandbox
+    | guard
+    | ifequal
+    | ifnotequal
     | for
     | asyncEach
     | asyncAll
@@ -644,6 +680,16 @@ _BREAK_TEMPLATE_TAGS: Final = r"""
     | endwith
     | autoescape
     | endautoescape
+    | apply
+    | endapply
+    | sandbox
+    | endsandbox
+    | guard
+    | endguard
+    | ifequal
+    | endifequal
+    | ifnotequal
+    | endifnotequal
     | filter
     | endfilter
     | elif
@@ -849,7 +895,11 @@ _TEMPLATE_NAMED_OPENING_TAG: Final = (
     rf"<(?:{TEMPLATE_TAG_NAME})(?!(?:[^>\"']|\"[^\"]*\"|'[^']*')*?/>)"
 )
 
-_RAW_TEXT_OPENING_TAG: Final = r"""(?:\"[^\"]*\"|'[^']*'|[^>\"'])*>"""
+# A template tag is read whole, so a ">" in one is not the tag's end, and
+# another tag's start ends one that was never closed.
+_RAW_TEXT_OPENING_TAG: Final = (
+    rf"""(?:{QUOTED_ATTRIBUTE_VALUE}|{TEMPLATE_TAG_WHOLE}|(?!{TAG_START})[^>\"'{{]|\{{)*+>"""
+)
 
 
 def _build_ignored_blocks(*, for_linting: bool) -> str:
@@ -946,12 +996,16 @@ _IGNORED_BLOCK_CLOSING_AT_START: Final = r"""
       (?:(?!<pre\b|<textarea\b).)*?-->
     | (?:(?!{\#).)*\#} # lines that have a #}, but not a {#
 """
+# An endcomment written right after "djlint:off" closes nothing. That is
+# looked for behind the tag once it is found: looked for first, a lookbehind
+# of no fixed length was tried from every position of the line, each time
+# back to its start, which took quadratic time on a long one.
 _IGNORED_BLOCK_CLOSING_AFTER: Final = r"""
       </pre
     | </textarea
     | {%[ ]*endfilter(?:(?!%}).)*?%}
     | {\#\s*djlint\:\s*on\s*\#}
-    | (?<!djlint:off\s*?){%[ ]+?endcomment[ ]+?%}
+    | {%[ ]+?endcomment[ ]+?%}(?<!djlint:off\s*?{%[ ]+endcomment[ ]+%})
     | {{!--\s*djlint\:on\s*--}}
     | {{-?\s*/\*\s*djlint\:on\s*\*/\s*-?}}
     | {%[ ]*endblocktrans(?:late)?(?:(?!%}).)*?%}
@@ -1304,18 +1358,20 @@ class Config:
         else:
             start = Path(stdin_filename).resolve().parent
         self.project_root = find_project_root(start)
-        djlint_settings = load_project_settings(
+        djlint_settings, setting_sources = load_project_settings(
             self.project_root, configuration, prefer_configuration=prefer_configuration
         )
+        if prefer_configuration and configuration is None:
+            _warn_once("--prefer-configuration has no effect without --configuration.")
 
         def setting_int(key: str, default: int) -> int:
             """Read an integer option from the config file."""
             try:
                 return int(djlint_settings.get(key, default))
-            except ValueError:
+            except (TypeError, ValueError):
                 echo(
                     style(
-                        f"Error: Invalid pyproject.toml {key} value {djlint_settings[key]}",
+                        f"Error: Invalid {setting_sources[key]} {key} value {djlint_settings[key]}",
                         fg="red",
                     ),
                     err=True,
@@ -1430,6 +1486,8 @@ class Config:
         self.max_blank_lines = (
             max_blank_lines if max_blank_lines is not None else setting_int("max_blank_lines", 0)
         )
+        if self.preserve_blank_lines and self.max_blank_lines > 0:
+            _warn_once("max_blank_lines has no effect with preserve_blank_lines.")
 
         exclude = build_exclude(
             exclude or _as_comma_separated(djlint_settings.get("exclude", _DEFAULT_EXCLUDE))
@@ -1729,6 +1787,11 @@ class Config:
         self.ignored_rule_patterns = _IGNORED_RULE_PATTERNS
         self.optional_single_line_html_pattern = _OPTIONAL_SINGLE_LINE_HTML_PATTERN
         self.optional_single_line_template_pattern = _OPTIONAL_SINGLE_LINE_TEMPLATE_PATTERN
+        if self.profile == "mako":
+            # The block tags under this profile stand for Mako's control lines,
+            # which a block put on one line would join.
+            self.optional_single_line_template_tags = "(?!)"
+            self.optional_single_line_template_pattern = compile_pattern("(?!)")
         if profile_blocks := _PROFILE_ONLY_BLOCKS.get(self.profile):
             self.optional_single_line_template_tags += "|" + "|".join(
                 split_option_list(profile_blocks)

@@ -27,7 +27,7 @@ it is cheap and safe from any environment.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, Dict, List, Optional
 
 from .traffic.config import TrafficConfig, TrafficManagerBackendConfig
 from .traffic.parameters import (
@@ -81,7 +81,7 @@ class ServerConfig:
     #: Cooldown (seconds) between consecutive scenario runs.  Gives the
     #: CARLA server time to finish cleanup (destroy actors, restore settings)
     #: before the next scenario connects.  0 disables the cooldown.
-    cooldown_seconds: float = 3.0
+    cooldown_seconds: float = 2.0
 
     #: Maximum number of retries when a scenario run fails after cooldown
     #: (e.g. due to CARLA communication errors or initialization failures).
@@ -166,6 +166,19 @@ class MapConfig:
     #: ``local_xy``, from its ``local_x``/``local_y`` tags; ``utm`` reads its
     #: lat/lon instead.
     projector_type: str | None = None
+
+    #: Install :attr:`xodr_path` into the CARLA asset named by the
+    #: ``<MAP_NAME>_PATH`` environment variable before the map is loaded,
+    #: replacing the road network CARLA ships with it.  Off by default: a map
+    #: whose CARLA assets already carry a matching OpenDRIVE keeps its own
+    #: (``NishishinjukuMap``'s do not, so ``map=nishishinjuku`` turns it on).
+    overwrite_xodr: bool = False
+
+    #: Lanelet IDs a sweep leaves out, typically lanelets without a matching
+    #: 3D model in CARLA that fail to spawn on.  Nothing reads it but the
+    #: sweep constraints that name it (``${map.no_3d_model_lanelet_ids}``);
+    #: ``autoware_carla_scenario.tools.detect_no_3d_model_lanelets`` finds them.
+    no_3d_model_lanelet_ids: List[int] = field(default_factory=list)
 
 
 @dataclass
@@ -482,7 +495,7 @@ class DriverConfig:
     route_resolution_m: float = 2.0
 
     #: Offset from the CARLA actor origin back to the rig origin, in metres.
-    #: ``null`` derives it from the vehicle's wheel physics.
+    #: ``null`` derives it from the vehicle's wheels, else its box.
     rear_axle_offset_m: float | None = None
 
     #: Whether to also submit the route as the reference ("recorded")
@@ -495,7 +508,7 @@ class DriverConfig:
     #: and says nothing about the omission.
     send_renderer_data: bool = True
 
-    #: Whether that payload includes the other vehicles.
+    #: Whether that payload includes the other vehicles, pedestrians and props.
     send_actor_ground_truth: bool = True
 
     #: How far down its own lane the ego looks for the light governing it.
@@ -503,7 +516,8 @@ class DriverConfig:
     #: light once the ego is already at the line.
     traffic_light_sight_distance_m: float = 60.0
 
-    #: Radius within which other vehicles are reported to the policy.
+    #: Radius within which other vehicles, pedestrians and props are reported
+    #: to the policy.
     actor_horizon_m: float = 150.0
 
     #: Seed handed to the policy in ``start_session``; ``null`` hands it the
@@ -533,6 +547,35 @@ class DriverConfig:
     #: converts it with roadgen.  Needs ``map_dir``.  It carries no roadgen
     #: trace, so stop lines resolved against it name no lanelets.
     lanelet2_path: str | None = None
+
+    #: Whether every drive also carries the run so far as a T4Scene, the scene
+    #: exchange format of tier4/e2e-devkit (docs/t4_scene.md).  Needs
+    #: :attr:`map_dir` and :attr:`send_renderer_data`.  See
+    #: :attr:`DriverClientConfig.t4_scene`.
+    t4_scene: bool = False
+
+    #: How far back a scene reaches, in seconds, the current row aside.
+    t4_scene_history_s: float = 3.0
+
+    #: The ego's wheel base in the scenes' ego shape; ``null`` leaves it out.
+    t4_scene_wheel_base_m: float | None = None
+
+    #: The scenes' goal: ``scenario`` (where the scenario routes the ego) or
+    #: ``road_ahead`` (the far end of the road ahead the policy is sent).
+    t4_scene_goal: str = "scenario"
+
+    #: The scenes' map: ``run`` (the run's Lanelet2 map) or ``map_set``
+    #: (:attr:`map_dir`'s).
+    t4_scene_map: str = "run"
+
+    #: A stack serving the policy's world (splatsim, say) that pulls the
+    #: scenario's mission over the AutowareBridge and reports when it is ready;
+    #: the policy starts only then.  ``null`` runs the policy alone.  A mapping
+    #: takes :class:`~autoware_carla_scenario.AutowareBridgeConfig`'s fields,
+    #: e.g. ``{address: "0.0.0.0:50052", ready_timeout_ticks: 1200}``, which
+    #: the run checks when it builds the entity (docs/driver_interface.md).
+    #: Spelled with ``Optional``: Codon cannot take ``dict[...] | None``.
+    bridge: Optional[Dict[str, Any]] = None
 
     #: Trajectory-following gains.
     control: DriverControlSpec = field(default_factory=DriverControlSpec)

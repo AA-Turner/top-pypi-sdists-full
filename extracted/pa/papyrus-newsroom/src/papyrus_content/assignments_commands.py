@@ -34,7 +34,7 @@ from .automatic_assignments import (
     plan_automatic_assignment_cleanup,
 )
 from .graphql_authoring import create_authoring_client
-from .options import parse_options, resolve_mutation_apply
+from .options import normalize_string, parse_options, resolve_mutation_apply
 
 
 def assignments_list(flags: list[str]) -> None:
@@ -116,16 +116,54 @@ def assignments_apply_reporting_packet(flags: list[str]) -> None:
         print(json.dumps({"ok": True, **result}, indent=2))
 
 
+def _assignment_reminder(client, assignment_id: str, apply: bool):
+    """The Story procedure reminder for an Assignment that works on a Story; None for a dry run, no Story, or a failure (printed to stderr)."""
+    if not apply:
+        return None
+    from .newsroom_process import reminder_assessment
+
+    try:
+        lineage = normalize_string((client.get_record("Assignment", assignment_id) or {}).get("itemLineageId"))
+    except Exception as error:
+        import sys
+
+        print(f"next\tnot computed\t{type(error).__name__}: {str(error)[:160]}", file=sys.stderr)
+        return None
+    return reminder_assessment(client, lineage) if lineage else None
+
+
 def assignments_intake_proposals(flags: list[str]) -> None:
     options = parse_options(flags)
     client, _ = create_authoring_client()
     result = intake_research_packet_proposals(client, options)
+    if result.get("citedOnly") and resolve_mutation_apply(options, "assignments process-proposals"):
+        from .assignments import assignment_metadata
+        from .multi_search_research import take_in_found_references
+        from .newsroom_context_pack import PROFILES
+
+        assignment = client.get_record("Assignment", result["assignmentId"]) or {}
+        story_lineage = normalize_string(assignment.get("itemLineageId"))
+        if story_lineage and normalize_string(assignment_metadata(client, assignment).get("contextProfile")) in PROFILES:
+            taken_in = take_in_found_references(client, result["assignmentId"], story_lineage, result,
+                                                actor_label=normalize_string(options.get("actor-label")) or "Papyrus content CLI")
+            result = {**result, "linkedToStory": taken_in["linked"], "curation": taken_in["curation"]}
+    reminder = _assignment_reminder(client, result["assignmentId"], resolve_mutation_apply(options, "assignments process-proposals"))
     if options.get("json"):
-        print(json.dumps({"ok": True, **result}, indent=2))
+        print(json.dumps({"ok": True, **result, **({"next": reminder["next"]} if reminder else {})}, indent=2))
         return
     print(f"assignments\tprocess-proposals\tassignment\t{result['assignmentId']}")
     print(f"assignments\tprocess-proposals\tcatalog\t{result.get('catalogPath')}")
     print(f"assignments\tprocess-proposals\tregistered\t{result.get('registeredReferenceCount')}")
+    if result.get("citedOnly"):
+        print(f"assignments\tprocess-proposals\tcited-only\t{result.get('consideredSourceCount')} sources in the packet, {result.get('heldReferenceCount')} already held")
+    if result.get("linkedToStory") is not None:
+        curation = result.get("curation") or {}
+        print(f"assignments\tprocess-proposals\tlinked\t{len(result['linkedToStory'])} new links to the Story, {len(curation.get('curated') or [])} curated, {len(curation.get('failed') or [])} not curated")
+    if reminder:
+        from .newsroom_process import next_lines
+
+        for line in next_lines(reminder):
+            print(line)
 
 
 def assignments_research_intake_now(flags: list[str]) -> None:

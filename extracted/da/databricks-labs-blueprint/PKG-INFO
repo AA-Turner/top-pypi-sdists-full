@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-labs-blueprint
-Version: 0.12.0
+Version: 0.13.0
 Summary: Common libraries for Databricks Labs
 Project-URL: Issues, https://github.com/databrickslabs/blueprint/issues
 Project-URL: Source, https://github.com/databrickslabs/blueprint
@@ -16,8 +16,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.10
+Requires-Python: <3.15,>=3.10
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: databricks-sdk>=0.16.0
+Requires-Dist: pip<27,>=26.2.2
 Provides-Extra: yaml
 Requires-Dist: pyyaml<7.0.0,>=6.0.0; extra == 'yaml'
 Description-Content-Type: text/markdown

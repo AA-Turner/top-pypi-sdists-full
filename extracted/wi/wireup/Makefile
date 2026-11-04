@@ -1,4 +1,4 @@
-.PHONY: install lint check-fmt check-ruff check-mypy test profile fix format docs-deploy publish docs-serve
+.PHONY: install lint check-fmt check-ruff check-mypy test profile fix format docs-deploy publish docs-serve docs-preview
 
 ifdef GITHUB_ACTIONS
 RUFF_ARGS := --output-format github
@@ -19,9 +19,10 @@ check-ruff:
 check-mypy:
 	uv run mypy wireup --strict
 	uv run mypy benchmarks --ignore-missing-imports
+	uv run mypy test/typing_tests.py --strict
 
 check-docs:
-	find docs -name "*.md" -not -path "docs/pages/class/*" | xargs uv run --python 3.14 blacken-docs -l 80 --check
+	uv run ruff format docs --line-length 80 --exclude docs/pages/class --check
 
 test:
 	uv run pytest test/unit
@@ -61,24 +62,25 @@ profile ./profile_tests $(num_runs):
 	uv run python ./profile_tests.py $(num_runs)
 
 format: format-docs
-	uv run ruff format .
+	uv run ruff format . --extend-exclude '*.md'
 
 fix: format
 	uv run ruff check wireup test benchmarks --fix
 
 format-docs:
-	find docs -name "*.md" -not -path "docs/pages/class/*" | xargs uv run --python 3.14 blacken-docs -l 80 || true
+	uv run ruff format docs --line-length 80 --exclude docs/pages/class
 
 build-docs:
-	uv run --python 3.14 mkdocs build --strict -f docs/mkdocs.yml
+	uv run --python 3.14 zensical build --strict -f docs/zensical.toml
 
 
 docs-serve:
-	uv run mkdocs serve -f docs/mkdocs.yml --livereload
+	uv run --python 3.14 zensical serve -f docs/zensical.toml
 
 # make docs-deploy version=...
 docs-deploy $(version):
-	cd docs && uv run mike deploy --push --update-aliases $(version) latest
+	git fetch origin gh-pages:gh-pages
+	cd docs && uv run --python 3.14 mike deploy -F zensical.toml --push --update-aliases $(version) latest
 
 publish:
 	uv build

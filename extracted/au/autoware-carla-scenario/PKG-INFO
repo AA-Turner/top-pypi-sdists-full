@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autoware-carla-scenario
-Version: 23.1.24
+Version: 25.0.0
 Summary: CARLA scenario testing framework for Autoware
 Author: Masaya Kataoka
 Author-email: Masaya Kataoka <ms.kataoka@gmail.com>
@@ -31,11 +31,11 @@ Requires-Dist: uvicorn[standard]>=0.34.0
 Requires-Dist: jinja2>=3.1.0
 Requires-Dist: python-multipart>=0.0.9
 Requires-Dist: pyyaml>=6.0
-Requires-Dist: openodd-py>=0.18.0
+Requires-Dist: openodd-py>=0.19.2
 Requires-Dist: packaging>=23.0
 Requires-Dist: tomli>=1.1.0 ; python_full_version < '3.11'
 Requires-Dist: pydantic>=2.0.0
-Requires-Dist: carla-driver-interface>=2.4,<3
+Requires-Dist: carla-driver-interface>=2.4.2,<3
 Requires-Dist: grpcio>=1.60
 Requires-Dist: protobuf>=4.25.0,<8
 Requires-Dist: orjson>=3.13.0

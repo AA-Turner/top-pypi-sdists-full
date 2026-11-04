@@ -9,11 +9,12 @@ use serde::{
     ser::SerializeMap,
 };
 use serde_json::value::{RawValue, to_raw_value};
+use tokio::sync::OwnedSemaphorePermit;
+use tokio::time::timeout;
 
 use crate::interned_string::InternedString;
-use crate::interned_values::{InternedStore, interned_store::MmapProjectId};
+use crate::interned_values::InternedStore;
 use crate::networking::ResponseData;
-use crate::specs_adapter::SpecsSyncTrigger;
 use crate::specs_response::parse_options::{SpecsResponseParseOptions, with_parse_options};
 use crate::specs_response::proto_specs::VerifiedRemoteConfigValues;
 use crate::specs_response::spec_types::{Spec, SpecsResponseFull, SpecsResponseNoUpdates};
@@ -22,29 +23,19 @@ use crate::specs_response::specs_hash_map::{
 };
 use crate::{StatsigErr, log_e};
 
-use super::errors::{HydrationFailureReason, hydration_error};
+use super::errors::{HydrationFailureReason, HydrationTimeoutStep, hydration_error};
 use super::metadata::{
     RemoteConfigValueMetadata, RemoteConfigValueMetadataWire, RemoteValueReference,
     add_raw_value_reference, hydrated_value, validate_reference_limits,
 };
 use super::telemetry::{HydrationPhase, HydrationResult};
 use super::verified_values::{VerifiedRemoteValue, VerifiedRemoteValues};
-use super::{RemoteConfigValueHydrator, TAG};
+use super::{HYDRATION_TIMEOUT, RemoteConfigValueHydrator, StoreHydrationOptions, TAG};
 
 pub(crate) struct HydratedJsonStoreUpdate {
     pub(crate) values: Box<SpecsResponseFull>,
     pub(crate) spec_decode_stats: SpecDecodeStats,
     pub(crate) verified_remote_values: VerifiedRemoteConfigValues,
-}
-
-pub(crate) struct JsonStoreHydrationContext<'a> {
-    pub(crate) source_url: &'a str,
-    pub(crate) sync_trigger: Option<SpecsSyncTrigger>,
-    pub(crate) current_verified_values: &'a VerifiedRemoteConfigValues,
-    pub(crate) mmap_project_id: MmapProjectId,
-    pub(crate) preserve_session_update_mode: bool,
-    pub(crate) capture_data_store_bytes: bool,
-    pub(crate) response_has_updates: Option<&'a AtomicBool>,
 }
 
 struct JsonConfigEntry {
@@ -60,6 +51,15 @@ struct JsonHydrationInput {
     references: Vec<RemoteValueReference>,
     reference_count: usize,
     total_bytes: u64,
+}
+
+struct PreparedJsonStoreUpdate {
+    input: JsonHydrationInput,
+    verified_values: VerifiedRemoteValues,
+    downloaded_bodies: HashMap<String, Arc<Vec<u8>>>,
+    // Keep admission until the raw bodies are applied or this preparation is
+    // cancelled.
+    _download_reservation: Option<OwnedSemaphorePermit>,
 }
 
 fn parse_json_hydration_input(
@@ -96,15 +96,76 @@ fn parse_json_hydration_input(
 pub(super) async fn hydrate_response_for_store(
     hydrator: &RemoteConfigValueHydrator,
     data: &mut ResponseData,
-    context: JsonStoreHydrationContext<'_>,
+    options: StoreHydrationOptions<'_>,
+    current_verified_values: &VerifiedRemoteConfigValues,
+    response_has_updates: Option<&AtomicBool>,
     hydration_result: &mut HydrationResult<'_>,
 ) -> Result<Option<HydratedJsonStoreUpdate>, StatsigErr> {
     let started_at = Instant::now();
-    let Some(input) = parse_json_hydration_input(data, context.source_url, hydration_result)?
+    let prepared = timeout(
+        HYDRATION_TIMEOUT,
+        prepare_response_for_store(
+            hydrator,
+            data,
+            options,
+            current_verified_values,
+            response_has_updates,
+            hydration_result,
+        ),
+    )
+    .await
+    .map_err(|_| hydrator.total_timeout_error(started_at, HydrationTimeoutStep::Response))??;
+    let Some(PreparedJsonStoreUpdate {
+        input,
+        verified_values,
+        downloaded_bodies,
+        _download_reservation,
+    }) = prepared
     else {
         return Ok(None);
     };
-    if let Some(response_has_updates) = context.response_has_updates {
+    let started_at = Instant::now();
+    let parse_options = SpecsResponseParseOptions::for_store(options.preserve_session_update_mode);
+    // No thread-local mmap or decode scope crosses an await. The same parsed
+    // returnable is installed in both the candidate spec and its provenance.
+    let (reference_count, total_bytes) = (input.reference_count, input.total_bytes);
+    let (candidate, spec_decode_stats) = track_spec_decodes(|| {
+        InternedStore::with_mmap_project(options.mmap_project_id, || {
+            with_parse_options(parse_options, || {
+                build_hydrated_json_snapshot(
+                    input,
+                    data,
+                    verified_values,
+                    downloaded_bodies,
+                    options.capture_data_store_bytes,
+                )
+            })
+        })
+    });
+    let (snapshot, verified_by_config) = candidate?;
+    hydrator.log_phase_latency(started_at.elapsed(), HydrationPhase::JsonApply);
+    hydration_result.log_hydration_success(reference_count, total_bytes);
+    Ok(Some(HydratedJsonStoreUpdate {
+        values: snapshot,
+        spec_decode_stats,
+        verified_remote_values: verified_by_config,
+    }))
+}
+
+async fn prepare_response_for_store(
+    hydrator: &RemoteConfigValueHydrator,
+    data: &mut ResponseData,
+    options: StoreHydrationOptions<'_>,
+    current_verified_values: &VerifiedRemoteConfigValues,
+    response_has_updates: Option<&AtomicBool>,
+    hydration_result: &mut HydrationResult<'_>,
+) -> Result<Option<PreparedJsonStoreUpdate>, StatsigErr> {
+    let started_at = Instant::now();
+    let Some(input) = parse_json_hydration_input(data, options.source_url, hydration_result)?
+    else {
+        return Ok(None);
+    };
+    if let Some(response_has_updates) = response_has_updates {
         // Remote downloads can be cancelled; preserve classification of the original
         // bytes before awaiting them. Ordinary responses never need this fallback.
         let has_updates = data
@@ -124,13 +185,13 @@ pub(super) async fn hydrate_response_for_store(
     // bodies containing numbers for those writes; read-only updates can reuse
     // every compatible parsed value without retaining original blob bytes.
     let mut verified_values = VerifiedRemoteValues::new();
-    'configs: for values in context.current_verified_values.values() {
+    'configs: for values in current_verified_values.values() {
         for (sha, value) in values.iter() {
             let Some(metadata) = incoming_metadata.get(sha.as_str()) else {
                 continue;
             };
             if !value.matches_metadata(metadata)
-                || (context.capture_data_store_bytes && !value.can_reuse_json_sidecar())
+                || (options.capture_data_store_bytes && !value.can_reuse_json_sidecar())
             {
                 continue;
             }
@@ -142,6 +203,22 @@ pub(super) async fn hydrate_response_for_store(
         }
     }
     drop(incoming_metadata);
+    if let Some(values) = InternedStore::mmap_verified_remote_values(options.mmap_project_id) {
+        for reference in &input.references {
+            let sha = reference.metadata.sha256.as_str();
+            if verified_values.contains_key(sha) {
+                continue;
+            }
+            let Some(value) = values.get(sha) else {
+                continue;
+            };
+            if value.matches_metadata(&reference.metadata)
+                && (!options.capture_data_store_bytes || value.can_reuse_json_sidecar())
+            {
+                verified_values.insert(sha.to_owned(), Arc::clone(value));
+            }
+        }
+    }
     let missing_references: Vec<_> = input
         .references
         .iter()
@@ -164,35 +241,11 @@ pub(super) async fn hydrate_response_for_store(
         .download_all(missing_references)
         .await
         .inspect_err(|error| hydration_result.record_download_error(error))?;
-    let started_at = Instant::now();
-    let parse_options = if context.preserve_session_update_mode {
-        SpecsResponseParseOptions::preserving_session_update_mode()
-    } else {
-        SpecsResponseParseOptions::default()
-    };
-    // No thread-local mmap or decode scope crosses an await. The same parsed
-    // returnable is installed in both the candidate spec and its provenance.
-    let (reference_count, total_bytes) = (input.reference_count, input.total_bytes);
-    let (candidate, spec_decode_stats) = track_spec_decodes(|| {
-        InternedStore::with_mmap_project(context.mmap_project_id, || {
-            with_parse_options(parse_options, || {
-                build_hydrated_json_snapshot(
-                    input,
-                    data,
-                    verified_values,
-                    downloaded_bodies,
-                    context.capture_data_store_bytes,
-                )
-            })
-        })
-    });
-    let (snapshot, verified_by_config) = candidate?;
-    hydrator.log_phase_latency(started_at.elapsed(), HydrationPhase::JsonApply);
-    hydration_result.log_hydration_success(reference_count, total_bytes);
-    Ok(Some(HydratedJsonStoreUpdate {
-        values: snapshot,
-        spec_decode_stats,
-        verified_remote_values: verified_by_config,
+    Ok(Some(PreparedJsonStoreUpdate {
+        input,
+        verified_values,
+        downloaded_bodies,
+        _download_reservation,
     }))
 }
 

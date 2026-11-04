@@ -5969,6 +5969,8 @@ def register_generated_tools(mcp, _get_client):
 
         `status` turns `done` once every row is processed, usually within seconds. Uploads are kept for 30 days.
 
+        A `failed` upload says why in `failureReason`. Send it again: re-sending a day replaces it, so nothing is counted twice.
+
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
@@ -6838,6 +6840,8 @@ def register_generated_tools(mcp, _get_client):
         - The fresh values are stored (later reads return them too), and the response carries `statusReadAt`, the time of the read.
         - At most 20 platform objects are read per request.
         - Where a read fails (credentials, platform error, no reader on that platform), stored values come back with `statusReadAt: null`.
+
+        **On GET /v1/ads/{adId} for a TikTok ad** the creative is read live too: ad text, call to action, landing page, video, format and identity, returned over the stored creative and never stored. See "Status freshness" in GET /v1/ads/{adId}.
 
         **On X** the budget is read live too:
 
@@ -7849,6 +7853,8 @@ def register_generated_tools(mcp, _get_client):
         - At most 20 platform objects are read per request.
         - Where a read fails (credentials, platform error, no reader on that platform), stored values come back with `statusReadAt: null`.
 
+        **On GET /v1/ads/{adId} for a TikTok ad** the creative is read live too: ad text, call to action, landing page, video, format and identity, returned over the stored creative and never stored. See "Status freshness" in GET /v1/ads/{adId}.
+
         **On X** the budget is read live too:
 
         - GET /v1/ads/{adId}: `budget`, `adSetBudget`, `campaignBudget` and `budgetLevel` are the line item and campaign budgets X holds now (stored like the switches).
@@ -8629,6 +8635,72 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Rank ads by performance",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaigns_list_ads_by_performance(
+        account_id: str,
+        from_date: str,
+        to_date: str,
+        ad_account_id: str | None = None,
+        platform: Literal[
+            "facebook",
+            "instagram",
+            "tiktok",
+            "linkedin",
+            "pinterest",
+            "google",
+            "twitter",
+            "openai",
+            "reddit",
+            "microsoft",
+        ]
+        | None = None,
+        sort_by: Literal[
+            "spend", "impressions", "clicks", "conversions", "roas"
+        ] = "spend",
+        limit: int = 50,
+    ) -> str:
+        """Rank ads by performance
+
+        Returns an ads account's ads ranked by spend, impressions, clicks, results or ROAS over a date range, each with its creative (type, thumbnail, headline, body, link) and campaign.
+
+        Use it to see which creatives perform best. `accountId` is sibling-expanded like `/v1/ads/timeline`.
+
+        Money is ranked by its raw amount, so pass `adAccountId` when the connection's ad accounts bill in different currencies.
+
+        A Meta range older than the imported history answers `202` with `backfillPending: true` and the covered part; repeat the request until it returns 200.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit, microsoft
+
+        Args:
+            account_id: Account ID. Sibling-expanded to its linked posting and ads pair. An id the API key cannot reach answers 404. (required)
+            ad_account_id: Optional platform-native ad account ID (e.g. Meta `act_…`) to rank one ad account only.
+            from_date: Inclusive start of the range (YYYY-MM-DD). (required)
+            to_date: Inclusive end of the range (YYYY-MM-DD). Max 730-day range. (required)
+            platform: Restrict to one platform.
+            sort_by: Metric the ads are ranked by, highest first.
+            limit: How many ads to return."""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.list_ads_by_performance(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                from_date=from_date,
+                to_date=to_date,
+                platform=platform,
+                sort_by=sort_by,
+                limit=limit,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get daily account metrics",
             readOnlyHint=True,
             destructiveHint=False,
@@ -8738,6 +8810,8 @@ def register_generated_tools(mcp, _get_client):
         - At most 20 platform objects are read per request.
         - Where a read fails (credentials, platform error, no reader on that platform), stored values come back with `statusReadAt: null`.
 
+        **On GET /v1/ads/{adId} for a TikTok ad** the creative is read live too: ad text, call to action, landing page, video, format and identity, returned over the stored creative and never stored. See "Status freshness" in GET /v1/ads/{adId}.
+
         **On X** the budget is read live too:
 
         - GET /v1/ads/{adId}: `budget`, `adSetBudget`, `campaignBudget` and `budgetLevel` are the line item and campaign budgets X holds now (stored like the switches).
@@ -8817,7 +8891,7 @@ def register_generated_tools(mcp, _get_client):
             status
             budget: Object with keys: amount (number) - Minimum varies by platform: TikTok=$20, Pinterest=$5, others=$1; type (one of: daily, lifetime) - OpenAI Ads accepts both and sets the campaign's single spend cap, replacing the previous daily or lifetime cap. A daily cap cannot go back to lifetime (422).
             targeting: Targeting update. - Meta + TikTok: demographics/interests. - Google: keyword and device bid adjustment edits only. - LinkedIn: locations, B2B facets, audiences. - Pinterest / X: return 501. **Partial update** on Meta, TikTok and LinkedIn: every targeting setting you do not send is preserved. - Meta: Advantage+ audience, placements, custom audiences, exclusions, interests, languages. - TikTok: languages, interest keywords, devices, behaviours. - LinkedIn: skills, member traits, interface locales, and any facet set in Campaign Manager. A field you send replaces its platform counterpart, and an empty or null value (for example `audienceInclude: []`, `industries: []` or `gender: "all"`) clears only that field. Any location field (countries, regions, cities, zips, ...) replaces the whole included location set; an update with no location keeps the current locations. Object with keys: keywords (list of any) - Google only. The FULL desired set of positive keywords for the entire ad group. Omit to leave positives unchanged; [] removes all positives. Negatives are ...; negativeKeywords (list of any) - Google only. The FULL desired set of negative keywords for the entire ad group, independent of positives. - Omit to leave negatives unchanged; [] removes all ...; devices (list of any) - Google only. The FULL new set of device bid modifiers for the campaign. Entries are a device name alone (targeted, bid modifier reset to 1) or { device, ...; ageMin (integer); ageMax (integer); countries (list of string) - ISO 3166-1 alpha-2 codes. On Google this is the FULL new country set for the campaign (same contract as `locations`); on LinkedIn it replaces the campaign's ...; locations (any) - Google and LinkedIn. The FULL new location set for the campaign. Bare country-code array, or an object with countries/regions/cities/zips/metros key lists ...; languages (list of string) - Google only. The FULL new language set for the campaign, as Google language codes (ISO 639-1, plus variants such as `zh_CN`). An unknown code returns 400.; interests (list of objects with keys id, name) - Interest objects from /v1/ads/interests. Each must include id and name.; advantage_audience (one of: 0, 1) - Meta only. Omit to preserve the existing setting on update. 0 = disabled, 1 = enabled.
-            creative: Replace or patch the ad's creative. Meta, TikTok, and LinkedIn. **Meta**: patch-style. - Pass any subset: omitted fields are preserved from the live creative, including media (`image_hash`/`video_id` reused, no re-upload) and `url_tags`. Sending the full set (`headline`, `body`, `callToAction`, `linkUrl`, `imageUrl`) rebuilds the creative from scratch. - Partial patching reads the live `object_story_spec`, which Meta strips on SHARE / page-post / dark / asset_feed creatives; those return 422 asking for the full set. A `videoUrl`/`videoId` on an image creative is a type change and also needs the full set. - `existingCreativeId` repoints the ad at a creative from GET /v1/ads/creatives and ignores every other field. - Meta creatives are immutable: any change creates a new creative and repoints the ad. The old creative stays on the ad account for historical reporting. - `creativeFeatures` is Meta-only. Omitted settings are preserved from the live creative, including on full rebuilds; a supplied creativeFeatures map overrides individual existing keys. - A `creative` object with no recognised field (`promotion` alone does not count) is a 400 `missing_required_field` when it is the only update, and is ignored (no creative rebuild) next to another updatable field. **TikTok**: patch-style. Pass any subset. - `headline` is ignored (no headline slot). - `body` becomes the in-feed `ad_text`; `linkUrl` becomes `landing_page_url`; `videoUrl` triggers a fresh upload. - `description`, `videoId` and `existingCreativeId` are Meta-only and return 400. **LinkedIn**: requires new media (image via `imageUrl` or video via `videoUrl`); a text-only update returns 400. - Uploads the media, creates a new inline media creative on the same campaign, and removes the old creative. `platformAdId` and `creative.creativeId` move to the new one. - The new creative keeps the old one's state. A `DRAFT` or `PAUSED` creative is re-created `DRAFT`, because LinkedIn refuses `PAUSED` before review is `APPROVED`. - If the old creative cannot be removed, the new one is deleted and the LinkedIn error is returned. - `videoId` and `existingCreativeId` are Meta-only and return 400. Object with keys: promotion (object or null) - Not supported. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Any object is rejected with 400 invalid_field_value. Meta ...; creativeFeatures (object); catalogFormat (one of: single_image, carousel_images_multi_items, carousel_images_single_item, carousel_slideshows) - Meta catalog template ads only. Rebuilds the creative with this `template_data.format_option` (same mapping as on create) and repoints the ad at the new ...; headline (string) - Meta and LinkedIn (TikTok has no headline slot); longHeadline (string) - Google Display only. Replaces the responsive display ad's long headline.; businessName (string) - Google Display only. Replaces the responsive display ad's business name.; squareImageUrl (string) - Google Display only. Uploaded as a new square (1:1) marketing image asset that replaces the current one.; body (string); description (string) - Link description slot (Meta `link_data.description` / `video_data.link_description`, LinkedIn creative description).; callToAction (string); linkUrl (string); imageUrl (string); videoUrl (string); videoId (string) - Meta only. Reuse an already-uploaded ad video (from POST /v1/ads/videos or GET /v1/ads/videos) instead of re-uploading via videoUrl.; existingCreativeId (string) - Meta only. Repoint the ad at an existing library creative (from GET /v1/ads/creatives); all other creative fields are ignored.
+            creative: Replace or patch the ad's creative. Meta, TikTok, and LinkedIn. **Meta**: patch-style. - Pass any subset: omitted fields are preserved from the live creative, including media (`image_hash`/`video_id` reused, no re-upload) and `url_tags`. Sending the full set (`headline`, `body`, `callToAction`, `linkUrl`, `imageUrl`) rebuilds the creative from scratch. - Partial patching reads the live `object_story_spec`, which Meta strips on SHARE / page-post / dark post creatives; those return 422 asking for the full set. A `videoUrl`/`videoId` on an image creative is a type change and also needs the full set. - Creatives with an `asset_feed_spec` (several text options, placement or language rules) take text, link, tracking and enhancement edits in place. The new creative is built from the live asset feed with the edited text, and every video, image, label and rule is kept. - On those, `body`, `headline` and `description` replace the one option of that kind. When the feed has several, send `bodies`, `headlines` or `descriptions` with one text per option, in order. `linkUrl` replaces the feed's only destination link. - Image, video and call-to-action changes on asset_feed creatives apply to the story spec (Multiple Text Options creatives). They return 422 when the feed itself holds the images, videos or call-to-action options. - The live creative's deprecated `standard_enhancements` setting (Meta subcode 3858504) is never sent back; every other enhancement setting is kept. - `existingCreativeId` repoints the ad at a creative from GET /v1/ads/creatives and ignores every other field. - Meta creatives are immutable: any change creates a new creative and repoints the ad. The old creative stays on the ad account for historical reporting. - `creativeFeatures` is Meta-only. Omitted settings are preserved from the live creative, including on full rebuilds; a supplied creativeFeatures map overrides individual existing keys. - A `creative` object with no recognised field (`promotion` alone does not count) is a 400 `missing_required_field` when it is the only update, and is ignored (no creative rebuild) next to another updatable field. **TikTok**: patch-style. Pass any subset. - `headline` is ignored (no headline slot). - `body` becomes the in-feed `ad_text`; `linkUrl` becomes `landing_page_url`; `videoUrl` triggers a fresh upload. - `description`, `videoId` and `existingCreativeId` are Meta-only and return 400. **LinkedIn**: requires new media (image via `imageUrl` or video via `videoUrl`); a text-only update returns 400. - Uploads the media, creates a new inline media creative on the same campaign, and removes the old creative. `platformAdId` and `creative.creativeId` move to the new one. - The new creative keeps the old one's state. A `DRAFT` or `PAUSED` creative is re-created `DRAFT`, because LinkedIn refuses `PAUSED` before review is `APPROVED`. - If the old creative cannot be removed, the new one is deleted and the LinkedIn error is returned. - `videoId` and `existingCreativeId` are Meta-only and return 400. Object with keys: promotion (object or null) - Not supported. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Any object is rejected with 400 invalid_field_value. Meta ...; creativeFeatures (object); catalogFormat (one of: single_image, carousel_images_multi_items, carousel_images_single_item, carousel_slideshows) - Meta catalog template ads only. Rebuilds the creative with this `template_data.format_option` (same mapping as on create) and repoints the ad at the new ...; headline (string) - Meta and LinkedIn (TikTok has no headline slot); longHeadline (string) - Google Display only. Replaces the responsive display ad's long headline.; businessName (string) - Google Display only. Replaces the responsive display ad's business name.; squareImageUrl (string) - Google Display only. Uploaded as a new square (1:1) marketing image asset that replaces the current one.; body (string) - Primary text. On a Meta asset_feed creative it replaces the feed's only body option (422 when it has several: send `bodies`).; bodies (list of string) - Meta only. The primary text options of an asset_feed creative, one text per option in the order GET /v1/ads/{adId} returns them. Each replaces the option in ...; headlines (list of string) - Meta only. Same as `bodies`, for the headline options (Meta `asset_feed_spec.titles`). Cannot be sent with `headline`. Not the top-level Google `headlines`.; description (string) - Link description slot (Meta `link_data.description` / `video_data.link_description`, LinkedIn creative description).; descriptions (list of string) - Meta only. Same as `bodies`, for the description options. Cannot be sent with `description`. Not the top-level Google `descriptions`.; callToAction (string); linkUrl (string); imageUrl (string); videoUrl (string); videoId (string) - Meta only. Reuse an already-uploaded ad video (from POST /v1/ads/videos or GET /v1/ads/videos) instead of re-uploading via videoUrl.; existingCreativeId (string) - Meta only. Repoint the ad at an existing library creative (from GET /v1/ads/creatives); all other creative fields are ignored.
             name: Rename the ad. Now propagated to Meta (POST /{ad-id}); non-Meta platforms return 501."""
         client = _get_client()
         try:
@@ -9753,11 +9827,13 @@ def register_generated_tools(mcp, _get_client):
                 start_date: Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the ad set's `start_time`. When omitted the ad starts delivering immediately. On Meta, TikTok, X, Pinterest and Reddit a value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone. Same field as on POST /v1/ads/create.
                 end_date: Ad-set end time (ISO 8601). Required for lifetime budgets. Same field as on POST /v1/ads/create.
 
-        Maps to the ad set's `end_time` (on X, the line item's `end_time`; X campaigns carry no flight dates).
+        Maps to the ad set's `end_time` (on X, the line item's `end_time`; X campaigns carry no flight dates). On Pinterest it also goes on the campaign when the ad account needs Campaign Budget Optimization, daily budget included.
 
         On Meta, TikTok, X, Pinterest and Reddit, a value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone, and a date-only end runs to 23:59:59 local.
+
+        Anything that is not an ISO 8601 date or date-time is a 400 on `endDate`.
                 schedule: Alias of the top-level `startDate` / `endDate`, kept for existing callers. Sending both forms with differing values is a 400. Object with keys: startDate (string) - Alias of startDate, kept for existing callers; endDate (string) - Alias of endDate, kept for existing callers
-                targeting: Same geo/demographic fields as the `TargetingSpec` used by /v1/ads/create. Geo keys (`regions`/`cities`/`zips`/`metros`) resolve via GET /v1/ads/targeting/search?dimension=geo. - Meta only: city radius and lat/lng `customLocations`. They preserve the boosted post's social proof (the ad references the existing post). - Reddit: the whole `TargetingSpec` applies, including `communities`, `excludedCommunities`, `conversationKeywords`, `excludedConversationKeywords`, `interests`, `audienceInclude` / `audienceExclude` and `excludedLocations`. Without any geo the ad targets the US. Object with keys: ageMin (integer); ageMax (integer); gender (one of: all, male, female) - Applied on Meta, TikTok, Pinterest and Reddit. Ignored on Google, LinkedIn and X.; languages (list of string) - Meta locale ids (numeric), passed through as given. Reddit: language codes (e.g. `en`).; countries (list of string) - ISO country codes. Required for TikTok boosts (TikTok's ad group requires location_ids); optional on other platforms.; regions (list of objects with keys key, name) - Region/state targeting. `key` from /v1/ads/targeting/search?dimension=geo&geoType=region.; cities (list of objects with keys key, name, radius, distanceUnit) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits (both set together, Meta only).; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`).; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations). No geo `key` lookup needed.; interests (list of objects with keys id, name) - Interest objects from /v1/ads/interests. Each must include id and name.; advantage_audience (one of: 0, 1) - Meta only. 0 = disabled (default), 1 = enabled.
+                targeting: Same geo/demographic fields as the `TargetingSpec` used by /v1/ads/create. Geo keys (`regions`/`cities`/`zips`/`metros`) resolve via GET /v1/ads/targeting/search?dimension=geo. - Meta only: city radius and lat/lng `customLocations`. They preserve the boosted post's social proof (the ad references the existing post). - Reddit: the whole `TargetingSpec` applies, including `communities`, `excludedCommunities`, `conversationKeywords`, `excludedConversationKeywords`, `interests`, `audienceInclude` / `audienceExclude` and `excludedLocations`. Without any geo the ad targets the US. Object with keys: ageMin (integer); ageMax (integer); gender (one of: all, male, female) - Applied on Meta, TikTok, Pinterest and Reddit. Ignored on Google, LinkedIn and X.; languages (list of string) - Language codes, the same format as `languages` on POST /v1/ads/create. - Meta: ISO 639-1 codes. A bare code targets all regional variants (\"en\" = all ...; countries (list of string) - ISO country codes. Required for TikTok boosts (TikTok's ad group requires location_ids); optional on other platforms.; regions (list of objects with keys key, name) - Region/state targeting. `key` from /v1/ads/targeting/search?dimension=geo&geoType=region.; cities (list of objects with keys key, name, radius, distanceUnit) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits (both set together, Meta only).; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`).; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations). No geo `key` lookup needed.; interests (list of objects with keys id, name) - Interest objects from /v1/ads/interests. Each must include id and name.; advantage_audience (one of: 0, 1) - Meta only. 0 = disabled (default), 1 = enabled.
                 location_targeting_type: Google only (400 elsewhere). Written on the campaign the boost creates.
                 raw_targeting: Meta only. A Meta-native targeting spec (e.g. `{ "geo_locations": { "cities": [{ "key": "...", "radius": 15, "distance_unit": "kilometer" }] } }`). Sent alone, it is forwarded unchanged. Use it for advanced fields the structured object does not expose (flexible_spec, excluded audiences, business places, user_os, wireless_carrier).
 
@@ -9785,7 +9861,13 @@ def register_generated_tools(mcp, _get_client):
         `bid_constraints.roas_average_floor` × 10000 (Meta uses fixed-point integers).
                 platform_specific_data: Platform-specific options. The platform is derived from `accountId`; sending options for a different platform returns a 400. LinkedIn (campaign bidding and delivery controls) and Meta (the bid trio) have options today. **Meta**: `bidStrategy`, `bidAmount` and `roasAverageFloor` may be sent here instead of at the root, which is the preferred home going forward. Sending the bid fields in BOTH places returns a 400 (`mutually_exclusive_fields`). Object with keys: costType (one of: CPM, CPC, CPV) - Campaign cost model (billing event). Defaults to `CPM`. Required when `unitCost` is set so the manual bid applies to an explicit cost model.; unitCost (number) - Manual bid in WHOLE account-currency units (e.g. 2.5 = $2.50). Requires `costType`. Omit for LinkedIn's automated (max delivery) bidding. LinkedIn enforces ...; optimizationTargetType (string) - Campaign `optimizationTargetType` (e.g. `MAX_CLICK`, `TARGET_COST_PER_CLICK`, `MAX_IMPRESSION`). Forwarded verbatim; LinkedIn validates compatibility with the ...; creativeSelection (one of: OPTIMIZED, ROUND_ROBIN) - How LinkedIn rotates creatives within the campaign. Defaults to `OPTIMIZED`.; audienceExpansionEnabled (boolean) - Enable LinkedIn audience expansion. Defaults to false.; offsiteDeliveryEnabled (boolean) - Deliver on the LinkedIn Audience Network. Defaults to false.; connectedTelevisionOnly (boolean) - Restrict delivery to Connected TV inventory.; carousel (object with keys cards) - POST /v1/ads/create only. Carousel ad with 2-10 image cards. Mutually exclusive with the other creative sources.; document (object with keys url, title) - POST /v1/ads/create only. Document ad rendered as an in-feed viewer. PDF, PPT or DOC up to 100MB. Mutually exclusive with the other creative sources.; spotlight (object with keys headline, description, callToAction, landingUrl, logoUrl, organizationName, showMemberProfilePhoto, backgroundImageUrl) - POST /v1/ads/create only. Dynamic Spotlight Ad personalized with the viewer's profile photo. Supported goals: traffic, awareness. logoUrl and organizationName ...; follower (object with keys headline, description, callToAction, logoUrl, organizationName, showMemberProfilePhoto) - POST /v1/ads/create only. Dynamic Follower Ad promoting the Company Page. Supported goals: engagement, awareness. headline and description take exactly one of ...; jobs (object with keys headline, buttonLabel, logoUrl, organizationName, showMemberProfilePhoto) - POST /v1/ads/create only. Dynamic Jobs Ad promoting your open roles, personalized with the viewer's profile photo. Mutually exclusive with the other creative ...; textAd (object with keys headline, description, landingUrl, imageUrl) - POST /v1/ads/create only. Classic right-rail Text Ad. The copy lives here; ad-level body and headline are not used. Mutually exclusive with the other creative ...; conversation (object with keys subject, sender, body, footer, headline, firstMessageId, messages) - POST /v1/ads/create only. Conversation Ad: a choose-your-path message tree delivered to the member's LinkedIn inbox. - Messages are flat nodes wired by local ...; event (object with keys urn) - POST /v1/ads/create only. Promotes an existing LinkedIn Event; no headline needed. Mutually exclusive with the other creative sources.; thoughtLeader (object with keys postUrn) - POST /v1/ads/create only. Sponsors an existing LinkedIn post (a share or ugcPost authored by your organization's Company Page) as the creative, keeping its ...
                 tracking: Meta only, except `pixelId`, which also picks the Reddit pixel of the new ad group (`promotedObject.pixelId` wins when both are sent). Tracking specs (pixel, URL tags). Object with keys: pixelId (string); urlTags (list of objects with keys key, value) - URL parameters appended to the ad link, rendered as `key=value` pairs joined with `&`. Meta dynamic macros ({{ad.id}}, {{campaign.id}}, {{placement}}, ...) ...
-                special_ad_categories: Meta only. Required for housing, employment, credit, or political ads.
+                special_ad_categories: Special ad category of the campaign the boost creates. Required for housing, employment, credit, or political ads.
+
+        - Meta: every value.
+        - TikTok: HOUSING, EMPLOYMENT and CREDIT, sent as the campaign's `special_industries` (TikTok requires one for these ads aimed at the US or Canada). Other values return 400.
+        - TikTok targeting: a 400 names the field for ZIP codes (`targeting.locations.zips`), gender, ages under 18 (`targeting.ageMin`), interest keywords (`keyword:` ids in `targeting.interests`) and hashtag behaviors.
+        - TikTok also refuses Smart Targeting (`smartTargeting`) and lookalike audiences (`targeting.audienceInclude` / `targeting.audienceExclude`). Without an age, the ad group targets 18+.
+        - TikTok sets the category when the campaign is created, so it is a 400 with `smartPlus` or `existingCampaignId`.
                 special_ad_category_country: Meta (metaads) only. 2-letter ISO country codes the special ad category applies to. Requires specialAdCategories to be set (400 otherwise).
                 regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. AUSTRALIA_FINSERV, AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, INDIA_FINSERV, MALAYSIA_UNIVERSAL, SINGAPORE_UNIVERSAL, TAIWAN_FINSERV, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL). Forwarded to the ad set.
                 regional_regulation_identities: Meta only. Verified identity IDs of the beneficiary and payer for each declared regionalRegulatedCategories value. Ignored when adSetId adds the ad to an existing ad set.
@@ -10734,7 +10816,7 @@ def register_generated_tools(mcp, _get_client):
         - Omitted: leaves Meta's default.
 
         Applied to each new creative (standalone, creatives[] and attach shapes) and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision.
-                validate_only: Validate the request without creating anything. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
+                validate_only: Validate the request without creating anything. Supported on Meta, TikTok, ChatGPT (OpenAI) and Google Performance Max / Demand Gen. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
 
         **Google Performance Max**: validates the complete atomic campaign and asset group, with no resource creation or local persistence. Validation still downloads image URLs and consumes quota.
 
@@ -10750,6 +10832,16 @@ def register_generated_tools(mcp, _get_client):
         - Code 100 subcode 2446880 "WhatsApp number required" on an ad that does not message on WhatsApp (intermittent). If the creative's own dry run also asks for a WhatsApp number, the creative is unverified too. Messaging ads still fail on 2446880.
 
         **ChatGPT (OpenAI)**: no platform dry-run. Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI's own checks (image fetch, currency-specific minimums, ad review) run only on a real create.
+
+        **TikTok**: TikTok has no dry-run. Zernio runs the input checks and the read-only TikTok calls a real create makes. It uploads or creates nothing: no video, Brand Identity, campaign, ad group or ad. A failure returns the same 4xx a real create would.
+
+        - Advertiser: `message` names its currency when TikTok returns it.
+        - Identity: `identityId` is authorized on the advertiser (the `identity` node). `message` names the identity and type the ad would run as.
+        - `existingCampaignId`: exists and is not an Upgraded Smart+ campaign.
+        - Pixel and optimization event resolve on the advertiser, and the schedule and targeting build.
+        - Not checked (marked `unverified` with the reason): the video (format, size, length, cover), the ad group as TikTok would create it (the budget minimum for the advertiser currency, location and audience ids, bid), a new campaign, and TikTok's review of the ad text, call to action and landing page.
+        - A Brand Identity a real create would make from `brandIdentity` is not made: the `identity` node is `unverified`.
+        - Supported: the single standalone video ad. `smartPlus` and `adSetId` return 400.
                 budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this number in minor units, an easy and expensive mix-up.
 
         Required on legacy, multi-creative and Performance Max shapes. Inherited on attach.
@@ -10962,7 +11054,7 @@ def register_generated_tools(mcp, _get_client):
                 languages: Language codes, e.g. ["en","es"].
 
         - Google: campaign language targeting (language_constant) using Google's language codes (ISO 639-1, plus variants such as `zh_CN`). Unknown codes return 400.
-        - Meta: a bare code targets all regional variants ("en" = all English); use a region-qualified code for a specific one ("en_GB", "pt_BR", "zh_TW"). Unknown codes are rejected.
+        - Meta: a bare code targets all regional variants ("en" = all English); use a region-qualified code for a specific one ("en_GB", "pt_BR", "zh_TW"). Meta numeric locale ids (e.g. "24" for English UK) are also accepted. Unknown values are rejected. POST /v1/ads/boost takes the same format in `targeting.languages`.
         - Other ad platforms use their own language-code systems.
                 placements: Meta only; non-Meta platforms reject this field. Manual ad placements. Omit for automatic placements (Meta's default, recommended for most cases, since Meta optimises delivery across all eligible surfaces). When set, restricts delivery to the chosen surfaces, mapped onto the ad set's `targeting.{publisher_platforms, facebook_positions, instagram_positions, messenger_positions, audience_network_positions, threads_positions, whatsapp_positions, device_platforms}`. Enum membership is validated here. Meta additionally enforces co-selection rules (e.g. some positions require their parent publisher platform) and returns an actionable error, which we surface. Object with keys: publisherPlatforms (list of string) - Top-level platforms to deliver on. A position field below is only honoured when its parent platform is included here.; facebookPositions (list of string); instagramPositions (list of string); messengerPositions (list of string); audienceNetworkPositions (list of string); threadsPositions (list of string); whatsappPositions (list of string); devicePlatforms (list of string) - Restrict by device. Omit to deliver on both mobile and desktop.
                 saved_targeting_id: ID of a `saved_targeting` audience (created via POST /v1/ads/audiences). When set, its stored
@@ -10981,9 +11073,21 @@ def register_generated_tools(mcp, _get_client):
         - With rawTargeting present, the defaults the camelCase builder normally injects (US geo, `targeting_automation.advantage_audience: 0`) are suppressed, so raw values are not clobbered.
 
         Include `targeting_automation` in the raw spec (or send `advantageAudience`), as Meta requires it on create. When cloning an EU campaign, also pass `dsaBeneficiary` / `dsaPayor` (separate fields, not part of targeting).
-                special_ad_categories: Meta only. Declares the ad's special category, required for housing, employment, credit, or
-        political/social-issue ads (Meta enforces restricted targeting for these). Note: setting a special
-        category disables income/zip targeting on Meta.
+                special_ad_categories: Declares the ad's special category, required for housing, employment, credit, or
+        political/social-issue ads.
+
+        - Meta: every value. Setting a housing, employment or credit category disables income/zip
+          targeting on Meta.
+        - TikTok: HOUSING, EMPLOYMENT and CREDIT, sent as the new campaign's `special_industries`
+          (TikTok requires one for these ads aimed at the US or Canada). Other values return 400.
+        - TikTok targeting: the create (and `validateOnly`) returns 400 naming the field for ZIP codes
+          (`targeting.zips`), gender, ages under 18 (`targeting.ageMin`), interest keywords (`keyword:`
+          ids in `targeting.interests`) and hashtag behaviors.
+        - TikTok also refuses Smart Targeting (`smartTargeting`) and lookalike audiences
+          (`targeting.audienceInclude` / `targeting.audienceExclude`). Without an age, the ad group
+          targets 18+.
+        - TikTok sets the category when the campaign is created, so it is a 400 with `smartPlus`,
+          `existingCampaignId` or `adSetId`.
                 special_ad_category_country: Meta (metaads) only. 2-letter ISO country codes the special ad category applies to. Requires
         specialAdCategories to be set (400 otherwise). Ignored when joining an existing campaign via
         existingCampaignId (the existing campaign's category/country already governs it).
@@ -11012,6 +11116,10 @@ def register_generated_tools(mcp, _get_client):
                 end_date: When the ad ends. If omitted: on a lifetime budget, the ad ends 7 days after it starts (reported in `appliedDefaults.endDate`); a daily budget runs until paused.
 
         Read like `startDate`: account timezone on Meta, TikTok, X, Pinterest, OpenAI and Reddit; whole account-local days on Google; UTC on LinkedIn. A date-only end runs to 23:59:59 local.
+
+        On a Pinterest ad account that needs Campaign Budget Optimization, the end also goes on the campaign, daily budget included.
+
+        400 when it is not an ISO 8601 date or date-time, or when the ad joins a parent that keeps its own dates: `adSetId` on Meta, TikTok, Google, LinkedIn and Reddit, and `existingCampaignId` on Google.
                 start_date: Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"). When omitted the ad starts delivering immediately. Same field as on `POST /v1/ads/boost`.
 
         Maps to the ad set's start: Meta `start_time`, TikTok ad group `schedule_start_time`, LinkedIn / Pinterest / X / Google campaign start. For lifetime budgets Meta also requires `endDate`.
@@ -13108,7 +13216,7 @@ def register_generated_tools(mcp, _get_client):
             ad_account_id: Platform ad account ID, from `GET /v1/ads/accounts`. (required)
             level: (required)
             campaign_ids: Only check these platform campaign IDs (or their ad sets). Leave out to check the whole ad account.
-            conditions: Object with keys: all (list of objects with keys metric, window, op, value, required) (required)
+            conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, required) (required)
             actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook. (required)
             schedule: Leave it out to run every 60 minutes. Object with keys: everyMinutes (one of: 60, 180, 360, 720, 1440; required) - How often the rule runs, in minutes.
             cooldown_minutes: How long the rule leaves an object alone after acting on it.
@@ -13252,7 +13360,7 @@ def register_generated_tools(mcp, _get_client):
             name
             level
             campaign_ids
-            conditions: Object with keys: all (list of objects with keys metric, window, op, value, required)
+            conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, required)
             actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook.
             schedule: Object with keys: everyMinutes (one of: 60, 180, 360, 720, 1440; required) - How often the rule runs, in minutes.
             cooldown_minutes
@@ -35273,7 +35381,7 @@ def register_generated_tools(mcp, _get_client):
                 audience_id: Custom audience ID to target.
                 placements: Manual ad placements on the shared ad set. Omit for automatic placements. When set, restricts delivery to the chosen surfaces, mapped onto the ad set's `targeting.{publisher_platforms, facebook_positions, instagram_positions, messenger_positions, audience_network_positions, threads_positions, whatsapp_positions, device_platforms}`. Enum membership is validated here. Meta additionally enforces co-selection rules and restricts which placements are eligible for click-to-WhatsApp ads, returning an actionable error which we surface. Object with keys: publisherPlatforms (list of string) - Top-level platforms to deliver on. A position field below is only honoured when its parent platform is included here.; facebookPositions (list of string); instagramPositions (list of string); messengerPositions (list of string); audienceNetworkPositions (list of string); threadsPositions (list of string); whatsappPositions (list of string); devicePlatforms (list of string) - Restrict by device. Omit to deliver on both mobile and desktop.
                 gender: Restrict the audience by gender (Meta `genders`). Omit or send all for everyone; all is ignored in adSetId attach mode. Stored on the ad and read back in `targeting.gender`.
-                languages: Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants ("en" = all English), a region-qualified code a specific one ("en_GB", "pt_BR"); unknown codes are rejected.
+                languages: Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants ("en" = all English), a region-qualified code a specific one ("en_GB", "pt_BR"). Meta numeric locale ids (e.g. "24" for English UK) are also accepted. Unknown values are rejected. Same format as `targeting.languages` on POST /v1/ads/boost.
                 places: Meta place keys (from GET /v1/ads/targeting/search). Each item is an object with keys: key (string, required)
                 neighborhoods: Meta neighborhood keys (from GET /v1/ads/targeting/search). Each item is an object with keys: key (string, required)
                 excluded_locations: Geo to exclude, same shape as POST /v1/ads/create (countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations).
@@ -35709,7 +35817,7 @@ def register_generated_tools(mcp, _get_client):
                 audience_id: Custom audience ID to target.
                 placements: Manual ad placements on the shared ad set. Omit for automatic placements. When set, restricts delivery to the chosen surfaces, mapped onto the ad set's `targeting.{publisher_platforms, facebook_positions, instagram_positions, messenger_positions, audience_network_positions, threads_positions, whatsapp_positions, device_platforms}`. Enum membership is validated here. Meta additionally enforces co-selection rules and restricts which placements are eligible for click-to-WhatsApp ads, returning an actionable error which we surface. Object with keys: publisherPlatforms (list of string) - Top-level platforms to deliver on. A position field below is only honoured when its parent platform is included here.; facebookPositions (list of string); instagramPositions (list of string); messengerPositions (list of string); audienceNetworkPositions (list of string); threadsPositions (list of string); whatsappPositions (list of string); devicePlatforms (list of string) - Restrict by device. Omit to deliver on both mobile and desktop.
                 gender: Restrict the audience by gender (Meta `genders`). Omit or send all for everyone; all is ignored in adSetId attach mode. Stored on the ad and read back in `targeting.gender`.
-                languages: Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants ("en" = all English), a region-qualified code a specific one ("en_GB", "pt_BR"); unknown codes are rejected.
+                languages: Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants ("en" = all English), a region-qualified code a specific one ("en_GB", "pt_BR"). Meta numeric locale ids (e.g. "24" for English UK) are also accepted. Unknown values are rejected. Same format as `targeting.languages` on POST /v1/ads/boost.
                 places: Meta place keys (from GET /v1/ads/targeting/search). Each item is an object with keys: key (string, required)
                 neighborhoods: Meta neighborhood keys (from GET /v1/ads/targeting/search). Each item is an object with keys: key (string, required)
                 excluded_locations: Geo to exclude, same shape as POST /v1/ads/create (countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations).
@@ -36121,7 +36229,7 @@ def register_generated_tools(mcp, _get_client):
                 audience_id: Custom audience ID to target.
                 placements: Manual ad placements on the shared ad set. Omit for automatic placements. When set, restricts delivery to the chosen surfaces, mapped onto the ad set's `targeting.{publisher_platforms, facebook_positions, instagram_positions, messenger_positions, audience_network_positions, threads_positions, whatsapp_positions, device_platforms}`. Enum membership is validated here. Meta additionally enforces co-selection rules and restricts which placements are eligible for click-to-WhatsApp ads, returning an actionable error which we surface. Object with keys: publisherPlatforms (list of string) - Top-level platforms to deliver on. A position field below is only honoured when its parent platform is included here.; facebookPositions (list of string); instagramPositions (list of string); messengerPositions (list of string); audienceNetworkPositions (list of string); threadsPositions (list of string); whatsappPositions (list of string); devicePlatforms (list of string) - Restrict by device. Omit to deliver on both mobile and desktop.
                 gender: Restrict the audience by gender (Meta `genders`). Omit or send all for everyone; all is ignored in adSetId attach mode. Stored on the ad and read back in `targeting.gender`.
-                languages: Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants ("en" = all English), a region-qualified code a specific one ("en_GB", "pt_BR"); unknown codes are rejected.
+                languages: Audience languages (Meta `locales`). A bare ISO 639-1 code targets all regional variants ("en" = all English), a region-qualified code a specific one ("en_GB", "pt_BR"). Meta numeric locale ids (e.g. "24" for English UK) are also accepted. Unknown values are rejected. Same format as `targeting.languages` on POST /v1/ads/boost.
                 places: Meta place keys (from GET /v1/ads/targeting/search). Each item is an object with keys: key (string, required)
                 neighborhoods: Meta neighborhood keys (from GET /v1/ads/targeting/search). Each item is an object with keys: key (string, required)
                 excluded_locations: Geo to exclude, same shape as POST /v1/ads/create (countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations).
@@ -37673,17 +37781,25 @@ def register_generated_tools(mcp, _get_client):
 
             See each platform's schema for media constraints.
 
-            ## LinkedIn @mentions
+            ## Scheduling
 
-            Mention a person or company by putting its LinkedIn URL inside `@[...]`, in `content`, a LinkedIn entry's `customContent` or its `platformSpecificData.firstComment`. The post is published with LinkedIn's real name and link, with no lookup call first.
+            Pick one of:
 
-            - Person: `@[https://www.linkedin.com/in/jane-doe]`
-            - Company: `@[https://www.linkedin.com/company/acme]`
-            - Your own text: `@[Jane](https://www.linkedin.com/in/jane-doe)`. For a person it must be the first, last or full name, for a ...
+            - `scheduledFor`: publish at the scheduled time
+            - `publishNow: true`: publish synchronously, inside this request
+            - `queuedFromProfile`: publish in the profile's next queue slot
+
+            With none of them and `isDraft` unset, the post is saved as a draft. `platforms` is required unless the post is a draft.
+
+            Precedence:
+
+            - `isDraft: true` wins over `publishNow` and `scheduledFor` (the post is saved, never published).
+            - `publishNow: true` wins over `scheduledFor`.
+            - A `scheduledFor` ...
 
             Args:
                 title: Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted).
-                content: Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts. LinkedIn @mentions: write @[https://www.linkedin.com/in/jane-doe] or @[https://www.linkedin.com/company/acme] in the text (see the operation description).
+                content: Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts. LinkedIn @mentions: write @[https://www.linkedin.com/in/jane-doe] or @[https://www.linkedin.com/company/acme] in the text, see [LinkedIn mentions](/platforms/linkedin#mentions).
                 media_items: Media attached to every platform in the request (a platform entry can override it with `customMedia`). - Each entry needs a publicly reachable HTTPS `url`. - `type` (image, video, gif, document) is inferred from the URL extension when omitted; a `type` that contradicts the extension is rejected with 400. - Upload files with `POST /v1/media/presign` first. - Per-platform size, duration and format limits are listed on each platform schema. Each item is an object with keys: type (one of: image, video, gif, document) - Optional when the item names a connected file (`fileId`): inferred from the file's MIME type.; url (string) - A media item with a null, missing or empty url is dropped, unless it names a connected file with `fileId` + `accountId`.; fileId (string) - A file of a connected Google Drive or OneDrive account (see the Files endpoints). Requires `accountId`. The file is copied into Zernio media storage when the ...; accountId (string) - The connected Google or Microsoft account the `fileId` belongs to (must have the `files` area). Required with `fileId`.; title (string) - Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.; altText (string) - Accessibility alternative text for an image. Set once per image; the same value is sent to each selected platform. - Applied on: Instagram (feed images only, ...; filename (string); size (integer) - Optional file size in bytes; mimeType (string) - Optional MIME type (e.g. image/jpeg, video/mp4); thumbnail (string) - Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, YouTube videos and Shorts, and LinkedIn video posts. ...; instagramThumbnail (string) - Custom cover image URL for Instagram Reels. Can also be set via platformSpecificData.instagramThumbnail or platformSpecificData.reelCover. Resolution order: ...; subtitles (list of objects with keys url, language) - Subtitle (closed caption) files for a video item, in SRT or WebVTT. Each language may appear once per video. Zernio downloads each file when the post is ...; tiktokProcessed (boolean) - Internal flag indicating the image was resized for TikTok
                 platforms: Target platforms and accounts for this post. Required for non-draft posts (returns 400 if empty). Drafts can omit platforms. Each item is an object with keys: platform (string, required); accountId (string, required); customContent (string) - Platform-specific text override. When set, this content is used instead of the top-level post content for this platform. Useful for tailoring captions per ...; customMedia (list of objects with keys type, url, fileId, accountId, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed); scheduledFor (string) - Optional per-platform scheduled time override. When omitted, the top-level scheduledFor is used.; platformSpecificData (object with keys article, replyToTweetId, quoteTweetId, replySettings, threadItems, poll, longVideo, geoRestriction, paidPartnership, madeWithAi, sensitiveMedia, mediaTaggedUsers)
                 scheduled_for: When to publish. Required unless `publishNow` is true, `queuedFromProfile` is set, or the post is a draft. Ignored when `publishNow` is true.
@@ -37812,15 +37928,6 @@ def register_generated_tools(mcp, _get_client):
         To promote a draft to scheduled, send `isDraft: false` together with `scheduledFor` (or `publishNow: true`, or `queuedFromProfile`). If `isDraft` is omitted the post keeps its current draft status, so sending only `scheduledFor` to a draft returns 200 but the post remains a draft.
 
         Non-draft updates run the same per-platform validation as post creation (media requirements, platform-specific field rules, etc.) against the resulting platforms, returning 400 on failure.
-
-        ## LinkedIn @mentions
-
-        Profile and company URLs in the `content` or LinkedIn `customContent` you send are resolved to LinkedIn's name and link, exactly as on `POST /v1/posts` (see Create post for the rules). For example:
-
-        - `@[https://www.linkedin.com/in/jane-doe]`
-        - `@[Jane](https://www.linkedin.com/company/acme)`
-
-        Only what the request sends is looked up: an ...
 
         Args:
             post_id: (required)
@@ -44130,7 +44237,11 @@ def register_generated_tools(mcp, _get_client):
 
         Pre-call cost estimate for a PSTN call: the carrier leg plus optional recording and transcription add-ons.
 
-        It uses the same billing formula as the post-call invoice, so the quote and the final charge can't disagree. The carrier figure follows the carrier's per-destination rate card: a call dialed from a number in the destination country uses the local mobile rate, and a `tel:` forward destination is quoted as a second carrier leg billed from the same number. The real cost comes from the settled carrier record after the call.
+        It uses the same billing formula as the post-call invoice, so the quote and the final charge can't disagree.
+
+        The carrier figure follows the carrier's per-destination rate card: a call dialed from a number in the destination country uses the local mobile rate, and a `tel:` forward destination is quoted as a second carrier leg billed from the same number.
+
+        The real cost comes from the settled carrier record after the call.
 
         Parity endpoint of `GET /v1/whatsapp/calls/estimate`, minus the Meta line. PSTN calls have no separate Meta bill, so `totalCostUSD` equals `billableCostUSD`.
 

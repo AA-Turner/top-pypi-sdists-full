@@ -4,6 +4,7 @@ import pytest
 import sqlalchemy
 import sqlalchemy.exc
 
+from airbyte_ops_mcp.mcp import prod_db_ops
 from airbyte_ops_mcp.prod_db_access import queries, sql
 
 
@@ -156,6 +157,95 @@ def test_query_connections_by_connector_keeps_limit_clause_when_limited(
 
     assert "LIMIT :limit" in str(captured_statements[0].text)
     assert captured_parameters[0]["limit"] == 500
+
+
+@pytest.mark.parametrize(
+    "organization_id", [None, "11111111-1111-1111-1111-111111111111"]
+)
+@pytest.mark.parametrize("exclude_pinned", [False, True])
+def test_query_connections_by_stream_filters_pinned_connections(
+    monkeypatch: pytest.MonkeyPatch,
+    organization_id: str | None,
+    exclude_pinned: bool,
+) -> None:
+    captured: list[sqlalchemy.sql.elements.TextClause] = []
+
+    def fake_run_sql_query(
+        statement: sqlalchemy.sql.elements.TextClause,
+        **_kwargs: object,
+    ) -> list[dict[str, object]]:
+        captured.append(statement)
+        return []
+
+    monkeypatch.setattr(queries, "_run_sql_query", fake_run_sql_query)
+
+    if exclude_pinned:
+        queries.query_connections_by_stream(
+            connector_definition_id="definition-id",
+            stream_name="orders",
+            organization_id=organization_id,
+            exclude_pinned=True,
+        )
+    else:
+        queries.query_connections_by_stream(
+            connector_definition_id="definition-id",
+            stream_name="orders",
+            organization_id=organization_id,
+        )
+
+    query_text = str(captured[0].text)
+    filter_text = "actor_pin.id IS NULL AND ws_pin.id IS NULL AND org_pin.id IS NULL"
+    if exclude_pinned:
+        assert filter_text in query_text
+        assert query_text.index(filter_text) < query_text.index("LIMIT :limit")
+    else:
+        assert filter_text not in query_text
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        sql.SELECT_CONNECTIONS_BY_SOURCE_CONNECTOR_AND_STREAM,
+        sql.SELECT_CONNECTIONS_BY_SOURCE_CONNECTOR_AND_STREAM_AND_ORG,
+    ],
+)
+def test_by_stream_queries_join_pin_scopes(
+    statement: sqlalchemy.sql.elements.TextClause,
+) -> None:
+    query_text = str(statement.text)
+
+    assert "LEFT JOIN scoped_configuration AS actor_pin" in query_text
+    assert "LEFT JOIN scoped_configuration AS ws_pin" in query_text
+    assert "LEFT JOIN scoped_configuration AS org_pin" in query_text
+    assert "actor_pin." not in query_text.split("FROM connection", 1)[0]
+
+
+def test_query_prod_connections_by_stream_forwards_exclude_pinned(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_query_connections_by_stream(**kwargs: object) -> list[dict[str, object]]:
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(
+        prod_db_ops, "query_connections_by_stream", fake_query_connections_by_stream
+    )
+    monkeypatch.setattr(prod_db_ops, "enrich_rows_by_org", lambda rows, **_kwargs: rows)
+
+    assert (
+        prod_db_ops.query_prod_connections_by_stream(
+            stream_name="orders",
+            source_definition_id="definition-id",
+            source_canonical_name=None,
+            organization_id=None,
+            limit=100,
+            exclude_pinned=True,
+        )
+        == []
+    )
+    assert captured["exclude_pinned"] is True
 
 
 def test_query_connections_by_destination_connector_omits_limit_when_unbounded(

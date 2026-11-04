@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: isal
-Version: 1.9.0
+Version: 1.9.1
 Summary: Faster zlib and gzip compatible compression and decompression by providing python bindings for the ISA-L ibrary.
 Author: Leiden University Medical Center
 Author-email: r.h.p.vorderman@lumc.nl

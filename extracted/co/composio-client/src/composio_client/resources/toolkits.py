@@ -1,51 +1,58 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""``client.toolkits`` — the generated resource classes.
+
+``ToolkitsResource`` (sync) and ``AsyncToolkitsResource`` (async),
+dispatching through the hand-written httpx kernel with Stainless-style
+flat request fields and raw / streaming response wrappers.
+"""
 
 from __future__ import annotations
 
-from typing import Optional
-from typing_extensions import Literal
+from functools import cached_property
+from typing import Literal
 
 import httpx
+from typing_extensions import overload
 
-from ..types import toolkit_list_params, toolkit_retrieve_params
-from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from .._utils import path_template, maybe_transform, async_maybe_transform
-from .._compat import cached_property
-from .._resource import SyncAPIResource, AsyncAPIResource
-from .._response import (
-    to_raw_response_wrapper,
-    to_streamed_response_wrapper,
-    async_to_raw_response_wrapper,
-    async_to_streamed_response_wrapper,
-)
-from .._base_client import make_request_options
+from .._base_client import BodyParam, QueryParam, RequestOptions
+from .._models import ToolkitRecommendScopesBody, ToolkitRetrieveMultiBody
+from .._operations import OPERATIONS_BY_CHAIN
+from .._response import APIResponse, AsyncAPIResponse, AsyncResponseContextManager, ResponseContextManager
+from .._types import NOT_GIVEN, Body, Headers, NotGiven, Omit, Query, SequenceNotStr, omit
 from ..types.toolkit_list_response import ToolkitListResponse
-from ..types.toolkit_retrieve_response import ToolkitRetrieveResponse
+from ..types.toolkit_recommend_scopes_response import ToolkitRecommendScopesResponse
 from ..types.toolkit_retrieve_categories_response import ToolkitRetrieveCategoriesResponse
+from ..types.toolkit_retrieve_changelog_response import ToolkitRetrieveChangelogResponse
+from ..types.toolkit_retrieve_multi_response import ToolkitRetrieveMultiResponse
+from ..types.toolkit_retrieve_response import ToolkitRetrieveResponse
+from ..types.toolkit_retrieve_scopes_grant_context_response import ToolkitRetrieveScopesGrantContextResponse
+from ._base import (
+    AsyncAPIResource,
+    SyncAPIResource,
+    build_path,
+    compact,
+    make_request_options,
+    merge_body,
+    merge_mapping,
+    require_fields,
+)
 
-__all__ = ["ToolkitsResource", "AsyncToolkitsResource"]
+_RETRIEVE_OPERATION = OPERATIONS_BY_CHAIN[("toolkits", "retrieve")]
+_LIST_OPERATION = OPERATIONS_BY_CHAIN[("toolkits", "list")]
+_RECOMMEND_SCOPES_OPERATION = OPERATIONS_BY_CHAIN[("toolkits", "recommend_scopes")]
+_RETRIEVE_CATEGORIES_OPERATION = OPERATIONS_BY_CHAIN[("toolkits", "retrieve_categories")]
+_RETRIEVE_CHANGELOG_OPERATION = OPERATIONS_BY_CHAIN[("toolkits", "retrieve_changelog")]
+_RETRIEVE_MULTI_OPERATION = OPERATIONS_BY_CHAIN[("toolkits", "retrieve_multi")]
+_RETRIEVE_SCOPES_GRANT_CONTEXT_OPERATION = OPERATIONS_BY_CHAIN[("toolkits", "retrieve_scopes_grant_context")]
 
 
 class ToolkitsResource(SyncAPIResource):
-    """Toolkit and tool management"""
-
     @cached_property
     def with_raw_response(self) -> ToolkitsResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return ToolkitsResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> ToolkitsResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return ToolkitsResourceWithStreamingResponse(self)
 
     def retrieve(
@@ -53,167 +60,399 @@ class ToolkitsResource(SyncAPIResource):
         slug: str,
         *,
         version: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> ToolkitRetrieveResponse:
-        """
-        Retrieves comprehensive information about a specific toolkit using its unique
-        slug identifier. This endpoint provides detailed metadata, authentication
-        configuration options, and feature counts for the requested toolkit.
-
-        Args:
-          slug: The unique slug identifier of the toolkit to retrieve
-
-          version: Version of the toolkit
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not slug:
-            raise ValueError(f"Expected a non-empty value for `slug` but received {slug!r}")
-        return self._get(
-            path_template("/api/v3.1/toolkits/{slug}", slug=slug),
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=maybe_transform({"version": version}, toolkit_retrieve_params.ToolkitRetrieveParams),
+        query_fields = compact(
+            {
+                "version": version,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/toolkits/{slug}",
+                {"slug": slug},
             ),
             cast_to=ToolkitRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
     def list(
         self,
         *,
         category: str | Omit = omit,
-        cursor: str | Omit = omit,
-        include_deprecated: Optional[bool] | Omit = omit,
-        limit: Optional[float] | Omit = omit,
         managed_by: Literal["composio", "all", "project"] | Omit = omit,
-        search: str | Omit = omit,
-        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
         type: Literal["native", "custom", "all"] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
+        include_deprecated: bool | None | Omit = omit,
+        search: str | Omit = omit,
+        user_id: str | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> ToolkitListResponse:
-        """
-        Retrieves a comprehensive list of toolkits of their latest versions that are
-        available to the authenticated project. Toolkits represent integration points
-        with external services and applications, each containing a collection of tools
-        and triggers. This endpoint supports filtering by category and management type,
-        as well as different sorting options.
-
-        Args:
-          category: Filter toolkits by category
-
-          cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
-              limit. The page is the page number and the limit is the number of items per
-              page. The cursor is used to paginate through the items. The cursor is not
-              required for the first page.
-
-          include_deprecated: Include deprecated toolkits in the response
-
-          limit: Number of items per page, max allowed is 1000
-
-          managed_by: Filter toolkits by who manages them
-
-          search: Search query to filter toolkits by name, slug, or description
-
-          sort_by: Sort order for returned toolkits
-
-          type: Filter toolkits by provenance (alias over managed_by)
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return self._get(
+        query_fields = compact(
+            {
+                "category": category,
+                "managed_by": managed_by,
+                "type": type,
+                "sort_by": sort_by,
+                "include_deprecated": include_deprecated,
+                "search": search,
+                "user_id": user_id,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
             "/api/v3.1/toolkits",
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=maybe_transform(
-                    {
-                        "category": category,
-                        "cursor": cursor,
-                        "include_deprecated": include_deprecated,
-                        "limit": limit,
-                        "managed_by": managed_by,
-                        "search": search,
-                        "sort_by": sort_by,
-                        "type": type,
-                    },
-                    toolkit_list_params.ToolkitListParams,
-                ),
-            ),
             cast_to=ToolkitListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    @overload
+    def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam | None = None,
+        *,
+        tools: SequenceNotStr[str],
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ToolkitRecommendScopesResponse: ...
+
+    @overload
+    def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam,
+        *,
+        tools: SequenceNotStr[str] | Omit = omit,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ToolkitRecommendScopesResponse: ...
+
+    def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam | None = None,
+        *,
+        tools: SequenceNotStr[str] | Omit = omit,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ToolkitRecommendScopesResponse:
+        body_fields = compact(
+            {
+                "tools": tools,
+                "auth_scheme": auth_scheme,
+                "toolkit_version": toolkit_version,
+                "grant_context": grant_context,
+                "include": include,
+                "exclude": exclude,
+                "available_scopes": available_scopes,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("tools",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
+            build_path(
+                "/api/v3.1/toolkits/{toolkit_slug}/scopes/recommended",
+                {"toolkit_slug": toolkit_slug},
+            ),
+            cast_to=ToolkitRecommendScopesResponse,
+            operation=_RECOMMEND_SCOPES_OPERATION,
+            body=body_data,
+            body_model=ToolkitRecommendScopesBody,
+            options=options_data,
         )
 
     def retrieve_categories(
         self,
         *,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ToolkitRetrieveCategoriesResponse:
-        """
-        Retrieves a comprehensive list of all available toolkit categories from their
-        latest versions. These categories can be used to filter toolkits by type or
-        purpose when using the toolkit listing endpoint. Categories help organize
-        toolkits into logical groups based on their functionality or industry focus.
-        """
-        return self._get(
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
             "/api/v3.1/toolkits/categories",
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=ToolkitRetrieveCategoriesResponse,
+            operation=_RETRIEVE_CATEGORIES_OPERATION,
+            options=options_data,
+        )
+
+    def retrieve_changelog(
+        self,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ToolkitRetrieveChangelogResponse:
+        query_fields = compact(
+            {
+                "user_id": user_id,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
+            "/api/v3.1/toolkits/changelog",
+            cast_to=ToolkitRetrieveChangelogResponse,
+            operation=_RETRIEVE_CHANGELOG_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    def retrieve_multi(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        category: str | Omit = omit,
+        managed_by: Literal["composio", "all", "project"] | Omit = omit,
+        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ToolkitRetrieveMultiResponse:
+        body_fields = compact(
+            {
+                "toolkits": toolkits,
+                "category": category,
+                "managed_by": managed_by,
+                "sort_by": sort_by,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
+            "/api/v3.1/toolkits/multi",
+            cast_to=ToolkitRetrieveMultiResponse,
+            operation=_RETRIEVE_MULTI_OPERATION,
+            body=body_data,
+            body_model=ToolkitRetrieveMultiBody,
+            options=options_data,
+        )
+
+    def retrieve_scopes_grant_context(
+        self,
+        toolkit_slug: str,
+        *,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ToolkitRetrieveScopesGrantContextResponse:
+        query_fields = compact(
+            {
+                "auth_scheme": auth_scheme,
+                "toolkit_version": toolkit_version,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/toolkits/{toolkit_slug}/scopes/grant_context",
+                {"toolkit_slug": toolkit_slug},
+            ),
+            cast_to=ToolkitRetrieveScopesGrantContextResponse,
+            operation=_RETRIEVE_SCOPES_GRANT_CONTEXT_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
 
 class AsyncToolkitsResource(AsyncAPIResource):
-    """Toolkit and tool management"""
-
     @cached_property
     def with_raw_response(self) -> AsyncToolkitsResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return AsyncToolkitsResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> AsyncToolkitsResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return AsyncToolkitsResourceWithStreamingResponse(self)
 
     async def retrieve(
@@ -221,202 +460,2013 @@ class AsyncToolkitsResource(AsyncAPIResource):
         slug: str,
         *,
         version: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> ToolkitRetrieveResponse:
-        """
-        Retrieves comprehensive information about a specific toolkit using its unique
-        slug identifier. This endpoint provides detailed metadata, authentication
-        configuration options, and feature counts for the requested toolkit.
-
-        Args:
-          slug: The unique slug identifier of the toolkit to retrieve
-
-          version: Version of the toolkit
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not slug:
-            raise ValueError(f"Expected a non-empty value for `slug` but received {slug!r}")
-        return await self._get(
-            path_template("/api/v3.1/toolkits/{slug}", slug=slug),
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=await async_maybe_transform({"version": version}, toolkit_retrieve_params.ToolkitRetrieveParams),
+        query_fields = compact(
+            {
+                "version": version,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/toolkits/{slug}",
+                {"slug": slug},
             ),
             cast_to=ToolkitRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
     async def list(
         self,
         *,
         category: str | Omit = omit,
-        cursor: str | Omit = omit,
-        include_deprecated: Optional[bool] | Omit = omit,
-        limit: Optional[float] | Omit = omit,
         managed_by: Literal["composio", "all", "project"] | Omit = omit,
-        search: str | Omit = omit,
-        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
         type: Literal["native", "custom", "all"] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
+        include_deprecated: bool | None | Omit = omit,
+        search: str | Omit = omit,
+        user_id: str | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> ToolkitListResponse:
-        """
-        Retrieves a comprehensive list of toolkits of their latest versions that are
-        available to the authenticated project. Toolkits represent integration points
-        with external services and applications, each containing a collection of tools
-        and triggers. This endpoint supports filtering by category and management type,
-        as well as different sorting options.
-
-        Args:
-          category: Filter toolkits by category
-
-          cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
-              limit. The page is the page number and the limit is the number of items per
-              page. The cursor is used to paginate through the items. The cursor is not
-              required for the first page.
-
-          include_deprecated: Include deprecated toolkits in the response
-
-          limit: Number of items per page, max allowed is 1000
-
-          managed_by: Filter toolkits by who manages them
-
-          search: Search query to filter toolkits by name, slug, or description
-
-          sort_by: Sort order for returned toolkits
-
-          type: Filter toolkits by provenance (alias over managed_by)
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return await self._get(
+        query_fields = compact(
+            {
+                "category": category,
+                "managed_by": managed_by,
+                "type": type,
+                "sort_by": sort_by,
+                "include_deprecated": include_deprecated,
+                "search": search,
+                "user_id": user_id,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
             "/api/v3.1/toolkits",
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=await async_maybe_transform(
-                    {
-                        "category": category,
-                        "cursor": cursor,
-                        "include_deprecated": include_deprecated,
-                        "limit": limit,
-                        "managed_by": managed_by,
-                        "search": search,
-                        "sort_by": sort_by,
-                        "type": type,
-                    },
-                    toolkit_list_params.ToolkitListParams,
-                ),
-            ),
             cast_to=ToolkitListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    @overload
+    async def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam | None = None,
+        *,
+        tools: SequenceNotStr[str],
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ToolkitRecommendScopesResponse: ...
+
+    @overload
+    async def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam,
+        *,
+        tools: SequenceNotStr[str] | Omit = omit,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ToolkitRecommendScopesResponse: ...
+
+    async def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam | None = None,
+        *,
+        tools: SequenceNotStr[str] | Omit = omit,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ToolkitRecommendScopesResponse:
+        body_fields = compact(
+            {
+                "tools": tools,
+                "auth_scheme": auth_scheme,
+                "toolkit_version": toolkit_version,
+                "grant_context": grant_context,
+                "include": include,
+                "exclude": exclude,
+                "available_scopes": available_scopes,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("tools",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
+            build_path(
+                "/api/v3.1/toolkits/{toolkit_slug}/scopes/recommended",
+                {"toolkit_slug": toolkit_slug},
+            ),
+            cast_to=ToolkitRecommendScopesResponse,
+            operation=_RECOMMEND_SCOPES_OPERATION,
+            body=body_data,
+            body_model=ToolkitRecommendScopesBody,
+            options=options_data,
         )
 
     async def retrieve_categories(
         self,
         *,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> ToolkitRetrieveCategoriesResponse:
-        """
-        Retrieves a comprehensive list of all available toolkit categories from their
-        latest versions. These categories can be used to filter toolkits by type or
-        purpose when using the toolkit listing endpoint. Categories help organize
-        toolkits into logical groups based on their functionality or industry focus.
-        """
-        return await self._get(
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
             "/api/v3.1/toolkits/categories",
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=ToolkitRetrieveCategoriesResponse,
+            operation=_RETRIEVE_CATEGORIES_OPERATION,
+            options=options_data,
+        )
+
+    async def retrieve_changelog(
+        self,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ToolkitRetrieveChangelogResponse:
+        query_fields = compact(
+            {
+                "user_id": user_id,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
+            "/api/v3.1/toolkits/changelog",
+            cast_to=ToolkitRetrieveChangelogResponse,
+            operation=_RETRIEVE_CHANGELOG_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    async def retrieve_multi(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        category: str | Omit = omit,
+        managed_by: Literal["composio", "all", "project"] | Omit = omit,
+        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ToolkitRetrieveMultiResponse:
+        body_fields = compact(
+            {
+                "toolkits": toolkits,
+                "category": category,
+                "managed_by": managed_by,
+                "sort_by": sort_by,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
+            "/api/v3.1/toolkits/multi",
+            cast_to=ToolkitRetrieveMultiResponse,
+            operation=_RETRIEVE_MULTI_OPERATION,
+            body=body_data,
+            body_model=ToolkitRetrieveMultiBody,
+            options=options_data,
+        )
+
+    async def retrieve_scopes_grant_context(
+        self,
+        toolkit_slug: str,
+        *,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ToolkitRetrieveScopesGrantContextResponse:
+        query_fields = compact(
+            {
+                "auth_scheme": auth_scheme,
+                "toolkit_version": toolkit_version,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/toolkits/{toolkit_slug}/scopes/grant_context",
+                {"toolkit_slug": toolkit_slug},
+            ),
+            cast_to=ToolkitRetrieveScopesGrantContextResponse,
+            operation=_RETRIEVE_SCOPES_GRANT_CONTEXT_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
 
 class ToolkitsResourceWithRawResponse:
-    def __init__(self, toolkits: ToolkitsResource) -> None:
-        self._toolkits = toolkits
+    def __init__(self, resource: ToolkitsResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.retrieve = to_raw_response_wrapper(
-            toolkits.retrieve,
+    def retrieve(
+        self,
+        slug: str,
+        *,
+        version: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ToolkitRetrieveResponse]:
+        query_fields = compact(
+            {
+                "version": version,
+            }
         )
-        self.list = to_raw_response_wrapper(
-            toolkits.list,
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.retrieve_categories = to_raw_response_wrapper(
-            toolkits.retrieve_categories,
+        return self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/toolkits/{slug}",
+                {"slug": slug},
+            ),
+            cast_to=ToolkitRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    def list(
+        self,
+        *,
+        category: str | Omit = omit,
+        managed_by: Literal["composio", "all", "project"] | Omit = omit,
+        type: Literal["native", "custom", "all"] | Omit = omit,
+        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
+        include_deprecated: bool | None | Omit = omit,
+        search: str | Omit = omit,
+        user_id: str | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ToolkitListResponse]:
+        query_fields = compact(
+            {
+                "category": category,
+                "managed_by": managed_by,
+                "type": type,
+                "sort_by": sort_by,
+                "include_deprecated": include_deprecated,
+                "search": search,
+                "user_id": user_id,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "get",
+            "/api/v3.1/toolkits",
+            cast_to=ToolkitListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    @overload
+    def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam | None = None,
+        *,
+        tools: SequenceNotStr[str],
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ToolkitRecommendScopesResponse]: ...
+
+    @overload
+    def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam,
+        *,
+        tools: SequenceNotStr[str] | Omit = omit,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ToolkitRecommendScopesResponse]: ...
+
+    def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam | None = None,
+        *,
+        tools: SequenceNotStr[str] | Omit = omit,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ToolkitRecommendScopesResponse]:
+        body_fields = compact(
+            {
+                "tools": tools,
+                "auth_scheme": auth_scheme,
+                "toolkit_version": toolkit_version,
+                "grant_context": grant_context,
+                "include": include,
+                "exclude": exclude,
+                "available_scopes": available_scopes,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("tools",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/toolkits/{toolkit_slug}/scopes/recommended",
+                {"toolkit_slug": toolkit_slug},
+            ),
+            cast_to=ToolkitRecommendScopesResponse,
+            operation=_RECOMMEND_SCOPES_OPERATION,
+            body=body_data,
+            body_model=ToolkitRecommendScopesBody,
+            options=options_data,
+        )
+
+    def retrieve_categories(
+        self,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ToolkitRetrieveCategoriesResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "get",
+            "/api/v3.1/toolkits/categories",
+            cast_to=ToolkitRetrieveCategoriesResponse,
+            operation=_RETRIEVE_CATEGORIES_OPERATION,
+            options=options_data,
+        )
+
+    def retrieve_changelog(
+        self,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ToolkitRetrieveChangelogResponse]:
+        query_fields = compact(
+            {
+                "user_id": user_id,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "get",
+            "/api/v3.1/toolkits/changelog",
+            cast_to=ToolkitRetrieveChangelogResponse,
+            operation=_RETRIEVE_CHANGELOG_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    def retrieve_multi(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        category: str | Omit = omit,
+        managed_by: Literal["composio", "all", "project"] | Omit = omit,
+        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ToolkitRetrieveMultiResponse]:
+        body_fields = compact(
+            {
+                "toolkits": toolkits,
+                "category": category,
+                "managed_by": managed_by,
+                "sort_by": sort_by,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "post",
+            "/api/v3.1/toolkits/multi",
+            cast_to=ToolkitRetrieveMultiResponse,
+            operation=_RETRIEVE_MULTI_OPERATION,
+            body=body_data,
+            body_model=ToolkitRetrieveMultiBody,
+            options=options_data,
+        )
+
+    def retrieve_scopes_grant_context(
+        self,
+        toolkit_slug: str,
+        *,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[ToolkitRetrieveScopesGrantContextResponse]:
+        query_fields = compact(
+            {
+                "auth_scheme": auth_scheme,
+                "toolkit_version": toolkit_version,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/toolkits/{toolkit_slug}/scopes/grant_context",
+                {"toolkit_slug": toolkit_slug},
+            ),
+            cast_to=ToolkitRetrieveScopesGrantContextResponse,
+            operation=_RETRIEVE_SCOPES_GRANT_CONTEXT_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
 
 class AsyncToolkitsResourceWithRawResponse:
-    def __init__(self, toolkits: AsyncToolkitsResource) -> None:
-        self._toolkits = toolkits
+    def __init__(self, resource: AsyncToolkitsResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.retrieve = async_to_raw_response_wrapper(
-            toolkits.retrieve,
+    async def retrieve(
+        self,
+        slug: str,
+        *,
+        version: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ToolkitRetrieveResponse]:
+        query_fields = compact(
+            {
+                "version": version,
+            }
         )
-        self.list = async_to_raw_response_wrapper(
-            toolkits.list,
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.retrieve_categories = async_to_raw_response_wrapper(
-            toolkits.retrieve_categories,
+        return await self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/toolkits/{slug}",
+                {"slug": slug},
+            ),
+            cast_to=ToolkitRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    async def list(
+        self,
+        *,
+        category: str | Omit = omit,
+        managed_by: Literal["composio", "all", "project"] | Omit = omit,
+        type: Literal["native", "custom", "all"] | Omit = omit,
+        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
+        include_deprecated: bool | None | Omit = omit,
+        search: str | Omit = omit,
+        user_id: str | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ToolkitListResponse]:
+        query_fields = compact(
+            {
+                "category": category,
+                "managed_by": managed_by,
+                "type": type,
+                "sort_by": sort_by,
+                "include_deprecated": include_deprecated,
+                "search": search,
+                "user_id": user_id,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "get",
+            "/api/v3.1/toolkits",
+            cast_to=ToolkitListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    @overload
+    async def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam | None = None,
+        *,
+        tools: SequenceNotStr[str],
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ToolkitRecommendScopesResponse]: ...
+
+    @overload
+    async def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam,
+        *,
+        tools: SequenceNotStr[str] | Omit = omit,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ToolkitRecommendScopesResponse]: ...
+
+    async def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam | None = None,
+        *,
+        tools: SequenceNotStr[str] | Omit = omit,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ToolkitRecommendScopesResponse]:
+        body_fields = compact(
+            {
+                "tools": tools,
+                "auth_scheme": auth_scheme,
+                "toolkit_version": toolkit_version,
+                "grant_context": grant_context,
+                "include": include,
+                "exclude": exclude,
+                "available_scopes": available_scopes,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("tools",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/toolkits/{toolkit_slug}/scopes/recommended",
+                {"toolkit_slug": toolkit_slug},
+            ),
+            cast_to=ToolkitRecommendScopesResponse,
+            operation=_RECOMMEND_SCOPES_OPERATION,
+            body=body_data,
+            body_model=ToolkitRecommendScopesBody,
+            options=options_data,
+        )
+
+    async def retrieve_categories(
+        self,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ToolkitRetrieveCategoriesResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "get",
+            "/api/v3.1/toolkits/categories",
+            cast_to=ToolkitRetrieveCategoriesResponse,
+            operation=_RETRIEVE_CATEGORIES_OPERATION,
+            options=options_data,
+        )
+
+    async def retrieve_changelog(
+        self,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ToolkitRetrieveChangelogResponse]:
+        query_fields = compact(
+            {
+                "user_id": user_id,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "get",
+            "/api/v3.1/toolkits/changelog",
+            cast_to=ToolkitRetrieveChangelogResponse,
+            operation=_RETRIEVE_CHANGELOG_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    async def retrieve_multi(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        category: str | Omit = omit,
+        managed_by: Literal["composio", "all", "project"] | Omit = omit,
+        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ToolkitRetrieveMultiResponse]:
+        body_fields = compact(
+            {
+                "toolkits": toolkits,
+                "category": category,
+                "managed_by": managed_by,
+                "sort_by": sort_by,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "post",
+            "/api/v3.1/toolkits/multi",
+            cast_to=ToolkitRetrieveMultiResponse,
+            operation=_RETRIEVE_MULTI_OPERATION,
+            body=body_data,
+            body_model=ToolkitRetrieveMultiBody,
+            options=options_data,
+        )
+
+    async def retrieve_scopes_grant_context(
+        self,
+        toolkit_slug: str,
+        *,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[ToolkitRetrieveScopesGrantContextResponse]:
+        query_fields = compact(
+            {
+                "auth_scheme": auth_scheme,
+                "toolkit_version": toolkit_version,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/toolkits/{toolkit_slug}/scopes/grant_context",
+                {"toolkit_slug": toolkit_slug},
+            ),
+            cast_to=ToolkitRetrieveScopesGrantContextResponse,
+            operation=_RETRIEVE_SCOPES_GRANT_CONTEXT_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
 
 class ToolkitsResourceWithStreamingResponse:
-    def __init__(self, toolkits: ToolkitsResource) -> None:
-        self._toolkits = toolkits
+    def __init__(self, resource: ToolkitsResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.retrieve = to_streamed_response_wrapper(
-            toolkits.retrieve,
+    def retrieve(
+        self,
+        slug: str,
+        *,
+        version: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ToolkitRetrieveResponse]]:
+        query_fields = compact(
+            {
+                "version": version,
+            }
         )
-        self.list = to_streamed_response_wrapper(
-            toolkits.list,
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.retrieve_categories = to_streamed_response_wrapper(
-            toolkits.retrieve_categories,
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/toolkits/{slug}",
+                    {"slug": slug},
+                ),
+                cast_to=ToolkitRetrieveResponse,
+                operation=_RETRIEVE_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def list(
+        self,
+        *,
+        category: str | Omit = omit,
+        managed_by: Literal["composio", "all", "project"] | Omit = omit,
+        type: Literal["native", "custom", "all"] | Omit = omit,
+        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
+        include_deprecated: bool | None | Omit = omit,
+        search: str | Omit = omit,
+        user_id: str | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ToolkitListResponse]]:
+        query_fields = compact(
+            {
+                "category": category,
+                "managed_by": managed_by,
+                "type": type,
+                "sort_by": sort_by,
+                "include_deprecated": include_deprecated,
+                "search": search,
+                "user_id": user_id,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                "/api/v3.1/toolkits",
+                cast_to=ToolkitListResponse,
+                operation=_LIST_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    @overload
+    def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam | None = None,
+        *,
+        tools: SequenceNotStr[str],
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ToolkitRecommendScopesResponse]]: ...
+
+    @overload
+    def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam,
+        *,
+        tools: SequenceNotStr[str] | Omit = omit,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ToolkitRecommendScopesResponse]]: ...
+
+    def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam | None = None,
+        *,
+        tools: SequenceNotStr[str] | Omit = omit,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ToolkitRecommendScopesResponse]]:
+        body_fields = compact(
+            {
+                "tools": tools,
+                "auth_scheme": auth_scheme,
+                "toolkit_version": toolkit_version,
+                "grant_context": grant_context,
+                "include": include,
+                "exclude": exclude,
+                "available_scopes": available_scopes,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("tools",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/toolkits/{toolkit_slug}/scopes/recommended",
+                    {"toolkit_slug": toolkit_slug},
+                ),
+                cast_to=ToolkitRecommendScopesResponse,
+                operation=_RECOMMEND_SCOPES_OPERATION,
+                body=body_data,
+                body_model=ToolkitRecommendScopesBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def retrieve_categories(
+        self,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ToolkitRetrieveCategoriesResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                "/api/v3.1/toolkits/categories",
+                cast_to=ToolkitRetrieveCategoriesResponse,
+                operation=_RETRIEVE_CATEGORIES_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def retrieve_changelog(
+        self,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ToolkitRetrieveChangelogResponse]]:
+        query_fields = compact(
+            {
+                "user_id": user_id,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                "/api/v3.1/toolkits/changelog",
+                cast_to=ToolkitRetrieveChangelogResponse,
+                operation=_RETRIEVE_CHANGELOG_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def retrieve_multi(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        category: str | Omit = omit,
+        managed_by: Literal["composio", "all", "project"] | Omit = omit,
+        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ToolkitRetrieveMultiResponse]]:
+        body_fields = compact(
+            {
+                "toolkits": toolkits,
+                "category": category,
+                "managed_by": managed_by,
+                "sort_by": sort_by,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                "/api/v3.1/toolkits/multi",
+                cast_to=ToolkitRetrieveMultiResponse,
+                operation=_RETRIEVE_MULTI_OPERATION,
+                body=body_data,
+                body_model=ToolkitRetrieveMultiBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def retrieve_scopes_grant_context(
+        self,
+        toolkit_slug: str,
+        *,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[ToolkitRetrieveScopesGrantContextResponse]]:
+        query_fields = compact(
+            {
+                "auth_scheme": auth_scheme,
+                "toolkit_version": toolkit_version,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/toolkits/{toolkit_slug}/scopes/grant_context",
+                    {"toolkit_slug": toolkit_slug},
+                ),
+                cast_to=ToolkitRetrieveScopesGrantContextResponse,
+                operation=_RETRIEVE_SCOPES_GRANT_CONTEXT_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
         )
 
 
 class AsyncToolkitsResourceWithStreamingResponse:
-    def __init__(self, toolkits: AsyncToolkitsResource) -> None:
-        self._toolkits = toolkits
+    def __init__(self, resource: AsyncToolkitsResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.retrieve = async_to_streamed_response_wrapper(
-            toolkits.retrieve,
+    def retrieve(
+        self,
+        slug: str,
+        *,
+        version: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ToolkitRetrieveResponse]]:
+        query_fields = compact(
+            {
+                "version": version,
+            }
         )
-        self.list = async_to_streamed_response_wrapper(
-            toolkits.list,
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.retrieve_categories = async_to_streamed_response_wrapper(
-            toolkits.retrieve_categories,
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/toolkits/{slug}",
+                    {"slug": slug},
+                ),
+                cast_to=ToolkitRetrieveResponse,
+                operation=_RETRIEVE_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def list(
+        self,
+        *,
+        category: str | Omit = omit,
+        managed_by: Literal["composio", "all", "project"] | Omit = omit,
+        type: Literal["native", "custom", "all"] | Omit = omit,
+        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
+        include_deprecated: bool | None | Omit = omit,
+        search: str | Omit = omit,
+        user_id: str | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ToolkitListResponse]]:
+        query_fields = compact(
+            {
+                "category": category,
+                "managed_by": managed_by,
+                "type": type,
+                "sort_by": sort_by,
+                "include_deprecated": include_deprecated,
+                "search": search,
+                "user_id": user_id,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                "/api/v3.1/toolkits",
+                cast_to=ToolkitListResponse,
+                operation=_LIST_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    @overload
+    def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam | None = None,
+        *,
+        tools: SequenceNotStr[str],
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ToolkitRecommendScopesResponse]]: ...
+
+    @overload
+    def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam,
+        *,
+        tools: SequenceNotStr[str] | Omit = omit,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ToolkitRecommendScopesResponse]]: ...
+
+    def recommend_scopes(
+        self,
+        toolkit_slug: str,
+        body: BodyParam | None = None,
+        *,
+        tools: SequenceNotStr[str] | Omit = omit,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        grant_context: dict[str, str] | Omit = omit,
+        include: SequenceNotStr[str] | Omit = omit,
+        exclude: SequenceNotStr[str] | Omit = omit,
+        available_scopes: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ToolkitRecommendScopesResponse]]:
+        body_fields = compact(
+            {
+                "tools": tools,
+                "auth_scheme": auth_scheme,
+                "toolkit_version": toolkit_version,
+                "grant_context": grant_context,
+                "include": include,
+                "exclude": exclude,
+                "available_scopes": available_scopes,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("tools",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/toolkits/{toolkit_slug}/scopes/recommended",
+                    {"toolkit_slug": toolkit_slug},
+                ),
+                cast_to=ToolkitRecommendScopesResponse,
+                operation=_RECOMMEND_SCOPES_OPERATION,
+                body=body_data,
+                body_model=ToolkitRecommendScopesBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def retrieve_categories(
+        self,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ToolkitRetrieveCategoriesResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                "/api/v3.1/toolkits/categories",
+                cast_to=ToolkitRetrieveCategoriesResponse,
+                operation=_RETRIEVE_CATEGORIES_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def retrieve_changelog(
+        self,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ToolkitRetrieveChangelogResponse]]:
+        query_fields = compact(
+            {
+                "user_id": user_id,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                "/api/v3.1/toolkits/changelog",
+                cast_to=ToolkitRetrieveChangelogResponse,
+                operation=_RETRIEVE_CHANGELOG_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def retrieve_multi(
+        self,
+        body: BodyParam | None = None,
+        *,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        category: str | Omit = omit,
+        managed_by: Literal["composio", "all", "project"] | Omit = omit,
+        sort_by: Literal["usage", "alphabetically"] | Omit = omit,
+        limit: float | None | Omit = omit,
+        cursor: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ToolkitRetrieveMultiResponse]]:
+        body_fields = compact(
+            {
+                "toolkits": toolkits,
+                "category": category,
+                "managed_by": managed_by,
+                "sort_by": sort_by,
+                "limit": limit,
+                "cursor": cursor,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                "/api/v3.1/toolkits/multi",
+                cast_to=ToolkitRetrieveMultiResponse,
+                operation=_RETRIEVE_MULTI_OPERATION,
+                body=body_data,
+                body_model=ToolkitRetrieveMultiBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    def retrieve_scopes_grant_context(
+        self,
+        toolkit_slug: str,
+        *,
+        auth_scheme: Literal[
+            "OAUTH2",
+            "OAUTH1",
+            "API_KEY",
+            "BASIC",
+            "BILLCOM_AUTH",
+            "BEARER_TOKEN",
+            "GOOGLE_SERVICE_ACCOUNT",
+            "NO_AUTH",
+            "BASIC_WITH_JWT",
+            "CALCOM_AUTH",
+            "SERVICE_ACCOUNT",
+            "SAML",
+            "DCR_OAUTH",
+            "CIMD_OAUTH",
+            "S2S_OAUTH2",
+        ]
+        | Omit = omit,
+        toolkit_version: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[ToolkitRetrieveScopesGrantContextResponse]]:
+        query_fields = compact(
+            {
+                "auth_scheme": auth_scheme,
+                "toolkit_version": toolkit_version,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/toolkits/{toolkit_slug}/scopes/grant_context",
+                    {"toolkit_slug": toolkit_slug},
+                ),
+                cast_to=ToolkitRetrieveScopesGrantContextResponse,
+                operation=_RETRIEVE_SCOPES_GRANT_CONTEXT_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
         )

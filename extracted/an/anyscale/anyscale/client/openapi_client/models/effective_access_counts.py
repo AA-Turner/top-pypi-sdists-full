@@ -113,7 +113,7 @@ class EffectiveAccessCounts(object):
     def principal_count(self):
         """Gets the principal_count of this EffectiveAccessCounts.  # noqa: E501
 
-        The users and user groups that reach the resource: each principal a binding on the resource or on a resource that contains it names, and each member of a group it names. The total of the resource's effective principals read.  # noqa: E501
+        The people that reach the resource, each counted once: each user a binding on the resource or on a resource that contains it names, and each member of a group it names. The groups themselves are not counted.  # noqa: E501
 
         :return: The principal_count of this EffectiveAccessCounts.  # noqa: E501
         :rtype: int
@@ -124,7 +124,7 @@ class EffectiveAccessCounts(object):
     def principal_count(self, principal_count):
         """Sets the principal_count of this EffectiveAccessCounts.
 
-        The users and user groups that reach the resource: each principal a binding on the resource or on a resource that contains it names, and each member of a group it names. The total of the resource's effective principals read.  # noqa: E501
+        The people that reach the resource, each counted once: each user a binding on the resource or on a resource that contains it names, and each member of a group it names. The groups themselves are not counted.  # noqa: E501
 
         :param principal_count: The principal_count of this EffectiveAccessCounts.  # noqa: E501
         :type: int

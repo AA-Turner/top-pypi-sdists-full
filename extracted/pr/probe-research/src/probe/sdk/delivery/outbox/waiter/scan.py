@@ -33,6 +33,10 @@ class RunView:
     workers: dict = field(default_factory=dict)
     #: When the newest record was written (epoch seconds), None with no record.
     updated_at: float | None = None
+    #: I15d: the server holds the run's close until its queued data is stored: the points it
+    #: last said were pending, and when (epoch seconds).
+    server_pending_points: int | None = None
+    server_storing_at: float | None = None
 
 
 def worker_queues(journal: Any) -> list:
@@ -71,6 +75,8 @@ def read_records(queues: list, run_ref: str) -> RunView:
             view.error_kinds.add(run.last_error_kind)
             view.last_error = run.last_error or view.last_error
         view.ahead += _writes_ahead(record, run_ref, run.pending)
+        if run.server_storing_at is not None and (view.server_storing_at or 0.0) < run.server_storing_at:
+            view.server_storing_at, view.server_pending_points = run.server_storing_at, run.server_pending_points
     return view
 
 

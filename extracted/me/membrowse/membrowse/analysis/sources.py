@@ -96,7 +96,12 @@ class SourceFileResolver:  # pylint: disable=too-few-public-methods,too-many-ins
         self._source_name_cache = {}  # DWARF path -> reported name
         self._paths_under_root = 0  # distinct DWARF paths the root matched
         self._paths_outside_root = 0  # distinct absolute DWARF paths it missed
-        self._sorted_addresses = None  # Lazy initialization for address lookup
+        # Lazily built by _find_nearby_address
+        self._sorted_addresses = None
+        self._sequences = []  # (start, end, CU offset) by start
+        self._sequence_starts = []
+        self._by_end = []  # the same sequences by end
+        self._sequence_ends = []
         if 'static_symbol_mappings' in dwarf_data:
             for mapping in dwarf_data['static_symbol_mappings']:
                 symbol_name = mapping[0]
@@ -160,26 +165,61 @@ class SourceFileResolver:  # pylint: disable=too-few-public-methods,too-many-ins
             return ""
         return result
 
-    def extract_source_line(self, symbol_address: Optional[int]) -> int:
-        """Return the source line for a symbol address from the DWARF line program.
+    def extract_source_line(self, symbol_address: Optional[int],
+                            symbol_name: Optional[str] = None,
+                            source_file: Optional[str] = None) -> int:
+        """Return the source line of a symbol, a line in source_file.
 
-        Returns 0 when no line program entry covers the address. The lookup is
-        address-based only — for inlined or moved code, this is the line the
-        line program ultimately landed on, which is the same answer ``nm -l``
-        gives.
+        The line of the line program row covering the address, the same
+        answer ``nm -l`` gives, when that row is in source_file (the name
+        extract_source_file reported). Otherwise, as for data, code without
+        line rows, or a function whose first row is inlined from another
+        file, the DW_AT_decl_line of the symbol's DIE when it declares the
+        symbol in source_file. 0 when neither is known, and when source_file
+        is empty (no file found). When source_file is None the row's line is
+        returned whatever its file.
         """
-        if not self.dwarf_data or not symbol_address:
+        if not self.dwarf_data or symbol_address is None:
             return 0
+        row = self._line_row(symbol_address)
+        if row is not None:
+            row_file, row_line = row
+            if row_line and (source_file is None
+                             or self._source_name(row_file) == source_file):
+                return row_line
+        if symbol_name and source_file:
+            decl = self._symbol_decl(symbol_name, symbol_address)
+            if decl is not None and self._source_name(decl[0]) == source_file:
+                return decl[1]
+        return 0
+
+    def _line_row(self, address: int) -> Optional[tuple]:
+        """(file, line) of the line row covering address, None if no row does."""
         addr_to_line = self.dwarf_data.get('address_to_line')
         if not addr_to_line:
-            return 0
-        line = addr_to_line.get(symbol_address)
-        if line:
-            return line
-        nearby = self._find_nearby_address(symbol_address)
-        if nearby is not None:
-            return addr_to_line.get(nearby, 0)
-        return 0
+            return None
+        if address not in addr_to_line:
+            address = self._covering_row(address)
+            if address is None:
+                return None
+        return self.dwarf_data['address_to_file'].get(address), addr_to_line.get(address, 0)
+
+    def _symbol_decl(self, symbol_name: str, symbol_address: int) -> Optional[tuple]:
+        """(DW_AT_decl_file, DW_AT_decl_line) of the symbol's DIE, None if unknown.
+
+        The DIE at the symbol's address, else a defining DIE without an
+        address (stored under address 0), such as a weak stub's.
+        """
+        symbol_to_decl = self.dwarf_data.get('symbol_to_decl')
+        if not symbol_to_decl:
+            return None
+        names = (symbol_name, strip_compiler_suffix(symbol_name))
+        for address in (symbol_address, 0):
+            for name in names:
+                decl = symbol_to_decl.get((name, address))
+                if decl is not None:
+                    return decl
+        return None
 
     def _resolve_source_file(  # pylint: disable=too-many-return-statements,too-many-branches
             self,
@@ -232,7 +272,9 @@ class SourceFileResolver:  # pylint: disable=too-few-public-methods,too-many-ins
                 return result
 
         # Priority 2: Address-based lookup for FUNC symbols (fallback)
-        if symbol_address is not None and symbol_address > 0 and symbol_type == 'FUNC':
+        # A function linked at 0 has rows only when a code symbol is there
+        # (see is_dead_sequence), so address 0 is looked up as well.
+        if symbol_address is not None and symbol_type == 'FUNC':
             return self._resolve_by_address(symbol_address)
 
         # Priority 3: Fallback lookups for OBJECT symbols and edge cases
@@ -290,17 +332,23 @@ class SourceFileResolver:  # pylint: disable=too-few-public-methods,too-many-ins
         nearby_addr = self._find_nearby_address(symbol_address)
         if nearby_addr is not None:
             return self._prefer_cu_source(
-                self.dwarf_data['address_to_file'][nearby_addr], nearby_addr)
+                self.dwarf_data['address_to_file'][nearby_addr],
+                symbol_address, nearby_addr)
 
         return ""
 
-    def _prefer_cu_source(self, source_file: str, address: int) -> str:
-        """The reported name of a line-program file, preferring the address's
-        CU .c file over a header (inlined code)."""
-        if source_file.endswith('.h') and address in self.dwarf_data['address_to_cu_file']:
-            cu_source_file = self.dwarf_data['address_to_cu_file'][address]
-            if cu_source_file and cu_source_file.endswith('.c'):
-                return self._source_name(cu_source_file)
+    def _prefer_cu_source(self, source_file: str, *addresses: int) -> str:
+        """The reported name of a line-program file, preferring the CU .c
+        file of the first of addresses that has one over a header (inlined
+        code). The symbol's own address goes first, then the row's."""
+        if source_file.endswith('.h'):
+            address_to_cu_file = self.dwarf_data['address_to_cu_file']
+            for address in addresses:
+                cu_source_file = address_to_cu_file.get(address)
+                if cu_source_file:
+                    if cu_source_file.endswith('.c'):
+                        return self._source_name(cu_source_file)
+                    break
         return self._source_name(source_file)
 
     def _resolve_fallback(self, symbol_name: str, symbol_address: int) -> str:
@@ -324,41 +372,62 @@ class SourceFileResolver:  # pylint: disable=too-few-public-methods,too-many-ins
         # No source file information found
         return ""
 
+    def _build_address_index(self) -> None:
+        """Sorted row addresses and line sequences for the address lookups."""
+        if self._sorted_addresses is not None:
+            return
+        self._sorted_addresses = sorted(self.dwarf_data['address_to_file'])
+        self._sequences = sorted(self.dwarf_data.get('line_sequences', ()))
+        self._sequence_starts = [seq[0] for seq in self._sequences]
+        self._by_end = sorted(self._sequences, key=lambda seq: seq[1])
+        self._sequence_ends = [seq[1] for seq in self._by_end]
+
+    def _row_at_or_before(self, address: int, floor: int) -> Optional[int]:
+        """The last row address in [floor, address], None if there is none."""
+        j = bisect.bisect_right(self._sorted_addresses, address) - 1
+        if j < 0 or self._sorted_addresses[j] < floor:
+            return None
+        return self._sorted_addresses[j]
+
+    def _covering_row(self, target_address: int) -> Optional[int]:
+        """Address of the line row that covers target_address, None if no row does.
+
+        That is the last row of the line sequence containing the address,
+        at or before it. The stored sequences do not overlap (see
+        select_live_sequences), so the one starting last at or before the
+        address is the only one that can contain it. A sequence whose first
+        rows name no known file has no row at its start, and a row before
+        its start is another sequence's, often another CU's: none is used.
+        """
+        self._build_address_index()
+        i = bisect.bisect_right(self._sequence_starts, target_address) - 1
+        if i < 0 or target_address >= self._sequences[i][1]:
+            return None
+        return self._row_at_or_before(target_address, self._sequences[i][0])
+
     def _find_nearby_address(
             self,
             target_address: int,
             max_distance: int = 100) -> Optional[int]:
-        """Find nearby address using dictionary-based search."""
-        if not self.dwarf_data['address_to_file']:
+        """Address of a line row whose file can stand for target_address.
+
+        The covering row when a line sequence contains the address. In a gap
+        between two sequences of the same CU (functions without line rows,
+        such as empty weak handlers), the last row of the sequence ending
+        before the gap, if that sequence ends within max_distance of the
+        address. The neighbours are the sequence ending last at or before
+        the address and the one starting first after it. Past the end of a
+        CU's code, or before its start, the nearest row belongs to other
+        code and is not used.
+        """
+        row = self._covering_row(target_address)
+        if row is not None:
+            return row
+        i = bisect.bisect_right(self._sequence_ends, target_address) - 1
+        j = bisect.bisect_right(self._sequence_starts, target_address)
+        if i < 0 or j >= len(self._sequences):
             return None
-
-        # Create sorted list from dictionary keys for efficient search
-        if self._sorted_addresses is None:
-            addresses = self.dwarf_data['address_to_file'].keys()
-            self._sorted_addresses = sorted(addresses)
-
-        # Binary search to find closest address
-        idx = bisect.bisect_left(self._sorted_addresses, target_address)
-
-        candidates = []
-
-        # Check address at or after target
-        if idx < len(self._sorted_addresses):
-            addr = self._sorted_addresses[idx]
-            distance = abs(addr - target_address)
-            if distance <= max_distance:
-                candidates.append((distance, addr))
-
-        # Check address before target
-        if idx > 0:
-            addr = self._sorted_addresses[idx - 1]
-            distance = abs(addr - target_address)
-            if distance <= max_distance:
-                candidates.append((distance, addr))
-
-        # Return closest address
-        if candidates:
-            candidates.sort()  # Sort by distance
-            return candidates[0][1]  # Return address with minimum distance
-
-        return None
+        before, after = self._by_end[i], self._sequences[j]
+        if before[2] != after[2] or target_address - before[1] > max_distance:
+            return None
+        return self._row_at_or_before(before[1] - 1, before[0])

@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 from collections.abc import Mapping
 from typing import Any, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -18,21 +19,30 @@ T = TypeVar("T", bound="LoadPackageResponse")
 class LoadPackageResponse:
     """
     Attributes:
-        load_id (str):
-        completed_at (datetime.datetime | None | Unset):
-        completed_job_count (int | None | Unset):  Default: 0.
-        failed_job_count (int | None | Unset):  Default: 0.
-        has_failed_load_jobs (bool | None | Unset):  Default: False.
-        has_schema_migration (bool | None | Unset):  Default: False.
-        is_pending (bool | None | Unset):  Default: False.
-        job_count (int | None | Unset):  Default: 0.
-        load_status (LoadPackageStatus | None | str | Unset):
-        schema_hash (None | str | Unset):
-        schema_name (None | str | Unset):
-        total_bytes_loaded (int | None | Unset):  Default: 0.
-        total_rows_loaded (int | None | Unset):  Default: 0.
+        id (UUID): Runtime id of the load package.
+        load_id (str): dlt load id of the package.
+        completed_at (datetime.datetime | None | Unset): When dlt completed the package, UTC; `null` while not
+            completed.
+        completed_job_count (int | None | Unset): Jobs that completed. Default: 0.
+        failed_job_count (int | None | Unset): Jobs that failed. Default: 0.
+        has_failed_load_jobs (bool | None | Unset): True when any load job of the package failed. Default: False.
+        has_schema_migration (bool | None | Unset): True when loading this package created or changed user tables
+            (`_dlt_*` tables are ignored). Default: False.
+        is_pending (bool | None | Unset): True when the package is not fully loaded yet. Default: False.
+        job_count (int | None | Unset): Number of jobs in the package. Default: 0.
+        load_status (LoadPackageStatus | None | str | Unset): State dlt reported for the package; `loaded` means fully
+            loaded.
+        schema_hash (None | str | Unset): Version hash of that schema.
+        schema_name (None | str | Unset): dlt schema the package was created with.
+        total_bytes_loaded (int | None | Unset): Bytes that dlt prepared for loading in this package (size of the
+            normalized files, or of the extracted files when normalize reported none). dlt does not report per-row load
+            counts, so this is set even when loading failed. Default: 0.
+        total_rows_loaded (int | None | Unset): Rows that dlt prepared for loading in this package (normalized rows, or
+            extracted rows when normalize reported none). dlt does not report per-row load counts, so this is set even when
+            loading failed. Default: 0.
     """
 
+    id: UUID
     load_id: str
     completed_at: datetime.datetime | None | Unset = UNSET
     completed_job_count: int | None | Unset = 0
@@ -49,6 +59,8 @@ class LoadPackageResponse:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        id = str(self.id)
+
         load_id = self.load_id
 
         completed_at: None | str | Unset
@@ -131,6 +143,7 @@ class LoadPackageResponse:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "id": id,
                 "load_id": load_id,
             }
         )
@@ -164,6 +177,8 @@ class LoadPackageResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        id = UUID(d.pop("id"))
+
         load_id = d.pop("load_id")
 
         def _parse_completed_at(data: object) -> datetime.datetime | None | Unset:
@@ -299,6 +314,7 @@ class LoadPackageResponse:
         total_rows_loaded = _parse_total_rows_loaded(d.pop("total_rows_loaded", UNSET))
 
         load_package_response = cls(
+            id=id,
             load_id=load_id,
             completed_at=completed_at,
             completed_job_count=completed_job_count,

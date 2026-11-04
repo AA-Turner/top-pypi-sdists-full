@@ -52,6 +52,7 @@ if typing.TYPE_CHECKING:
     from .create_response_v2request_tool_choice import CreateResponseV2RequestToolChoice
     from .create_response_v2response import CreateResponseV2Response
     from .create_response_v2response_tool_choice import CreateResponseV2ResponseToolChoice
+    from .criteria import Criteria
     from .detail import Detail
     from .diarized_entry import DiarizedEntry
     from .diarized_transcript import DiarizedTranscript
@@ -165,6 +166,7 @@ if typing.TYPE_CHECKING:
     from .image_part import ImagePart
     from .image_url import ImageUrl
     from .input_audio_codec import InputAudioCodec
+    from .instructions import Instructions
     from .job_live_status_response import JobLiveStatusResponse
     from .job_state import JobState
     from .job_status_response import JobStatusResponse
@@ -263,6 +265,21 @@ if typing.TYPE_CHECKING:
     from .storage_container_type import StorageContainerType
     from .stt_flush_signal import SttFlushSignal
     from .summary import Summary
+    from .system_one_answer import SystemOneAnswer, SystemOneAnswer_Choice, SystemOneAnswer_Noul, SystemOneAnswer_Score
+    from .system_one_choice_answer import SystemOneChoiceAnswer
+    from .system_one_choice_question import SystemOneChoiceQuestion
+    from .system_one_noul_answer import SystemOneNoulAnswer
+    from .system_one_noul_question import SystemOneNoulQuestion
+    from .system_one_question import (
+        SystemOneQuestion,
+        SystemOneQuestion_Choice,
+        SystemOneQuestion_Noul,
+        SystemOneQuestion_Score,
+    )
+    from .system_one_response import SystemOneResponse
+    from .system_one_score_answer import SystemOneScoreAnswer
+    from .system_one_score_question import SystemOneScoreQuestion
+    from .system_one_usage import SystemOneUsage
     from .task_detail import TaskDetail
     from .task_file_details import TaskFileDetails
     from .task_state import TaskState
@@ -365,6 +382,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateResponseV2RequestToolChoice": ".create_response_v2request_tool_choice",
     "CreateResponseV2Response": ".create_response_v2response",
     "CreateResponseV2ResponseToolChoice": ".create_response_v2response_tool_choice",
+    "Criteria": ".criteria",
     "Detail": ".detail",
     "DiarizedEntry": ".diarized_entry",
     "DiarizedTranscript": ".diarized_transcript",
@@ -478,6 +496,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ImagePart": ".image_part",
     "ImageUrl": ".image_url",
     "InputAudioCodec": ".input_audio_codec",
+    "Instructions": ".instructions",
     "JobLiveStatusResponse": ".job_live_status_response",
     "JobState": ".job_state",
     "JobStatusResponse": ".job_status_response",
@@ -574,6 +593,22 @@ _dynamic_imports: typing.Dict[str, str] = {
     "StorageContainerType": ".storage_container_type",
     "SttFlushSignal": ".stt_flush_signal",
     "Summary": ".summary",
+    "SystemOneAnswer": ".system_one_answer",
+    "SystemOneAnswer_Choice": ".system_one_answer",
+    "SystemOneAnswer_Noul": ".system_one_answer",
+    "SystemOneAnswer_Score": ".system_one_answer",
+    "SystemOneChoiceAnswer": ".system_one_choice_answer",
+    "SystemOneChoiceQuestion": ".system_one_choice_question",
+    "SystemOneNoulAnswer": ".system_one_noul_answer",
+    "SystemOneNoulQuestion": ".system_one_noul_question",
+    "SystemOneQuestion": ".system_one_question",
+    "SystemOneQuestion_Choice": ".system_one_question",
+    "SystemOneQuestion_Noul": ".system_one_question",
+    "SystemOneQuestion_Score": ".system_one_question",
+    "SystemOneResponse": ".system_one_response",
+    "SystemOneScoreAnswer": ".system_one_score_answer",
+    "SystemOneScoreQuestion": ".system_one_score_question",
+    "SystemOneUsage": ".system_one_usage",
     "TaskDetail": ".task_detail",
     "TaskFileDetails": ".task_file_details",
     "TaskState": ".task_state",
@@ -694,6 +729,7 @@ __all__ = [
     "CreateResponseV2RequestToolChoice",
     "CreateResponseV2Response",
     "CreateResponseV2ResponseToolChoice",
+    "Criteria",
     "Detail",
     "DiarizedEntry",
     "DiarizedTranscript",
@@ -807,6 +843,7 @@ __all__ = [
     "ImagePart",
     "ImageUrl",
     "InputAudioCodec",
+    "Instructions",
     "JobLiveStatusResponse",
     "JobState",
     "JobStatusResponse",
@@ -903,6 +940,22 @@ __all__ = [
     "StorageContainerType",
     "SttFlushSignal",
     "Summary",
+    "SystemOneAnswer",
+    "SystemOneAnswer_Choice",
+    "SystemOneAnswer_Noul",
+    "SystemOneAnswer_Score",
+    "SystemOneChoiceAnswer",
+    "SystemOneChoiceQuestion",
+    "SystemOneNoulAnswer",
+    "SystemOneNoulQuestion",
+    "SystemOneQuestion",
+    "SystemOneQuestion_Choice",
+    "SystemOneQuestion_Noul",
+    "SystemOneQuestion_Score",
+    "SystemOneResponse",
+    "SystemOneScoreAnswer",
+    "SystemOneScoreQuestion",
+    "SystemOneUsage",
     "TaskDetail",
     "TaskFileDetails",
     "TaskState",

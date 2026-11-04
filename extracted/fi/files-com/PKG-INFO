@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: files_com
-Version: 2.0.30
+Version: 2.0.32
 Summary: Python bindings for the Files.com API
 License-Expression: MIT
 Project-URL: Documentation, https://developers.files.com/python/
@@ -998,6 +998,7 @@ files_sdk.error.FolderAdminPermissionRequiredError -> files_sdk.error.NotAuthori
 |`TwoFactorAuthenticationUnsubscribedRecipientError`|  `ProcessingFailureError` |
 |`UpdatesNotAllowedForRemotesError`|  `ProcessingFailureError` |
 |`DuplicateShareRecipientError`|  `RateLimitedError` |
+|`FilesNativeStorageOverloadedError`|  `RateLimitedError` |
 |`ReauthenticationRateLimitedError`|  `RateLimitedError` |
 |`TooManyConcurrentLoginsError`|  `RateLimitedError` |
 |`TooManyConcurrentRequestsError`|  `RateLimitedError` |

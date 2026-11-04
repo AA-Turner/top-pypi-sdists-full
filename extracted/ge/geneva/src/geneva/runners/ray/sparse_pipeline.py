@@ -27,6 +27,7 @@ import attrs
 
 from geneva.apply.task import SparseRangeTask
 from geneva.errors import FatalWorkerOOMError, FatalWorkerTransientError
+from geneva.jobs.compaction_pause import check_compaction_hold
 from geneva.runners.ray.actor_pool import (
     _MAP_STALL_TIMEOUT_S,
     ActorPool,
@@ -420,7 +421,11 @@ def run_ray_sparse_update(
             for rng in _chunk_fragments(candidates, granularity)
         ]
         manager = SparseCommitManager(
-            cur, output_fid, granularity, storage_options=table_ref.storage_options
+            cur,
+            output_fid,
+            granularity,
+            storage_options=table_ref.storage_options,
+            before_commit=lambda: check_compaction_hold(job_id),
         )
         pending_tasks = tasks
         # ActorPool._map owns this deadline in the single-pool path. Recovery

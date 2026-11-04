@@ -27,9 +27,10 @@ class DownstreamJobRunResponse:
         number (int): The run number within the job
         status (RunStatus | str): The status of the run
         trigger (str): The trigger that started the downstream run
-        category (JobCategory | None | Unset): The category the job declares in `expose.category`, null when it declares
-            none. Callers that want one kind of downstream run, such as agents, filter on this.
-        duration_seconds (float | None | Unset): The run duration in seconds, null if not finished (may be fractional)
+        category (JobCategory | None | str | Unset): The category the job declares in `expose.category`, null when it
+            declares none. Callers that want one kind of downstream run, such as agents, filter on this.
+        duration_seconds (float | None | Unset): Duration of the run in seconds, possibly fractional; `null` until it
+            has finished.
         started_at (datetime.datetime | None | Unset): When the run started, null if not yet started
     """
 
@@ -40,7 +41,7 @@ class DownstreamJobRunResponse:
     number: int
     status: RunStatus | str
     trigger: str
-    category: JobCategory | None | Unset = UNSET
+    category: JobCategory | None | str | Unset = UNSET
     duration_seconds: float | None | Unset = UNSET
     started_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -136,7 +137,7 @@ class DownstreamJobRunResponse:
 
         trigger = d.pop("trigger")
 
-        def _parse_category(data: object) -> JobCategory | None | Unset:
+        def _parse_category(data: object) -> JobCategory | None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -149,7 +150,7 @@ class DownstreamJobRunResponse:
                 return category_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast(JobCategory | None | Unset, data)
+            return cast(JobCategory | None | str | Unset, data)
 
         category = _parse_category(d.pop("category", UNSET))
 

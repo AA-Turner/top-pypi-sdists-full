@@ -21,14 +21,15 @@ T = TypeVar("T", bound="DeployWorkspaceRequest")
 class DeployWorkspaceRequest:
     """
     Attributes:
-        job_definition_engine_version (int): Manifest engine version.
-        job_definition_hash (str): Content hash of the deployment manifest for change detection.
+        job_definition_engine_version (int): Not used; send the value `dlt` produces.
+        job_definition_hash (str): Not used; send the value `dlt` produces.
         jobs (list[DeployWorkspaceRequestJobsItem]): Job definitions from the deployment manifest.
-        deployment_module (None | str | Unset): Deployment module name. None = ad-hoc (no archival). '__deployment__' =
-            standard deploy.
-        description (None | str | Unset): Workspace description (from __deployment__ docstring). Only applied when
-            deployment_module='__deployment__'.
-        dry_run (bool | Unset): If true, return preview of changes without persisting. Default: False.
+        deployment_module (None | str | Unset): Deployment module the jobs come from, e.g. `__deployment__` for a
+            standard deploy. `null` makes an ad-hoc deploy, which never archives jobs.
+        description (None | str | Unset): Workspace description, e.g. from the `__deployment__` module docstring.
+            Applied only when `deployment_module` is `__deployment__`.
+        dry_run (bool | Unset): Preview the changes without saving them. Created and updated jobs then carry the zero
+            UUID as `id` and version 0. Default: False.
     """
 
     job_definition_engine_version: int

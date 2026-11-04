@@ -1,6 +1,7 @@
 """Project Harness Session history and status onto Vibe Agents event documents."""
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import ClassVar
 
 from pydantic import TypeAdapter
@@ -15,6 +16,14 @@ from mistralai.vibe_agents.session_workflow.notice_projection import (
 )
 
 _JSON_OBJECT_ADAPTER: TypeAdapter[session_wire.JsonObject] = TypeAdapter(session_wire.JsonObject)
+# Harness error messages can carry provider or exception text, which a failed Turn must not expose.
+_TURN_FAILED_MESSAGE = "The turn failed."
+
+
+@dataclass(frozen=True, slots=True)
+class _WaitingStatus:
+    reason: str = "waiting_for_input"
+    termination: session_wire.FailedTurnTermination | None = None
 
 
 class LegacyTaskSessionEventPublisher(workflow_events.WorkflowSessionEventPublisher):
@@ -32,7 +41,7 @@ class LegacyTaskSessionEventPublisher(workflow_events.WorkflowSessionEventPublis
         self._product_lifecycle_emitter = lifecycle_emitter or workflow_events.emit_workflow_task_lifecycle
         super().__init__(lifecycle_emitter=self._emit_lifecycle_with_status_sidecar)
         self._batches = batches
-        self._status_reasons: dict[str, str] = {}
+        self._status_reasons: dict[str, _WaitingStatus] = {}
 
     async def publish(self, batch: runtime_event_state.SessionEventBatch) -> None:
         self.record_batch(batch)
@@ -60,16 +69,14 @@ class LegacyTaskSessionEventPublisher(workflow_events.WorkflowSessionEventPublis
         if not isinstance(event, harness_session.SessionUpdatedEvent):
             return None
         if event.session.status == "running":
-            status = "running"
-            reason = None
+            content: session_wire.JsonObject = {"status": "running"}
         elif event.session.status == "waiting":
-            status = "waiting_for_input"
-            reason = self._status_reasons.pop(task_id, "waiting_for_input")
+            waiting = self._status_reasons.pop(task_id, _WaitingStatus())
+            content = {"status": "waiting_for_input", "reason": waiting.reason}
+            if waiting.termination is not None:
+                content["termination"] = waiting.termination.model_dump(mode="json")
         else:
             return None
-        content: session_wire.JsonObject = {"status": status}
-        if reason is not None:
-            content["reason"] = reason
         entry = session_wire.StateHistoryEntry(
             id=task_id,
             generation_status=session_wire.GenerationStatus.COMPLETE,
@@ -123,22 +130,32 @@ class LegacyTaskSessionEventPublisher(workflow_events.WorkflowSessionEventPublis
 
 def _status_reasons_for_batch(
     batch: runtime_event_state.SessionEventBatch,
-) -> dict[str, str]:
-    reasons: dict[str, str] = {}
-    waiting_reason = "waiting_for_input"
+) -> dict[str, _WaitingStatus]:
+    reasons: dict[str, _WaitingStatus] = {}
+    waiting = _WaitingStatus()
     for event_index, event in enumerate(batch.events):
         if isinstance(event, harness_session.TurnTerminatedEvent):
-            termination = event.turn.termination
-            if isinstance(termination, harness_session.CancelledTermination):
-                waiting_reason = "turn_interrupted"
-            elif isinstance(termination, harness_session.CompletedTermination) and termination.stop_reason is not None:
-                waiting_reason = termination.stop_reason
-            else:
-                waiting_reason = "waiting_for_input"
+            waiting = _waiting_status_for_termination(event.turn.termination)
         elif isinstance(event, harness_session.SessionUpdatedEvent) and event.session.status == "waiting":
-            reasons[f"{batch.batch_id}:{event_index}"] = waiting_reason
-            waiting_reason = "waiting_for_input"
+            reasons[f"{batch.batch_id}:{event_index}"] = waiting
+            waiting = _WaitingStatus()
     return reasons
+
+
+def _waiting_status_for_termination(termination: harness_session.Termination | None) -> _WaitingStatus:
+    match termination:
+        case harness_session.CancelledTermination():
+            return _WaitingStatus(reason="turn_interrupted")
+        case harness_session.FailedTermination(error=error):
+            return _WaitingStatus(
+                termination=session_wire.FailedTurnTermination(
+                    error=session_wire.TurnFailureError(code=error.code or "turn_failed", message=_TURN_FAILED_MESSAGE)
+                )
+            )
+        case harness_session.CompletedTermination(stop_reason=str() as stop_reason):
+            return _WaitingStatus(reason=stop_reason)
+        case _:
+            return _WaitingStatus()
 
 
 def _status_sidecar(

@@ -45,6 +45,13 @@ def _typeddict_new(cls, _typename, _fields=None, **kwargs):
     return _TypedDictMeta(_typename, (), ns, _from_functional_call=True)
 
 
+def _get_own_annotations(tp):
+    if sys.version_info >= (3, 14):
+        import annotationlib
+        return annotationlib.get_annotations(tp)
+    return tp.__dict__.get('__annotations__', {})
+
+
 class _TypedDictMeta(type):
     def __new__(cls, name, bases, ns, total=True, _from_functional_call=False):
         # Create new typed dict class object.
@@ -71,11 +78,15 @@ class _TypedDictMeta(type):
         ns['__new__'] = _typeddict_new if name == 'TypedDict' else _dict_new
         tp_dict = super(_TypedDictMeta, cls).__new__(cls, name, (dict,), ns)
 
-        anns = ns.get('__annotations__', {})
+        if '__annotations__' in ns:
+            anns = ns['__annotations__']
+        else:
+            # Python 3.14+ evaluates class annotations lazily (PEP 649)
+            anns = _get_own_annotations(tp_dict)
         msg = "TypedDict('Name', {f0: t0, f1: t1, ...}); each t must be a type"
         anns = {n: _type_check(tp, msg) for n, tp in anns.items()}
         for base in bases:
-            anns.update(base.__dict__.get('__annotations__', {}))
+            anns.update(_get_own_annotations(base))
         tp_dict.__annotations__ = anns
         if not hasattr(tp_dict, '__total__'):
             tp_dict.__total__ = total
@@ -209,6 +220,34 @@ class i16(metaclass=_NativeIntMeta):
         return int(x)
 
 
+class i8(metaclass=_NativeIntMeta):
+    def __new__(cls, x=0, base=_sentinel):
+        if base is not _sentinel:
+            return int(x, base)
+        return int(x)
+
+
+class u64(metaclass=_NativeIntMeta):
+    def __new__(cls, x=0, base=_sentinel):
+        if base is not _sentinel:
+            return int(x, base)
+        return int(x)
+
+
+class u32(metaclass=_NativeIntMeta):
+    def __new__(cls, x=0, base=_sentinel):
+        if base is not _sentinel:
+            return int(x, base)
+        return int(x)
+
+
+class u16(metaclass=_NativeIntMeta):
+    def __new__(cls, x=0, base=_sentinel):
+        if base is not _sentinel:
+            return int(x, base)
+        return int(x)
+
+
 class u8(metaclass=_NativeIntMeta):
     def __new__(cls, x=0, base=_sentinel):
         if base is not _sentinel:
@@ -216,7 +255,7 @@ class u8(metaclass=_NativeIntMeta):
         return int(x)
 
 
-for _int_type in i64, i32, i16, u8:
+for _int_type in i64, i32, i16, i8, u64, u32, u16, u8:
     _int_type.__doc__ = \
         """A native fixed-width integer type when used with mypyc.
 

@@ -4517,6 +4517,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str workload_id: Filter to one workload. Accepts a cluster, cloud-resource, job, service, or workspace id; the type is inferred from its prefix.
+        :param str workload_name: Filter to workloads whose name contains this value, ignoring case.
         :param str scheduler_request_id: Filter to the events of a single admission request
         :param list[str] queues: Return events matching any of the specified queues
         :param str project_id: Filter by project
@@ -4553,6 +4554,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str workload_id: Filter to one workload. Accepts a cluster, cloud-resource, job, service, or workspace id; the type is inferred from its prefix.
+        :param str workload_name: Filter to workloads whose name contains this value, ignoring case.
         :param str scheduler_request_id: Filter to the events of a single admission request
         :param list[str] queues: Return events matching any of the specified queues
         :param str project_id: Filter by project
@@ -4582,6 +4584,7 @@ class DefaultApi(object):
 
         all_params = [
             'workload_id',
+            'workload_name',
             'scheduler_request_id',
             'queues',
             'project_id',
@@ -4623,6 +4626,8 @@ class DefaultApi(object):
         query_params = []
         if 'workload_id' in local_var_params and local_var_params['workload_id'] is not None:  # noqa: E501
             query_params.append(('workload_id', local_var_params['workload_id']))  # noqa: E501
+        if 'workload_name' in local_var_params and local_var_params['workload_name'] is not None:  # noqa: E501
+            query_params.append(('workload_name', local_var_params['workload_name']))  # noqa: E501
         if 'scheduler_request_id' in local_var_params and local_var_params['scheduler_request_id'] is not None:  # noqa: E501
             query_params.append(('scheduler_request_id', local_var_params['scheduler_request_id']))  # noqa: E501
         if 'queues' in local_var_params and local_var_params['queues'] is not None:  # noqa: E501

@@ -2,6 +2,7 @@
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager
+from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
 # Other libraries
@@ -24,6 +25,13 @@ if TYPE_CHECKING:
     # Avoid runtime import cycle: runtime.py imports from this module.
     # Current package
     from dlt_runtime.typing import WorkspaceInfo
+
+
+class ErrorCode(str, Enum):
+    """The platform error codes the CLI branches on."""
+
+    REGION_REQUIRED = "region_required"
+    WORKSPACE_LIMIT_REACHED = "workspace_limit_reached"
 
 
 class RuntimeClientException(DltException):
@@ -87,6 +95,16 @@ class OrgRegionRequired(RuntimeClientException):
 
     def __init__(self) -> None:
         super().__init__("Organization region must be set before creating workspaces.")
+
+
+class WorkspaceLimitReached(RuntimeClientException):
+    """Trial organization already has its one workspace besides playgrounds."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Trial organizations can have one workspace besides playgrounds. "
+            "To add more, contact our team."
+        )
 
 
 class AmbiguousWorkspaceName(ValueError, RuntimeClientException):

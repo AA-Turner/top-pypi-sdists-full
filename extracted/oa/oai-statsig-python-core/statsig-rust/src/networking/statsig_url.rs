@@ -64,11 +64,11 @@ impl<'a> StatsigUrl<'a> {
         let path_segments = self.path_segments();
         if let Some(version_segment) = path_segments.first().copied() {
             if is_version_segment(version_segment) {
-                return join_url(self.host_prefix.trim_end_matches('/'), version_segment);
+                return self.source_service(&[version_segment]);
             }
         }
 
-        self.host_prefix.trim_end_matches('/').to_string()
+        self.source_service(&[])
     }
 
     fn source_service(&self, path_segments: &[&str]) -> String {

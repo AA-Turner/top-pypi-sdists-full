@@ -134,6 +134,7 @@ impl SharedIdLists {
 struct ScopedIdListSources {
     adapter: Option<Arc<dyn IdListsAdapter>>,
     shared: Option<Arc<SharedIdLists>>,
+    enable_id_list_elias_fano: Option<bool>,
 }
 
 /// Owns only the primitives required to synchronize and evaluate one immutable snapshot stream.
@@ -216,6 +217,7 @@ impl EvaluationEngine {
             enable_id_lists: Some(
                 id_list_sources.adapter.is_some() || id_list_sources.shared.is_some(),
             ),
+            enable_id_list_elias_fano: id_list_sources.enable_id_list_elias_fano,
             fallback_to_statsig_api: Some(false),
             disable_disk_access: Some(true),
             ..StatsigOptions::default()
@@ -652,6 +654,36 @@ impl EvaluationClient {
         .await
     }
 
+    /// Initializes a config-only instance with its own authorized ID-list adapter.
+    ///
+    /// Only `options.enable_id_list_elias_fano` is read, at creation. `Some(true)` opts
+    /// this scope into private Elias–Fano. `Some(false)` and `None` use private hash sets.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_instance_with_id_list_options(
+        &self,
+        credential: &str,
+        tenant_key: &str,
+        opaque_identity: &str,
+        transport: Arc<dyn EvaluationDataTransport>,
+        interned_mmap_sdk_key: Option<&str>,
+        id_lists_adapter: Arc<dyn IdListsAdapter>,
+        options: &StatsigOptions,
+    ) -> Result<Arc<EvaluationInstance>, StatsigErr> {
+        self.create_instance_with_sources(
+            credential,
+            tenant_key,
+            opaque_identity,
+            transport,
+            interned_mmap_sdk_key,
+            ScopedIdListSources {
+                adapter: Some(id_lists_adapter),
+                enable_id_list_elias_fano: options.enable_id_list_elias_fano,
+                ..Default::default()
+            },
+        )
+        .await
+    }
+
     /// Initializes a scoped instance with either its own adapter or a tenant-bound shared owner.
     #[allow(clippy::too_many_arguments)]
     pub async fn create_instance_with_shared_id_lists(
@@ -664,13 +696,37 @@ impl EvaluationClient {
         id_lists_adapter: Option<Arc<dyn IdListsAdapter>>,
         shared_id_lists: Option<Arc<SharedIdLists>>,
     ) -> Result<Arc<EvaluationInstance>, StatsigErr> {
+        self.create_instance_with_sources(
+            credential,
+            tenant_key,
+            opaque_identity,
+            transport,
+            interned_mmap_sdk_key,
+            ScopedIdListSources {
+                adapter: id_lists_adapter,
+                shared: shared_id_lists,
+                ..Default::default()
+            },
+        )
+        .await
+    }
+
+    async fn create_instance_with_sources(
+        &self,
+        credential: &str,
+        tenant_key: &str,
+        opaque_identity: &str,
+        transport: Arc<dyn EvaluationDataTransport>,
+        interned_mmap_sdk_key: Option<&str>,
+        id_list_sources: ScopedIdListSources,
+    ) -> Result<Arc<EvaluationInstance>, StatsigErr> {
         if self.shutting_down.load(Ordering::Acquire) {
             return Err(StatsigErr::InvalidOperation(
                 "Evaluation client is shutting down".to_string(),
             ));
         }
-        if let Some(shared) = &shared_id_lists {
-            if id_lists_adapter.is_some()
+        if let Some(shared) = &id_list_sources.shared {
+            if id_list_sources.adapter.is_some()
                 || shared.tenant_key.as_ref() != tenant_key
                 || shared.owner_instance_id.as_ref() != self.id_lists_sdk_instance_id
                 || shared.shutting_down.load(Ordering::Acquire)
@@ -688,10 +744,7 @@ impl EvaluationClient {
             self.runtime.clone(),
             interned_mmap_sdk_key,
             self.observability.as_ref(),
-            ScopedIdListSources {
-                adapter: id_lists_adapter,
-                shared: shared_id_lists,
-            },
+            id_list_sources,
         );
 
         if let Err(error) = engine.initialize().await {
@@ -1563,6 +1616,7 @@ mod tests {
         let client = EvaluationClient::new(Handle::current(), None).unwrap();
         let options = StatsigOptions {
             id_lists_url: Some(format!("{}/get_id_lists", server.url())),
+            enable_id_list_elias_fano: Some(true),
             fallback_to_statsig_api: Some(false),
             disable_disk_access: Some(true),
             ..StatsigOptions::default()
@@ -1571,12 +1625,20 @@ mod tests {
             .preload_shared_id_lists("secret-shared-owner", "shared-tenant", &options)
             .await
             .expect("the standard adapter should preload every list in its authorized manifest");
+        assert!(shared.spec_store.requires_blocking_id_list_publication());
         manifest_request.assert_async().await;
         for request in &blob_requests {
             request.assert_async().await;
         }
         let repeated = client
-            .preload_shared_id_lists("secret-shared-owner", "shared-tenant", &options)
+            .preload_shared_id_lists(
+                "secret-shared-owner",
+                "shared-tenant",
+                &StatsigOptions {
+                    enable_id_list_elias_fano: Some(false),
+                    ..options
+                },
+            )
             .await
             .expect("the same authenticated credential must reuse its preloaded owner");
         assert!(Arc::ptr_eq(&shared, &repeated));
@@ -1634,6 +1696,7 @@ mod tests {
         for (name, member) in lists {
             let lookup: String = HashUtil::new().sha256(member).chars().take(8).collect();
             assert!(owner.id_lists[name].ids.contains(&lookup));
+            owner.id_lists[name].ids.assert_private_format(true);
             assert!(Arc::ptr_eq(
                 &first.id_lists[name].ids,
                 &second.id_lists[name].ids
@@ -2110,24 +2173,32 @@ mod tests {
         let allowed_source = TestDataTransport::new(true);
         let denied_source = TestDataTransport::new(true);
         let allowed = client
-            .create_instance(
+            .create_instance_with_id_list_options(
                 "client-allowed",
                 "allowed-tenant",
                 "allowed-host-identity",
                 Arc::clone(&allowed_source) as Arc<dyn EvaluationDataTransport>,
                 None,
-                Some(Arc::clone(&allowed_adapter) as Arc<dyn IdListsAdapter>),
+                Arc::clone(&allowed_adapter) as Arc<dyn IdListsAdapter>,
+                &StatsigOptions {
+                    enable_id_list_elias_fano: Some(true),
+                    ..Default::default()
+                },
             )
             .await
             .expect("allowed tenant instance should initialize");
         let denied = client
-            .create_instance(
+            .create_instance_with_id_list_options(
                 "client-denied",
                 "denied-tenant",
                 "denied-host-identity",
                 Arc::clone(&denied_source) as Arc<dyn EvaluationDataTransport>,
                 None,
-                Some(Arc::clone(&denied_adapter) as Arc<dyn IdListsAdapter>),
+                Arc::clone(&denied_adapter) as Arc<dyn IdListsAdapter>,
+                &StatsigOptions {
+                    enable_id_list_elias_fano: Some(false),
+                    ..Default::default()
+                },
             )
             .await
             .expect("denied tenant instance should initialize");
@@ -2174,14 +2245,19 @@ mod tests {
             denied_adapter.background_schedules.load(Ordering::Relaxed),
             1
         );
-        assert!(
-            allowed
-                .engine
-                .snapshot_evaluation_data()
-                .id_lists
-                .contains_key("tenant_members")
-        );
         assert!(denied.engine.snapshot_evaluation_data().id_lists.is_empty());
+        denied_adapter.replace_memberships(HashMap::from([(
+            "tenant_members".to_owned(),
+            HashSet::from(["AAAAAAAA".to_owned()]),
+        )]));
+        let allowed_snapshot = allowed.engine.snapshot_evaluation_data();
+        let denied_snapshot = denied.engine.snapshot_evaluation_data();
+        let allowed_ids = &allowed_snapshot.id_lists["tenant_members"].ids;
+        let denied_ids = &denied_snapshot.id_lists["tenant_members"].ids;
+        allowed_ids.assert_private_format(true);
+        denied_ids.assert_private_format(false);
+        assert!(!allowed_ids.contains("AAAAAAAA"));
+        assert!(denied_ids.contains("AAAAAAAA"));
         assert_eq!(allowed_source.metadata_fetches.load(Ordering::Relaxed), 1);
         assert_eq!(denied_source.metadata_fetches.load(Ordering::Relaxed), 1);
 

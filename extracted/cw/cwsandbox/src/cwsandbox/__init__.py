@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-__version__ = "1.23.0"
+__version__ = "1.25.0"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
@@ -31,7 +31,7 @@ from cwsandbox._discovery import (
 )
 from cwsandbox._function import RemoteFunction
 from cwsandbox._loop_manager import _LoopManager
-from cwsandbox._sandbox import ContainerStatus, Sandbox, SandboxStatus
+from cwsandbox._sandbox import ContainerStatus, Sandbox, SandboxPage, SandboxStatus
 from cwsandbox._session import Session
 from cwsandbox._types import (
     CidrBlock,
@@ -394,6 +394,7 @@ __all__ = [
     "SandboxFileType",
     "SandboxNotFoundError",
     "SandboxNotRunningError",
+    "SandboxPage",
     "SandboxProtocolError",
     "SandboxRequestTimeoutError",
     "SandboxResourceExhaustedError",

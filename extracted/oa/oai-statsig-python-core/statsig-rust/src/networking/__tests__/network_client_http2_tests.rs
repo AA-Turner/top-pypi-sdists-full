@@ -91,7 +91,7 @@ async fn http2_is_default_off_and_scoped_per_client() {
         None,
     ] {
         let mut client = NetworkClient::new("secret-test", None, options.as_ref());
-        client.net_provider = Arc::downgrade(&network_provider);
+        client.set_network_provider_for_test(Arc::downgrade(&network_provider));
         client
             .get(RequestArgs {
                 url: "http://regular:8080/v2/download_config_specs".to_string(),
@@ -113,7 +113,7 @@ async fn http2_selects_all_request_kinds_origins_and_schemes() {
     });
     let network_provider: Arc<dyn NetworkProvider> = provider.clone();
     let mut client = NetworkClient::new("secret-test", None, Some(&http2_options(true)));
-    client.net_provider = Arc::downgrade(&network_provider);
+    client.set_network_provider_for_test(Arc::downgrade(&network_provider));
     for url in [
         "https://cdn/another/path?token=opaque",
         "http://cdn/v2/download_config_specs",
@@ -206,7 +206,7 @@ async fn http2_forwards_proxy_and_ca_to_provider() {
             });
         }
         let mut client = NetworkClient::new("secret-test", None, Some(&options));
-        client.net_provider = Arc::downgrade(&network_provider);
+        client.set_network_provider_for_test(Arc::downgrade(&network_provider));
         let result = client
             .get(RequestArgs {
                 url: "http://regular:8080/v2/download_config_specs".to_string(),
@@ -228,7 +228,7 @@ async fn http2_custom_provider_may_use_existing_transport_without_bypassing_safe
     });
     let network_provider: Arc<dyn NetworkProvider> = provider.clone();
     let mut client = NetworkClient::new("secret-test", None, Some(&http2_options(true)));
-    client.net_provider = Arc::downgrade(&network_provider);
+    client.set_network_provider_for_test(Arc::downgrade(&network_provider));
     let result = client
         .get(RequestArgs {
             url: "http://regular:8080/v2/download_config_specs".to_string(),
@@ -290,7 +290,7 @@ async fn response_limited_blob_urls_retry_oversized_errors() {
         let network_provider: Arc<dyn NetworkProvider> =
             Arc::new(NetworkProviderReqwest::new());
         let mut client = NetworkClient::new("secret-test", None, Some(&http2_options(enabled)));
-        client.net_provider = Arc::downgrade(&network_provider);
+        client.set_network_provider_for_test(Arc::downgrade(&network_provider));
         client.ops_stats = Arc::new(OpsStatsForInstance::new());
         let mut metrics = client.ops_stats.subscribe_for_test();
 

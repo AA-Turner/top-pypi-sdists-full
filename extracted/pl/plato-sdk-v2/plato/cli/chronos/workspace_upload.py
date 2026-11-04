@@ -3,40 +3,62 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
+import secrets
 import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
+import zipfile
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, BinaryIO
+from typing import Annotated, Any, BinaryIO
 
 import httpx
 import typer
 import yaml
 
-from plato.chronos.api.sessions import get_session_workspace_download_url, get_session_workspace_upload_url
+from plato.chronos.api.sessions import (
+    complete_session,
+    create_session,
+    get_session_workspace_download_url,
+    get_session_workspace_upload_url,
+)
 from plato.chronos.api.workspace_repos import (
     create_workspace_ref,
     get_workspace_repo_credentials,
     list_workspace_refs,
     resolve_workspace_repo,
 )
-from plato.chronos.models import CreateWorkspaceRefRequest, WorkspaceRefResponse, WorkspaceRepoResolveRequest
+from plato.chronos.models import (
+    CompleteSessionRequest,
+    CreateSessionRequest,
+    CreateWorkspaceRefRequest,
+    Status1,
+    WorkspaceRefResponse,
+    WorkspaceRepoResolveRequest,
+)
 from plato.cli.chronos.settings import get_settings
 from plato.cli.utils import console
 from plato.git_ops.repo import trust_git_directory
 from plato.markers import WorkspaceMarker
 from plato.worlds.dvc_models import (
+    DVCManifest,
+    LazyDVCMount,
     S3Config,
     _archive_s3_key,
     _build_ignore_matchers,
+    credential_refresh_config,
+    dvc_file_key,
+    dvc_files_size_summary,
     parse_dvc_format,
+    s3_download_batch_sync,
     s3_download_bytes_sync,
+    smart_commit,
     smart_commit_archive,
 )
 
@@ -45,7 +67,19 @@ workspace_upload_app = typer.Typer(help="Upload workspace snapshots.")
 workspace_app.add_typer(workspace_upload_app, name="upload")
 
 _CHUNK_SIZE = 256 * 1024
+# git >= 2.47 detaches auto-maintenance after commit/push; it would race the tar of
+# repo/.git and .git-bare (vanishing objects/maintenance.lock, or a repack of the loose bare).
+_NO_AUTO_MAINTENANCE_ENV = {
+    "GIT_CONFIG_COUNT": "2",
+    "GIT_CONFIG_KEY_0": "maintenance.auto",
+    "GIT_CONFIG_VALUE_0": "false",
+    "GIT_CONFIG_KEY_1": "gc.auto",
+    "GIT_CONFIG_VALUE_1": "0",
+}
+# git drops env/-c config when it spawns receive-pack in the bare, so pass it there.
+_PUSH_NO_AUTO_GC = ["--receive-pack", "git -c receive.autogc=false receive-pack"]
 _PLATO_GIT_ENV = {
+    **_NO_AUTO_MAINTENANCE_ENV,
     "GIT_AUTHOR_NAME": "Plato",
     "GIT_AUTHOR_EMAIL": "plato@plato.dev",
     "GIT_COMMITTER_NAME": "Plato",
@@ -56,13 +90,27 @@ _PLATO_GIT_ENV = {
 # --extract`` and read back by ``upload git`` so the dvc ``dir_name`` (the
 # restore target the world expects, e.g. ``data``) and the workspace repo
 # survive an edit cycle without the user having to remember them.
-_WORKSPACE_MARKER = ".plato-workspace.json"
+_WORKSPACE_MARKER = WorkspaceMarker.ROUND_TRIP_MARKER
 # Default dvc archive dir name used by the world runtime's ``_archive_commit``
 # when a workspace has no FUSE mounts (see plato/worlds/workspace.py).
 _DEFAULT_DIR_NAME = "data"
-# Default workspace ref step name for a manual upload (used when neither an
-# explicit ``--step`` nor a round-trip marker pins one).
+# Prefix marking a checkpoint produced by a manual (human) ``upload git`` rather
+# than the agent pipeline. ``register_git_workspace_ref`` keeps the bare
+# ``_DEFAULT_STEP_NAME`` for direct API callers; ``_resolve_upload_target``
+# generates a unique ``manual-upload-<rand>`` name so a hand upload never
+# silently overwrites the pipeline checkpoint recorded in the round-trip marker.
+_MANUAL_STEP_PREFIX = "manual-upload"
 _DEFAULT_STEP_NAME = "manual-git-upload"
+
+
+def _generate_manual_step_name() -> str:
+    """A unique, clearly-labeled checkpoint name for a manual git upload.
+
+    Defaulting to this (instead of the marker's original step) keeps a hand
+    upload from clobbering the agent-produced checkpoint it was downloaded from.
+    Pass ``--step`` to register under a specific name (e.g. to resume one).
+    """
+    return f"{_MANUAL_STEP_PREFIX}-{secrets.token_hex(4)}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +160,41 @@ def _is_git_workspace_root(path: Path) -> bool:
     return (path / "repo" / ".git").is_dir() and (path / ".git-bare" / "HEAD").exists()
 
 
+def _require_bare_repository(bare_dir: Path) -> None:
+    """Reject a ``.git-bare`` that is not a true bare repository.
+
+    A working checkout's ``.git/`` copied or renamed to ``.git-bare`` passes the
+    HEAD-file shape check but has ``core.bare=false`` (plus ``index``,
+    ``COMMIT_EDITMSG``, …). The upload itself then *appears* to work whenever the
+    working tree's tip already matches the fake bare (``git push`` no-ops as
+    up-to-date), and the breakage only surfaces on the restoring VM, where the
+    runtime's bare-repo maintenance (``git repack -a -d``) dies with
+    ``fatal: not a git repository``. Fail here, at upload time, with the fix.
+    """
+    trust_git_directory(bare_dir)
+    result = subprocess.run(
+        ["git", "--git-dir", str(bare_dir), "rev-parse", "--is-bare-repository"],
+        env={**os.environ, **_PLATO_GIT_ENV},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    is_bare = result.stdout.strip()
+    if result.returncode == 0 and is_bare == "true":
+        return
+    detail = (
+        (result.stderr.strip() or result.stdout.strip() or "git could not read it")
+        if result.returncode != 0
+        else f"rev-parse --is-bare-repository says {is_bare!r} (a working checkout's .git/ copied to .git-bare?)"
+    )
+    raise ValueError(
+        f"'{bare_dir}' is not a bare git repository: {detail}. "
+        "Sessions restoring this workspace will fail at 'git repack' with "
+        "'fatal: not a git repository'. Rebuild it from the working tree with: "
+        f"rm -rf '{bare_dir}' && git clone --bare '{bare_dir.parent / 'repo'}' '{bare_dir}'"
+    )
+
+
 def _require_git_workspace_root(path: Path) -> tuple[Path, Path]:
     """Resolve ``path`` to the (repo_dir, bare_dir) of a git workspace payload.
 
@@ -121,9 +204,21 @@ def _require_git_workspace_root(path: Path) -> tuple[Path, Path]:
     """
     root = path.expanduser().resolve()
     if _is_git_workspace_root(root):
+        _require_bare_repository(root / ".git-bare")
         return root / "repo", root / ".git-bare"
     if (root / ".git").is_dir() and root.name == "repo" and (root.parent / ".git-bare" / "HEAD").exists():
+        _require_bare_repository(root.parent / ".git-bare")
         return root, root.parent / ".git-bare"
+    for repo_dir in (root / "repo", root if root.name == "repo" else None):
+        if repo_dir is not None and (repo_dir / ".git").is_file() and (repo_dir.parent / ".git-bare" / "HEAD").exists():
+            # Raw copy of a VM workspace using the off-FUSE gitfile layout
+            # (git_config.worktree_git_off_fuse): repo/.git points at a
+            # /tmp/plato-git dir that only existed on the VM.
+            raise ValueError(
+                f"'{repo_dir}/.git' is a gitfile pointing at VM-local state that is not present here. "
+                "Re-fetch this workspace with 'plato chronos workspace download --extract' (which re-clones "
+                "repo/ from .git-bare) instead of copying the raw VM directory."
+            )
     raise ValueError(
         "Expected a git workspace root containing repo/ and .git-bare/, or the repo/ directory inside that workspace."
     )
@@ -249,13 +344,19 @@ def _resolve_upload_target(
 ) -> _UploadTarget:
     """Resolve the upload source into an unambiguous archive target.
 
-    Precedence for ``dir_name``/``repo_name``/``step_name``: explicit CLI flag >
-    round-trip marker written by ``download --extract`` > inferred default.
-    Honoring the marker's ``step_name`` lets a download → edit → upload cycle
-    re-register under the original step, so a resume that restores that step
-    matches the edited ref. When neither a flag nor a marker pins the layout, a
-    nested payload under the working tree is treated as the caller pointing one
-    level too high and is rejected with a pointer to the correct directory.
+    Precedence for ``dir_name``/``repo_name``: explicit CLI flag > round-trip
+    marker written by ``download --extract`` > inferred default. The marker pins
+    *where* the upload lands (same repo + restore dir) so a download → edit →
+    upload cycle round-trips cleanly.
+
+    ``step_name`` is deliberately NOT taken from the marker: an explicit
+    ``--step`` wins, otherwise a fresh ``manual-upload-<rand>`` checkpoint is
+    generated so a hand upload registers a new, clearly-labeled ref instead of
+    silently overwriting the agent-produced step it was downloaded from.
+
+    When neither a flag nor a marker pins the layout, a nested payload under the
+    working tree is treated as the caller pointing one level too high and is
+    rejected with a pointer to the correct directory.
     """
     repo_dir, bare_dir = _require_git_workspace_root(source)
     payload_dir = bare_dir.parent
@@ -270,9 +371,19 @@ def _resolve_upload_target(
                 f"git workspace at '{nested}'. Point at that directory instead, or pass --dir-name to override."
             )
 
-    resolved_dir_name = dir_name or (marker or {}).get("dir_name") or _DEFAULT_DIR_NAME
+    marker_dir_name = (marker or {}).get("dir_name")
+    if dir_name is None and marker_dir_name and marker_dir_name != _DEFAULT_DIR_NAME:
+        # The world restores git workspaces into ``<repo_root>/data`` only; a
+        # marker pinning another name registers a ref the world never reads.
+        raise ValueError(
+            f"round-trip marker pins dir_name '{marker_dir_name}', but the world restores git workspaces into "
+            f"'{_DEFAULT_DIR_NAME}'; a ref registered under '{marker_dir_name}' restores to a location the world "
+            f"never reads and the next resume boots an EMPTY repo. Pass --dir-name {_DEFAULT_DIR_NAME} to register "
+            f"it where the world reads, or --dir-name {marker_dir_name} to keep the pinned layout deliberately."
+        )
+    resolved_dir_name = dir_name or marker_dir_name or _DEFAULT_DIR_NAME
     resolved_repo_name = repo_name or (marker or {}).get("repo_name") or "code"
-    resolved_step_name = step_name or (marker or {}).get("step_name") or _DEFAULT_STEP_NAME
+    resolved_step_name = step_name or _generate_manual_step_name()
     return _UploadTarget(
         payload_dir=payload_dir,
         repo_dir=repo_dir,
@@ -280,6 +391,22 @@ def _resolve_upload_target(
         dir_name=resolved_dir_name,
         repo_name=resolved_repo_name,
         step_name=resolved_step_name,
+    )
+
+
+def _refresh_marker(target: _UploadTarget, *, session_id: str) -> None:
+    """Rewrite the payload's round-trip marker to what was just registered.
+
+    Keeps a later flag-less ``upload git`` of the same payload landing in the
+    same place (an explicit ``--dir-name`` override would otherwise have to
+    be repeated forever).
+    """
+    _write_marker(
+        target.payload_dir,
+        dir_name=target.dir_name,
+        repo_name=target.repo_name,
+        session_id=session_id,
+        step_name=target.step_name,
     )
 
 
@@ -309,18 +436,34 @@ def _build_s3_config(
     chronos_url: str,
     api_key: str,
     timeout: float = 60.0,
+    read_only: bool = False,
+    repo_public_id: str | None = None,
 ) -> S3Config:
     """Resolve a workspace repo and build its S3Config in one place.
 
     Mirrors ``Workspace._s3_config`` (including ``credential_refresh`` so a
     long transfer can re-fetch STS creds) instead of hand-assembling the config
     at each call site.
+
+    ``read_only`` requests GetObject-only STS credentials (see the Chronos
+    ``/credentials`` endpoint) — use it for downloads so a reader can't
+    overwrite or delete repo data.
+
+    Pass ``repo_public_id`` to target a specific repo directly and skip
+    name resolution. A workspace ref's content-addressed objects live under
+    *its own* repo prefix, which is not necessarily the repo the ``--repo``
+    name resolves to (refs from other repos can surface for a session), so
+    download callers pass the ref's ``repo_public_id`` to hit the right prefix.
     """
     with httpx.Client(base_url=chronos_url.rstrip("/"), timeout=timeout, headers={"X-API-Key": api_key}) as client:
-        resolved = resolve_workspace_repo.sync(
-            client, body=WorkspaceRepoResolveRequest(name=repo_name), x_api_key=api_key
+        if repo_public_id is None:
+            resolved = resolve_workspace_repo.sync(
+                client, body=WorkspaceRepoResolveRequest(name=repo_name), x_api_key=api_key
+            )
+            repo_public_id = resolved.repo_id
+        creds = get_workspace_repo_credentials.sync(
+            client, repo_public_id=repo_public_id, read_only=read_only, x_api_key=api_key
         )
-        creds = get_workspace_repo_credentials.sync(client, repo_public_id=resolved.repo_id, x_api_key=api_key)
     return S3Config(
         bucket=creds.bucket,
         prefix=creds.prefix,
@@ -330,12 +473,7 @@ def _build_s3_config(
             "AWS_SESSION_TOKEN": creds.aws_session_token,
             "AWS_DEFAULT_REGION": creds.region,
         },
-        credential_refresh={
-            "chronos_url": chronos_url.rstrip("/"),
-            "repo_id": resolved.repo_id,
-            "api_key": api_key,
-            "refresh_margin_seconds": 300,
-        },
+        credential_refresh=credential_refresh_config(chronos_url, repo_public_id, api_key),
     )
 
 
@@ -412,7 +550,7 @@ def _sync_repo_to_bare(repo_dir: Path, bare_dir: Path, *, commit_message: str) -
     # because the bare was updated by another process), fall back to a
     # force push so the upload still succeeds.
     result = subprocess.run(
-        ["git", "push", str(bare_dir), "HEAD:refs/heads/main"],
+        ["git", "push", *_PUSH_NO_AUTO_GC, str(bare_dir), "HEAD:refs/heads/main"],
         cwd=str(repo_dir),
         env={**os.environ, **_PLATO_GIT_ENV},
         capture_output=True,
@@ -420,10 +558,22 @@ def _sync_repo_to_bare(repo_dir: Path, bare_dir: Path, *, commit_message: str) -
         check=False,
     )
     if result.returncode != 0:
-        _run_git(["push", "--force", str(bare_dir), "HEAD:refs/heads/main"], cwd=repo_dir)
+        _run_git(["push", "--force", *_PUSH_NO_AUTO_GC, str(bare_dir), "HEAD:refs/heads/main"], cwd=repo_dir)
     _run_git(["--git-dir", str(bare_dir), "symbolic-ref", "HEAD", "refs/heads/main"])
     _prune_bare_garbage(bare_dir)
-    return _run_git(["--git-dir", str(bare_dir), "rev-parse", "main"])
+    # Invariant gate: after the push, the bare's main must be the working
+    # tree's HEAD commit. A mismatch (or an unresolvable main) means the bare
+    # did not absorb the tip — restoring the archive would hand agents stale
+    # or missing history. Fail at upload time, not on the restoring VM.
+    head_sha = _run_git(["--git-dir", str(bare_dir), "rev-parse", "main"])
+    repo_head = _run_git(["rev-parse", "HEAD"], cwd=repo_dir)
+    if head_sha != repo_head:
+        raise RuntimeError(
+            f"After push, bare main ({head_sha[:12]}) does not match the working tree HEAD "
+            f"({repo_head[:12]}) — the bare did not absorb the tip. Rebuild it with: "
+            f"rm -rf '{bare_dir}' && git clone --bare '{repo_dir}' '{bare_dir}'"
+        )
+    return head_sha
 
 
 def _sync_git_workspace(source: Path, *, commit_message: str) -> tuple[Path, Path, str]:
@@ -542,6 +692,99 @@ def download_session_workspace_archive(
     return total
 
 
+def _md5_file(path: Path) -> str:
+    """Streaming md5 of a local file (DVC cache objects are keyed by content md5)."""
+    h = hashlib.md5()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(4 * 1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def download_manifest_workspace(
+    output_zip: Path,
+    *,
+    repo_name: str,
+    repo_public_id: str,
+    dvc_files: dict[str, str],
+    chronos_url: str,
+    api_key: str,
+    timeout: float = 60.0,
+) -> tuple[int, int]:
+    """Materialize a manifest-format workspace ref by pulling directly from S3.
+
+    Replaces the server-side byte-proxy ZIP endpoint (``download_workspace_files``),
+    which streamed every file through the Chronos backend, buffered whole files
+    in RAM, and silently truncated large files at 1 KB boundaries when an S3
+    read errored mid-stream. Here we:
+
+      1. request read-only STS creds scoped to the repo prefix,
+      2. parse each DVC ``.dir`` manifest to enumerate content-addressed objects,
+      3. pull them in parallel with s5cmd (resumable, non-zero exit on failure),
+      4. verify every file's md5 against the manifest (content-addressed, so a
+         truncated/corrupt object fails its hash), and
+      5. zip the tree locally.
+
+    Mirrors the arc-path layout of the old endpoint: ``{dir_name}/{relpath}``.
+    ``repo_public_id`` is the ref's own repo — its objects live under that
+    repo's prefix, which may differ from what ``repo_name`` resolves to.
+    Returns ``(file_count, total_uncompressed_bytes)``.
+    """
+    s3_config = _build_s3_config(
+        repo_name,
+        chronos_url=chronos_url,
+        api_key=api_key,
+        timeout=timeout,
+        read_only=True,
+        repo_public_id=repo_public_id,
+    )
+
+    with tempfile.TemporaryDirectory(prefix="plato-ws-dl-") as staging_str:
+        staging = Path(staging_str)
+        downloads: list[tuple[str, str]] = []  # (s3_key, local_path)
+        expected_md5: dict[str, str] = {}  # local_path -> md5
+        total_bytes = 0
+
+        for dir_name, dvc_content in dvc_files.items():
+            if parse_dvc_format(dvc_content) == "archive":
+                # Archive refs are restored by the git-workspace path, not here.
+                continue
+            manifest = asyncio.run(DVCManifest.from_dvc_file(dvc_content, s3_config))
+            for entry in manifest.entries_list:
+                if entry.isdir or not entry.md5:
+                    continue
+                arc_rel = f"{dir_name}/{entry.relpath}" if dir_name else entry.relpath
+                local_path = staging / arc_rel
+                local_path.parent.mkdir(parents=True, exist_ok=True)
+                downloads.append((dvc_file_key(s3_config, entry.md5), str(local_path)))
+                expected_md5[str(local_path)] = entry.md5
+                total_bytes += entry.size or 0
+
+        s3_download_batch_sync(s3_config, downloads)
+
+        # Integrity gate: a content-addressed object whose md5 no longer matches
+        # was truncated or corrupted in transit — fail loudly rather than write a
+        # silently-broken archive (the failure mode this whole change fixes).
+        for local_path, want in expected_md5.items():
+            path = Path(local_path)
+            if not path.exists():
+                raise RuntimeError(f"s5cmd did not produce expected file: {local_path}")
+            got = _md5_file(path)
+            if got != want:
+                raise RuntimeError(
+                    f"Integrity check failed for {path.relative_to(staging)}: "
+                    f"expected md5 {want}, got {got} (size {path.stat().st_size} bytes)"
+                )
+
+        output_zip.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
+            for local_path in sorted(expected_md5):
+                path = Path(local_path)
+                zf.write(path, path.relative_to(staging))
+
+        return len(expected_md5), total_bytes
+
+
 def extract_git_workspace_archive(
     archive: Path,
     destination: Path,
@@ -578,6 +821,17 @@ def _latest_ref(refs: list[WorkspaceRefResponse]) -> WorkspaceRefResponse:
         enumerate(refs),
         key=lambda ir: (ir[1].created_at is not None, ir[1].created_at, ir[0]),
     )[1]
+
+
+def ref_has_archive_dvc(ref: dict[str, Any]) -> bool:
+    """True if a workspace ref dict carries any ``format: archive`` dvc entry.
+
+    Used by ``plato chronos download`` to auto-route git/archive workspaces
+    through the extract + clone-from-``.git-bare`` path (instead of the legacy
+    server-side ZIP), so callers don't have to remember ``--extract``.
+    """
+    dvc_files = ref.get("dvc_files") or {}
+    return any(parse_dvc_format(v) == "archive" for v in dvc_files.values())
 
 
 def _select_archive_dvc(dvc_files: dict[str, str], *, dir_name: str | None, ref_id: str | None) -> tuple[str, str]:
@@ -679,7 +933,12 @@ def download_git_workspace_via_archive(
     finally:
         os.unlink(tmp_path)
 
-    repo_dir = _reclone_repo_from_bare(destination)
+    # Auto-routed archive refs may not be git workspaces; only re-clone when a
+    # bare is actually present, otherwise leave the extracted tree as-is.
+    if (destination / ".git-bare").exists():
+        repo_dir = _reclone_repo_from_bare(destination)
+    else:
+        repo_dir = destination
     # Record the dvc dir_name + repo so a later ``upload git`` round-trip
     # restores into the same target the world expects, without the user
     # having to remember either.
@@ -729,6 +988,8 @@ def register_git_workspace_ref(
                 git_hash=head_sha,
                 branch="main",
                 changed=True,
+                # Manual CLI upload (vs "runtime" world commit).
+                upload_mode="manual",
             ),
         )
 
@@ -766,10 +1027,11 @@ def upload_git(
         str | None,
         typer.Option(
             "--step",
-            help="Workspace ref step name to register under, matched exactly on resume restore "
-            "(default: round-trip marker, else 'manual-git-upload')",
+            help="Checkpoint (workspace ref step) name to register under, matched exactly on resume "
+            "restore (default: a generated 'manual-upload-<rand>' name marking a manual upload)",
         ),
     ] = None,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the pre-upload confirmation prompt")] = False,
     commit_message: Annotated[str, typer.Option("--message", "-m", help="Auto-commit message")] = (
         "Upload Chronos git workspace"
     ),
@@ -804,10 +1066,18 @@ def upload_git(
     try:
         target = _resolve_upload_target(source, dir_name=dir_name, repo_name=repo_name, step_name=step_name)
         ignore_patterns = _read_dvcignore(target.payload_dir)
-        console.print(
-            f"[dim]Archiving '{target.payload_dir}' as dir_name='{target.dir_name}' "
-            f"(repo='{target.repo_name}', step='{target.step_name}')[/dim]"
-        )
+        console.print(f"[dim]Archiving '{target.payload_dir}' (dir_name='{target.dir_name}')[/dim]")
+        console.print("[bold]Upload[/bold]")
+        console.print(f"  Session:   {session_id}")
+        console.print(f"  Repo:      {target.repo_name}")
+        console.print(f"  Step:      {target.step_name}")
+        console.print("  Direction: output")
+        console.print("  Branch:    main")
+
+        # Confirm before the (mutating) push-to-bare + S3 upload. --yes / --dry-run skip.
+        if not dry_run and not yes and not typer.confirm("Proceed with upload?", default=True):
+            console.print("[yellow]Aborted.[/yellow]")
+            raise typer.Exit(0)
 
         if dry_run:
             archive = create_git_workspace_archive(
@@ -854,6 +1124,10 @@ def upload_git(
             except Exception as ref_exc:
                 console.print(f"[yellow]Warning: archive uploaded but ref registration failed: {ref_exc}[/yellow]")
 
+            else:
+                # Only after a successful registration; an unwritable payload must surface, not hide
+                # behind the registration warning.
+                _refresh_marker(target, session_id=session_id)
             if output is not None:
                 # Tar the already-synced payload directly — do NOT run a second
                 # _sync_repo_to_bare, or the local copy could diverge from the
@@ -864,9 +1138,215 @@ def upload_git(
                 _tar_payload_children(target.payload_dir, local_path, ignore_patterns)
                 archive = GitWorkspaceArchive(path=local_path, head_sha=head_sha, size_bytes=local_path.stat().st_size)
                 console.print(f"[dim]Local archive: {archive.path}[/dim]")
+    except typer.Exit:
+        raise
     except Exception as exc:
         console.print(f"[red]Failed: {exc}[/red]")
         raise typer.Exit(1) from exc
     finally:
         if archive is not None and output is None and not keep_archive and not dry_run:
             archive.path.unlink(missing_ok=True)
+
+
+def upload_data_workspace_via_manifest(
+    data_dir: Path,
+    *,
+    repo_name: str,
+    dir_name: str = _DEFAULT_DIR_NAME,
+    chronos_url: str,
+    api_key: str,
+    ignore_patterns: list[str] | None = None,
+    timeout: float = 60.0,
+) -> tuple[str, str]:
+    """Upload a plain local directory as a DVC *manifest* (lazy-loadable) ref.
+
+    Runs the same ``smart_commit`` the world runtime uses, against a
+    synthetic ``LazyDVCMount`` with an empty base manifest whose overlay is
+    the source directory — every file is treated as created, hashed, and
+    batch-uploaded content-addressed via s5cmd. Unlike the archive path,
+    the resulting ref restores lazily (FUSE streams only bytes read).
+    """
+    s3_config = _build_s3_config(repo_name, chronos_url=chronos_url, api_key=api_key, timeout=timeout)
+    source = data_dir.expanduser().resolve()
+    cache_dir = Path(tempfile.mkdtemp(prefix="plato-manifest-upload-"))
+    try:
+        (cache_dir / "overlay").symlink_to(source)
+        mount = LazyDVCMount(
+            mountpoint=source,
+            cache_dir=cache_dir,
+            manifest=DVCManifest(entries_list=[], manifest_md5=""),
+        )
+        manifest_md5, dvc_yaml, _ = asyncio.run(
+            smart_commit(mount, s3_config, dir_name=dir_name, ignore_patterns=ignore_patterns)
+        )
+        return manifest_md5, dvc_yaml
+    finally:
+        shutil.rmtree(cache_dir, ignore_errors=True)
+
+
+def _create_synthetic_session(
+    *,
+    world_name: str,
+    tags: list[str],
+    chronos_url: str,
+    api_key: str,
+) -> str:
+    """Create a synthetic Chronos session to host a manual dataset ref."""
+    with httpx.Client(base_url=chronos_url.rstrip("/"), timeout=30.0, headers={"X-API-Key": api_key}) as client:
+        resp = create_session.sync(client, body=CreateSessionRequest(world_name=world_name, tags=tags))
+        return resp.public_id
+
+
+def _complete_synthetic_session(
+    *,
+    session_id: str,
+    chronos_url: str,
+    api_key: str,
+    failed: bool = False,
+    error_message: str | None = None,
+) -> None:
+    with httpx.Client(base_url=chronos_url.rstrip("/"), timeout=30.0, headers={"X-API-Key": api_key}) as client:
+        complete_session.sync(
+            client,
+            public_id=session_id,
+            body=CompleteSessionRequest(
+                status=Status1.failed if failed else Status1.completed,
+                exit_code=1 if failed else 0,
+                error_message=error_message[:500] if error_message else None,
+            ),
+        )
+
+
+@workspace_upload_app.command("data")
+def upload_data(
+    source: Annotated[
+        Path,
+        typer.Argument(
+            help="Local directory to upload as the workspace's data payload.",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            readable=True,
+        ),
+    ],
+    repo_name: Annotated[
+        str,
+        typer.Option("--repo", "-r", help="Chronos workspace repo name (auto-created if missing)."),
+    ],
+    step_name: Annotated[
+        str | None,
+        typer.Option("--step", "-s", help="Checkpoint (workspace ref step) name to register under."),
+    ] = None,
+    session_id: Annotated[
+        str | None,
+        typer.Option(
+            "--session",
+            help="Chronos session to record the ref under. Omit to create a synthetic session "
+            "(tagged 'synthetic'/'dataset-upload', completed after the upload).",
+        ),
+    ] = None,
+    world_name: Annotated[
+        str,
+        typer.Option("--world-name", help="World name recorded on a created synthetic session."),
+    ] = "workflow",
+    dir_name: Annotated[
+        str,
+        typer.Option("--dir-name", help="DVC dir name / restore target inside the workspace."),
+    ] = _DEFAULT_DIR_NAME,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the pre-upload confirmation prompt")] = False,
+    chronos_url: Annotated[
+        str | None, typer.Option("--url", "-u", envvar="CHRONOS_URL", help="Chronos API URL")
+    ] = None,
+    api_key: Annotated[
+        str | None,
+        typer.Option("--api-key", "-k", envvar="PLATO_API_KEY", help="Plato API key for authentication"),
+    ] = None,
+) -> None:
+    """Upload a plain local directory as a lazy-loadable (manifest) workspace ref.
+
+    The dataset counterpart of ``upload git``: no git layer, no tarball. Files
+    are hashed and uploaded content-addressed (the world runtime's
+    ``smart_commit``), so restores FUSE-mount from S3 and stream only the
+    bytes agents actually read — the right format for large datasets consumed
+    via ``datasets``/``data`` mounts.
+    """
+    resolved_api_key = api_key or os.environ.get("PLATO_API_KEY")
+    if not resolved_api_key:
+        console.print("[red]No API key provided[/red]")
+        console.print("Set PLATO_API_KEY environment variable or use --api-key")
+        raise typer.Exit(1)
+    resolved_chronos_url = chronos_url or get_settings().chronos_url
+    resolved_step = step_name or _generate_manual_step_name()
+    ignore_patterns = _read_dvcignore(source)
+
+    console.print("[bold]Upload[/bold]")
+    console.print(f"  Source:    {source.expanduser().resolve()}")
+    console.print(f"  Session:   {session_id or '(new synthetic session)'}")
+    console.print(f"  Repo:      {repo_name}")
+    console.print(f"  Step:      {resolved_step}")
+    console.print(f"  Dir name:  {dir_name}")
+    console.print("  Format:    manifest (lazy-loadable)")
+    if not yes and not typer.confirm("Proceed with upload?", default=True):
+        console.print("[yellow]Aborted.[/yellow]")
+        raise typer.Exit(0)
+
+    created_session = False
+    try:
+        if session_id is None:
+            session_id = _create_synthetic_session(
+                world_name=world_name,
+                tags=["synthetic", "dataset-upload", repo_name],
+                chronos_url=resolved_chronos_url,
+                api_key=resolved_api_key,
+            )
+            created_session = True
+            console.print(f"[dim]Created synthetic session: {session_id}[/dim]")
+
+        _manifest_md5, dvc_yaml = upload_data_workspace_via_manifest(
+            source,
+            repo_name=repo_name,
+            dir_name=dir_name,
+            chronos_url=resolved_chronos_url,
+            api_key=resolved_api_key,
+            ignore_patterns=ignore_patterns,
+        )
+        total_bytes, nfiles = dvc_files_size_summary({dir_name: dvc_yaml})
+        console.print(
+            f"[green]Uploaded manifest workspace[/green] "
+            f"({nfiles} files, {total_bytes / 1e9:.2f} GB, manifest {_manifest_md5[:12]})"
+        )
+
+        ref = register_git_workspace_ref(
+            session_id=session_id,
+            repo_name=repo_name,
+            head_sha="",
+            dvc_files={dir_name: dvc_yaml},
+            step_name=resolved_step,
+            chronos_url=resolved_chronos_url,
+            api_key=resolved_api_key,
+        )
+        console.print(f"[dim]Ref ID: {ref.ref_public_id}[/dim]")
+
+        if created_session:
+            _complete_synthetic_session(
+                session_id=session_id, chronos_url=resolved_chronos_url, api_key=resolved_api_key
+            )
+
+        console.print("\nPin in your config:")
+        console.print(f'  "{repo_name}": "{session_id}:{resolved_step}"')
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        if created_session and session_id is not None:
+            try:
+                _complete_synthetic_session(
+                    session_id=session_id,
+                    chronos_url=resolved_chronos_url,
+                    api_key=resolved_api_key,
+                    failed=True,
+                    error_message=str(exc),
+                )
+            except Exception:
+                console.print(f"[yellow]Could not mark synthetic session {session_id} as failed[/yellow]")
+        console.print(f"[red]Failed: {exc}[/red]")
+        raise typer.Exit(1) from exc

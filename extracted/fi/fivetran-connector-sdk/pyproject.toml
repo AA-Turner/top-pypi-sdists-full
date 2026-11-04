@@ -18,8 +18,9 @@ dependencies = [
   "prompt-toolkit==3.0.53",
   "pathspec==1.1.1",
   "cryptography==49.0.0",
+  "pytz==2026.5",
   "tqdm==4.70.0",
-  "fivetran-connector-sdk-core>=0.1,<1",  # runs the connector locally; the latest of this major version (a new major version breaks this package). While it is 0.x, every release must stay compatible with this package
+  "fivetran-connector-sdk-core>=0.2,<1",  # runs the connector locally; the latest of this major version (a new major version breaks this package). While it is 0.x, every release must stay compatible with this package
   "typing-extensions>=4.7"
 ]
 
@@ -47,6 +48,7 @@ build-backend = "setuptools.build_meta"
 packages = [
   "fivetran_connector_sdk",
   "fivetran_connector_sdk_cli",
+  "fivetran_connector_sdk_cli.regression_test",
   "fivetran_connector_sdk_common",
   "fivetran_cli_telemetry",
 ]

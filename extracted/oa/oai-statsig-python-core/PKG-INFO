@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oai_statsig_python_core
-Version: 0.37.0
+Version: 0.38.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -47,7 +47,20 @@ Statsig helps you move faster with feature gates (feature flags), and/or dynamic
 
 Read through the [Documentation](https://docs.statsig.com/server-core?ref=gh_server_core) or check out the [Samples](https://github.com/statsig-io/statsig-server-core/tree/main/examples).
 
+## Development
+
+Use the Node.js version in [`.node-version`](.node-version) for repository tooling and local builds. For example, with nvm:
+
+```bash
+nvm install "$(cat .node-version)"
+```
+
+This is the repository toolchain version; it does not change the Node.js versions supported by the published SDK.
+
 ## ID-list file routing and fallback
+
+See [ID-list loading](docs/id-list-loading.md) for eager and lazy loading
+semantics, timeouts, concurrency, refresh behavior, and binding support.
 
 `download_id_list_file_api` selects the preferred base URL for file downloads.
 Enable `fallback_to_statsig_api` to try the original file URL from the manifest
@@ -117,6 +130,8 @@ Protobuf-typed reads and publication callbacks are described in
 [Typed dynamic configs](docs/typed-configs.md), with Python, Node, and Go API guides.
 See [Python mmap preload](docs/python-mmap-preload.md) for optional returnable hash
 precomputation when loading writer-published artifacts.
+See [Verified blob reuse from mmap](docs/mmap-blob-reuse.md) for automatic reuse of
+writer-verified large config values during SDK hydration.
 
 Bindings
 

@@ -49,7 +49,8 @@ class ApplyProductionServiceV2Model(object):
         'max_surge_percent': 'int',
         'tags': 'dict(str, str)',
         'traffic_percent': 'int',
-        'connection_ids': 'list[str]'
+        'connection_ids': 'list[str]',
+        'connection_config_ids': 'list[str]'
     }
 
     attribute_map = {
@@ -69,10 +70,11 @@ class ApplyProductionServiceV2Model(object):
         'max_surge_percent': 'max_surge_percent',
         'tags': 'tags',
         'traffic_percent': 'traffic_percent',
-        'connection_ids': 'connection_ids'
+        'connection_ids': 'connection_ids',
+        'connection_config_ids': 'connection_config_ids'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, version=None, canary_percent=None, ray_serve_config=None, build_id=None, compute_config_id=None, config=None, rollout_strategy=None, ray_gcs_external_storage_config=None, tracing_config=None, auto_complete_rollout=True, max_surge_percent=None, tags=None, traffic_percent=None, connection_ids=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, version=None, canary_percent=None, ray_serve_config=None, build_id=None, compute_config_id=None, config=None, rollout_strategy=None, ray_gcs_external_storage_config=None, tracing_config=None, auto_complete_rollout=True, max_surge_percent=None, tags=None, traffic_percent=None, connection_ids=None, connection_config_ids=None, local_vars_configuration=None):  # noqa: E501
         """ApplyProductionServiceV2Model - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -95,6 +97,7 @@ class ApplyProductionServiceV2Model(object):
         self._tags = None
         self._traffic_percent = None
         self._connection_ids = None
+        self._connection_config_ids = None
         self.discriminator = None
 
         self.name = name
@@ -126,6 +129,7 @@ class ApplyProductionServiceV2Model(object):
         if traffic_percent is not None:
             self.traffic_percent = traffic_percent
         self.connection_ids = connection_ids
+        self.connection_config_ids = connection_config_ids
 
     @property
     def name(self):
@@ -525,6 +529,29 @@ class ApplyProductionServiceV2Model(object):
         """
 
         self._connection_ids = connection_ids
+
+    @property
+    def connection_config_ids(self):
+        """Gets the connection_config_ids of this ApplyProductionServiceV2Model.  # noqa: E501
+
+        List of federated connection config IDs to associate with the service. Setting this or connection_ids replaces the service's connections; leave both unset to keep them.  # noqa: E501
+
+        :return: The connection_config_ids of this ApplyProductionServiceV2Model.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._connection_config_ids
+
+    @connection_config_ids.setter
+    def connection_config_ids(self, connection_config_ids):
+        """Sets the connection_config_ids of this ApplyProductionServiceV2Model.
+
+        List of federated connection config IDs to associate with the service. Setting this or connection_ids replaces the service's connections; leave both unset to keep them.  # noqa: E501
+
+        :param connection_config_ids: The connection_config_ids of this ApplyProductionServiceV2Model.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._connection_config_ids = connection_config_ids
 
     def to_dict(self):
         """Returns the model properties as a dict"""

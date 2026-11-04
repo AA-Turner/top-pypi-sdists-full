@@ -75,7 +75,10 @@ def _specs():
 @pytest.mark.parametrize(
     "use_evaluation_cache", [False, True], ids=["uncached", "cached"]
 )
-def test_membership_append_remove_and_new_file_reset(httpserver, use_evaluation_cache):
+@pytest.mark.parametrize("elias_fano", [None, True], ids=["default", "elias-fano"])
+def test_membership_append_remove_and_new_file_reset(
+    httpserver, use_evaluation_cache, elias_fano
+):
     specs = _specs()
     # Real targeting hashes are eight ASCII bytes. Include fallback parser keys
     # in the same file; direct non-eight-byte membership is covered in Rust.
@@ -135,6 +138,7 @@ def test_membership_append_remove_and_new_file_reset(httpserver, use_evaluation_
             specs_sync_interval_ms=60_000,
             id_lists_sync_interval_ms=1000,
             enable_id_lists=True,
+            enable_id_list_elias_fano=elias_fano,
             fallback_to_statsig_api=False,
             output_log_level="none",
             evaluation_cache=EvaluationCache() if use_evaluation_cache else None,

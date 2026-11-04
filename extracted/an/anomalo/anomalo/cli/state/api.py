@@ -16,6 +16,7 @@ from .errors import (
     InvalidTableRef,
     TableNotFound,
     UnknownTableLabels,
+    UnknownWarehouse,
 )
 from .filters import TableFilters
 from .models import (
@@ -366,6 +367,15 @@ class APIDriver:
     def table_refs(self) -> set[str]:
         return set(self._tables.keys())
 
+    def warehouse_id(self, name: str) -> int:
+        if name not in self._warehouses:
+            raise UnknownWarehouse(name)
+        return self._warehouses[name]
+
+    @property
+    def notification_channels(self) -> List[dict[str, Any]]:
+        return self._notification_channels
+
     @cached_property
     @retry_requests
     def _warehouses_raw(self) -> Sequence[tuple[int, str]]:
@@ -518,6 +528,13 @@ class APIDriver:
                 "notification_channel_id",
                 "notification_channel_ids",
             }
+        }
+
+    def check_ids(self, table_ref: str) -> dict[str, int]:
+        """Each user check's id on the table, by ref."""
+        return {
+            ref: check["check_id"]
+            for ref, check in self._checks_for_table_by_ref(table_ref).items()
         }
 
     def _checks_for_table_by_ref(self, table_ref: str, system=False) -> dict[str, Any]:

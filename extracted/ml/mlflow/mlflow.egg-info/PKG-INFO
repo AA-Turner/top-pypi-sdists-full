@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlflow
-Version: 3.17.2
+Version: 3.18.0
 Summary: MLflow is an open source platform for the complete machine learning lifecycle
 Maintainer-email: Databricks <mlflow-oss-maintainers@googlegroups.com>
 License: Copyright 2018 Databricks, Inc.  All rights reserved.
@@ -224,8 +224,8 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: mlflow-skinny==3.17.2
-Requires-Dist: mlflow-tracing==3.17.2
+Requires-Dist: mlflow-skinny==3.18.0
+Requires-Dist: mlflow-tracing==3.18.0
 Requires-Dist: Flask-CORS<7
 Requires-Dist: Flask<4
 Requires-Dist: aiohttp<4,>=3.7.0
@@ -238,7 +238,7 @@ Requires-Dist: huey<4,>=2.5.4
 Requires-Dist: matplotlib<4
 Requires-Dist: numpy<3
 Requires-Dist: pandas<4
-Requires-Dist: pyarrow<26,>=4.0.0
+Requires-Dist: pyarrow<27,>=4.0.0
 Requires-Dist: scikit-learn<2
 Requires-Dist: scipy<2
 Requires-Dist: skops<1
@@ -294,7 +294,7 @@ Requires-Dist: mlflow-jfrog-plugin; extra == "jfrog"
 Provides-Extra: kubernetes
 Requires-Dist: kubernetes; extra == "kubernetes"
 Provides-Extra: langchain
-Requires-Dist: langchain<=1.4.3,>=1.0.0; extra == "langchain"
+Requires-Dist: langchain<=1.4.7,>=1.0.4; extra == "langchain"
 Provides-Extra: auth
 Requires-Dist: Flask-WTF<2; extra == "auth"
 Dynamic: license-file
@@ -512,6 +512,7 @@ MLflow supports all agent frameworks, LLM providers, tools, and programming lang
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/vercelai"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/vercel-logo.svg" height="40"><br><sub><b>Vercel AI SDK</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/mastra"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/mastra-logo.png" height="40"><br><sub><b>Mastra</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/voltagent"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/voltagent-logo.png" height="40"><br><sub><b>VoltAgent</b></sub></a></td>
+    <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/flue"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/flue-logo.svg" height="40"><br><sub><b>Flue</b></sub></a></td>
   </tr>
 </table>
 

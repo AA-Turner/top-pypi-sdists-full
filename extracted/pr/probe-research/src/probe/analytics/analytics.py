@@ -12,9 +12,17 @@ from probe.analytics import core as core
 from probe.foundation.tls.tls import ssl_context
 from probe.analytics.outcomes import IdentityMode, InvokedBy, Via
 from probe.analytics import sender  # call through the module: one binding for tests to patch
+from probe.generated.transcript_switch import SwitchedBy
 # Set only on a child's explicit desktop action, independently of its stdin TTY.
 DESKTOP_HUMAN_ENV = "PROBE_DESKTOP_HUMAN"
 DESKTOP_SURFACE = "desktop"
+#: Who asked for a Probe service action (`SwitchedBy`'s word), set on its child (plan R30).
+ASKED_BY_ENV = "PROBE_ASKED_BY"
+
+
+def is_person_asking() -> bool:
+    """Did a person at a terminal ask for the Probe service action this process runs?"""
+    return os.environ.get(ASKED_BY_ENV) == SwitchedBy.PERSON.value
 
 
 def _now_iso() -> str:
@@ -48,10 +56,15 @@ class TelemetryContext:
             is_enabled = False
         desktop = (os.environ.get(DESKTOP_HUMAN_ENV) == "1"
                    and via in (Via.WIZARD, Via.COMMAND))
+        # A terminal's action run by the Probe service keeps its asker, under `via: service`
+        # (plan T26): the install funnel does not split between the two paths.
+        for_terminal = (not desktop and via in (Via.WIZARD, Via.COMMAND)
+                        and os.environ.get(ASKED_BY_ENV) in (SwitchedBy.PERSON.value, SwitchedBy.AGENT.value))
+        person = is_person_asking()
         context = cls(
             session_id=uuid.uuid4().hex,
-            via=via,
-            invoked_by=InvokedBy.HUMAN if interactive or desktop else InvokedBy.AUTOMATION,
+            via=Via.SERVICE if for_terminal else via,
+            invoked_by=InvokedBy.HUMAN if interactive or desktop or person else InvokedBy.AUTOMATION,
             enabled=is_enabled,
             surface=DESKTOP_SURFACE if desktop else None,
         )

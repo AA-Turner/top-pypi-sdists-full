@@ -29,6 +29,7 @@ from plato._generated.models import (
     SetDateRequest,
     SetDateResult,
 )
+from plato.utils.ssh import gateway_proxy_command
 from plato.utils.subprocess import (
     register_ssh_user,
     ssh_user_for_provider,
@@ -56,7 +57,7 @@ class SSHInfo(BaseModel):
     @property
     def proxy_command(self) -> str:
         """ProxyCommand for SSH config."""
-        return f"openssl s_client -quiet -connect {self.gateway_host}:443 -servername {self.sni} 2>/dev/null"
+        return gateway_proxy_command(self.gateway_host, self.sni)
 
     def ssh_command(self, command: str | None = None) -> list[str]:
         """Build SSH command with all necessary options.
@@ -135,7 +136,7 @@ class ReverseTunnel:
         """
         gateway_host = os.getenv("PLATO_GATEWAY_HOST", "gateway.plato.so")
         sni = f"{self.job_id}--22.{gateway_host}"
-        proxy_cmd = f"openssl s_client -quiet -connect {gateway_host}:443 -servername {sni} 2>/dev/null"
+        proxy_cmd = gateway_proxy_command(gateway_host, sni)
 
         # SSH command with reverse port forwarding
         # -R remote_port:localhost:local_port makes remote_port on VM forward to local_port on local machine

@@ -23,7 +23,6 @@ from sequence_base.contract import (
     DeploymentState,
     DeploymentStatusResponse,
     Resources,
-    Timeouts,
 )
 
 from seq.code_bundle import pack, pack_dir, with_sources
@@ -39,17 +38,12 @@ from seq.registry import (
     models_declared,
     region_declared,
     resources_declared,
-    timeouts_declared,
-    EPISODE_IDLE_S,
 )
 from seq.weights import DEFAULT_WEIGHTS_MOUNT, weights_volume_mount
 
 
 
 
-
-
-DEFAULT_TIMEOUTS = Timeouts(request=300, startup=1800)
 
 
 def deployment_request(
@@ -81,7 +75,6 @@ def deployment_request(
     declared = resources_declared(cls)
     cpu = cpu or declared["cpu"]
     memory_gb = memory_gb or declared["memory_gb"]
-    declared_timeouts = timeouts_declared(cls)
     context = context_declared(cls)
     declared_models = models_declared(cls)
     snap = pack(reg.handler_ref, local_files=locals_declared(cls)[0], python_sources=locals_declared(cls)[1])
@@ -132,11 +125,6 @@ def deployment_request(
             plan_every_s=reg.plan_every_s,
 
 
-
-
-            tensors=spec.tensors,
-
-
             planner=spec.planner,
         ),
 
@@ -151,11 +139,6 @@ def deployment_request(
 
 
         concurrency=spec.concurrency or Concurrency(),
-
-        timeouts=(Timeouts(request=declared_timeouts.request, startup=declared_timeouts.startup,
-                           episode_idle=(declared_timeouts.episode_idle
-                                         if declared_timeouts.episode_idle != EPISODE_IDLE_S else None))
-                  if declared_timeouts is not None else DEFAULT_TIMEOUTS),
 
         image_context=pack_dir(context) if context else None,
 

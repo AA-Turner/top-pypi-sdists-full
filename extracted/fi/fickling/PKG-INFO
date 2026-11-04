@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: fickling
-Version: 0.1.12
+Version: 0.1.13
 Summary: A static analyzer and interpreter for Python pickle data
 Project-URL: Homepage, https://pypi.org/project/fickling
 Project-URL: Issues, https://github.com/trailofbits/fickling/issues
@@ -178,55 +178,50 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.10
+Requires-Python: >=3.11
+Requires-Dist: typing-extensions>=4.6.0; python_version < '3.12'
 Provides-Extra: archive
 Requires-Dist: py7zr!=1.1.2,>=1.1.0; extra == 'archive'
 Provides-Extra: dev
 Requires-Dist: coverage[toml]>=7.0.0; extra == 'dev'
 Requires-Dist: huggingface-hub>=0.20.0; extra == 'dev'
-Requires-Dist: numpy<2.3,>=2.2.6; (python_version == '3.10') and extra == 'dev'
-Requires-Dist: numpy>=2.3.5; (python_version >= '3.11') and extra == 'dev'
+Requires-Dist: numpy>=2.3.5; extra == 'dev'
 Requires-Dist: py7zr!=1.1.2,>=1.1.0; extra == 'dev'
 Requires-Dist: pytest-cov>=5.0.0; extra == 'dev'
 Requires-Dist: pytest>=8.0.0; extra == 'dev'
-Requires-Dist: ruff>=0.8.0; extra == 'dev'
+Requires-Dist: ruff>=0.16.0; extra == 'dev'
 Requires-Dist: torch>=2.1.0; extra == 'dev'
 Requires-Dist: torchvision>=0.24.1; extra == 'dev'
-Requires-Dist: ty>=0.0.12; extra == 'dev'
-Requires-Dist: typing-extensions; (python_version < '3.12') and extra == 'dev'
+Requires-Dist: ty>=0.0.60; extra == 'dev'
 Provides-Extra: examples
 Requires-Dist: numpy; extra == 'examples'
 Requires-Dist: pytorchfi; extra == 'examples'
 Provides-Extra: huggingface
 Requires-Dist: huggingface-hub>=0.20.0; extra == 'huggingface'
-Requires-Dist: numpy<2.3,>=2.2.6; (python_version == '3.10') and extra == 'huggingface'
-Requires-Dist: numpy>=2.3.5; (python_version >= '3.11') and extra == 'huggingface'
+Requires-Dist: numpy>=2.3.5; extra == 'huggingface'
 Requires-Dist: torch>=2.1.0; extra == 'huggingface'
 Requires-Dist: torchvision>=0.24.1; extra == 'huggingface'
 Provides-Extra: lint
-Requires-Dist: ruff>=0.8.0; extra == 'lint'
-Requires-Dist: ty>=0.0.12; extra == 'lint'
-Requires-Dist: typing-extensions; (python_version < '3.12') and extra == 'lint'
+Requires-Dist: ruff>=0.16.0; extra == 'lint'
+Requires-Dist: ty>=0.0.60; extra == 'lint'
 Provides-Extra: test
 Requires-Dist: coverage[toml]>=7.0.0; extra == 'test'
-Requires-Dist: numpy<2.3,>=2.2.6; (python_version == '3.10') and extra == 'test'
-Requires-Dist: numpy>=2.3.5; (python_version >= '3.11') and extra == 'test'
+Requires-Dist: numpy>=2.3.5; extra == 'test'
 Requires-Dist: py7zr!=1.1.2,>=1.1.0; extra == 'test'
 Requires-Dist: pytest-cov>=5.0.0; extra == 'test'
 Requires-Dist: pytest>=8.0.0; extra == 'test'
 Requires-Dist: torch>=2.1.0; extra == 'test'
 Requires-Dist: torchvision>=0.24.1; extra == 'test'
 Provides-Extra: torch
-Requires-Dist: numpy<2.3,>=2.2.6; (python_version == '3.10') and extra == 'torch'
-Requires-Dist: numpy>=2.3.5; (python_version >= '3.11') and extra == 'torch'
+Requires-Dist: numpy>=2.3.5; extra == 'torch'
 Requires-Dist: torch>=2.1.0; extra == 'torch'
 Requires-Dist: torchvision>=0.24.1; extra == 'torch'
 Description-Content-Type: text/markdown
@@ -255,7 +250,7 @@ Fickling can be used both as a **python library** and a **CLI**.
 
 ## Installation
 
-Fickling has been tested on Python 3.9 through Python 3.13 and has very few dependencies.
+Fickling requires Python 3.11 or newer and has very few dependencies.
 Both the library and command line utility can be installed through pip or uv:
 
 ```bash
@@ -283,10 +278,12 @@ Fickling can help securing AI/ML codebases by automatically scanning pickle file
 models. Fickling hooks the pickle module and verifies imports made when loading a model. It only
 checks the imports against an allowlist of imports from ML libraries that are considered safe, and blocks files that contain other imports.
 
-To enable Fickling security checks simply run the following lines once in your process, before loading any AI/ML models:
+Add the following lines as early as possible, **before importing `torch`, `numpy`, or any other
+library that uses `pickle`**:
 
 ```python
 import fickling
+
 # This sets global hooks on pickle
 fickling.hook.activate_safe_ml_environment()
 ```
@@ -300,10 +297,12 @@ fickling.hook.deactivate_safe_ml_environment()
 It is possible that the models you are using contain imports that aren't allowed by Fickling. If you still want to load the model, you can simply allow additional imports for your specific use-case with the `also_allow` argument:
 
 ```python
-fickling.hook.activate_safe_ml_environment(also_allow=[
-    "some.import",
-    "another.allowed.import",
-])
+fickling.hook.activate_safe_ml_environment(
+    also_allow=[
+        "some.import",
+        "another.allowed.import",
+    ]
+)
 ```
 
 **Important**: You should always make sure that manually added imports are actually safe and can not enable attackers to execute arbitrary code. If you are unsure on how to do that, you can open an issue on Fickling's Github repository that indicates the imports/models in question, and our team can review them and include them in the allow list if possible.
@@ -345,6 +344,9 @@ with fickling.check_safety():
 # Files loaded outside of context manager are NOT checked
 pickle.load("file.pkl")
 ```
+
+On exit, the context manager restores whatever was installed when it was entered, so a hook
+already in place stays in effect instead of pickle being left unhooked.
 
 #### Option 3: check and load a single file
 

@@ -23,7 +23,7 @@ class WorkspaceMemberResponse:
             `triggered_by` hold
         role (str | WorkspaceMembershipRole): The role of the user in the workspace
         user_id (UUID): The ID of the user
-        name (None | str | Unset): Display name; null when the user has no name set.
+        name (None | str | Unset): Display name; `null` when the user has no name set.
     """
 
     email: str

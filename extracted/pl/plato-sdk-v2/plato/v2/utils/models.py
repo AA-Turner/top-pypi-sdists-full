@@ -50,5 +50,8 @@ class EnvironmentInfo(BaseModel):
     job_id: str
     alias: str
     artifact_id: str | None = None
+    # Mesh IP of the env's VM; when set, DB cleanup tunnels go mesh-direct
+    # instead of via the TLS gateway (attached sandboxes on Chronos VMs).
+    mesh_ip: str | None = None
     cleanup_fn: Callable[[], Coroutine[Any, Any, dict[str, Any]]] | None = None
     get_state_fn: Callable[[], Coroutine[Any, Any, SessionStateResult]]

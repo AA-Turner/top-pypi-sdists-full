@@ -16,7 +16,7 @@ use crate::interned_string::InternedString;
 use crate::specs_response::spec_types::{SessionReplayPrivacySetting, SessionReplayTrigger};
 use crate::{
     StatsigErr,
-    evaluation::evaluator::{Evaluator, SpecType},
+    evaluation::evaluator::{Evaluator, Recognition, SpecType},
     evaluation::evaluator_context::EvaluatorContext,
     initialize_evaluations_response::InitializeEvaluationsResponse,
     initialize_response::InitializeResponse,
@@ -133,6 +133,14 @@ impl GCIRFormatter {
             get_session_replay_info(context, options)
         });
 
+        let sdk_configs = get_client_sdk_configs(context);
+        if options.previous_response_hash.is_some() && sdk_configs.is_some() {
+            // Absent metadata keeps the previous checksum; hash only emitted wire values.
+            context
+                .gcir_hashes
+                .push(hashing::hash_one(serde_json::json!(&sdk_configs)));
+        }
+
         let mut should_return_blank = false;
         let full_response_hash = gcir_time!("v1.full_response_checksum", {
             if let Some(previous_full_hash) = &options.previous_response_hash {
@@ -161,7 +169,7 @@ impl GCIRFormatter {
                 hash_used: options.get_hash_algorithm().to_string(),
                 user: context.user.to_loggable(),
                 sdk_params: HashMap::new(),
-                sdk_configs: get_client_sdk_configs(context),
+                sdk_configs,
                 evaluated_keys,
                 sdk_info: get_sdk_info(),
                 param_stores,
@@ -339,11 +347,19 @@ pub struct GCIRSessionReplayInfo {
 
 impl GCIRHashable for GCIRSessionReplayInfo {
     fn create_hash(&self, _: &InternedString) -> u64 {
-        let hash_array = vec![
+        let mut hash_array = vec![
             opt_bool_to_hashable(&self.can_record_session),
             opt_bool_to_hashable(&self.recording_blocked),
             opt_bool_to_hashable(&self.passes_session_recording_targeting),
         ];
+        if self.session_recording_rate.is_some()
+            || self.session_recording_privacy_settings.is_some()
+        {
+            hash_array.push(hashing::hash_one(serde_json::json!([
+                self.session_recording_rate,
+                self.session_recording_privacy_settings,
+            ])));
+        }
         hashing::hash_one(hash_array)
     }
 }
@@ -379,18 +395,15 @@ fn get_session_replay_info(
     let targeting_gate_name = &session_replay_data.targeting_gate;
 
     if let Some(gate_name) = targeting_gate_name {
-        match Evaluator::evaluate(context, gate_name, &SpecType::Gate) {
-            Ok(_result) => {
-                session_replay_info.passes_session_recording_targeting =
-                    Some(context.result.bool_value);
-                if !context.result.bool_value {
-                    session_replay_info.can_record_session = Some(false);
-                }
-            }
-            Err(_e) => {
-                session_replay_info.passes_session_recording_targeting = Some(false);
-                session_replay_info.can_record_session = Some(false);
-            }
+        context.reset_result();
+        let passes_targeting = matches!(
+            Evaluator::evaluate(context, gate_name, &SpecType::Gate),
+            Ok(Recognition::Recognized)
+        ) && !context.result.unsupported
+            && context.result.bool_value;
+        session_replay_info.passes_session_recording_targeting = Some(passes_targeting);
+        if !passes_targeting {
+            session_replay_info.can_record_session = Some(false);
         }
     }
 
@@ -459,6 +472,10 @@ fn get_session_replay_info(
         }
         session_replay_info.session_recording_exposure_triggers = Some(new_exposure_triggers);
     }
+    session_replay_info.session_recording_privacy_settings = session_replay_data
+        .session_recording_privacy_settings
+        .clone();
+
     if options.previous_response_hash.is_some() {
         let combined_hashes = vec![
             session_replay_info.create_hash(InternedString::empty_ref()),
@@ -467,10 +484,6 @@ fn get_session_replay_info(
         ];
         context.gcir_hashes.push(hashing::hash_one(combined_hashes));
     }
-
-    session_replay_info.session_recording_privacy_settings = session_replay_data
-        .session_recording_privacy_settings
-        .clone();
 
     session_replay_info
 }
@@ -589,7 +602,7 @@ mod tests {
         planned_and_unplanned_response_values_with_specs(options, None, |_| {})
     }
 
-    fn planned_and_unplanned_response_values_with_specs(
+    pub(super) fn planned_and_unplanned_response_values_with_specs(
         options: &ClientInitResponseOptions,
         app_id: Option<&DynamicValue>,
         update_specs: impl FnOnce(&mut SpecsResponseFull),
@@ -968,3 +981,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "__tests__/gcir_metadata_checksum_tests.rs"]
+mod metadata_checksum_tests;

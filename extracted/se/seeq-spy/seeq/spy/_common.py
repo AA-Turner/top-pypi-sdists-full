@@ -482,7 +482,7 @@ def get_data_lab_datasource_input():
     return datasource_input
 
 
-def regex_from_query_fragment(query_fragment, contains=True):
+def regex_from_query_fragment(query_fragment: str, contains: bool = True) -> str:
     if query_fragment.startswith('/') and query_fragment.endswith('/'):
         regex = query_fragment[1:-1]
     else:
@@ -667,7 +667,7 @@ def statistic_to_aggregation_function(statistic, *, allow_condition_stats=True):
     return fns[statistic] + '()'
 
 
-def does_query_fragment_match(query_fragment, _string, contains=True):
+def does_query_fragment_match(query_fragment: str, _string: str, contains: bool = True) -> bool:
     regex = regex_from_query_fragment(query_fragment, contains=contains)
     match = re.fullmatch(regex, _string, re.IGNORECASE)
     return match is not None

@@ -15,6 +15,14 @@ for one, so its actor is driven directly, taken from the backend
 (:meth:`~..traffic.base.TrafficBackend.release_actor`) and handed back to it
 when its path is done.  The ego is never
 driven; its turn indicators say whether it is predicted to change lane.
+
+It takes no control domain as it fires: it holds the movement of each road
+user it drives, from the tick it starts driving it until it hands it back
+(#1295).  So a road user whose movement another action holds is not picked,
+another action that fires to command one it drives raises
+:class:`~autoware_carla_scenario.control_domain.ControlConflictError`, and one
+that overrides takes it: that road user is handed back at once, and NADE runs
+on.
 """
 
 from __future__ import annotations
@@ -40,7 +48,12 @@ from ..seed import resolve_seed
 from ..traffic.base import TrafficBackend
 from ..trajectory.model import TrajectoryFollowingMode
 from ..utils.turn_indicator import TurnIndicatorState, is_vehicle, turn_indicators_of
-from ._adversarial_execution import AdversarialExecution, drivable, start_execution
+from ._adversarial_execution import (
+    AdversarialExecution,
+    drivable,
+    movement_held,
+    start_execution,
+)
 from .background_traffic import _Never
 from .base import BaseAction, TickTiming
 from ..adversity_event import AdversityEvent
@@ -143,7 +156,9 @@ class AdversarialTrafficAction(BaseAction):
         weight from 1, no cooldown, the same draws from the seed."""
         super().reset()
         self._sampler = ImportanceSampler(self._seed, self._settings, self._thresholds)
-        self._executions = []
+        # Closed, not only dropped: what they hold is given back even when the
+        # action is reset without the runner (#1298).
+        self._close_executions()
         self._choices = []
         self._events = []
         self._sampled_now = None
@@ -201,10 +216,18 @@ class AdversarialTrafficAction(BaseAction):
         """Drive the adversity under way, or sample the next one."""
         self._sampled_now = None
         if self.state is ActionState.STANDBY:
-            self._executions = []
+            self._close_executions()
         for running in self._executions:
             running.tick(world, self._elapsed)
-        self._executions = [run for run in self._executions if not run.done]
+        # Done -- its path driven, or taken by an overriding action: closed as
+        # it is dropped, so its follow's conditions are too (#1298).
+        kept: list[AdversarialExecution] = []
+        for run in self._executions:
+            if run.done:
+                run.close()
+            else:
+                kept.append(run)
+        self._executions = kept
         if self._executions:
             return
         if self._sampler.cooling(self._elapsed):
@@ -218,7 +241,8 @@ class AdversarialTrafficAction(BaseAction):
             {
                 name
                 for name in scene.agents
-                if drivable(name) or name in self._background
+                if (drivable(name) or name in self._background)
+                and not movement_held(name, self._elapsed)
             },
             self._adversities,
             self._elapsed,
@@ -286,6 +310,8 @@ class AdversarialTrafficAction(BaseAction):
         if started is None:
             return
         execution: AdversarialExecution = started
+        # Held until it is handed back; an overriding action takes it back.
+        execution.hold_movement(world, self._elapsed, self._control_name)
         self._executions.append(execution)
         execution.tick(world, self._elapsed)
 
@@ -294,6 +320,13 @@ class AdversarialTrafficAction(BaseAction):
         super().close()
         for running in self._executions:
             running.close()
+
+    def _close_executions(self) -> None:
+        """Close the executions under way and drop them: what they hold is
+        given back (:meth:`AdversarialExecution.close`)."""
+        for running in self._executions:
+            running.close()
+        self._executions = []
 
     def _background_actors(self, world: "carla.World") -> dict[str, "carla.Actor"]:
         """The backend's background vehicles it may drive, by role name."""

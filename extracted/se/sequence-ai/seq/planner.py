@@ -27,7 +27,7 @@ _T = TypeVar("_T", bound=type)
 
 
 
-NO_ACT = ("hz", "action_chunk_valid_len", "action_chunk_replan_at", "max_wait_for_batch", "tensors")
+NO_ACT = ("hz", "action_chunk_valid_len", "action_chunk_replan_at", "max_wait_for_batch")
 
 PLANNER_HOW = ('@seq.planner(members=["a_policy", "a_planner"], gpu="cpu", ...): the policies and planners it plans for, '
                "by name - with one @seq.plan(every_s=SECONDS) method, def plan(self, group)")
@@ -38,8 +38,8 @@ def planner(*args: Any, **kwargs: Any) -> Callable[[_T], _T]:
 
     `members`: the policies and planners it plans for, by name, each once - mixed as you like; each must be deployed
     when it is. Every other argument is @seq.policy's, as it is (name, gpu, image, weights, secrets, models, scaling,
-    cpu, memory, timeouts, init, ...), but those of an act - hz, action_chunk_valid_len, action_chunk_replan_at,
-    max_wait_for_batch, tensors, io - which a planner does not answer.
+    cpu, memory, init, ...), but those of an act - hz, action_chunk_valid_len, action_chunk_replan_at and
+    max_wait_for_batch - which a planner does not answer.
 
     Its class has one `@seq.plan(every_s=SECONDS, wake_on=[...])` method, `def plan(self, group)` (plain or async),
     loads what it needs in its __init__ - init= its arguments, "{weights}" its weights' directory - and may have a

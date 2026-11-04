@@ -194,7 +194,8 @@ class WorkspacesMixin:
         when you have none). The first workspace you create becomes your home.
 
         A taken slug is a 409 carrying the existing id and a free suggestion, never a
-        silent hand-back of somebody else's row.
+        silent hand-back of somebody else's row. A name another workspace in the team
+        has (any case, hidden ones too) is a 409 with only a message, checked first.
         """
         body: dict = {"slug": slug}
         if name is not None:

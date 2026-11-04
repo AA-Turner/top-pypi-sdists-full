@@ -1993,6 +1993,262 @@ def test_applier_concats_checkpoints_with_time_flush(
     assert cnt_udf == 5
 
 
+class _FakeClock:
+    """Thread-safe manual clock shared by the producer and the flusher."""
+
+    def __init__(self) -> None:
+        self._now = 0.0
+        self._lock = threading.Lock()
+
+    def advance(self, seconds: float) -> None:
+        with self._lock:
+            self._now += seconds
+
+    def __call__(self) -> float:
+        with self._lock:
+            return self._now
+
+
+class _FakeTime:
+    """Stands in for the ``time`` module inside ``geneva.apply``."""
+
+    def __init__(self, clock: _FakeClock) -> None:
+        self._clock = clock
+
+    def perf_counter(self) -> float:
+        return self._clock()
+
+    def monotonic(self) -> float:
+        return self._clock()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(time, name)
+
+
+class _PacedBatchApplier(BatchApplier):
+    """Applies the map task, spending a set time on each batch.
+
+    ``fake_seconds`` advances a fake clock per batch, and ``setup_seconds``
+    once more before the first, as a UDF loading its model on first call
+    would; ``real_pauses`` sleeps before the matching batch.
+    """
+
+    def __init__(
+        self,
+        *,
+        clock: _FakeClock | None = None,
+        fake_seconds: float = 0.0,
+        setup_seconds: float = 0.0,
+        real_pauses: list[float] | None = None,
+    ) -> None:
+        self._clock = clock
+        self._fake_seconds = fake_seconds
+        self._setup_seconds = setup_seconds
+        self._real_pauses = real_pauses or []
+
+    def run(
+        self,
+        read_task: ReadTask,
+        map_task: Any,
+        error_logger: Any,
+    ) -> Iterator[pa.RecordBatch]:
+        batches = read_task.to_batches(batch_size=map_task.batch_size())
+        for idx, batch in enumerate(batches):
+            if idx < len(self._real_pauses):
+                time.sleep(self._real_pauses[idx])
+            if self._clock is not None:
+                if idx == 0:
+                    self._clock.advance(self._setup_seconds)
+                self._clock.advance(self._fake_seconds)
+            yield map_task.apply(batch)
+
+
+def _row_task(rows: int) -> _DummyReadTask:
+    batch = pa.record_batch(
+        [
+            pa.array(range(rows), type=pa.int64()),
+            pa.array(range(rows), type=pa.uint64()),
+        ],
+        names=["a", "_rowaddr"],
+    )
+    return _DummyReadTask(frag_id=0, rows=rows, batches=[batch])
+
+
+def _two_row_slices_task() -> BackfillUDFTask:
+    return BackfillUDFTask(
+        udfs={"one": one},
+        override_batch_size=2,
+        min_checkpoint_size=2,
+        max_checkpoint_size=2,
+    )
+
+
+def test_applier_writes_slow_batches_on_arrival(monkeypatch) -> None:
+    """A batch slower than the flush interval is written as soon as it finishes.
+
+    Timing the deadline from the first pending batch's arrival held each slow
+    batch for another interval and merged it with the next one. The first
+    batch has no previous batch to time from, so it is written at its
+    deadline, before the second finishes.
+    """
+    clock = _FakeClock()
+    monkeypatch.setattr(apply_module, "time", _FakeTime(clock))
+    applier = CheckpointingApplier(
+        map_task=_two_row_slices_task(),
+        checkpoint_uri="memory",
+        batch_applier=_PacedBatchApplier(clock=clock, fake_seconds=2000.0),
+        batch_checkpoint_flush_interval_seconds=1000.0,
+    )
+
+    checkpoints, direct_result, _ = applier.run(_row_task(6))
+
+    assert direct_result is None
+    assert [checkpoint.span for checkpoint in checkpoints] == [2, 2, 2]
+
+
+def test_applier_merges_fast_batches_until_interval(monkeypatch) -> None:
+    """Batches faster than the flush interval still merge into one write."""
+    clock = _FakeClock()
+    monkeypatch.setattr(apply_module, "time", _FakeTime(clock))
+    applier = CheckpointingApplier(
+        map_task=_two_row_slices_task(),
+        checkpoint_uri="memory",
+        batch_applier=_PacedBatchApplier(clock=clock, fake_seconds=1.0),
+        batch_checkpoint_flush_interval_seconds=1000.0,
+    )
+
+    checkpoints, direct_result, _ = applier.run(_row_task(6))
+
+    assert direct_result is None
+    assert [checkpoint.span for checkpoint in checkpoints] == [6]
+
+
+def test_applier_merges_batches_just_under_interval(monkeypatch) -> None:
+    """Batches slightly shorter than the interval still share writes in pairs.
+
+    Each batch finishes inside the window opened by the one before it, so the
+    write count matches timing every write from the first pending batch.
+    """
+    clock = _FakeClock()
+    monkeypatch.setattr(apply_module, "time", _FakeTime(clock))
+    applier = CheckpointingApplier(
+        map_task=_two_row_slices_task(),
+        checkpoint_uri="memory",
+        batch_applier=_PacedBatchApplier(clock=clock, fake_seconds=800.0),
+        batch_checkpoint_flush_interval_seconds=1000.0,
+    )
+
+    checkpoints, direct_result, _ = applier.run(_row_task(8))
+
+    assert direct_result is None
+    assert [checkpoint.span for checkpoint in checkpoints] == [4, 4]
+
+
+def test_applier_flushes_idle_pending_batch_on_deadline() -> None:
+    """A pending batch is written when the interval passes with no new batch.
+
+    The next batch, which itself took longer than the interval, is written
+    on arrival rather than held for the final flush.
+    """
+    applier = CheckpointingApplier(
+        map_task=_two_row_slices_task(),
+        checkpoint_uri="memory",
+        batch_applier=_PacedBatchApplier(real_pauses=[0.0, 0.5, 0.0]),
+        batch_checkpoint_flush_interval_seconds=0.1,
+    )
+
+    checkpoints, direct_result, _ = applier.run(_row_task(6))
+
+    assert direct_result is None
+    assert [checkpoint.span for checkpoint in checkpoints] == [2, 2, 2]
+
+
+def test_applier_slow_single_batch_keeps_direct_fragment_write(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """A task's last batch waits for the final flush, even past the interval.
+
+    Writing it early as a batch checkpoint would forfeit the direct
+    fragment-write path for a whole-fragment task done in one batch.
+    """
+    clock = _FakeClock()
+    monkeypatch.setattr(apply_module, "time", _FakeTime(clock))
+    db = connect(tmp_path)
+    tbl = db.create_table("tbl", pa.table({"a": [1, 2, 3], "b": [None, None, None]}))
+    batch = pa.record_batch(
+        [pa.array([1, 2, 3], type=pa.int64()), pa.array([0, 1, 2], type=pa.uint64())],
+        names=["a", "_rowaddr"],
+    )
+    plan = _DummyReadTask(frag_id=0, rows=3, batches=[batch])
+    plan.fragment_logical_rows = 3
+    plan.fragment_physical_rows = 3
+    store = CheckpointStore.from_uri(str(URL(str(tmp_path)) / "ckp"))
+    applier = CheckpointingApplier(
+        map_task=BackfillUDFTask(
+            udfs={"b": one},
+            override_batch_size=3,
+            min_checkpoint_size=3,
+            max_checkpoint_size=3,
+        ),
+        checkpoint_uri=store.root,
+        batch_applier=_PacedBatchApplier(clock=clock, fake_seconds=2000.0),
+        direct_fragment_write=_direct_write_config(tbl, "b"),
+        batch_checkpoint_flush_interval_seconds=1000.0,
+    )
+
+    checkpoints, direct_result, _ = applier.run(plan)
+
+    assert checkpoints == []
+    assert direct_result is not None
+    assert direct_result.rows_written == 3
+
+
+def test_applier_slow_setup_keeps_direct_fragment_write(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Setup time before the first batch doesn't make that batch slow.
+
+    A UDF that loads its model on first call finishes its first batch long
+    after the task started. Writing that batch on arrival would forfeit the
+    direct fragment-write path for a whole-fragment task whose batches all
+    finish within the interval.
+    """
+    clock = _FakeClock()
+    monkeypatch.setattr(apply_module, "time", _FakeTime(clock))
+    db = connect(tmp_path)
+    tbl = db.create_table(
+        "tbl", pa.table({"a": list(range(6)), "b": pa.nulls(6, type=pa.int64())})
+    )
+    batch = pa.record_batch(
+        [pa.array(range(6), type=pa.int64()), pa.array(range(6), type=pa.uint64())],
+        names=["a", "_rowaddr"],
+    )
+    plan = _DummyReadTask(frag_id=0, rows=6, batches=[batch])
+    plan.fragment_logical_rows = 6
+    plan.fragment_physical_rows = 6
+    store = CheckpointStore.from_uri(str(URL(str(tmp_path)) / "ckp"))
+    applier = CheckpointingApplier(
+        map_task=BackfillUDFTask(
+            udfs={"b": one},
+            override_batch_size=2,
+            min_checkpoint_size=2,
+            max_checkpoint_size=2,
+        ),
+        checkpoint_uri=store.root,
+        batch_applier=_PacedBatchApplier(
+            clock=clock, fake_seconds=1.0, setup_seconds=2000.0
+        ),
+        direct_fragment_write=_direct_write_config(tbl, "b"),
+        batch_checkpoint_flush_interval_seconds=1000.0,
+    )
+
+    checkpoints, direct_result, _ = applier.run(plan)
+
+    assert checkpoints == []
+    assert direct_result is not None
+    assert direct_result.rows_written == 6
+
+
 def test_checkpoint_key_format(tmp_path: Path, tbl_ref: TableReference) -> None:
     @udf(version="v0", input_columns=["a"])
     def times_two(a: int) -> int:

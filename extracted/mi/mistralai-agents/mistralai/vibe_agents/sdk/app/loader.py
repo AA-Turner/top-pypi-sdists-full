@@ -70,6 +70,7 @@ def load_app(root: Path) -> AgentApp:
     agent._require_real_model()
     harness = agent._resolve_harness(None)
     _require_rebuildable_hooks(harness, agent.subagents)
+    _require_permission_rules_matching_agent_tools(agent, harness)
     return AgentApp(
         name=agent.name,
         root=root,
@@ -80,6 +81,17 @@ def load_app(root: Path) -> AgentApp:
         skills=_local_skill_catalog(harness.skills),
         description=agent.description,
     )
+
+
+def _require_permission_rules_matching_agent_tools(agent: AgentAppAgent, harness: AgentAppHarness) -> None:
+    """Fail before a deploy when a permission rule names one of the agent's namespaces but none of its tools."""
+
+    from mistralai.vibe_agents.sdk.assembly import assemble  # noqa: PLC0415
+
+    try:
+        assemble.check_permission_policy_tools(agent._to_agent_config(), harness, agent.subagents)
+    except SdkError as exc:
+        raise errors.AgentProjectError(str(exc)) from exc
 
 
 def _require_rebuildable_hooks(harness: AgentAppHarness, subagents: Sequence[Subagent]) -> None:

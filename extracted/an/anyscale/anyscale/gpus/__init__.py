@@ -31,26 +31,46 @@ class GpusSDK:
         doc_py_example=_NODE_GPUS_EXAMPLE,
         arg_docstrings=_NODE_GPUS_ARG_DOCSTRINGS,
     )
-    def node_gpus(  # noqa: F811
+    def node_gpus(  # noqa: F811, PLR0913
         self,
-        cluster_id: str,
         node_id: str,
         *,
+        cluster_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+        service_id: Optional[str] = None,
         time: Optional[datetime] = None,
     ) -> NodeGpus:
-        """Get DCGM telemetry for every GPU on a node of a cluster."""
-        return self._private_sdk.node_gpus(cluster_id, node_id, time=time)
+        """Get DCGM telemetry for every GPU on a node of a cluster, workspace, job or service."""
+        return self._private_sdk.node_gpus(
+            node_id,
+            cluster_id=cluster_id,
+            workspace_id=workspace_id,
+            job_id=job_id,
+            service_id=service_id,
+            time=time,
+        )
 
     @sdk_docs(
         doc_py_example=_GET_EXAMPLE,
         arg_docstrings=_GET_ARG_DOCSTRINGS,
     )
-    def get(  # noqa: F811
+    def get(  # noqa: F811, PLR0913
         self,
-        cluster_id: str,
         gpu_uuid: str,
         *,
+        cluster_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+        service_id: Optional[str] = None,
         time: Optional[datetime] = None,
     ) -> Gpu:
-        """Get one GPU of a cluster by UUID: where it is and what it reports."""
-        return self._private_sdk.get(cluster_id, gpu_uuid, time=time)
+        """Get one GPU by UUID: where it is and what it reports."""
+        return self._private_sdk.get(
+            gpu_uuid,
+            cluster_id=cluster_id,
+            workspace_id=workspace_id,
+            job_id=job_id,
+            service_id=service_id,
+            time=time,
+        )

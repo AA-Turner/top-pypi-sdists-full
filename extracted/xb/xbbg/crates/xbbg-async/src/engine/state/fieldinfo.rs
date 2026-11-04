@@ -5,10 +5,12 @@
 //! - type: Arrow type string (e.g., "float64", "string", "date32")
 //! - description: Field description
 //! - category: Category name
+//! - id: Bloomberg field id of the answered item (falls back to the mnemonic when absent)
 //!
 //! Extracts directly from Bloomberg Elements without JSON intermediate.
 
-use std::sync::Arc;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::{Arc, LazyLock};
 
 use arrow_array::RecordBatch;
 use arrow_array::builder::StringBuilder;
@@ -16,9 +18,42 @@ use arrow_schema::{DataType, Field, Schema};
 use tokio::sync::oneshot;
 use xbbg_log::trace;
 
-use super::value_utils::top_level_response_error;
+use super::value_utils::{find_children, top_level_response_error};
+use crate::diagnostics::{FieldErrorMeta, METADATA_KEY_FIELD_ERRORS};
 use crate::field_cache::BlpFieldType;
-use xbbg_core::{BlpError, Message};
+use xbbg_core::{BlpError, Message, Name};
+
+struct FieldInfoNames {
+    field_data: Name,
+    /// `fieldData[]` children in `find_children` order: `id`, `fieldInfo`,
+    /// `fieldError`.
+    item: [Name; 3],
+    mnemonic: Name,
+    datatype: Name,
+    ftype: Name,
+    description: Name,
+    category_name: Name,
+    category: Name,
+    code: Name,
+    subcategory: Name,
+    message: Name,
+    source: Name,
+}
+
+static FIELD_INFO_NAMES: LazyLock<FieldInfoNames> = LazyLock::new(|| FieldInfoNames {
+    field_data: Name::get_or_intern("fieldData"),
+    item: ["id", "fieldInfo", "fieldError"].map(Name::get_or_intern),
+    mnemonic: Name::get_or_intern("mnemonic"),
+    datatype: Name::get_or_intern("datatype"),
+    ftype: Name::get_or_intern("ftype"),
+    description: Name::get_or_intern("description"),
+    category_name: Name::get_or_intern("categoryName"),
+    category: Name::get_or_intern("category"),
+    code: Name::get_or_intern("code"),
+    subcategory: Name::get_or_intern("subcategory"),
+    message: Name::get_or_intern("message"),
+    source: Name::get_or_intern("source"),
+});
 
 /// State for a FieldInfoRequest that extracts field metadata.
 pub struct FieldInfoState {
@@ -30,6 +65,10 @@ pub struct FieldInfoState {
     description_builder: StringBuilder,
     /// Category builder
     category_builder: StringBuilder,
+    /// Bloomberg field id builder (refused request ids go to `field_errors`)
+    id_builder: StringBuilder,
+    /// Field lookup refusals, retained across partial responses
+    field_errors: BTreeMap<String, FieldErrorMeta>,
     /// Reply channel
     pub reply: oneshot::Sender<Result<RecordBatch, BlpError>>,
 }
@@ -42,6 +81,8 @@ impl FieldInfoState {
             type_builder: StringBuilder::new(),
             description_builder: StringBuilder::new(),
             category_builder: StringBuilder::new(),
+            id_builder: StringBuilder::new(),
+            field_errors: BTreeMap::new(),
             reply,
         }
     }
@@ -72,23 +113,25 @@ impl FieldInfoState {
     /// ```text
     /// FieldInfoResponse {
     ///   fieldData[] {
+    ///     id: "pr000001"
     ///     fieldInfo {
-    ///       id: "PX_LAST"
     ///       mnemonic: "PX_LAST"
     ///       description: "Last Price"
     ///       datatype: "Double"
     ///       ftype: "Price"
     ///       categoryName[]: ["Analysis", "Pricing"]
     ///     }
+    ///     fieldError? { source, code, category, subcategory, message }
     ///   }
     ///   fieldSearchError? { ... }
     /// }
     /// ```
     fn process_message(&mut self, msg: &Message) {
+        let names = &*FIELD_INFO_NAMES;
         let root = msg.elements();
 
         // Get fieldData array
-        let Some(field_data) = root.get_by_str("fieldData") else {
+        let Some(field_data) = root.get(&names.field_data) else {
             trace!("No fieldData in message");
             return;
         };
@@ -99,16 +142,47 @@ impl FieldInfoState {
                 continue;
             };
 
-            // Get fieldInfo sub-element
-            let Some(field_info) = item.get_by_str("fieldInfo") else {
+            // `fieldError` is usually absent: find the item's children in one pass.
+            let [id_element, field_info, field_error] = find_children(&item, &names.item);
+            let id = id_element.as_ref().and_then(|element| element.get_str(0));
+            if let Some(error) = field_error.filter(|element| !element.is_null()) {
+                let string = |name| {
+                    error
+                        .get(name)
+                        .and_then(|element| element.get_str(0))
+                        .unwrap_or("")
+                        .to_string()
+                };
+                self.field_errors.insert(
+                    id.unwrap_or("").to_string(),
+                    FieldErrorMeta {
+                        category: string(&names.category),
+                        code: error
+                            .get(&names.code)
+                            .and_then(|element| element.get_i32(0))
+                            .unwrap_or_default(),
+                        subcategory: string(&names.subcategory),
+                        message: string(&names.message),
+                        source: error
+                            .get(&names.source)
+                            .and_then(|element| element.get_str(0))
+                            .map(str::to_string),
+                    },
+                );
+                continue;
+            }
+
+            let Some(field_info) = field_info.filter(|element| !element.is_null()) else {
                 continue;
             };
 
-            // Get field mnemonic (prefer mnemonic over id)
+            // Keep the canonical mnemonic separate from Bloomberg's field id.
+            let [id_name, ..] = &names.item;
             let field = field_info
-                .get_by_str("mnemonic")
+                .get(&names.mnemonic)
                 .and_then(|e| e.get_str(0))
-                .or_else(|| field_info.get_by_str("id").and_then(|e| e.get_str(0)))
+                .or_else(|| field_info.get(id_name).and_then(|e| e.get_str(0)))
+                .or(id)
                 .unwrap_or("");
 
             if field.is_empty() {
@@ -117,8 +191,8 @@ impl FieldInfoState {
 
             // apiflds uses Datetime for temporal and textual fields; ftype
             // disambiguates those without overriding other concrete datatypes.
-            let datatype = field_info.get_by_str("datatype");
-            let ftype = field_info.get_by_str("ftype");
+            let datatype = field_info.get(&names.datatype);
+            let ftype = field_info.get(&names.ftype);
             let blp_type = BlpFieldType::from_metadata(
                 datatype.as_ref().and_then(|element| element.get_str(0)),
                 ftype.as_ref().and_then(|element| element.get_str(0)),
@@ -127,13 +201,13 @@ impl FieldInfoState {
 
             // Get description
             let description = field_info
-                .get_by_str("description")
+                .get(&names.description)
                 .and_then(|e| e.get_str(0))
                 .unwrap_or("");
 
             // Get category (first one if multiple)
             let category = field_info
-                .get_by_str("categoryName")
+                .get(&names.category_name)
                 .and_then(|cats| cats.get_str(0))
                 .unwrap_or("");
 
@@ -141,6 +215,7 @@ impl FieldInfoState {
             self.type_builder.append_value(arrow_type);
             self.description_builder.append_value(description);
             self.category_builder.append_value(category);
+            self.id_builder.append_value(id.unwrap_or(field));
         }
     }
 
@@ -150,13 +225,26 @@ impl FieldInfoState {
         let type_array = self.type_builder.finish();
         let description_array = self.description_builder.finish();
         let category_array = self.category_builder.finish();
+        let id_array = self.id_builder.finish();
+        let mut metadata = HashMap::new();
+        if !self.field_errors.is_empty() {
+            let errors =
+                serde_json::to_string(&self.field_errors).map_err(|error| BlpError::Internal {
+                    detail: format!("serialize FieldInfo errors: {error}"),
+                })?;
+            metadata.insert(METADATA_KEY_FIELD_ERRORS.to_string(), errors);
+        }
 
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("field", DataType::Utf8, false),
-            Field::new("type", DataType::Utf8, false),
-            Field::new("description", DataType::Utf8, true),
-            Field::new("category", DataType::Utf8, true),
-        ]));
+        let schema = Arc::new(Schema::new_with_metadata(
+            vec![
+                Field::new("field", DataType::Utf8, false),
+                Field::new("type", DataType::Utf8, false),
+                Field::new("description", DataType::Utf8, true),
+                Field::new("category", DataType::Utf8, true),
+                Field::new("id", DataType::Utf8, false),
+            ],
+            metadata,
+        ));
 
         RecordBatch::try_new(
             schema,
@@ -165,6 +253,7 @@ impl FieldInfoState {
                 Arc::new(type_array),
                 Arc::new(description_array),
                 Arc::new(category_array),
+                Arc::new(id_array),
             ],
         )
         .map_err(|e| BlpError::Internal {
@@ -176,10 +265,377 @@ impl FieldInfoState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::field_cache::FieldTypeResolver;
+    use crate::engine::subscription_types::SubscriptionTypeResolver;
+    use crate::field_cache::{FieldInfo, FieldTypeResolver};
     use arrow_array::StringArray;
     use xbbg_core::EventType;
     use xbbg_core::test_support::TestEvent;
+
+    fn fieldinfo_response(event_type: EventType, rows: serde_json::Value) -> TestEvent {
+        let schema = r#"<ServiceDefinition name="xbbg.test.fieldinfo.errors" version="1.0.0.0">
+            <service name="//xbbg/test/fieldinfo" version="1.0.0.0">
+                <event name="FieldInfoResponse" eventType="FieldInfoResponseType"/>
+            </service>
+            <schema>
+                <sequenceType name="FieldInfoResponseType">
+                    <element name="fieldData" type="FieldInfoDataType" minOccurs="0" maxOccurs="unbounded"/>
+                </sequenceType>
+                <sequenceType name="FieldInfoDataType">
+                    <element name="id" type="String" minOccurs="0"/>
+                    <element name="fieldInfo" type="FieldMetadataType" minOccurs="0"/>
+                    <element name="fieldError" type="FieldErrorType" minOccurs="0"/>
+                </sequenceType>
+                <sequenceType name="FieldMetadataType">
+                    <element name="mnemonic" type="String"/>
+                    <element name="datatype" type="String" minOccurs="0"/>
+                    <element name="ftype" type="String" minOccurs="0"/>
+                    <element name="description" type="String" minOccurs="0"/>
+                    <element name="categoryName" type="String" minOccurs="0" maxOccurs="unbounded"/>
+                </sequenceType>
+                <sequenceType name="FieldErrorType">
+                    <element name="source" type="String" minOccurs="0"/>
+                    <element name="code" type="Int32"/>
+                    <element name="category" type="String"/>
+                    <element name="subcategory" type="String" minOccurs="0"/>
+                    <element name="message" type="String"/>
+                </sequenceType>
+            </schema>
+        </ServiceDefinition>"#;
+        TestEvent::with_schema(schema, event_type, "FieldInfoResponse", &[], |formatter| {
+            formatter.json(&serde_json::json!({"fieldData": rows}).to_string());
+        })
+    }
+
+    fn string_values<'a>(batch: &'a RecordBatch, name: &str) -> Vec<&'a str> {
+        batch
+            .column_by_name(name)
+            .unwrap()
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap()
+            .iter()
+            .map(Option::unwrap)
+            .collect()
+    }
+
+    fn capture_warnings(action: impl FnOnce()) -> String {
+        #[derive(Clone)]
+        struct Capture(Arc<std::sync::Mutex<Vec<u8>>>);
+        impl std::io::Write for Capture {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(bytes);
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let logs = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let output = Arc::clone(&logs);
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::WARN)
+            .without_time()
+            .with_ansi(false)
+            .with_writer(move || Capture(Arc::clone(&output)))
+            .finish();
+        tracing::subscriber::with_default(subscriber, action);
+        let bytes = logs.lock().unwrap().clone();
+        String::from_utf8(bytes).unwrap()
+    }
+
+    #[test]
+    fn mixed_fieldinfo_response_preserves_echoed_ids_refusals_and_cache_aliases() {
+        let event = fieldinfo_response(
+            EventType::Response,
+            serde_json::json!([
+                {
+                    "id": "pr000001",
+                    "fieldInfo": {
+                        "mnemonic": "PX_LAST",
+                        "datatype": "Double",
+                        "description": "Last Price",
+                        "categoryName": ["Pricing"]
+                    }
+                },
+                {
+                    "id": "Not_A_Field",
+                    "fieldError": {
+                        "source": "apiflds@synthetic",
+                        "code": -103,
+                        "category": "BAD_FLD",
+                        "subcategory": "INVALID_FIELD",
+                        "message": "Unknown Field Id/Mnemonic"
+                    }
+                },
+                {"fieldInfo": {"mnemonic": "BID", "datatype": "Double"}}
+            ]),
+        );
+        let (sender, mut receiver) = oneshot::channel();
+        FieldInfoState::new(sender).finish(&event.event().messages().next().unwrap());
+        let batch = receiver.try_recv().unwrap().unwrap();
+
+        assert_eq!(string_values(&batch, "field"), ["PX_LAST", "BID"]);
+        assert_eq!(string_values(&batch, "id"), ["pr000001", "BID"]);
+        assert_eq!(string_values(&batch, "type"), ["float64", "float64"]);
+        assert_eq!(string_values(&batch, "description"), ["Last Price", ""]);
+        assert_eq!(string_values(&batch, "category"), ["Pricing", ""]);
+        let errors: serde_json::Value =
+            serde_json::from_str(&batch.schema().metadata()[METADATA_KEY_FIELD_ERRORS]).unwrap();
+        assert_eq!(
+            errors,
+            serde_json::json!({
+                "Not_A_Field": {
+                    "source": "apiflds@synthetic",
+                    "code": -103,
+                    "category": "BAD_FLD",
+                    "subcategory": "INVALID_FIELD",
+                    "message": "Unknown Field Id/Mnemonic"
+                }
+            })
+        );
+
+        let requested = ["PR000001", "px_last", "bid", "not_a_field", "ABSENT"].map(str::to_string);
+        let validation = crate::engine::FieldValidation::from_response(&requested, &batch).unwrap();
+        assert_eq!(validation.invalid_fields, ["not_a_field", "ABSENT"]);
+        let detail = validation.detail();
+        for expected in [
+            "Not_A_Field",
+            "Unknown Field Id/Mnemonic",
+            "BAD_FLD",
+            "INVALID_FIELD",
+            "-103",
+            "apiflds@synthetic",
+        ] {
+            assert!(detail.contains(expected), "{detail}");
+        }
+
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("fields.json");
+        let cache = FieldTypeResolver::with_cache_path(path.clone());
+        cache.insert_from_response(&batch);
+        assert_eq!(cache.get_arrow_type("PR000001").as_deref(), Some("float64"));
+        assert_eq!(cache.get_arrow_type("px_last").as_deref(), Some("float64"));
+        assert_eq!(cache.get("pr000001").unwrap().description, "Last Price");
+        assert!(cache.get("Not_A_Field").is_none());
+        cache.save_to_disk().unwrap();
+        let reloaded = FieldTypeResolver::with_cache_path(path);
+        assert_eq!(
+            reloaded.get_arrow_type("pr000001").as_deref(),
+            Some("float64")
+        );
+        assert_eq!(
+            reloaded.get_arrow_type("PX_LAST").as_deref(),
+            Some("float64")
+        );
+    }
+
+    #[test]
+    fn all_rejected_fieldinfo_keeps_typed_empty_columns_and_partial_refusals() {
+        let first = fieldinfo_response(
+            EventType::PartialResponse,
+            serde_json::json!([{
+                "id": "UNKNOWN_FIELD",
+                "fieldError": {
+                    "source": "apiflds@synthetic",
+                    "code": -103,
+                    "category": "BAD_FLD",
+                    "subcategory": "INVALID_FIELD",
+                    "message": "Unknown Field Id/Mnemonic"
+                }
+            }]),
+        );
+        let last = fieldinfo_response(
+            EventType::Response,
+            serde_json::json!([{
+                "id": "REFUSED_FIELD",
+                "fieldError": {
+                    "code": -4,
+                    "category": "NO_AUTH",
+                    "subcategory": "NOT_ENTITLED",
+                    "message": "Field metadata access refused"
+                }
+            }]),
+        );
+        let (sender, mut receiver) = oneshot::channel();
+        let mut state = FieldInfoState::new(sender);
+        state.on_partial(&first.event().messages().next().unwrap());
+        state.finish(&last.event().messages().next().unwrap());
+        let batch = receiver.try_recv().unwrap().unwrap();
+        assert_eq!(batch.num_rows(), 0);
+        assert_eq!(
+            batch
+                .schema()
+                .fields()
+                .iter()
+                .map(|field| field.name().as_str())
+                .collect::<Vec<_>>(),
+            ["field", "type", "description", "category", "id"]
+        );
+        for field in batch.schema().fields() {
+            assert_eq!(field.data_type(), &DataType::Utf8);
+        }
+        let errors: serde_json::Value =
+            serde_json::from_str(&batch.schema().metadata()[METADATA_KEY_FIELD_ERRORS]).unwrap();
+        assert_eq!(
+            errors,
+            serde_json::json!({
+                "UNKNOWN_FIELD": {
+                    "source": "apiflds@synthetic",
+                    "code": -103,
+                    "category": "BAD_FLD",
+                    "subcategory": "INVALID_FIELD",
+                    "message": "Unknown Field Id/Mnemonic"
+                },
+                "REFUSED_FIELD": {
+                    "code": -4,
+                    "category": "NO_AUTH",
+                    "subcategory": "NOT_ENTITLED",
+                    "message": "Field metadata access refused"
+                }
+            })
+        );
+        let requested = ["unknown_field", "refused_field"].map(str::to_string);
+        let validation = crate::engine::FieldValidation::from_response(&requested, &batch).unwrap();
+        assert_eq!(validation.invalid_fields, requested);
+        assert!(
+            validation
+                .detail()
+                .contains("Field metadata access refused")
+        );
+        assert!(validation.detail().contains("Unknown Field Id/Mnemonic"));
+    }
+
+    #[test]
+    fn partial_success_keeps_its_echoed_id_when_the_final_response_refuses_another_id() {
+        let first = fieldinfo_response(
+            EventType::PartialResponse,
+            serde_json::json!([{
+                "id": "synthetic_alias",
+                "fieldInfo": {"mnemonic": "SYNTHETIC_TIME", "datatype": "Datetime", "ftype": "Time"}
+            }]),
+        );
+        let last = fieldinfo_response(
+            EventType::Response,
+            serde_json::json!([{
+                "id": "REFUSED_FIELD",
+                "fieldError": {
+                    "source": "apiflds@synthetic",
+                    "code": -4,
+                    "category": "NO_AUTH",
+                    "subcategory": "NOT_ENTITLED",
+                    "message": "Field metadata access refused"
+                }
+            }]),
+        );
+        let (sender, mut receiver) = oneshot::channel();
+        let mut state = FieldInfoState::new(sender);
+        state.on_partial(&first.event().messages().next().unwrap());
+        state.finish(&last.event().messages().next().unwrap());
+        let batch = receiver.try_recv().unwrap().unwrap();
+        assert_eq!(string_values(&batch, "id"), ["synthetic_alias"]);
+        assert_eq!(string_values(&batch, "field"), ["SYNTHETIC_TIME"]);
+        assert_eq!(string_values(&batch, "type"), ["time64"]);
+        let requested = ["SYNTHETIC_ALIAS", "synthetic_time", "refused_field"].map(str::to_string);
+        let validation = crate::engine::FieldValidation::from_response(&requested, &batch).unwrap();
+        assert_eq!(validation.invalid_fields, ["refused_field"]);
+        assert!(validation.detail().contains("apiflds@synthetic"));
+    }
+
+    #[test]
+    fn type_lookup_warns_with_refusal_details_without_losing_successes_or_defaults() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        for answered in [false, true] {
+            let mut rows = vec![serde_json::json!({
+                "id": "REFUSED_FIELD",
+                "fieldError": {
+                    "source": "apiflds@synthetic",
+                    "code": -103,
+                    "category": "BAD_FLD",
+                    "subcategory": "INVALID_FIELD",
+                    "message": "Unknown Field Id/Mnemonic"
+                }
+            })];
+            if answered {
+                rows.push(serde_json::json!({
+                    "id": "synthetic_alias",
+                    "fieldInfo": {"mnemonic": "SYNTHETIC_DATE", "datatype": "Date"}
+                }));
+            }
+            let event = fieldinfo_response(EventType::Response, rows.into());
+            let (sender, mut receiver) = oneshot::channel();
+            FieldInfoState::new(sender).finish(&event.event().messages().next().unwrap());
+            let batch = receiver.try_recv().unwrap().unwrap();
+            let directory = tempfile::tempdir().unwrap();
+            let cache = Arc::new(FieldTypeResolver::with_cache_path(
+                directory.path().join("fields.json"),
+            ));
+            cache.insert(FieldInfo {
+                field_id: "SYNTHETIC_CACHED".to_string(),
+                arrow_type: "time64".to_string(),
+                description: String::new(),
+                category: String::new(),
+            });
+            let resolver = SubscriptionTypeResolver::with_query(
+                Arc::clone(&cache),
+                runtime.handle().clone(),
+                move |_| Box::pin(std::future::ready(Ok(batch.clone()))),
+            );
+            let fields =
+                ["synthetic_cached", "synthetic_alias", "REFUSED_FIELD"].map(str::to_string);
+            let warnings = capture_warnings(|| {
+                let resolved = runtime
+                    .block_on(resolver.resolve_types(&fields, None, "float64"))
+                    .unwrap();
+                assert_eq!(resolved["synthetic_cached"], "time64");
+                assert_eq!(
+                    resolved["synthetic_alias"],
+                    if answered { "date32" } else { "float64" }
+                );
+                assert_eq!(resolved["REFUSED_FIELD"], "float64");
+                let kinds = runtime.block_on(resolver.resolve(&fields));
+                assert_eq!(
+                    kinds["synthetic_cached"],
+                    crate::engine::state::FieldKind::Time64Micros
+                );
+                assert_eq!(
+                    kinds["synthetic_alias"],
+                    if answered {
+                        crate::engine::state::FieldKind::Date32
+                    } else {
+                        crate::engine::state::FieldKind::Unknown
+                    }
+                );
+                assert_eq!(
+                    kinds["REFUSED_FIELD"],
+                    crate::engine::state::FieldKind::Unknown
+                );
+            });
+            for expected in [
+                "refused_count=1",
+                "REFUSED_FIELD",
+                "BAD_FLD",
+                "INVALID_FIELD",
+                "-103",
+                "Unknown Field Id/Mnemonic",
+                "apiflds@synthetic",
+            ] {
+                assert!(warnings.contains(expected), "{warnings}");
+            }
+            assert_eq!(
+                warnings
+                    .matches("Bloomberg refused field type metadata")
+                    .count(),
+                1,
+                "a refused id is reported once across repeated lookups: {warnings}"
+            );
+            assert!(cache.get("REFUSED_FIELD").is_none());
+            assert_eq!(cache.get("synthetic_alias").is_some(), answered);
+            assert_eq!(cache.get("SYNTHETIC_DATE").is_some(), answered);
+        }
+    }
 
     #[test]
     fn apiflds_datetime_ftype_reaches_the_field_cache() {
@@ -226,6 +682,13 @@ mod tests {
         let (sender, mut receiver) = oneshot::channel();
         FieldInfoState::new(sender).finish(&event.event().messages().next().unwrap());
         let batch = receiver.try_recv().unwrap().unwrap();
+        assert!(
+            !batch
+                .schema()
+                .metadata()
+                .contains_key(METADATA_KEY_FIELD_ERRORS)
+        );
+        assert_eq!(string_values(&batch, "id"), string_values(&batch, "field"));
         let types = batch
             .column_by_name("type")
             .unwrap()

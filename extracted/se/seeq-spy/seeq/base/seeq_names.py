@@ -593,6 +593,9 @@ class SeeqNames:
         export_entity_set_suffix = '_DataSet'
         o_data_v4_service_suffix = '.svc/'
     
+    class JobRunMetrics:
+        cache_datasource_class = 'Cache'
+    
     class CleanUpJobsGroup:
         annotation_images = 'AnnotationOrphanedImageCleanerJob'
         worksheet_maintenance = 'WorksheetMaintenanceJob'
@@ -755,6 +758,7 @@ class SeeqNames:
         custom_agents = 'CustomAgents'
         applications = 'Applications'
         environments = 'Environments'
+        sandboxes = 'Sandboxes'
         approval_flows = 'ApprovalFlows'
         approval_flow_steps = 'ApprovalFlowSteps'
         approval_flow_assignments = 'ApprovalFlowAssignments'
@@ -822,6 +826,7 @@ class SeeqNames:
         class Extensions:
             experimental = 'x-experimental'
             deprecated_reason = 'x-deprecated-reason'
+            query = 'x-seeq-query'
             class DeprecatedReasonProperties:
                 reason = 'reason'
             
@@ -852,6 +857,7 @@ class SeeqNames:
         custom_agents = '/custom-agents'
         applications = '/applications'
         environments = '/environments'
+        sandboxes = '/sandboxes'
         approval_flows = '/approval-flows'
         audit = '/audit'
         auth = '/auth'
@@ -1340,6 +1346,8 @@ class SeeqNames:
         provides_everyone_group_identities = 'Provides Everyone Group Identities'
         datasource_labels = 'Datasource Labels'
         datasource_vendor = 'Datasource Vendor'
+        datasource_product_name = 'Datasource Product Name'
+        datasource_product_version = 'Datasource Product Version'
         scim_mapping_group_external_id = 'SCIM User Group External ID Mapping'
         scim_mapping_security_id = 'Security ID'
         scim_mapping_object_id = 'Object ID'

@@ -85,6 +85,9 @@ def sync_detailed(
 ) -> Response[DetailedPipelineRunResponse | ErrorResponse]:
     """GetPipelineRun
 
+    One pipeline run (one dlt `pipeline.run()`), looked up by its `id`, with its per-table and
+    per-resource metrics and its load packages. Answers 404 when it is not in the workspace.
+
     Args:
         workspace_id (UUID):
         pipeline_run_id (UUID):
@@ -116,6 +119,9 @@ def sync(
 ) -> DetailedPipelineRunResponse | ErrorResponse | None:
     """GetPipelineRun
 
+    One pipeline run (one dlt `pipeline.run()`), looked up by its `id`, with its per-table and
+    per-resource metrics and its load packages. Answers 404 when it is not in the workspace.
+
     Args:
         workspace_id (UUID):
         pipeline_run_id (UUID):
@@ -141,6 +147,9 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
 ) -> Response[DetailedPipelineRunResponse | ErrorResponse]:
     """GetPipelineRun
+
+    One pipeline run (one dlt `pipeline.run()`), looked up by its `id`, with its per-table and
+    per-resource metrics and its load packages. Answers 404 when it is not in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -170,6 +179,9 @@ async def asyncio(
     client: AuthenticatedClient | Client,
 ) -> DetailedPipelineRunResponse | ErrorResponse | None:
     """GetPipelineRun
+
+    One pipeline run (one dlt `pipeline.run()`), looked up by its `id`, with its per-table and
+    per-resource metrics and its load packages. Answers 404 when it is not in the workspace.
 
     Args:
         workspace_id (UUID):

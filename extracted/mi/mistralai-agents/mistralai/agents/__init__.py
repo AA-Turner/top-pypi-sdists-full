@@ -30,12 +30,15 @@ if TYPE_CHECKING:
         CallbackOpened,
         CallbackResolved,
         CallbackSession,
+        CancelledTermination,
         Client,
         ClientTool,
         ClientToolAnswer,
         ClientToolAnswerError,
+        ClientToolAnswers,
         ClientToolCall,
         Completed,
+        CompletedTermination,
         Connector,
         ContentAnnotations,
         CustomSandbox,
@@ -47,6 +50,7 @@ if TYPE_CHECKING:
         Event,
         ExperimentalWarning,
         Failed,
+        FailedTermination,
         GitHubBinding,
         HeaderBinding,
         HistoryImportEntry,
@@ -57,11 +61,14 @@ if TYPE_CHECKING:
         InternalServerError,
         Interrupted,
         InvalidOutput,
+        KeepCallbackOpen,
+        LegacySessionError,
         LocalDockerSandbox,
         LocalRuntime,
         LocalSessionProcedureError,
         LocalSkillBundle,
         LocalSkillFile,
+        MistralApiBinding,
         MistralConnectorNotFoundError,
         MistralSandbox,
         MistralSecret,
@@ -72,6 +79,7 @@ if TYPE_CHECKING:
         OpenApproval,
         OpenCallback,
         OpenClientToolCall,
+        OpenSignIn,
         OutcomeUnknownError,
         PermissionDeniedError,
         PermissionMode,
@@ -96,12 +104,16 @@ if TYPE_CHECKING:
         Session,
         SessionBusyError,
         SessionConfigMismatchError,
+        SessionIdempotencyConflictError,
         SessionInfo,
         SessionInput,
         SessionInUseError,
         SessionNotFoundError,
         SessionStartupTimeoutError,
         SessionTerminatedError,
+        SessionUpdated,
+        SignInAnswer,
+        SignInRequest,
         State,
         Subagent,
         SubagentPolicy,
@@ -122,9 +134,13 @@ if TYPE_CHECKING:
         TurnNotFoundError,
         TurnStarted,
         TurnState,
+        TurnUpdated,
+        UnknownContentBlock,
         UnknownEntry,
         UnknownEvent,
         UnknownOpenCallback,
+        UnknownOutcome,
+        UnknownTermination,
         UnsupportedAgentFeatureError,
         UnsupportedSessionProcedureError,
         WorkspaceHeaderBindings,
@@ -146,17 +162,20 @@ if TYPE_CHECKING:
         uuid4,
     )
 
-    # Deprecated 1.1.0rc12 names, not exported: see `_RENAMED` and `_DEPRECATED_HARNESS` below.
+    # Deprecated 1.1.0rc12 names, not exported: see `_RENAMED`, `_DEPRECATED_HARNESS` and `__getattr__` below.
     from mistralai.vibe_agents.sdk.agents import ClientToolDefinition as ClientToolDefinition
     from mistralai.vibe_agents.sdk.agents import Context as Context
     from mistralai.vibe_agents.sdk.agents import Harness as Harness
     from mistralai.vibe_agents.sdk.agents import HookSession as HookSession
     from mistralai.vibe_agents.sdk.agents import JsonFileSessionJournal as JsonFileSessionJournal
+    from mistralai.vibe_agents.sdk.agents import ParentHarness as ParentHarness
     from mistralai.vibe_agents.sdk.agents import RemoteSessionNotFoundError as RemoteSessionNotFoundError
     from mistralai.vibe_agents.sdk.agents import RemoteSessionOutcomeUnknownError as RemoteSessionOutcomeUnknownError
     from mistralai.vibe_agents.sdk.agents import RemoteSessionStartupTimeoutError as RemoteSessionStartupTimeoutError
     from mistralai.vibe_agents.sdk.agents import RemoteSessionStreamLostError as RemoteSessionStreamLostError
     from mistralai.vibe_agents.sdk.agents import SandboxHookContext as SandboxHookContext
+    from mistralai.vibe_agents.sdk.agents import Tool as Tool
+    from mistralai.vibe_agents.sdk.agents import VibeHarness as VibeHarness
 
 
 # `import mistralai.agents as agents` reaches the SDK's public names directly;
@@ -193,6 +212,7 @@ __all__ = [
     "ClientTool",
     "ClientToolAnswer",
     "ClientToolAnswerError",
+    "ClientToolAnswers",
     "ClientToolCall",
     "Completed",
     "Connector",
@@ -216,11 +236,14 @@ __all__ = [
     "ImageContentBlock",
     "Interrupted",
     "InvalidOutput",
+    "KeepCallbackOpen",
+    "LegacySessionError",
     "LocalDockerSandbox",
     "LocalRuntime",
     "LocalSessionProcedureError",
     "LocalSkillBundle",
     "LocalSkillFile",
+    "MistralApiBinding",
     "MistralConnectorNotFoundError",
     "MistralSandbox",
     "MistralSecret",
@@ -231,6 +254,7 @@ __all__ = [
     "OpenApproval",
     "OpenCallback",
     "OpenClientToolCall",
+    "OpenSignIn",
     "OutcomeUnknownError",
     "PermissionDeniedError",
     "PermissionMode",
@@ -255,16 +279,25 @@ __all__ = [
     "Session",
     "SessionBusyError",
     "SessionConfigMismatchError",
+    "SessionIdempotencyConflictError",
     "SessionInUseError",
     "SessionInfo",
     "SessionInput",
     "SessionNotFoundError",
     "SessionStartupTimeoutError",
     "SessionTerminatedError",
+    "SessionUpdated",
+    "SignInAnswer",
+    "SignInRequest",
     "State",
     "Subagent",
     "SubagentPolicy",
     "Termination",
+    "CompletedTermination",
+    "CancelledTermination",
+    "FailedTermination",
+    "UnknownOutcome",
+    "UnknownTermination",
     "TextContentBlock",
     "ToolAnnotations",
     "ToolCall",
@@ -281,6 +314,8 @@ __all__ = [
     "TurnNotFoundError",
     "TurnStarted",
     "TurnState",
+    "TurnUpdated",
+    "UnknownContentBlock",
     "UnknownEntry",
     "UnknownEvent",
     "UnknownOpenCallback",
@@ -320,10 +355,9 @@ _RENAMED = frozenset(
     }
 )
 
-# The 1.1.0rc12 Harness name this package exported: not exported, but still readable with a DeprecationWarning
-# that names the fields to pass to `agents.Agent`. The `agents` module holds the table of classes and the warning
-# text. `VibeHarness` and `ParentHarness` stay on the `agents` module only, where rc12 had them.
-_DEPRECATED_HARNESS = frozenset({"Harness"})
+# The 1.1.0rc12 Harness names: not exported, but still readable with a DeprecationWarning that names the fields
+# to set instead. The `agents` module holds the table of classes and the warning text.
+_DEPRECATED_HARNESS = frozenset({"Harness", "VibeHarness", "ParentHarness"})
 
 
 # Hidden from type checkers, which read the names from the imports above and so still report a
@@ -331,6 +365,12 @@ _DEPRECATED_HARNESS = frozenset({"Harness"})
 if not TYPE_CHECKING:
 
     def __getattr__(name: str) -> object:
+        if name == "Tool":
+            # The 1.1.0rc12 name of a Python tool: not exported, but still readable with a DeprecationWarning.
+            # The `agents` module holds the warning text.
+            agents_module = _agents_module()
+            warnings.warn(agents_module._TOOL_WARNING, DeprecationWarning, stacklevel=2)
+            return agents_module.PythonTool
         if name in _RENAMED:
             agents_module = _agents_module()
             # Not stored in the namespace, so that every read warns, at the caller's line.

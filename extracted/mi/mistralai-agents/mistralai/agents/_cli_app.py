@@ -1,6 +1,8 @@
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime
+from http import HTTPStatus
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
@@ -83,7 +85,9 @@ app.command(name="init")(init_command)
 @app.command(name="info")
 def info_command(path: ProjectArg = Path(".")) -> None:
     """Show the agent surface and diagnostics."""
-    rendered: str | None = None
+    from rich.text import Text  # noqa: PLC0415
+
+    rendered: Text | None = None
     error: str | None = None
     with _loading_spinner("Loading agents SDK...") as set_stage:
         with _silenced_sdk_imports():
@@ -91,19 +95,29 @@ def info_command(path: ProjectArg = Path(".")) -> None:
             from mistralai.vibe_agents.sdk.app.errors import AgentProjectError
 
         set_stage("Loading agent...")
-        issues: list[str] = []
+        failed = False
         try:
             loaded = loader.load_app(path)
-            issues = preflight.sandbox_dependency_issues(loaded)
-            rendered = info.render(loaded)
+            errors = [
+                *preflight.connector_issues(loaded.harness, loaded.agent.subagents),
+                *preflight.sandbox_dependency_issues(loaded),
+            ]
+            # Warnings, not errors: a deployed worker reads these variables from its own secret bindings.
+            warnings = [
+                f"{issue} Until then, `agents serve` refuses to start here."
+                for issue in preflight.mcp_credential_issues(loaded.harness, loaded.agent.subagents)
+            ]
+            rendered = info.render(loaded, errors=errors, warnings=warnings)
+            failed = bool(errors)
         except AgentProjectError as exc:
             error = exc.message
 
     if error is not None:
         raise _fail(error)
-    typer.echo(rendered)
-    if issues:
-        raise _fail("", "This agent cannot run here:", *(f"  - {issue}" for issue in issues))
+    # Soft wrap: piped output keeps one line per entry instead of breaking at 80 columns.
+    Console(highlight=False, soft_wrap=True).print(rendered, markup=False)
+    if failed:
+        raise typer.Exit(1)
 
 
 def _load_worker_app(path: Path, *, command: str) -> "AgentApp":
@@ -157,11 +171,11 @@ def serve_command(
             envvar="AGENTS_SDK_SERVE_SEND_CONFIG",
             help=(
                 "Send the agent's configuration to the control plane, as `agents deploy` does, so it shows "
-                "with the agent and its sessions. Each start stores a new snapshot of it. "
-                "Without this option, the agent registers without its configuration."
+                "with the agent and its sessions. A restart of the same code keeps the agent. "
+                "Pass --no-send-config to register the agent without its configuration."
             ),
         ),
-    ] = False,
+    ] = True,
 ) -> None:
     """Run the agent as a durable worker and print a link to trigger it."""
     import asyncio  # noqa: PLC0415
@@ -185,7 +199,47 @@ def serve_command(
             "The worker cannot receive sessions until it is registered.",
         ) from exc
     except Exception as exc:  # noqa: BLE001 - surface any startup failure as one friendly line
+        if _worker_key_refused(exc):
+            credential = _worker_credential()
+            raise _fail(
+                f"Cannot serve agent: {credential} was refused (HTTP 401).",
+                f"agents serve needs a credential allowed to run agent workers in this workspace; check {credential}.",
+            ) from exc
         raise _fail(f"Cannot serve agent: {exc}") from exc
+
+
+def _worker_key_refused(exc: BaseException) -> bool:
+    from mistralai.workflows.exceptions import ErrorCode, WorkflowsException  # noqa: PLC0415
+
+    pending: list[BaseException] = [exc]
+    seen: set[int] = set()
+    while pending:
+        error = pending.pop()
+        if id(error) in seen:
+            continue
+        seen.add(id(error))
+        if (
+            isinstance(error, WorkflowsException)
+            and str(error.code) == ErrorCode.TEMPORAL_CONNECTION_ERROR
+            and error.status == HTTPStatus.UNAUTHORIZED
+        ):
+            return True
+        if isinstance(error, BaseExceptionGroup):
+            pending.extend(error.exceptions)
+        linked = error.__cause__ or (None if error.__suppress_context__ else error.__context__)
+        if linked is not None:
+            pending.append(linked)
+    return False
+
+
+def _worker_credential() -> str:
+    from mistralai.workflows.core.config.config import config  # noqa: PLC0415
+
+    if config.temporal.api_key:
+        return "the worker's API key"
+    if config.common.mistral_sa_token_path:
+        return "the service-account token"
+    return "MISTRAL_API_KEY"
 
 
 # Hidden from `agents --help`: the command is the CMD of an `agents deploy` image, not something to run by
@@ -275,6 +329,7 @@ def _print_deploy_plan(plan: "DeployPlan") -> None:
     git_config.add_row("Revision", plan.spec.revision)
     git_config.add_row("Working directory", plan.spec.working_dir or "(root)")
     git_config.add_row("Dockerfile", plan.spec.dockerfile_path or preflight.DEFAULT_DOCKERFILE)
+    git_config.add_row("Agents SDK", plan.sdk_version or "unknown")
     console = Console()
     console.print(git_config)
     if plan.secret_bindings:
@@ -408,6 +463,7 @@ def deploy_command(
     typer.echo(f"Deploying {agent_name} to managed platform...")
     if plan.hardened and hardened is None:
         typer.echo("Hardening the deployment: the agent acts on behalf of the session user.")
+    requested_at = datetime.now(UTC)
     try:
         response = asyncio.run(deploy.create_deployment(plan))
     except deploy.DeployError as exc:
@@ -420,6 +476,7 @@ def deploy_command(
                 deploy.wait_until_live(
                     plan,
                     response.agent_id,
+                    requested_at=requested_at,
                     on_progress=lambda progress, elapsed: spinner.update(
                         f"{progress.label} · {deploy_wait.format_elapsed(elapsed)}"
                     ),

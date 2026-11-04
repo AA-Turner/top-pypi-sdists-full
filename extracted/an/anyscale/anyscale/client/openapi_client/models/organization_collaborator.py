@@ -42,7 +42,8 @@ class OrganizationCollaborator(object):
         'created_at': 'datetime',
         'email': 'str',
         'user_id': 'str',
-        'is_service_account': 'bool'
+        'is_service_account': 'bool',
+        'managed_by_directory': 'bool'
     }
 
     attribute_map = {
@@ -55,10 +56,11 @@ class OrganizationCollaborator(object):
         'created_at': 'created_at',
         'email': 'email',
         'user_id': 'user_id',
-        'is_service_account': 'is_service_account'
+        'is_service_account': 'is_service_account',
+        'managed_by_directory': 'managed_by_directory'
     }
 
-    def __init__(self, permission_level=None, base_role=None, additional_roles=None, id=None, name=None, full_name=None, created_at=None, email=None, user_id=None, is_service_account=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, permission_level=None, base_role=None, additional_roles=None, id=None, name=None, full_name=None, created_at=None, email=None, user_id=None, is_service_account=False, managed_by_directory=False, local_vars_configuration=None):  # noqa: E501
         """OrganizationCollaborator - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -74,6 +76,7 @@ class OrganizationCollaborator(object):
         self._email = None
         self._user_id = None
         self._is_service_account = None
+        self._managed_by_directory = None
         self.discriminator = None
 
         self.permission_level = permission_level
@@ -90,6 +93,8 @@ class OrganizationCollaborator(object):
             self.user_id = user_id
         if is_service_account is not None:
             self.is_service_account = is_service_account
+        if managed_by_directory is not None:
+            self.managed_by_directory = managed_by_directory
 
     @property
     def permission_level(self):
@@ -326,6 +331,29 @@ class OrganizationCollaborator(object):
         """
 
         self._is_service_account = is_service_account
+
+    @property
+    def managed_by_directory(self):
+        """Gets the managed_by_directory of this OrganizationCollaborator.  # noqa: E501
+
+        Whether the organization's identity provider manages this collaborator, so they can only be changed or removed there.  # noqa: E501
+
+        :return: The managed_by_directory of this OrganizationCollaborator.  # noqa: E501
+        :rtype: bool
+        """
+        return self._managed_by_directory
+
+    @managed_by_directory.setter
+    def managed_by_directory(self, managed_by_directory):
+        """Sets the managed_by_directory of this OrganizationCollaborator.
+
+        Whether the organization's identity provider manages this collaborator, so they can only be changed or removed there.  # noqa: E501
+
+        :param managed_by_directory: The managed_by_directory of this OrganizationCollaborator.  # noqa: E501
+        :type: bool
+        """
+
+        self._managed_by_directory = managed_by_directory
 
     def to_dict(self):
         """Returns the model properties as a dict"""

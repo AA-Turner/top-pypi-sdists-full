@@ -82,11 +82,12 @@ def sync_detailed(
 ) -> Response[ErrorResponse | WorkspaceMeResponse]:
     """WorkspaceMe
 
-    Get the current user's workspace-scoped context including workspace and organization roles.
+    Gets your context in a workspace: the workspace, your role in it, its organization and your
+    role and membership id there.
 
-    This endpoint returns user context scoped to a specific workspace.
+    Also records this workspace as your latest, which `get_me` returns in `latest_workspace`.
 
-    Requires READ permission on the workspace level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -116,11 +117,12 @@ def sync(
 ) -> ErrorResponse | WorkspaceMeResponse | None:
     """WorkspaceMe
 
-    Get the current user's workspace-scoped context including workspace and organization roles.
+    Gets your context in a workspace: the workspace, your role in it, its organization and your
+    role and membership id there.
 
-    This endpoint returns user context scoped to a specific workspace.
+    Also records this workspace as your latest, which `get_me` returns in `latest_workspace`.
 
-    Requires READ permission on the workspace level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -145,11 +147,12 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | WorkspaceMeResponse]:
     """WorkspaceMe
 
-    Get the current user's workspace-scoped context including workspace and organization roles.
+    Gets your context in a workspace: the workspace, your role in it, its organization and your
+    role and membership id there.
 
-    This endpoint returns user context scoped to a specific workspace.
+    Also records this workspace as your latest, which `get_me` returns in `latest_workspace`.
 
-    Requires READ permission on the workspace level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -177,11 +180,12 @@ async def asyncio(
 ) -> ErrorResponse | WorkspaceMeResponse | None:
     """WorkspaceMe
 
-    Get the current user's workspace-scoped context including workspace and organization roles.
+    Gets your context in a workspace: the workspace, your role in it, its organization and your
+    role and membership id there.
 
-    This endpoint returns user context scoped to a specific workspace.
+    Also records this workspace as your latest, which `get_me` returns in `latest_workspace`.
 
-    Requires READ permission on the workspace level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

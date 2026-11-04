@@ -1,0 +1,1 @@
+import{p as e}from"./utils-BzOGEtgZ.js";import{n as t,t as n}from"./StackComponentList-CEyKsbo0.js";import{Ln as r}from"./index-Cdt7xqPh.js";var i=e();function a(){let{connectorId:e}=r();return(0,i.jsx)(t,{children:(0,i.jsx)(n,{fixedQueryParams:{connector_id:e},displayCreateComponent:!1})})}export{a as default};

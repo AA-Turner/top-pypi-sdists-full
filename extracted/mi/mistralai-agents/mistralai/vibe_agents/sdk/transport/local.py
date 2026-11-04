@@ -5,6 +5,7 @@ import atexit
 import concurrent.futures.thread  # noqa: F401  # registers the thread pools' exit hook first
 import os
 import threading
+import weakref
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -33,7 +34,6 @@ from mistralai.vibe.harness.app_server.session import (
     SessionStartParams,
     SessionStartResponse,
     SessionTerminatedError,
-    SessionTransport,
 )
 from mistralai.vibe.harness.app_server.session.file_embedding import FileEmbedder
 from mistralai.vibe.harness.app_server.session.file_upload import FileUploader
@@ -48,6 +48,7 @@ from mistralai.vibe.harness.app_server.session.local_manager import (
     LocalSessionManager,
     LocalSessionWorkspace,
 )
+from mistralai.vibe.harness.app_server.session.local_record import LocalSessionRecord
 from mistralai.vibe.harness.app_server.session.models.state import ListPageRequest
 from mistralai.vibe.harness.app_server.session.procedures.session import SubagentSession, SubagentsListParams
 from mistralai.vibe.harness.core import protocol as core_protocol
@@ -85,7 +86,9 @@ from mistralai.vibe_agents.sdk.assembly import session_inputs as session_input_a
 from mistralai.vibe_agents.sdk.assembly.local_mistral import local_mistral_client
 from mistralai.vibe_agents.sdk.assembly.stateful import StateMap
 from mistralai.vibe_agents.sdk.authoring import contracts
+from mistralai.vibe_agents.sdk.authoring import errors as sdk_errors
 from mistralai.vibe_agents.sdk.authoring.errors import (
+    AgentsError,
     SdkError,
     SessionConfigMismatchError,
     SessionInUseError,
@@ -93,6 +96,7 @@ from mistralai.vibe_agents.sdk.authoring.errors import (
     public_errors,
     public_iter_errors,
 )
+from mistralai.vibe_agents.sdk.sandbox.refusal import sandbox_create_refusal
 
 from . import telemetry
 from .client_tools import NO_CLIENT_TOOLS, ClientToolRegistry, ClientToolSessionClient
@@ -118,9 +122,12 @@ def _validated_session_inputs(
     assembly: assemble.AgentAssembly,
     session_inputs: Mapping[str, contracts.SessionInput] | None,
 ) -> dict[str, JsonValue]:
-    serialized_session_inputs = session_input_assembly.serialize_session_inputs(
-        session_inputs,
-        declared_classes=assembly.session_input_classes,
+    serialized_session_inputs = session_input_assembly.with_omitted_optional_inputs(
+        assembly.session_input_classes,
+        session_input_assembly.serialize_session_inputs(
+            session_inputs,
+            declared_classes=assembly.session_input_classes,
+        ),
     )
     # Checked before the Sandbox is provisioned: a Session missing a declared
     # input can never run, so it must fail without side effects.
@@ -153,13 +160,19 @@ class _LocalSessionConfigMismatchError(SessionConfigMismatchError, SessionContro
         self.session_id = session_id
 
 
-def _reopen_error(session_id: str, error: SessionControlPlaneError) -> SessionControlPlaneError:
+def _reopen_error(session_id: str, error: SessionControlPlaneError) -> Exception:
     """The SDK error for a reopen that the Harness refused, or the Harness error itself."""
     if error.code == "session_in_use":
         return _LocalSessionInUseError(session_id, error)
     if error.code == "session_config_mismatch":
         return _LocalSessionConfigMismatchError(session_id, error)
-    return error
+    ended = _ended_by_block_exit(session_id) if error.code == "session_not_found" else None
+    if ended is not None and ended.saved_root == session_id:
+        # A saved root that the Harness refuses to reopen, such as one whose read model is missing, keeps the
+        # Harness error: telling the caller to reopen it would fail again.
+        return error
+    # Only a root reopens: the Harness keeps no read model for a subagent's journal.
+    return _not_found(error, session_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,36 +228,6 @@ async def _closing[ItemT](items: AsyncIterator[ItemT]) -> AsyncIterator[AsyncIte
             await aclose()
 
 
-class _RuntimeOwningAttachment(SessionTransport):
-    """Closing this attachment closes its runtime and every Session it started."""
-
-    def __init__(self, attachment: SessionTransport, runtime: "_AgentsSdkLocalRuntime") -> None:
-        self._attachment = attachment
-        self._runtime = runtime
-
-    async def request[ResultT: SessionModel](
-        self, method: str, params: SessionModel, result_type: type[ResultT]
-    ) -> ResultT:
-        return await self._attachment.request(method, params, result_type)
-
-    def read_events(self, params: EventsReadParams) -> AsyncIterator[ClientTransportStreamItem]:
-        return self._attachment.read_events(params)
-
-    def watch_callbacks_tree(self, params: CallbacksTreeParams) -> AsyncIterator[CallbacksTreeResponse]:
-        return self._attachment.watch_callbacks_tree(params)
-
-    async def close(self) -> None:
-        try:
-            await self._attachment.close()
-        except BaseException as error:
-            try:
-                await self._runtime.close()
-            except BaseException as cleanup_error:
-                error.add_note(f"Runtime cleanup failed: {cleanup_error!r}")
-            raise
-        await self._runtime.close()
-
-
 class _LocalSessionNotFoundError(SessionNotFoundError, SessionControlPlaneError):
     """A local session ID this runtime does not know. Still the Harness's ``session_not_found`` error."""
 
@@ -260,14 +243,73 @@ class _LocalSessionNotFoundError(SessionNotFoundError, SessionControlPlaneError)
         self.session_id = session_id
 
 
-def _not_found(error: SessionControlPlaneError, session_id: object) -> SessionControlPlaneError:
+class _LocalSessionEndedError(sdk_errors.SessionTerminatedError):
+    """A local session that the exit of an ``async with agents.local_runtime()`` block ended and freed.
+
+    ``saved_root`` is the root session that the block saved with ``journal_factory=``: the session
+    itself, or the root of a subagent. ``None`` when the block saved nothing.
+    """
+
+    def __init__(
+        self,
+        session_id: str,
+        *,
+        saved_root: str | None,
+        ended_in_block: bool = False,
+        saved_root_ended_in_block: bool = False,
+    ) -> None:
+        # A saved root that had already ended or failed in the block reopens to be read only.
+        reopen = "read" if saved_root_ended_in_block else "continue"
+        if saved_root == session_id:
+            message = (
+                f"Session {session_id} ended when its async with agents.local_runtime() block exited. Its block "
+                f"saved it with journal_factory=: {reopen} it in a new async with agents.local_runtime() block "
+                "with the same journal_factory="
+            )
+        elif saved_root is not None:
+            message = (
+                f"Session {session_id} ended when its async with agents.local_runtime() block exited. Its block "
+                f"saved its root session {saved_root} with journal_factory=: {reopen} {saved_root} in a new "
+                "async with agents.local_runtime() block with the same journal_factory=. Only the root reopens: "
+                "its subagents from the earlier block stay ended"
+            )
+        else:
+            message = (
+                f"Session {session_id} ended when its async with agents.local_runtime() block exited, and the "
+                "exit freed it: it can no longer be read or continued. To keep sessions after the block, pass "
+                "journal_factory= to agents.local_runtime()"
+            )
+        super().__init__(message)
+        self.session_id = session_id
+        self._saved_root = saved_root
+        self._ended_in_block = ended_in_block
+
+    @property
+    def continues_in_a_new_block(self) -> bool:
+        """Whether the block saved this session's tree with journal_factory= before it ended: a new block
+        with that journal_factory= continues it, so a cancel has something to do."""
+        return self._saved_root is not None and not self._ended_in_block
+
+
+def _not_found(error: SessionControlPlaneError, session_id: object) -> Exception:
     if error.code != "session_not_found" or not isinstance(session_id, str):
         return error
+    ended = _ended_by_block_exit(session_id)
+    if ended is not None:
+        return _LocalSessionEndedError(
+            session_id,
+            saved_root=ended.saved_root,
+            ended_in_block=ended.ended_in_block,
+            saved_root_ended_in_block=ended.saved_root_ended_in_block,
+        )
     return _LocalSessionNotFoundError(session_id, error)
 
 
 class _TreeAttachment(LocalManagerAttachment):
     """Client attachment that lets its runtime know when the last client of a tree detaches.
+
+    With ``end_idle_tree_on_close``, its close also ends its tree at once when no client holds it
+    and it has no work left (see ``_AgentsSdkLocalRuntime.end_idle_tree``).
 
     A session ID the runtime does not know raises ``SessionNotFoundError``, as on a deployment. As on a
     deployment's transport, the errors of its calls are ``AgentsError`` (see ``as_agents_error``).
@@ -280,10 +322,15 @@ class _TreeAttachment(LocalManagerAttachment):
         session_id_factory: Callable[[], str] | None = None,
         definition: SessionDefinition | None = None,
         reopen: Callable[["_TreeAttachment"], Awaitable[None]] | None = None,
+        end_idle_tree_on_close: bool = False,
     ) -> None:
         super().__init__(runtime.manager, session_id_factory=session_id_factory, definition=definition)
         self._runtime = runtime
         self._root_session_id: str | None = None
+        self._end_idle_tree_on_close = end_idle_tree_on_close
+        # The tree a close still has to end once idle; kept until that end succeeds, so a repeated
+        # close finishes it.
+        self._idle_end_pending: str | None = None
         # Reopens a saved Session before the first use; kept until a reopen succeeds, so a use
         # after a failed one tries again.
         self._reopen = reopen
@@ -345,12 +392,17 @@ class _TreeAttachment(LocalManagerAttachment):
                 yield tree
 
     async def close(self) -> None:
+        root_session_id, self._root_session_id = self._root_session_id, None
+        if self._end_idle_tree_on_close and root_session_id is not None:
+            self._idle_end_pending = root_session_id
         try:
             await super().close()
         finally:
-            root_session_id, self._root_session_id = self._root_session_id, None
             if root_session_id is not None:
                 self._runtime._release_tree(root_session_id)
+        if self._idle_end_pending is not None:
+            await self._runtime.end_idle_tree(self._idle_end_pending)
+            self._idle_end_pending = None
 
 
 class _AgentsSdkLocalRuntime:
@@ -442,17 +494,17 @@ class _AgentsSdkLocalRuntime:
         history: list[HistoryImportEntry] | None = None,
         session_inputs: Mapping[str, contracts.SessionInput] | None = None,
         completion_provider: CompletionProvider | None = None,
-        close_runtime_with_client: bool = False,
         initial_turn: InitialTurn | None = None,
         client_tools: ClientToolRegistry = NO_CLIENT_TOOLS,
+        end_idle_tree_on_close: bool = False,
     ) -> SessionClient:
         """Start a root Session, with ``initial_turn`` as its first Turn when given, and attach a client.
 
         Closing the client only detaches it: the Session and its children run until this runtime
-        closes, or until the tree is idle and unattached when ``dispose_idle_trees`` is set.
-        With ``close_runtime_with_client``, closing the client also closes this runtime and every
-        Session it started. ``completion_provider`` answers the model calls of the whole tree, in
-        place of the runtime's own.
+        closes, or until the tree is idle and unattached when ``dispose_idle_trees`` is set. With
+        ``end_idle_tree_on_close``, a tree that is idle and unattached once this client closes
+        ends before the close returns (see ``end_idle_tree``). ``completion_provider`` answers
+        the model calls of the whole tree, in place of the runtime's own.
         """
         serialized_session_inputs = _validated_session_inputs(assembly, session_inputs)
         mcp.verify_tree_credentials(assembly.config)
@@ -464,13 +516,13 @@ class _AgentsSdkLocalRuntime:
             skill_files,
             _completion_provider_factory(completion_provider) if completion_provider is not None else None,
         )
-        tree_attachment = _TreeAttachment(
-            self, session_id_factory=lambda: session_id, definition=assembly.harness_definition
+        attachment = _TreeAttachment(
+            self,
+            session_id_factory=lambda: session_id,
+            definition=assembly.harness_definition,
+            end_idle_tree_on_close=end_idle_tree_on_close,
         )
-        tree_attachment.hold(session_id)
-        attachment: SessionTransport = tree_attachment
-        if close_runtime_with_client:
-            attachment = _RuntimeOwningAttachment(attachment, self)
+        attachment.hold(session_id)
         client: SessionClient | None = None
         try:
             response = await attachment.request(
@@ -566,7 +618,7 @@ class _AgentsSdkLocalRuntime:
 
         ``fingerprint`` identifies the start's request. A later call with the key and the same
         fingerprint returns the first Session; one with another fingerprint raises
-        ``SessionIdempotencyConflictError``. A start that fails or is cancelled frees its key. A caller
+        ``agents.SessionIdempotencyConflictError``. A start that fails or is cancelled frees its key. A caller
         that stops waiting does not stop the start, which other callers of the key share.
         """
         claimed = self._starts_by_key.get(idempotency_key)
@@ -710,6 +762,21 @@ class _AgentsSdkLocalRuntime:
             self._keep_tree(session_id)
         return True
 
+    def session_roots(self) -> list[tuple[str, str, bool]]:
+        """The IDs of the Sessions this runtime lists, root Sessions and their subagents, oldest first,
+        each with its root Session's ID and whether it has ended or failed; none once closed."""
+        try:
+            return [
+                (
+                    session_id,
+                    (record := self.manager.record(session_id)).root_session_id,
+                    record.closed or record.failure is not None,
+                )
+                for session_id in self.manager.listed_session_ids()
+            ]
+        except LocalSessionClosedError:
+            return []
+
     def _knows(self, session_id: str) -> bool:
         try:
             self.manager.record(session_id)
@@ -725,13 +792,15 @@ class _AgentsSdkLocalRuntime:
         *,
         client_tools: ClientToolRegistry = NO_CLIENT_TOOLS,
         reassemble: Callable[[], assemble.AgentAssembly] | None = None,
+        completion_provider: CompletionProvider | None = None,
     ) -> SessionClient:
         """Attach to a Session of this runtime, or reopen one that an earlier process saved.
 
-        ``reassemble`` builds the Agent again for ``session_id``; it runs only for a reopen.
-        Without it, only a Session this runtime already holds can attach.
+        ``reassemble`` builds the Agent again for ``session_id``; it runs only for a reopen, whose
+        model calls ``completion_provider`` answers when given. Without it, only a Session this
+        runtime already holds can attach.
         """
-        attachment = self.bind_session(session_id, reassemble=reassemble)
+        attachment = self.bind_session(session_id, reassemble=reassemble, completion_provider=completion_provider)
         client: SessionClient | None = None
         try:
             snapshot = await attachment.request(
@@ -821,16 +890,11 @@ class _AgentsSdkLocalRuntime:
         if self._closed or not self._dispose_idle_trees or self._attached.get(root_session_id):
             return
         try:
-            idle_disposal = self._disposals.pop(root_session_id, None)
-            if idle_disposal is not None:
-                if root_session_id in self._disposing:
-                    # Already closing: let it finish; it logs its own errors.
-                    await asyncio.shield(idle_disposal)
-                else:
-                    idle_disposal.cancel()
-                    await asyncio.gather(idle_disposal, return_exceptions=True)
+            await self._settle_idle_disposal(root_session_id)
             try:
-                self.manager.record(root_session_id)
+                if self.manager.record(root_session_id).closed:
+                    # Already ended, for example by its client's close.
+                    return
             except SessionControlPlaneError as error:
                 if error.code != "session_not_found":
                     raise
@@ -840,6 +904,51 @@ class _AgentsSdkLocalRuntime:
             # A caller that stops waiting before the tree closed leaves it to the idle disposal.
             self._schedule_idle_disposal(root_session_id)
             raise
+
+    async def end_idle_tree(self, root_session_id: str) -> None:
+        """Close a tree that no client holds and that has no work left now, sandbox included.
+
+        The idle close would end it a moment later; this ends it before returning. A tree that
+        still works is left to the idle close, and a tree this runtime keeps (``keep_idle_trees``,
+        ``start_kept_session``) is left as it is. An error closing the sandbox raises.
+        """
+        if not self._idle_and_unattached(root_session_id):
+            return
+        try:
+            await self._settle_idle_disposal(root_session_id)
+            # A client may have attached, a turn started, or the idle close ended the tree meanwhile.
+            if not self._idle_and_unattached(root_session_id):
+                self._schedule_idle_disposal(root_session_id)
+                return
+            # Idle now, so this closes the tree without waiting.
+            await self._close_tree(root_session_id, forget=False)
+        except BaseException:
+            # A caller that stops waiting before the tree closed leaves it to the idle disposal.
+            self._schedule_idle_disposal(root_session_id)
+            raise
+
+    async def _settle_idle_disposal(self, root_session_id: str) -> None:
+        """Wait for the idle close of this tree if it is closing the tree, or stop it if it still waits."""
+        idle_disposal = self._disposals.get(root_session_id)
+        if idle_disposal is None:
+            return
+        if root_session_id in self._disposing:
+            # Already closing: let it finish, still listed so that the runtime's close awaits it; it
+            # logs its own errors.
+            await asyncio.shield(idle_disposal)
+            return
+        del self._disposals[root_session_id]
+        idle_disposal.cancel()
+        await asyncio.gather(idle_disposal, return_exceptions=True)
+
+    def _idle_and_unattached(self, root_session_id: str) -> bool:
+        if self._closed or not self._dispose_idle_trees or self._attached.get(root_session_id):
+            return False
+        try:
+            # A tree the idle close already ended has nothing left to end.
+            return not self.manager.record(root_session_id).closed and self.manager.tree_is_idle(root_session_id)
+        except (LocalSessionClosedError, SessionControlPlaneError):
+            return False
 
     def close_after_turns(self, root_session_id: str) -> None:
         """Close this tree once its Turns end and no client holds it, even if work outlives them."""
@@ -964,7 +1073,7 @@ class _AgentsSdkLocalRuntime:
         await self.manager.close()
 
     def _uploader_for(self, session_id: str) -> FileUploader | None:
-        record = self.manager.record(session_id)
+        record = self._upload_record(session_id)
         share = self._roots.get(record.root_session_id)
         if share is None:
             return None
@@ -989,10 +1098,18 @@ class _AgentsSdkLocalRuntime:
         return embed
 
     def _validate_session(self, session_id: str) -> None:
-        record = self.manager.record(session_id)
+        record = self._upload_record(session_id)
         record.validate_public_procedure("upload_file")
         if record.closed or record.failure is not None:
             raise SessionTerminatedError("The local Session is closed or failed")
+
+    def _upload_record(self, session_id: str) -> LocalSessionRecord:
+        try:
+            return self.manager.record(session_id)
+        except SessionControlPlaneError as error:
+            if (public := _not_found(error, session_id)) is error:
+                raise
+            raise public from error
 
     async def _bind(self, definition: SessionDefinition, root: LocalSessionWorkspace | None) -> LocalSessionBinding:
         owned: list[LocalSessionResource] = []
@@ -1011,7 +1128,15 @@ class _AgentsSdkLocalRuntime:
                 bash_max_timeout=BASH_MAX_TIMEOUT,
             )
             # Local Sessions stay eager.
-            await sandbox.provision_at_open()
+            try:
+                await sandbox.provision_at_open()
+            except Exception as error:
+                # A refused create raises Temporal's ApplicationError here; its message says what
+                # to fix, and a served Session ends failed with the same message.
+                refusal = sandbox_create_refusal(error)
+                if refusal is None:
+                    raise
+                raise AgentsError(refusal) from error
             try:
                 skills = await _serve_root_skills(skill_files, sandbox)
                 journal = self._journal_factory(session_id)
@@ -1163,12 +1288,32 @@ class _LoopRuntime:
     open_blocks: int = 0
 
 
+@dataclass(frozen=True, slots=True)
+class _EndedSession:
+    """A Session that a block's exit ended: ``saved_root`` is the root Session that the block saved with
+    ``journal_factory=``, or ``None`` when it saved nothing."""
+
+    saved_root: str | None
+    # The Session had already ended or failed in the block: a cancel has nothing to do.
+    ended_in_block: bool = False
+    # So had its saved root: a new block reopens the root to be read only.
+    saved_root_ended_in_block: bool = False
+
+
 # One runtime per event loop: its Sessions, locks and tasks belong to the loop that started them.
 # A forked child gets an empty registry: the parent's loops and Sessions do not run there.
 _PROCESS_RUNTIMES: dict[asyncio.AbstractEventLoop, _LoopRuntime] = {}
 _PROCESS_RUNTIMES_LOCK = threading.Lock()
 # The runtimes that a block's exit took out of the registry and is closing; the lock guards it too.
 _CLOSING_RUNTIMES: list[tuple[asyncio.AbstractEventLoop, _LoopRuntime]] = []
+# Per event loop, the Sessions that a block's exit ended, oldest first, each with the root Session that
+# its block saved with ``journal_factory=``, if any; the lock guards it too. A read or command on one raises
+# ``SessionTerminatedError`` instead of not found. A loop keeps the newest IDs only, about 250 bytes each at most.
+# Weak keys: a loop that asyncio.run closed is freed with its entry, without waiting for the next runtime.
+_ENDED_SESSIONS: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, dict[str, _EndedSession]] = (
+    weakref.WeakKeyDictionary()
+)
+_MAX_ENDED_SESSIONS_PER_LOOP = 10_000
 # How long the exit hook waits for a loop running in a daemon thread to close its runtime.
 _EXIT_CLOSE_TIMEOUT_SECONDS = 10.0
 
@@ -1197,6 +1342,8 @@ def _process_runtime(
         for closing in [entry for entry in _CLOSING_RUNTIMES if entry[0].is_closed()]:
             _CLOSING_RUNTIMES.remove(closing)
             _let_go_of_closed_loop_runtime(closing[1])
+        for closed_loop in [other for other in _ENDED_SESSIONS if other.is_closed()]:
+            del _ENDED_SESSIONS[closed_loop]
         current = _PROCESS_RUNTIMES.get(loop)
         if current is not None and not current.runtime.closed:
             if program_policy is not None and program_policy != current.runtime.program_policy:
@@ -1270,15 +1417,23 @@ async def _exit_process_runtime() -> None:
 
 async def _close_process_runtime() -> None:
     """Close the running event loop's local runtime: every Session it holds, their subagents and
-    their sandboxes. The next ``_process_runtime`` call starts a new runtime.
+    their sandboxes. The next ``_process_runtime`` call starts a new runtime, which does not know
+    these Sessions: a read or command on one raises ``SessionTerminatedError``.
     """
     loop = asyncio.get_running_loop()
     with _PROCESS_RUNTIMES_LOCK:
-        current = _PROCESS_RUNTIMES.pop(loop, None)
+        current = _PROCESS_RUNTIMES.get(loop)
         if current is None:
             return
+        # Listed before the runtime leaves the registry, so a failing listing leaves it whole.
+        sessions = current.runtime.session_roots()
+        del _PROCESS_RUNTIMES[loop]
         entry = (loop, current)
         _CLOSING_RUNTIMES.append(entry)
+        # Remembered before the close starts: a read while it runs starts no runtime, or a new one, and
+        # must already refuse these Sessions as ended rather than not found. A Session that a caller
+        # holding this runtime starts from here on is not remembered: a read of it is not found.
+        _remember_ended_sessions(loop, sessions, saved=current.runtime.journals is not None)
     # Out of the registry before the close starts: a block entered while it runs starts a new runtime
     # instead of joining this one. Until the close ends, its closer still waits for ``released`` and the
     # exit hook still finds it in ``_CLOSING_RUNTIMES``, so loop shutdown and process exit close it.
@@ -1303,6 +1458,53 @@ async def _close_process_runtime() -> None:
         # The cancel goes on; an error of the close is kept as its cause.
         raise cancel from (None if closing.cancelled() else closing.exception())
     closing.result()
+
+
+def _remember_ended_sessions(
+    loop: asyncio.AbstractEventLoop, sessions: list[tuple[str, str, bool]], *, saved: bool
+) -> None:
+    # The caller holds the lock.
+    ended = _ENDED_SESSIONS.setdefault(loop, {})
+    closed_ids = {session_id: closed for session_id, _, closed in sessions}
+    for session_id, root_session_id, closed in sessions:
+        ended.pop(session_id, None)
+        ended[session_id] = _EndedSession(
+            saved_root=root_session_id if saved else None,
+            ended_in_block=closed,
+            saved_root_ended_in_block=saved and closed_ids.get(root_session_id, False),
+        )
+    for oldest in list(ended)[: max(0, len(ended) - _MAX_ENDED_SESSIONS_PER_LOOP)]:
+        del ended[oldest]
+
+
+def _refuse_if_freed_by_block_exit(session_id: str) -> None:
+    """Raise ``SessionTerminatedError`` for a session that a block's exit freed, while the loop runs no
+    local runtime.
+
+    Starting a runtime to refuse it would bind the loop to a runtime without journal_factory=, which a
+    later block with journal_factory= could then not start.
+    """
+    if _running_process_runtime() is not None:
+        return
+    ended = _ended_by_block_exit(session_id)
+    if ended is not None:
+        raise _LocalSessionEndedError(
+            session_id,
+            saved_root=ended.saved_root,
+            ended_in_block=ended.ended_in_block,
+            saved_root_ended_in_block=ended.saved_root_ended_in_block,
+        )
+
+
+def _ended_by_block_exit(session_id: str) -> _EndedSession | None:
+    """How the running event loop's block exit ended ``session_id``; ``None`` if no block's exit of this
+    loop ended it."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return None
+    with _PROCESS_RUNTIMES_LOCK:
+        return _ENDED_SESSIONS.get(loop, {}).get(session_id)
 
 
 def _journals_text(journals: SessionJournals | None) -> str:
@@ -1401,6 +1603,7 @@ def _reset_after_fork() -> None:
     _PROCESS_RUNTIMES_LOCK = threading.Lock()
     _PROCESS_RUNTIMES.clear()
     _CLOSING_RUNTIMES.clear()
+    _ENDED_SESSIONS.clear()
 
 
 def _close_process_runtimes_at_exit() -> None:
@@ -1465,42 +1668,6 @@ def _register_exit_close() -> None:
 _register_exit_close()
 if hasattr(os, "register_at_fork"):
     os.register_at_fork(after_in_child=_reset_after_fork)
-
-
-async def _create_local_session(
-    assembly: assemble.AgentAssembly,
-    *,
-    history: list[HistoryImportEntry] | None = None,
-    session_id: str,
-    session_inputs: Mapping[str, contracts.SessionInput] | None = None,
-    completion_provider: CompletionProvider | None = None,
-    file_policy: SessionFilePolicy = DEFAULT_SESSION_FILE_POLICY,
-    initial_turn: InitialTurn | None = None,
-    client_tools: ClientToolRegistry = NO_CLIENT_TOOLS,
-) -> SessionClient:
-    """Start a Session whose client owns the manager and shared resource lifetime.
-
-    Its program time budget is that of the event loop's runtime once it has started, else the default.
-    """
-    loop_runtime = _running_process_runtime()
-    runtime = _AgentsSdkLocalRuntime(
-        completion_provider=completion_provider,
-        file_policy=file_policy,
-        program_policy=loop_runtime.program_policy if loop_runtime is not None else DEFAULT_PROGRAM_EXECUTION_POLICY,
-    )
-    try:
-        return await runtime.create_session(
-            assembly,
-            session_id=session_id,
-            history=history,
-            session_inputs=session_inputs,
-            close_runtime_with_client=True,
-            initial_turn=initial_turn,
-            client_tools=client_tools,
-        )
-    except BaseException:
-        await runtime.close()
-        raise
 
 
 @dataclass(frozen=True, slots=True)

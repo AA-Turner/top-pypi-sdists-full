@@ -35,6 +35,24 @@ FLOAT_A = np.array([3.0, 1.0, np.nan, 2.0, 5.0, 4.0])
 INT_A = np.array([3, 1, 7, 2, 5, 4], dtype=np.int64)
 BOOL_A = np.array([True, False, True, True, False, True])
 
+
+@pytest.mark.parametrize("name", ["sum", "nansum"])
+@pytest.mark.parametrize("large", [10**18, 2**63, 2**64 - 2])
+def test_uint64_sum_kernel_keeps_integer_precision(name, large):
+    kernel = getattr(aggregate_numba, name)
+
+    @nb.njit
+    def compiled(groups, values, size, fill):
+        return kernel(groups, values, size, fill)
+
+    groups = np.array([0, 0])
+    values = np.array([large, 1], dtype=np.uint64)
+    for call in (kernel, compiled):
+        result = call(groups, values, 3, 7)
+        assert result.dtype == np.uint64
+        assert [int(value) for value in result] == [large + 1, 7, 7]
+
+
 # the kernels of ``make_stub``, which is where the input checks are written - as
 # many of the tests below ask them all.  ``step_count`` and ``step_indices`` are
 # jitted functions with a signature of their own, ``unpack`` and ``unpack_into``
@@ -371,7 +389,7 @@ def test_pure_python_call_refuses_a_fill_value_as_jitted_code_does():
 # and through the python-level aggregate() that shares the driver with them.
 # The input checks run once per call in each of them - at the entry point of the
 # kernel for the first two (the body of the stub and the implementation of its
-# overload), in utils_np.input_validation for the third - and no call ever runs
+# overload), in nptools.input_validation for the third - and no call ever runs
 # them twice, which is what the fast path of the wrapper exists to avoid.  Each
 # style is a function of the kernel it is asked of: a kernel is an overload, and
 # an overload cannot be passed into jitted code as an argument.
@@ -424,8 +442,44 @@ _STRICT_ONLY = [
     (GROUP_IDX.astype(np.float64), FLOAT_A, "group_idx must be of integer type", -1, TypeError),
     (GROUP_IDX.astype(bool), FLOAT_A, "group_idx must be of integer type", -1, TypeError),
     (GROUP_IDX, FLOAT_A.astype(np.str_), "numeric values", -1, ValueError),
-    (GROUP_IDX, np.array(["2000-01-01", "2000-01-02"], dtype="datetime64[D]"), "numeric values", -1, ValueError),
 ]
+
+# the temporal dtypes a kernel takes: the comparisons of compiled code order
+# datetime64 and timedelta64 values (NaT is the smallest tick) and ``val !=
+# val`` detects NaT like a nan, so the selection and the reduction kernels run
+# on temporal values directly.  The mean and the sum of a datetime64 have no
+# unit to accumulate, and the arithmetic of the squared moments has no
+# temporal unit at all - numpy refuses those as well.
+_TEMPORAL_KERNELS = frozenset(
+    {
+        "allnan",
+        "anynan",
+        "argmax",
+        "argmin",
+        "array",
+        "cummax",
+        "cummin",
+        "first",
+        "last",
+        "len",
+        "max",
+        "min",
+        "nanargmax",
+        "nanargmin",
+        "nancummax",
+        "nancummin",
+        "nanfirst",
+        "nanlast",
+        "nanlen",
+        "nanmax",
+        "nanmin",
+        "nunique",
+        "nannunique",
+    }
+)
+# the durations add up (NaT included, which the addition propagates), so the
+# sum and the cumulative sums of a timedelta64 are taken as well
+_TEMPORAL_TIMEDELTA_KERNELS = frozenset({"cumsum", "nancumsum", "nansum", "sum"})
 
 
 @pytest.mark.parametrize("kernel_name", _ALL_KERNELS)
@@ -473,14 +527,6 @@ def test_every_call_refuses_the_input_the_driver_cannot_read(
 def test_every_kernel_refuses_the_input_it_cannot_take(
     kernel_name, style, group_idx, values, message, size, python_error
 ):
-    """The shape and dtype checks, as a python call and as a jitted one.
-
-    A two-dimensional ``group_idx`` the driver walks by row is answered with a
-    quietly wrong result (the labels of one dimension index as well as the flat
-    ones), a float or a bool dtype with labels that are not labels, and a dtype
-    the drivers were never written for with a numba error that is harder to read
-    than this one.
-    """
     call = _styles(kernel_name)[style]
     # the jitted style is answered before anything runs, by the typing function
     # of the kernel, which knows the shape and the dtype at compile time
@@ -489,8 +535,37 @@ def test_every_kernel_refuses_the_input_it_cannot_take(
         call(group_idx, values, size)
 
 
+@pytest.mark.parametrize("style", [0, 1], ids=["python", "jitted"])
+@pytest.mark.parametrize("kernel_name", sorted(_ALL_KERNELS))
+def test_every_kernel_says_whether_it_takes_temporal_values(kernel_name, style):
+    """The temporal dtypes a kernel takes, and the ones it refuses.
+
+    The comparisons of compiled code order datetime64 and timedelta64 values
+    (NaT is the smallest tick), and ``val != val`` detects NaT like a nan, so
+    the selection and the reduction kernels run on temporal values directly -
+    as a python call and as a jitted one.  The kernels that cannot take them
+    say so by name, instead of refusing every temporal value alike.
+    """
+    call = _styles(kernel_name)[style]
+    group_idx = np.array([0, 0, 1, 1])
+    datetime_a = np.array(["2011-01-03", "NaT", "2011-01-01", "2011-02-01"], dtype="datetime64[s]")
+    timedelta_a = np.array([5, "NaT", 3, 1], dtype="timedelta64[s]")
+    takes_datetime = kernel_name in _TEMPORAL_KERNELS
+    takes_timedelta = takes_datetime or kernel_name in _TEMPORAL_TIMEDELTA_KERNELS
+    if takes_datetime:
+        call(group_idx, datetime_a, 2)
+    else:
+        with pytest.raises((TypeError, nb.TypingError), match="takes no datetime64"):
+            call(group_idx, datetime_a, 2)
+    if takes_timedelta:
+        call(group_idx, timedelta_a, 2)
+    else:
+        with pytest.raises((TypeError, nb.TypingError), match="takes no timedelta64"):
+            call(group_idx, timedelta_a, 2)
+
+
 # the fill value of a call has to fit the output it fills - the same rule the
-# python-level call applies (utils_np.check_fill_value), in the same words:
+# python-level call applies (nptools.check_fill_value), in the same words:
 # a nan does not fit an integer output, a boolean output takes the two
 # booleans, and a value that is no number at all fits nothing.
 _FILL_CASES = [

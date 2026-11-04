@@ -52,16 +52,31 @@ impl StatsigRuntime {
         sdk_runtime_thread_count: Option<usize>,
         runtime_thread_start_callback: Option<RuntimeThreadStartCallback>,
     ) -> Arc<StatsigRuntime> {
+        Self::get_runtime_with_options_and_owned_preference(
+            sdk_runtime_thread_count,
+            runtime_thread_start_callback,
+            false,
+        )
+    }
+
+    #[must_use]
+    pub(crate) fn get_runtime_with_options_and_owned_preference(
+        sdk_runtime_thread_count: Option<usize>,
+        runtime_thread_start_callback: Option<RuntimeThreadStartCallback>,
+        force_owned_runtime: bool,
+    ) -> Arc<StatsigRuntime> {
         create_runtime_if_required(
             sdk_runtime_thread_count,
             runtime_thread_start_callback.clone(),
+            force_owned_runtime,
         );
 
         // Tokio only exposes worker-start hooks on Runtime::Builder. A caller's current runtime
         // cannot be retrofitted, so configuring the callback necessarily opts into the shared
         // Statsig-owned runtime.
-        let prefer_owned_runtime =
-            sdk_runtime_thread_count.is_some() || runtime_thread_start_callback.is_some();
+        let prefer_owned_runtime = force_owned_runtime
+            || sdk_runtime_thread_count.is_some()
+            || runtime_thread_start_callback.is_some();
 
         Arc::new(StatsigRuntime {
             output_policy: crate::output_policy::OutputPolicy::current(),
@@ -344,8 +359,10 @@ fn remove_join_handle_with_id(
 fn create_runtime_if_required(
     sdk_runtime_thread_count: Option<usize>,
     runtime_thread_start_callback: Option<RuntimeThreadStartCallback>,
+    force_owned_runtime: bool,
 ) {
-    if sdk_runtime_thread_count.is_none()
+    if !force_owned_runtime
+        && sdk_runtime_thread_count.is_none()
         && runtime_thread_start_callback.is_none()
         && Handle::try_current().is_ok()
     {

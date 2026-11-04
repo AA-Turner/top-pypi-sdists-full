@@ -214,6 +214,35 @@ class GitHubBinding(BaseModel):
         return "github.com"
 
 
+class MistralApiBinding(BaseModel):
+    """Give a sandbox Mistral API access as the session user.
+
+    Sandbox Proxy gives the sandbox a ``MISTRAL_API_KEY`` that only the proxy accepts, and the
+    proxy URL as ``MISTRAL_API_HTTP_PROXY``. Clients that send their Mistral API requests through
+    that proxy, such as the ``agents`` CLI, act as the session user without seeing a real
+    credential. The credential is renewed before ``ttl_seconds`` elapse.
+
+    ``run_as`` names that identity, with the values a connector takes: ``"auto"`` is the session
+    user, or the owner of ``MISTRAL_API_KEY`` in-process. It is the only value Sandbox Proxy serves.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["mistral_api"] = "mistral_api"
+    run_as: Literal["auto"] = "auto"
+    ttl_seconds: int = Field(default=3600, gt=SANDBOX_PROXY_RENEWAL_MARGIN_SECONDS)
+
+    @field_validator("run_as", mode="before")
+    @classmethod
+    def _validate_run_as(cls, run_as: object) -> object:
+        if run_as == "deployment":
+            raise ValueError(
+                'MistralApiBinding(run_as="deployment") is not supported: Sandbox Proxy gives a service '
+                'account no Mistral API access yet. Use run_as="auto", the session user.'
+            )
+        return run_as
+
+
 class WorkspaceHeaderBindings(BaseModel):
     """Route a Mistral sandbox through Sandbox Proxy, and apply the rules a workspace admin stored there.
 
@@ -227,7 +256,7 @@ class WorkspaceHeaderBindings(BaseModel):
 
 
 type SandboxHeaderBinding = Annotated[
-    HeaderBinding | GitHubBinding | WorkspaceHeaderBindings,
+    HeaderBinding | GitHubBinding | MistralApiBinding | WorkspaceHeaderBindings,
     Field(discriminator="kind"),
 ]
 
@@ -237,6 +266,9 @@ def network_blocks(network: Network, binding: SandboxHeaderBinding) -> str | Non
 
     if isinstance(binding, WorkspaceHeaderBindings):
         return None if network.mode != "none" else "applies rules to outbound connections"
+    if isinstance(binding, MistralApiBinding):
+        # The API host depends on the deployment, so only a closed network is known to block it.
+        return None if network.mode != "none" else "needs network access to the Mistral API"
     hosts = _GITHUB_HOSTS if isinstance(binding, GitHubBinding) else (binding.host,)
     blocked = [host for host in hosts if not network.reaches(host)]
     return f"needs network access to {', '.join(blocked)}" if blocked else None
@@ -261,6 +293,7 @@ __all__ = [
     "SandboxHeaderBinding",
     "SandboxPolicy",
     "HeaderBinding",
+    "MistralApiBinding",
     "WorkspaceHeaderBindings",
     "network_blocks",
 ]

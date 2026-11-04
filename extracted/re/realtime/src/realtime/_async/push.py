@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional
-
-from typing_extensions import assert_never, overload
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, Literal, assert_never, overload
 
 from ..message import Message, ReplyPostgresChanges
-from ..types import DEFAULT_TIMEOUT, Callback, RealtimeAcknowledgementStatus, _Hook
+from ..types import DEFAULT_TIMEOUT, Callback, RealtimeAcknowledgementStatus
 
 if TYPE_CHECKING:
     from .channel import AsyncRealtimeChannel
@@ -20,31 +19,30 @@ class AsyncPush:
         self,
         channel: AsyncRealtimeChannel,
         event: str,
-        payload: Optional[Mapping[str, Any]] = None,
+        payload: Mapping[str, Any] | None = None,
         timeout: int = DEFAULT_TIMEOUT,
-    ):
+    ) -> None:
         self.channel = channel
         self.event = event
         self.payload = payload or {}
         self.timeout = timeout
-        self.rec_hooks: List[_Hook] = []
-        self.ref: Optional[str] = None
-        self.received_resp: Optional[
-            tuple[RealtimeAcknowledgementStatus, Dict[str, Any]]
-        ] = None
+        self.ref: str | None = None
+        self.received_resp: (
+            tuple[RealtimeAcknowledgementStatus, dict[str, Any]] | None
+        ) = None
         self.sent = False
-        self.timeout_task: Optional[asyncio.Task] = None
+        self.timeout_task: asyncio.Task | None = None
         self.ok_callbacks: list[Callback[[ReplyPostgresChanges], None]] = []
-        self.error_callbacks: list[Callback[[Dict[str, Any]], None]] = []
+        self.error_callbacks: list[Callback[[dict[str, Any]], None]] = []
         self.timeout_callbacks: list[Callback[[], None]] = []
 
-    async def resend(self):
+    async def resend(self) -> None:
         self.ref = None
         self.received_resp = None
         self.sent = False
         await self.send()
 
-    async def send(self):
+    async def send(self) -> None:
         if (
             self.received_resp
             and self.received_resp[0] == RealtimeAcknowledgementStatus.Timeout
@@ -65,7 +63,7 @@ class AsyncPush:
         )
         await self.channel.socket.send(message)
 
-    def update_payload(self, payload: Dict[str, Any]):
+    def update_payload(self, payload: dict[str, Any]) -> None:
         self.payload = {**self.payload, **payload}
 
     @overload
@@ -78,7 +76,7 @@ class AsyncPush:
     def receive(
         self,
         status: Literal[RealtimeAcknowledgementStatus.Error],
-        callback: Callback[[Dict[str, Any]], None],
+        callback: Callback[[dict[str, Any]], None],
     ) -> AsyncPush: ...
 
     @overload
@@ -90,7 +88,10 @@ class AsyncPush:
 
     def receive(self, status, callback) -> AsyncPush:
         if (received := self.received_resp) and received[0] == status:
-            callback(received[1])
+            if status == RealtimeAcknowledgementStatus.Timeout:
+                callback()
+            else:
+                callback(received[1])
         else:
             if status == RealtimeAcknowledgementStatus.Ok:
                 self.ok_callbacks.append(callback)
@@ -102,12 +103,13 @@ class AsyncPush:
                 assert_never(status)
         return self
 
-    def start_timeout(self):
+    def start_timeout(self) -> None:
         if self.timeout_task:
             return
 
-        async def timeout(self):
+        async def timeout(self) -> None:
             await asyncio.sleep(self.timeout)
+            self.timeout_task = None
             self.trigger(RealtimeAcknowledgementStatus.Timeout, {})
             if self.ref and self.ref in self.channel.messages_waiting_for_ack:
                 del self.channel.messages_waiting_for_ack[self.ref]
@@ -119,19 +121,19 @@ class AsyncPush:
         self,
         status: Literal[RealtimeAcknowledgementStatus.Ok],
         response: ReplyPostgresChanges,
-    ): ...
+    ) -> None: ...
     @overload
     def trigger(
         self,
         status: Literal[RealtimeAcknowledgementStatus.Error],
-        response: Dict[str, Any],
-    ): ...
+        response: dict[str, Any],
+    ) -> None: ...
     @overload
     def trigger(
         self,
         status: Literal[RealtimeAcknowledgementStatus.Timeout],
-        response: Dict[str, Any],
-    ): ...
+        response: dict[str, Any],
+    ) -> None: ...
 
     def trigger(self, status: RealtimeAcknowledgementStatus, response) -> None:
         self.received_resp = (status, response)
@@ -149,10 +151,10 @@ class AsyncPush:
         else:
             assert_never(status)
 
-    def destroy(self):
+    def destroy(self) -> None:
         self._cancel_timeout()
 
-    def _cancel_timeout(self):
+    def _cancel_timeout(self) -> None:
         if not self.timeout_task:
             return
 

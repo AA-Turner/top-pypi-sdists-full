@@ -396,7 +396,7 @@ def predictions_current(**kwargs):
                         "points": None})
     # the live fit's ids are the box's CURRENT call_log ids — resolve them against
     # that same (current) store generation in the mirror, never an older one.
-    points = _points_for(worker, _current_store(worker), telemetry)
+    points = _points_for(worker, telemetry.get('store_id') or _current_store(worker), telemetry)
     return jsonify({"worker": worker, "model": model or None, "telemetry": telemetry,
                     "points": points})
 

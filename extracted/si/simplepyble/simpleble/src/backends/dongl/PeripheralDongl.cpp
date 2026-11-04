@@ -134,11 +134,11 @@ void PeripheralDongl::disconnect() {
     }
 
     // Wait for the disconnection to be confirmed.
+    // NOTE: The connection handle stays set on a timeout, so that a late confirmation still fires on_disconnected.
     std::unique_lock<std::mutex> lock(disconnection_mutex_);
-    disconnection_cv_.wait_for(lock, 500ms, [this]() { return !is_connected(); });
+    disconnection_cv_.wait_for(lock, DISCONNECT_TIMEOUT, [this]() { return !is_connected(); });
 
     if (is_connected()) {
-        _conn_handle = BLE_CONN_HANDLE_INVALID;
         throw Exception::OperationFailed(fmt::format("Timeout while waiting for disconnection confirmation"));
     }
 }
@@ -229,7 +229,7 @@ void PeripheralDongl::secure_connection(bool mitm) {
     if (result.ret_code != 0) {
         // The Dongl disconnects when it can't secure the connection, so wait for the disconnection.
         std::unique_lock<std::mutex> lock(disconnection_mutex_);
-        disconnection_cv_.wait_for(lock, 500ms, [this]() { return !is_connected(); });
+        disconnection_cv_.wait_for(lock, DISCONNECT_TIMEOUT, [this]() { return !is_connected(); });
         throw Exception::OperationFailed(fmt::format("Failed to secure the connection: {}", result.ret_code));
     }
 }
@@ -334,7 +334,7 @@ void PeripheralDongl::notify(BluetoothUUID const& service_uuid, BluetoothUUID co
         throw Exception::OperationFailed(fmt::format("Characteristic {} does not have a CCCD", characteristic_uuid));
     }
 
-    _callbacks_on_value_changed[characteristic.handle_value] = std::move(callback);
+    _callbacks_on_value_changed.load(characteristic.handle_value, std::move(callback));
 
     ByteArray data = {0x01, 0x00};
     simpleble_WriteRsp rsp = _serial_protocol->simpleble_write(_conn_handle, characteristic.handle_cccd,
@@ -357,7 +357,7 @@ void PeripheralDongl::indicate(BluetoothUUID const& service_uuid, BluetoothUUID 
         throw Exception::OperationFailed(fmt::format("Characteristic {} does not have a CCCD", characteristic_uuid));
     }
 
-    _callbacks_on_value_changed[characteristic.handle_value] = callback;
+    _callbacks_on_value_changed.load(characteristic.handle_value, std::move(callback));
 
     ByteArray data = {0x02, 0x00};
     simpleble_WriteRsp rsp = _serial_protocol->simpleble_write(_conn_handle, characteristic.handle_cccd,
@@ -375,7 +375,7 @@ void PeripheralDongl::unsubscribe(BluetoothUUID const& service_uuid, BluetoothUU
         throw Exception::OperationFailed(fmt::format("Characteristic {} does not have a CCCD", characteristic_uuid));
     }
 
-    _callbacks_on_value_changed.erase(characteristic.handle_value);
+    _callbacks_on_value_changed.unload(characteristic.handle_value);
 
     ByteArray data = {0x00, 0x00};
     simpleble_WriteRsp rsp = _serial_protocol->simpleble_write(_conn_handle, characteristic.handle_cccd,
@@ -505,7 +505,14 @@ void PeripheralDongl::notify_connected(uint16_t conn_handle) {
 
 void PeripheralDongl::notify_disconnected() {
     const bool notify = _connection_announced.exchange(false);
-    _conn_handle = BLE_CONN_HANDLE_INVALID;
+
+    // A disconnect ends every subscription. Clearing them first means they are gone once disconnect() returns.
+    _callbacks_on_value_changed.clear();
+    {
+        // NOTE: Changing the handle under the lock keeps a waiting disconnect() from missing the wakeup.
+        std::lock_guard<std::mutex> lock(disconnection_mutex_);
+        _conn_handle = BLE_CONN_HANDLE_INVALID;
+    }
     _mtu = 0;
     disconnection_cv_.notify_all();
 
@@ -608,10 +615,7 @@ void PeripheralDongl::notify_connect_complete(simpleble_ConnectCompleteEvt const
 
 void PeripheralDongl::notify_value_changed(simpleble_ValueChangedEvt const& evt) {
     ByteArray data(evt.data.bytes, evt.data.bytes + evt.data.size);
-    std::function<void(ByteArray)> callback = _callbacks_on_value_changed[evt.handle];
-    if (callback) {
-        callback(data);
-    }
+    _callbacks_on_value_changed.call(evt.handle, std::move(data));
 }
 
 void PeripheralDongl::notify_passkey_display(simpleble_PasskeyDisplayEvt const& evt) {

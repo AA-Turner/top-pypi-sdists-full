@@ -44,6 +44,7 @@ from anyscale.client.openapi_client.models import (
     AdminCreateUser,
     AnyscaleServiceAccount,
     ApiKeyParameters,
+    ApplyPolicyResult,
     ApplyProductionServiceMultiVersionV2Model,
     ApplyTrafficPolicyUpdateModel,
     ArchiveStatus,
@@ -54,6 +55,8 @@ from anyscale.client.openapi_client.models import (
     CloudDataBucketPresignedUrlResponse,
     CloudDataBucketPresignedUrlScheme,
     CloudNameOptions,
+    ClusterDashboardNode,
+    ClusterdashboardnodeListResponse,
     ClusteroperationResponse,
     CollaboratorType,
     ComputeTemplate,
@@ -82,6 +85,7 @@ from anyscale.client.openapi_client.models import (
     JobQueueSortDirective,
     JobQueuesQuery,
     ListResourceQuotasQuery,
+    LogItemBatch,
     NodeGpusResponse,
     OrganizationCollaborator,
     OrganizationcollaboratorListResponse,
@@ -94,6 +98,8 @@ from anyscale.client.openapi_client.models import (
     ResourceQuota,
     ResourceQuotaStatus,
     ResourceTagResourceType,
+    RoleBindingPolicy,
+    RoleMetadata,
     ServerSessionToken,
     SessionSshKey,
     SessionState,
@@ -242,6 +248,34 @@ def set_env(**environ):
     finally:
         os.environ.clear()
         os.environ.update(old_environ)
+
+
+def _every_row(
+    fetch: Callable[[int, Optional[str]], Any], max_items: Optional[int], page: int
+) -> List[Any]:
+    """
+    Rows from every page, or the first max_items of them.
+
+    The role listing is page oriented and its pages are small, so a caller
+    that reads only the first page cannot tell a role that is not there from
+    one that is on page two.
+    """
+    if max_items is not None and max_items <= 0:
+        return []
+    rows: List[Any] = []
+    paging_token: Optional[str] = None
+    while True:
+        count = page if max_items is None else min(page, max_items - len(rows))
+        response = fetch(count, paging_token)
+        before = len(rows)
+        rows.extend(response.results or [])
+        paging_token = response.metadata.next_paging_token
+        if (
+            not paging_token
+            or len(rows) == before
+            or (max_items is not None and len(rows) >= max_items)
+        ):
+            return rows if max_items is None else rows[:max_items]
 
 
 class AWSS3ClientInterface(ABC):
@@ -2452,6 +2486,28 @@ class AnyscaleClient(AnyscaleClientInterface):
         ).result.data
 
     @handle_api_exceptions
+    def query_logs(  # noqa: PLR0913
+        self,
+        *,
+        logql_query: str,
+        resource: Dict[str, str],
+        start_ns: int,
+        end_ns: int,
+        source_type: str,
+        limit: int,
+        reverse_sort: bool,
+    ) -> LogItemBatch:
+        return self._internal_api_client.query_api_v2_logs_query_get(
+            logql_query,
+            start_ns,
+            end_ns,
+            source_type,
+            limit=limit,
+            reverse_sort=reverse_sort,
+            **resource,
+        ).result
+
+    @handle_api_exceptions
     def get_node_gpus(
         self,
         *,
@@ -2480,6 +2536,63 @@ class AnyscaleClient(AnyscaleClientInterface):
         return self._internal_api_client.get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get(
             cluster_id, gpu_uuid, **kwargs
         ).result
+
+    @handle_api_exceptions
+    def get_cluster_node(
+        self,
+        *,
+        cluster_id: str,
+        node_id: str,
+        session_name: Optional[str] = None,
+    ) -> ClusterDashboardNode:
+        kwargs: Dict[str, Any] = {}
+        if session_name is not None:
+            kwargs["session_name"] = session_name
+        return self._internal_api_client.get_node_api_v2_cluster_dashboard_node_id_get(
+            node_id, cluster_id, **kwargs
+        ).result
+
+    @handle_api_exceptions
+    def list_cluster_nodes(  # noqa: PLR0913
+        self,
+        *,
+        cluster_id: str,
+        session_name: Optional[str] = None,
+        text_filter: Optional[str] = None,
+        states_filter: Optional[List[str]] = None,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> ClusterdashboardnodeListResponse:
+        kwargs: Dict[str, Any] = {"page": page, "page_size": page_size}
+        optional = {
+            "session_name": session_name,
+            "text_filter": text_filter,
+            "states_filter": states_filter,
+        }
+        kwargs.update({key: value for key, value in optional.items() if value is not None})
+        # The list response carries `results` and `metadata` itself; there is no `.result`.
+        return self._internal_api_client.get_nodes_api_v2_cluster_dashboard_get(
+            cluster_id, **kwargs
+        )
+
+    @handle_api_exceptions
+    def get_job_cluster_id(self, job_id: str) -> Optional[str]:
+        # The internal route, not the external one get_job uses: that one 404s the jobs
+        # a service version runs on.
+        job = self._internal_api_client.get_job_api_v2_decorated_ha_jobs_production_job_id_get(
+            job_id
+        ).result
+        if job is None:
+            return None
+        state = job.state
+        if state is not None and state.cluster_id:
+            return state.cluster_id
+        if state is not None and state.cluster is not None:
+            return state.cluster.id
+        # Once the job's cluster is released its state names none, but its latest run
+        # still does. The console's job page falls back the same way.
+        last_run = job.last_job_run
+        return last_run.cluster_id if last_run is not None else None
 
     @handle_api_exceptions
     def get_unified_events(  # noqa: PLR0913
@@ -2887,6 +3000,27 @@ class AnyscaleClient(AnyscaleClientInterface):
         return response.result
 
     @handle_api_exceptions
+    def list_roles(
+        self,
+        *,
+        name: Optional[str] = None,
+        ids: Optional[List[str]] = None,
+        include_archived: bool = False,
+        max_items: Optional[int] = None,
+    ) -> List[RoleMetadata]:
+        return _every_row(
+            lambda count, token: self._internal_api_client.list_roles_api_v2_roles_get(
+                name=name,
+                ids=ids,
+                include_archived=include_archived,
+                count=count,
+                paging_token=token,
+            ),
+            max_items,
+            self.LIST_ENDPOINT_COUNT,
+        )
+
+    @handle_api_exceptions
     def list_resource_policies(
         self,
         resource_type: str,
@@ -2894,6 +3028,34 @@ class AnyscaleClient(AnyscaleClientInterface):
         return self._internal_api_client.list_resource_policies_api_v2_policy_resource_type_get(
             resource_type=resource_type,
         )
+
+    @handle_api_exceptions
+    def generate_role_binding_policy(
+        self,
+        resource_type: str,
+        resource_id: str,
+    ) -> RoleBindingPolicy:
+        response = self._internal_api_client.generate_policy_api_v2_role_bindings_resource_type_resource_id_policy_generate_get(
+            resource_type=resource_type,
+            resource_id=resource_id,
+        )
+        return response.result
+
+    @handle_api_exceptions
+    def apply_role_binding_policy(
+        self,
+        resource_type: str,
+        resource_id: str,
+        policy: RoleBindingPolicy,
+        dry_run: bool,
+    ) -> ApplyPolicyResult:
+        response = self._internal_api_client.apply_policy_api_v2_role_bindings_resource_type_resource_id_policy_put(
+            resource_type=resource_type,
+            resource_id=resource_id,
+            role_binding_policy=policy,
+            dry_run=dry_run,
+        )
+        return response.result
 
     @handle_api_exceptions
     def migrate_scim_permissions(

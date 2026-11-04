@@ -139,6 +139,9 @@ pub struct StatsigOptionsPy {
     pub event_logging_max_pending_batch_queue_size: Option<u32>,
     #[pyo3(get, set)]
     pub enable_id_lists: Option<bool>,
+    /// Use Elias–Fano for this instance’s private ID lists and shared ID-list files. False or unset selects the hash format.
+    #[pyo3(get, set)]
+    pub enable_id_list_elias_fano: Option<bool>,
     #[pyo3(get, set)]
     pub enable_dcs_deltas: Option<bool>,
     #[pyo3(get, set)]
@@ -149,6 +152,9 @@ pub struct StatsigOptionsPy {
     pub disable_country_lookup: Option<bool>,
     #[pyo3(get, set)]
     pub id_lists_url: Option<String>,
+    /// Opt into local shared ID-list snapshots. Unset keeps process-private ID lists.
+    #[pyo3(get, set)]
+    pub shared_id_lists_dir: Option<String>,
     #[pyo3(get, set)]
     pub download_id_list_file_api: Option<String>,
     #[pyo3(get, set)]
@@ -251,6 +257,8 @@ impl StatsigOptionsPy {
         evaluation_cache=None,
         prefer_http2=None,
         state_read_primary_attempts=None,
+        shared_id_lists_dir=None,
+        enable_id_list_elias_fano=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -305,6 +313,8 @@ impl StatsigOptionsPy {
         evaluation_cache: Option<Py<PyAny>>,
         prefer_http2: Option<bool>,
         state_read_primary_attempts: Option<i64>,
+        shared_id_lists_dir: Option<String>,
+        enable_id_list_elias_fano: Option<bool>,
     ) -> Self {
         Self {
             specs_url,
@@ -319,11 +329,13 @@ impl StatsigOptionsPy {
             event_logging_max_queue_size,
             event_logging_max_pending_batch_queue_size,
             enable_id_lists,
+            enable_id_list_elias_fano,
             enable_dcs_deltas,
             wait_for_user_agent_init,
             wait_for_country_lookup_init,
             disable_country_lookup,
             id_lists_url,
+            shared_id_lists_dir,
             download_id_list_file_api,
             id_lists_sync_interval_ms,
             fallback_to_statsig_api,
@@ -483,8 +495,11 @@ fn create_inner_statsig_options(
         event_logging_max_queue_size: opts.event_logging_max_queue_size,
         event_logging_max_pending_batch_queue_size: opts.event_logging_max_pending_batch_queue_size,
         enable_id_lists: opts.enable_id_lists,
+        lazy_load_id_lists: None,
+        enable_id_list_elias_fano: opts.enable_id_list_elias_fano,
         enable_dcs_deltas: opts.enable_dcs_deltas,
         id_lists_url: opts.id_lists_url.clone(),
+        shared_id_lists_dir: opts.shared_id_lists_dir.clone(),
         download_id_list_file_api: opts.download_id_list_file_api.clone(),
         id_lists_sync_interval_ms: opts.id_lists_sync_interval_ms,
         fallback_to_statsig_api: opts.fallback_to_statsig_api,
@@ -501,7 +516,7 @@ fn create_inner_statsig_options(
             .map(|level| LogLevel::from(level.as_str())),
         observability_client: ob_client_weak,
         wait_for_user_agent_init: opts.wait_for_user_agent_init,
-        wait_for_country_lookup_init: opts.wait_for_user_agent_init,
+        wait_for_country_lookup_init: opts.wait_for_country_lookup_init,
         global_custom_fields,
         disable_network: opts.disable_network,
         log_event_connection_reuse: opts.log_event_connection_reuse,
@@ -580,3 +595,7 @@ fn extract_observability_client(
 
     (ob_client_weak, ob_client_strong)
 }
+
+#[cfg(test)]
+#[path = "statsig_options_py/tests.rs"]
+mod tests;

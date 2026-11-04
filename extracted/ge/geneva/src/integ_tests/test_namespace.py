@@ -209,6 +209,7 @@ def test_backfill_with_dir_namespace_child(
                     .image(img)
                     .service_account(geneva_k8s_service_account)
                     .node_selector(worker_node_selector)
+                    .min_replicas(1)  # Keep a worker through runtime-env setup
                     .build()
                 )
                 .build()
@@ -459,6 +460,7 @@ def ns_kuberay_cluster_ready(
             .image(img)
             .service_account(geneva_k8s_service_account)
             .node_selector(worker_node_selector)
+            .min_replicas(1)  # Keep a worker through Ray connection/runtime-env setup
             .build()
         )
         .build()

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Dict, Optional, Union
+from typing import Self
 
-from httpx import AsyncClient, BasicAuth, Client, Headers, Timeout
+from httpx import BasicAuth, Headers, Timeout
 from yarl import URL
 
 from .utils import is_http_url
 
 
-class BasePostgrestClient(ABC):
+class BasePostgrestClient:
     """Base PostgREST client."""
 
     def __init__(
@@ -17,13 +16,13 @@ class BasePostgrestClient(ABC):
         base_url: URL,
         *,
         schema: str,
-        headers: Dict[str, str],
-        timeout: Union[int, float, Timeout],
+        headers: dict[str, str],
+        timeout: int | float | Timeout,
         verify: bool = True,
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
     ) -> None:
         if not is_http_url(base_url):
-            ValueError("base_url must be a valid HTTP URL string")
+            raise ValueError("base_url must be a valid HTTP URL string")
 
         self.base_url = base_url
         self.headers = Headers(headers)
@@ -36,11 +35,11 @@ class BasePostgrestClient(ABC):
 
     def auth(
         self,
-        token: Optional[str],
+        token: str | None,
         *,
-        username: Union[str, bytes, None] = None,
-        password: Union[str, bytes] = "",
-    ):
+        username: str | bytes | None = None,
+        password: str | bytes = "",
+    ) -> Self:
         """
         Authenticate the client with either bearer token or basic authentication.
 
@@ -51,6 +50,7 @@ class BasePostgrestClient(ABC):
             Bearer token is preferred if both ones are provided.
         """
         if token:
+            self.basic_auth = None
             self.headers["Authorization"] = f"Bearer {token}"
         elif username:
             self.basic_auth = BasicAuth(username, password)

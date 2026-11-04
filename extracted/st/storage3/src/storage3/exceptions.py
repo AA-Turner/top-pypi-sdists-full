@@ -1,6 +1,7 @@
-from typing import Optional, TypedDict, Union
+from typing import TypedDict
 
-from pydantic import BaseModel
+from httpx import Response
+from pydantic import BaseModel, ValidationError
 
 from .utils import StorageException
 
@@ -11,23 +12,32 @@ class VectorBucketException(Exception):
 
 
 class VectorBucketErrorMessage(BaseModel):
-    statusCode: Union[str, int]
+    statusCode: str | int
     error: str
     message: str
-    code: Optional[str] = None
+    code: str | None = None
+
+
+class _AnalyticsBucketErrorDetail(BaseModel):
+    message: str
+    type: str
+
+
+class _AnalyticsBucketErrorMessage(BaseModel):
+    error: _AnalyticsBucketErrorDetail
 
 
 class StorageApiErrorDict(TypedDict):
     name: str
     message: str
     code: str
-    status: Union[int, str]
+    status: int | str
 
 
 class StorageApiError(StorageException):
     """Error raised when an operation on the storage API fails."""
 
-    def __init__(self, message: str, code: str, status: Union[int, str]) -> None:
+    def __init__(self, message: str, code: str, status: int | str) -> None:
         error_message = (
             f"{{'statusCode': {status}, 'error': {code}, 'message': {message}}}"
         )
@@ -44,3 +54,31 @@ class StorageApiError(StorageException):
             "message": self.message,
             "status": self.status,
         }
+
+
+def _parse_storage_api_error(response: Response) -> StorageApiError:
+    try:
+        error = VectorBucketErrorMessage.model_validate_json(response.content)
+        return StorageApiError(
+            message=error.message,
+            code=error.code or "400",
+            status=error.statusCode,
+        )
+    except ValidationError:
+        pass
+    try:
+        analytics_error = _AnalyticsBucketErrorMessage.model_validate_json(
+            response.content
+        )
+        return StorageApiError(
+            message=analytics_error.error.message,
+            code=analytics_error.error.type,
+            status=response.status_code,
+        )
+    except ValidationError:
+        pass
+    return StorageApiError(
+        message=f"The request failed, but could not parse error message response:'{response.text}'",
+        code="LibraryError",
+        status=response.status_code,
+    )

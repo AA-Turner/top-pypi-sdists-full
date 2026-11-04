@@ -13,6 +13,7 @@ use std::collections::HashMap;
 
 use crate::{
     DynamicValue,
+    evaluation::dynamic_string::lowercase_if_changed,
     hashing::ahash_str,
     interned_string::InternedString,
     log_w,
@@ -46,11 +47,9 @@ impl UserString {
         let float_value = maybe_parse_f64(&value);
         let timestamp_value = try_parse_timestamp(&value, int_value);
         let value = InternedString::from_string_uninterned(value);
-        let lowercased_value = if value.as_str().bytes().any(|byte| byte.is_ascii_uppercase()) {
-            InternedString::from_string_uninterned(value.as_str().to_lowercase())
-        } else {
-            value.clone()
-        };
+        let lowercased_value = lowercase_if_changed(value.as_str())
+            .map(InternedString::from_string_uninterned)
+            .unwrap_or_else(|| value.clone());
 
         Self {
             int_value,

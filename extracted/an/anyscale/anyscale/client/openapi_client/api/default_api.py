@@ -3060,6 +3060,129 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def associate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_post(self, workspace_id, connection_config_id, **kwargs):  # noqa: E501
+        """Associate Workspace Connection Config  # noqa: E501
+
+        Associate a federated connection config with a workspace  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.associate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_post(workspace_id, connection_config_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str workspace_id: ID of the Workspace (required)
+        :param str connection_config_id: ID of the connection config to associate (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: WorkspaceconnectioninfoResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.associate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_post_with_http_info(workspace_id, connection_config_id, **kwargs)  # noqa: E501
+
+    def associate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_post_with_http_info(self, workspace_id, connection_config_id, **kwargs):  # noqa: E501
+        """Associate Workspace Connection Config  # noqa: E501
+
+        Associate a federated connection config with a workspace  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.associate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_post_with_http_info(workspace_id, connection_config_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str workspace_id: ID of the Workspace (required)
+        :param str connection_config_id: ID of the connection config to associate (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(WorkspaceconnectioninfoResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'workspace_id',
+            'connection_config_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method associate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'workspace_id' is set
+        if self.api_client.client_side_validation and ('workspace_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['workspace_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `workspace_id` when calling `associate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_post`")  # noqa: E501
+        # verify the required parameter 'connection_config_id' is set
+        if self.api_client.client_side_validation and ('connection_config_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['connection_config_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `connection_config_id` when calling `associate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'workspace_id' in local_var_params:
+            path_params['workspace_id'] = local_var_params['workspace_id']  # noqa: E501
+        if 'connection_config_id' in local_var_params:
+            path_params['connection_config_id'] = local_var_params['connection_config_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/experimental_workspaces/{workspace_id}/connection_configs/{connection_config_id}', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='WorkspaceconnectioninfoResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def attach_machine_pool_to_cloud_api_v2_machine_pools_attach_post(self, attach_machine_pool_to_cloud_request, **kwargs):  # noqa: E501
         """Attach Machine Pool To Cloud  # noqa: E501
 
@@ -16012,6 +16135,129 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def disassociate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_delete(self, workspace_id, connection_config_id, **kwargs):  # noqa: E501
+        """Disassociate Workspace Connection Config  # noqa: E501
+
+        Disassociate a federated connection config from a workspace  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.disassociate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_delete(workspace_id, connection_config_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str workspace_id: ID of the Workspace (required)
+        :param str connection_config_id: ID of the connection config to remove (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.disassociate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_delete_with_http_info(workspace_id, connection_config_id, **kwargs)  # noqa: E501
+
+    def disassociate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_delete_with_http_info(self, workspace_id, connection_config_id, **kwargs):  # noqa: E501
+        """Disassociate Workspace Connection Config  # noqa: E501
+
+        Disassociate a federated connection config from a workspace  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.disassociate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_delete_with_http_info(workspace_id, connection_config_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str workspace_id: ID of the Workspace (required)
+        :param str connection_config_id: ID of the connection config to remove (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'workspace_id',
+            'connection_config_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method disassociate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_delete" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'workspace_id' is set
+        if self.api_client.client_side_validation and ('workspace_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['workspace_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `workspace_id` when calling `disassociate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_delete`")  # noqa: E501
+        # verify the required parameter 'connection_config_id' is set
+        if self.api_client.client_side_validation and ('connection_config_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['connection_config_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `connection_config_id` when calling `disassociate_workspace_connection_config_api_v2_experimental_workspaces_workspace_id_connection_configs_connection_config_id_delete`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'workspace_id' in local_var_params:
+            path_params['workspace_id'] = local_var_params['workspace_id']  # noqa: E501
+        if 'connection_config_id' in local_var_params:
+            path_params['connection_config_id'] = local_var_params['connection_config_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/experimental_workspaces/{workspace_id}/connection_configs/{connection_config_id}', 'DELETE',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def disconnect_databricks_connection_api_v2_integrations_connections_databricks_connection_id_disconnect_post(self, connection_id, **kwargs):  # noqa: E501
         """Disconnect Databricks Connection  # noqa: E501
 
@@ -22325,6 +22571,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cloud_id: (required)
+        :param str project_id: Show only this project. Absent shows every project the caller can read.
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -22350,6 +22597,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cloud_id: (required)
+        :param str project_id: Show only this project. Absent shows every project the caller can read.
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -22367,7 +22615,8 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cloud_id'
+            'cloud_id',
+            'project_id'
         ]
         all_params.extend(
             [
@@ -22398,6 +22647,8 @@ class DefaultApi(object):
             path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
 
         query_params = []
+        if 'project_id' in local_var_params and local_var_params['project_id'] is not None:  # noqa: E501
+            query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
 
         header_params = {}
 
@@ -34739,6 +34990,111 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_scheduler_visibility_api_v2_scheduler_visibility_get(self, **kwargs):  # noqa: E501
+        """Get Scheduler Visibility  # noqa: E501
+
+        Whether every user in the organization can view the read-only workload scheduler pages. Does not return the config.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_scheduler_visibility_api_v2_scheduler_visibility_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: SchedulervisibilityresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_scheduler_visibility_api_v2_scheduler_visibility_get_with_http_info(**kwargs)  # noqa: E501
+
+    def get_scheduler_visibility_api_v2_scheduler_visibility_get_with_http_info(self, **kwargs):  # noqa: E501
+        """Get Scheduler Visibility  # noqa: E501
+
+        Whether every user in the organization can view the read-only workload scheduler pages. Does not return the config.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_scheduler_visibility_api_v2_scheduler_visibility_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(SchedulervisibilityresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_scheduler_visibility_api_v2_scheduler_visibility_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/scheduler/visibility', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='SchedulervisibilityresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_sensitive_message_presigned_url_api_v2_decorated_ha_jobs_production_job_id_events_ha_job_event_id_sensitive_message_presigned_url_get(self, production_job_id, ha_job_event_id, **kwargs):  # noqa: E501
         """Get Sensitive Message Presigned Url  # noqa: E501
 
@@ -37150,16 +37506,20 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get(self, cluster_id, **kwargs):  # noqa: E501
-        """Get Task Exception Aggregates  # noqa: E501
+    def get_task_attempt_api_v2_tasks_dashboard_attempt_get(self, cluster_id, ray_session_name, task_id, attempt_number, **kwargs):  # noqa: E501
+        """Get Task Attempt  # noqa: E501
 
+        One attempt of a task (observability_api's get_task_detail); 404 when it doesn't exist.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get(cluster_id, async_req=True)
+        >>> thread = api.get_task_attempt_api_v2_tasks_dashboard_attempt_get(cluster_id, ray_session_name, task_id, attempt_number, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
         :param str cluster_id: (required)
+        :param str ray_session_name: (required)
+        :param str task_id: (required)
+        :param int attempt_number: (required)
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -37167,23 +37527,27 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: TaskExceptionGroupAggregateResponse
+        :return: TasktablerowResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
         kwargs['_return_http_data_only'] = True
-        return self.get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get_with_http_info(cluster_id, **kwargs)  # noqa: E501
+        return self.get_task_attempt_api_v2_tasks_dashboard_attempt_get_with_http_info(cluster_id, ray_session_name, task_id, attempt_number, **kwargs)  # noqa: E501
 
-    def get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get_with_http_info(self, cluster_id, **kwargs):  # noqa: E501
-        """Get Task Exception Aggregates  # noqa: E501
+    def get_task_attempt_api_v2_tasks_dashboard_attempt_get_with_http_info(self, cluster_id, ray_session_name, task_id, attempt_number, **kwargs):  # noqa: E501
+        """Get Task Attempt  # noqa: E501
 
+        One attempt of a task (observability_api's get_task_detail); 404 when it doesn't exist.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get_with_http_info(cluster_id, async_req=True)
+        >>> thread = api.get_task_attempt_api_v2_tasks_dashboard_attempt_get_with_http_info(cluster_id, ray_session_name, task_id, attempt_number, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
         :param str cluster_id: (required)
+        :param str ray_session_name: (required)
+        :param str task_id: (required)
+        :param int attempt_number: (required)
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -37193,7 +37557,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(TaskExceptionGroupAggregateResponse, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(TasktablerowResponse, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -37201,7 +37565,151 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cluster_id'
+            'cluster_id',
+            'ray_session_name',
+            'task_id',
+            'attempt_number'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_task_attempt_api_v2_tasks_dashboard_attempt_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cluster_id' is set
+        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cluster_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_task_attempt_api_v2_tasks_dashboard_attempt_get`")  # noqa: E501
+        # verify the required parameter 'ray_session_name' is set
+        if self.api_client.client_side_validation and ('ray_session_name' not in local_var_params or  # noqa: E501
+                                                        local_var_params['ray_session_name'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `ray_session_name` when calling `get_task_attempt_api_v2_tasks_dashboard_attempt_get`")  # noqa: E501
+        # verify the required parameter 'task_id' is set
+        if self.api_client.client_side_validation and ('task_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['task_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `task_id` when calling `get_task_attempt_api_v2_tasks_dashboard_attempt_get`")  # noqa: E501
+        # verify the required parameter 'attempt_number' is set
+        if self.api_client.client_side_validation and ('attempt_number' not in local_var_params or  # noqa: E501
+                                                        local_var_params['attempt_number'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `attempt_number` when calling `get_task_attempt_api_v2_tasks_dashboard_attempt_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
+            query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'ray_session_name' in local_var_params and local_var_params['ray_session_name'] is not None:  # noqa: E501
+            query_params.append(('ray_session_name', local_var_params['ray_session_name']))  # noqa: E501
+        if 'task_id' in local_var_params and local_var_params['task_id'] is not None:  # noqa: E501
+            query_params.append(('task_id', local_var_params['task_id']))  # noqa: E501
+        if 'attempt_number' in local_var_params and local_var_params['attempt_number'] is not None:  # noqa: E501
+            query_params.append(('attempt_number', local_var_params['attempt_number']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/tasks_dashboard/attempt', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='TasktablerowResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get(self, cluster_id, **kwargs):  # noqa: E501
+        """Get Task Exception Aggregates  # noqa: E501
+
+        Task attempts with an error type, grouped by it and Ray session, most attempts first.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get(cluster_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str ray_session_name:
+        :param int offset:
+        :param int page_size:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: TaskexceptiongroupaggregateresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get_with_http_info(cluster_id, **kwargs)  # noqa: E501
+
+    def get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get_with_http_info(self, cluster_id, **kwargs):  # noqa: E501
+        """Get Task Exception Aggregates  # noqa: E501
+
+        Task attempts with an error type, grouped by it and Ray session, most attempts first.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get_with_http_info(cluster_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str ray_session_name:
+        :param int offset:
+        :param int page_size:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(TaskexceptiongroupaggregateresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cluster_id',
+            'ray_session_name',
+            'offset',
+            'page_size'
         ]
         all_params.extend(
             [
@@ -37225,6 +37733,10 @@ class DefaultApi(object):
                                                         local_var_params['cluster_id'] is None):  # noqa: E501
             raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get`")  # noqa: E501
 
+        if self.api_client.client_side_validation and 'offset' in local_var_params and local_var_params['offset'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `offset` when calling `get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get`, must be a value greater than or equal to `0`")  # noqa: E501
+        if self.api_client.client_side_validation and 'page_size' in local_var_params and local_var_params['page_size'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `page_size` when calling `get_task_exception_aggregates_api_v2_tasks_dashboard_aggregate_by_exception_get`, must be a value greater than or equal to `0`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}
@@ -37232,6 +37744,12 @@ class DefaultApi(object):
         query_params = []
         if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
             query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'ray_session_name' in local_var_params and local_var_params['ray_session_name'] is not None:  # noqa: E501
+            query_params.append(('ray_session_name', local_var_params['ray_session_name']))  # noqa: E501
+        if 'offset' in local_var_params and local_var_params['offset'] is not None:  # noqa: E501
+            query_params.append(('offset', local_var_params['offset']))  # noqa: E501
+        if 'page_size' in local_var_params and local_var_params['page_size'] is not None:  # noqa: E501
+            query_params.append(('page_size', local_var_params['page_size']))  # noqa: E501
 
         header_params = {}
 
@@ -37254,7 +37772,7 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='TaskExceptionGroupAggregateResponse',  # noqa: E501
+            response_type='TaskexceptiongroupaggregateresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -37265,6 +37783,7 @@ class DefaultApi(object):
     def get_task_function_aggregates_api_v2_tasks_dashboard_aggregate_by_function_get(self, cluster_id, **kwargs):  # noqa: E501
         """Get Task Function Aggregates  # noqa: E501
 
+        Task attempts grouped by function and Ray session, most attempts first. Each group has its function's name hash and the batch id to resolve it with; function_name is empty.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_task_function_aggregates_api_v2_tasks_dashboard_aggregate_by_function_get(cluster_id, async_req=True)
@@ -37272,6 +37791,9 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cluster_id: (required)
+        :param str ray_session_name:
+        :param int offset:
+        :param int page_size:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -37279,7 +37801,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: TaskFunctionNameGroupAggregateResponse
+        :return: TaskfunctionnamegroupaggregateresponseResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -37289,6 +37811,7 @@ class DefaultApi(object):
     def get_task_function_aggregates_api_v2_tasks_dashboard_aggregate_by_function_get_with_http_info(self, cluster_id, **kwargs):  # noqa: E501
         """Get Task Function Aggregates  # noqa: E501
 
+        Task attempts grouped by function and Ray session, most attempts first. Each group has its function's name hash and the batch id to resolve it with; function_name is empty.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_task_function_aggregates_api_v2_tasks_dashboard_aggregate_by_function_get_with_http_info(cluster_id, async_req=True)
@@ -37296,6 +37819,9 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cluster_id: (required)
+        :param str ray_session_name:
+        :param int offset:
+        :param int page_size:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -37305,7 +37831,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(TaskFunctionNameGroupAggregateResponse, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(TaskfunctionnamegroupaggregateresponseResponse, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -37313,7 +37839,10 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cluster_id'
+            'cluster_id',
+            'ray_session_name',
+            'offset',
+            'page_size'
         ]
         all_params.extend(
             [
@@ -37337,6 +37866,10 @@ class DefaultApi(object):
                                                         local_var_params['cluster_id'] is None):  # noqa: E501
             raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_task_function_aggregates_api_v2_tasks_dashboard_aggregate_by_function_get`")  # noqa: E501
 
+        if self.api_client.client_side_validation and 'offset' in local_var_params and local_var_params['offset'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `offset` when calling `get_task_function_aggregates_api_v2_tasks_dashboard_aggregate_by_function_get`, must be a value greater than or equal to `0`")  # noqa: E501
+        if self.api_client.client_side_validation and 'page_size' in local_var_params and local_var_params['page_size'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `page_size` when calling `get_task_function_aggregates_api_v2_tasks_dashboard_aggregate_by_function_get`, must be a value greater than or equal to `0`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}
@@ -37344,6 +37877,12 @@ class DefaultApi(object):
         query_params = []
         if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
             query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'ray_session_name' in local_var_params and local_var_params['ray_session_name'] is not None:  # noqa: E501
+            query_params.append(('ray_session_name', local_var_params['ray_session_name']))  # noqa: E501
+        if 'offset' in local_var_params and local_var_params['offset'] is not None:  # noqa: E501
+            query_params.append(('offset', local_var_params['offset']))  # noqa: E501
+        if 'page_size' in local_var_params and local_var_params['page_size'] is not None:  # noqa: E501
+            query_params.append(('page_size', local_var_params['page_size']))  # noqa: E501
 
         header_params = {}
 
@@ -37366,7 +37905,7 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='TaskFunctionNameGroupAggregateResponse',  # noqa: E501
+            response_type='TaskfunctionnamegroupaggregateresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -37377,6 +37916,7 @@ class DefaultApi(object):
     def get_task_job_aggregates_api_v2_tasks_dashboard_aggregate_by_job_get(self, cluster_id, **kwargs):  # noqa: E501
         """Get Task Job Aggregates  # noqa: E501
 
+        Task attempts grouped by Ray job and session, most attempts first.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_task_job_aggregates_api_v2_tasks_dashboard_aggregate_by_job_get(cluster_id, async_req=True)
@@ -37384,6 +37924,9 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cluster_id: (required)
+        :param str ray_session_name:
+        :param int offset:
+        :param int page_size:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -37391,7 +37934,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: TaskJobGroupAggregateResponse
+        :return: TaskjobgroupaggregateresponseResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -37401,6 +37944,7 @@ class DefaultApi(object):
     def get_task_job_aggregates_api_v2_tasks_dashboard_aggregate_by_job_get_with_http_info(self, cluster_id, **kwargs):  # noqa: E501
         """Get Task Job Aggregates  # noqa: E501
 
+        Task attempts grouped by Ray job and session, most attempts first.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_task_job_aggregates_api_v2_tasks_dashboard_aggregate_by_job_get_with_http_info(cluster_id, async_req=True)
@@ -37408,6 +37952,9 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cluster_id: (required)
+        :param str ray_session_name:
+        :param int offset:
+        :param int page_size:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -37417,7 +37964,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(TaskJobGroupAggregateResponse, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(TaskjobgroupaggregateresponseResponse, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -37425,7 +37972,10 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cluster_id'
+            'cluster_id',
+            'ray_session_name',
+            'offset',
+            'page_size'
         ]
         all_params.extend(
             [
@@ -37449,6 +37999,10 @@ class DefaultApi(object):
                                                         local_var_params['cluster_id'] is None):  # noqa: E501
             raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_task_job_aggregates_api_v2_tasks_dashboard_aggregate_by_job_get`")  # noqa: E501
 
+        if self.api_client.client_side_validation and 'offset' in local_var_params and local_var_params['offset'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `offset` when calling `get_task_job_aggregates_api_v2_tasks_dashboard_aggregate_by_job_get`, must be a value greater than or equal to `0`")  # noqa: E501
+        if self.api_client.client_side_validation and 'page_size' in local_var_params and local_var_params['page_size'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `page_size` when calling `get_task_job_aggregates_api_v2_tasks_dashboard_aggregate_by_job_get`, must be a value greater than or equal to `0`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}
@@ -37456,6 +38010,12 @@ class DefaultApi(object):
         query_params = []
         if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
             query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'ray_session_name' in local_var_params and local_var_params['ray_session_name'] is not None:  # noqa: E501
+            query_params.append(('ray_session_name', local_var_params['ray_session_name']))  # noqa: E501
+        if 'offset' in local_var_params and local_var_params['offset'] is not None:  # noqa: E501
+            query_params.append(('offset', local_var_params['offset']))  # noqa: E501
+        if 'page_size' in local_var_params and local_var_params['page_size'] is not None:  # noqa: E501
+            query_params.append(('page_size', local_var_params['page_size']))  # noqa: E501
 
         header_params = {}
 
@@ -37478,7 +38038,139 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='TaskJobGroupAggregateResponse',  # noqa: E501
+            response_type='TaskjobgroupaggregateresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_task_parent_api_v2_tasks_dashboard_parent_get(self, cluster_id, ray_session_name, task_id, **kwargs):  # noqa: E501
+        """Get Task Parent  # noqa: E501
+
+        The latest attempt of the task's parent, which can be its driver task; null when the task or its parent isn't found.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_task_parent_api_v2_tasks_dashboard_parent_get(cluster_id, ray_session_name, task_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str ray_session_name: (required)
+        :param str task_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: TaskparentresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_task_parent_api_v2_tasks_dashboard_parent_get_with_http_info(cluster_id, ray_session_name, task_id, **kwargs)  # noqa: E501
+
+    def get_task_parent_api_v2_tasks_dashboard_parent_get_with_http_info(self, cluster_id, ray_session_name, task_id, **kwargs):  # noqa: E501
+        """Get Task Parent  # noqa: E501
+
+        The latest attempt of the task's parent, which can be its driver task; null when the task or its parent isn't found.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_task_parent_api_v2_tasks_dashboard_parent_get_with_http_info(cluster_id, ray_session_name, task_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str ray_session_name: (required)
+        :param str task_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(TaskparentresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cluster_id',
+            'ray_session_name',
+            'task_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_task_parent_api_v2_tasks_dashboard_parent_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cluster_id' is set
+        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cluster_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_task_parent_api_v2_tasks_dashboard_parent_get`")  # noqa: E501
+        # verify the required parameter 'ray_session_name' is set
+        if self.api_client.client_side_validation and ('ray_session_name' not in local_var_params or  # noqa: E501
+                                                        local_var_params['ray_session_name'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `ray_session_name` when calling `get_task_parent_api_v2_tasks_dashboard_parent_get`")  # noqa: E501
+        # verify the required parameter 'task_id' is set
+        if self.api_client.client_side_validation and ('task_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['task_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `task_id` when calling `get_task_parent_api_v2_tasks_dashboard_parent_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
+            query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'ray_session_name' in local_var_params and local_var_params['ray_session_name'] is not None:  # noqa: E501
+            query_params.append(('ray_session_name', local_var_params['ray_session_name']))  # noqa: E501
+        if 'task_id' in local_var_params and local_var_params['task_id'] is not None:  # noqa: E501
+            query_params.append(('task_id', local_var_params['task_id']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/tasks_dashboard/parent', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='TaskparentresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -37489,7 +38181,7 @@ class DefaultApi(object):
     def get_task_summary_api_v2_tasks_dashboard_summary_get(self, cluster_id, **kwargs):  # noqa: E501
         """Get Task Summary  # noqa: E501
 
-        Task attempts by current state, for one Ray session or, without `ray_session_name`, all of the cluster's sessions. Takes observability_api's get_task_summary parameters; the filters are not supported yet, and a request that sets any of them is rejected.  # noqa: E501
+        Task attempts by current state, for one Ray session or, without `ray_session_name`, all of the cluster's sessions. Takes observability_api's get_task_summary parameters.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_task_summary_api_v2_tasks_dashboard_summary_get(cluster_id, async_req=True)
@@ -37498,10 +38190,10 @@ class DefaultApi(object):
         :param async_req bool: execute request asynchronously
         :param str cluster_id: (required)
         :param str ray_session_name:
-        :param str data_operator_id: Not supported yet.
-        :param bool latest_attempt_only: Not supported yet.
-        :param str node_id: Not supported yet.
-        :param str actor_id: Not supported yet.
+        :param str data_operator_id:
+        :param bool latest_attempt_only:
+        :param str node_id:
+        :param str actor_id:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -37519,7 +38211,7 @@ class DefaultApi(object):
     def get_task_summary_api_v2_tasks_dashboard_summary_get_with_http_info(self, cluster_id, **kwargs):  # noqa: E501
         """Get Task Summary  # noqa: E501
 
-        Task attempts by current state, for one Ray session or, without `ray_session_name`, all of the cluster's sessions. Takes observability_api's get_task_summary parameters; the filters are not supported yet, and a request that sets any of them is rejected.  # noqa: E501
+        Task attempts by current state, for one Ray session or, without `ray_session_name`, all of the cluster's sessions. Takes observability_api's get_task_summary parameters.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_task_summary_api_v2_tasks_dashboard_summary_get_with_http_info(cluster_id, async_req=True)
@@ -37528,10 +38220,10 @@ class DefaultApi(object):
         :param async_req bool: execute request asynchronously
         :param str cluster_id: (required)
         :param str ray_session_name:
-        :param str data_operator_id: Not supported yet.
-        :param bool latest_attempt_only: Not supported yet.
-        :param str node_id: Not supported yet.
-        :param str actor_id: Not supported yet.
+        :param str data_operator_id:
+        :param bool latest_attempt_only:
+        :param str node_id:
+        :param str actor_id:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -37625,18 +38317,34 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def get_task_table_api_v2_tasks_dashboard_table_get(self, cluster_id, task_table_config, **kwargs):  # noqa: E501
+    def get_task_table_api_v2_tasks_dashboard_table_get(self, cluster_id, **kwargs):  # noqa: E501
         """Get Task Table  # noqa: E501
 
-        Paging tokens are integers that represent the page number.  # noqa: E501
+        A page of the cluster's tasks, with every attempt of them that matches the filters. Takes observability_api's get_task_table parameters, except that functions are filtered by name hash and the search is split into ids (text) and a hash (text_hash), so no function name or error message reaches the control plane.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.get_task_table_api_v2_tasks_dashboard_table_get(cluster_id, task_table_config, async_req=True)
+        >>> thread = api.get_task_table_api_v2_tasks_dashboard_table_get(cluster_id, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
         :param str cluster_id: (required)
-        :param TaskTableConfig task_table_config: (required)
+        :param str ray_session_name:
+        :param int offset: Tasks to skip.
+        :param int page_size: Tasks per page, at most 100.
+        :param str sort_field: START_TIME (default), END_TIME, ATTEMPT_NUMBER or DURATION.
+        :param str sort_order: ASC, or DESC (default).
+        :param str task_id:
+        :param str function_name_hash:
+        :param list[TaskState] current_state:
+        :param str text: Hex digits matched against task, node and worker ids.
+        :param str text_hash: Hex SHA-256 of \"<cluster_id>:<search text>\", matched against function names and error messages.
+        :param str job_id:
+        :param str exception_type:
+        :param TaskAttempts attempt:
+        :param str data_operator_id:
+        :param bool latest_attempt_only:
+        :param str node_id:
+        :param str actor_id:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -37644,25 +38352,41 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: TaskTableResponse
+        :return: TasktableresponseResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
         kwargs['_return_http_data_only'] = True
-        return self.get_task_table_api_v2_tasks_dashboard_table_get_with_http_info(cluster_id, task_table_config, **kwargs)  # noqa: E501
+        return self.get_task_table_api_v2_tasks_dashboard_table_get_with_http_info(cluster_id, **kwargs)  # noqa: E501
 
-    def get_task_table_api_v2_tasks_dashboard_table_get_with_http_info(self, cluster_id, task_table_config, **kwargs):  # noqa: E501
+    def get_task_table_api_v2_tasks_dashboard_table_get_with_http_info(self, cluster_id, **kwargs):  # noqa: E501
         """Get Task Table  # noqa: E501
 
-        Paging tokens are integers that represent the page number.  # noqa: E501
+        A page of the cluster's tasks, with every attempt of them that matches the filters. Takes observability_api's get_task_table parameters, except that functions are filtered by name hash and the search is split into ids (text) and a hash (text_hash), so no function name or error message reaches the control plane.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.get_task_table_api_v2_tasks_dashboard_table_get_with_http_info(cluster_id, task_table_config, async_req=True)
+        >>> thread = api.get_task_table_api_v2_tasks_dashboard_table_get_with_http_info(cluster_id, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
         :param str cluster_id: (required)
-        :param TaskTableConfig task_table_config: (required)
+        :param str ray_session_name:
+        :param int offset: Tasks to skip.
+        :param int page_size: Tasks per page, at most 100.
+        :param str sort_field: START_TIME (default), END_TIME, ATTEMPT_NUMBER or DURATION.
+        :param str sort_order: ASC, or DESC (default).
+        :param str task_id:
+        :param str function_name_hash:
+        :param list[TaskState] current_state:
+        :param str text: Hex digits matched against task, node and worker ids.
+        :param str text_hash: Hex SHA-256 of \"<cluster_id>:<search text>\", matched against function names and error messages.
+        :param str job_id:
+        :param str exception_type:
+        :param TaskAttempts attempt:
+        :param str data_operator_id:
+        :param bool latest_attempt_only:
+        :param str node_id:
+        :param str actor_id:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -37672,7 +38396,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(TaskTableResponse, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(TasktableresponseResponse, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -37681,7 +38405,23 @@ class DefaultApi(object):
 
         all_params = [
             'cluster_id',
-            'task_table_config'
+            'ray_session_name',
+            'offset',
+            'page_size',
+            'sort_field',
+            'sort_order',
+            'task_id',
+            'function_name_hash',
+            'current_state',
+            'text',
+            'text_hash',
+            'job_id',
+            'exception_type',
+            'attempt',
+            'data_operator_id',
+            'latest_attempt_only',
+            'node_id',
+            'actor_id'
         ]
         all_params.extend(
             [
@@ -37704,11 +38444,11 @@ class DefaultApi(object):
         if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
                                                         local_var_params['cluster_id'] is None):  # noqa: E501
             raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_task_table_api_v2_tasks_dashboard_table_get`")  # noqa: E501
-        # verify the required parameter 'task_table_config' is set
-        if self.api_client.client_side_validation and ('task_table_config' not in local_var_params or  # noqa: E501
-                                                        local_var_params['task_table_config'] is None):  # noqa: E501
-            raise ApiValueError("Missing the required parameter `task_table_config` when calling `get_task_table_api_v2_tasks_dashboard_table_get`")  # noqa: E501
 
+        if self.api_client.client_side_validation and 'offset' in local_var_params and local_var_params['offset'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `offset` when calling `get_task_table_api_v2_tasks_dashboard_table_get`, must be a value greater than or equal to `0`")  # noqa: E501
+        if self.api_client.client_side_validation and 'page_size' in local_var_params and local_var_params['page_size'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `page_size` when calling `get_task_table_api_v2_tasks_dashboard_table_get`, must be a value greater than or equal to `0`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}
@@ -37716,6 +38456,41 @@ class DefaultApi(object):
         query_params = []
         if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
             query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'ray_session_name' in local_var_params and local_var_params['ray_session_name'] is not None:  # noqa: E501
+            query_params.append(('ray_session_name', local_var_params['ray_session_name']))  # noqa: E501
+        if 'offset' in local_var_params and local_var_params['offset'] is not None:  # noqa: E501
+            query_params.append(('offset', local_var_params['offset']))  # noqa: E501
+        if 'page_size' in local_var_params and local_var_params['page_size'] is not None:  # noqa: E501
+            query_params.append(('page_size', local_var_params['page_size']))  # noqa: E501
+        if 'sort_field' in local_var_params and local_var_params['sort_field'] is not None:  # noqa: E501
+            query_params.append(('sort_field', local_var_params['sort_field']))  # noqa: E501
+        if 'sort_order' in local_var_params and local_var_params['sort_order'] is not None:  # noqa: E501
+            query_params.append(('sort_order', local_var_params['sort_order']))  # noqa: E501
+        if 'task_id' in local_var_params and local_var_params['task_id'] is not None:  # noqa: E501
+            query_params.append(('task_id', local_var_params['task_id']))  # noqa: E501
+        if 'function_name_hash' in local_var_params and local_var_params['function_name_hash'] is not None:  # noqa: E501
+            query_params.append(('function_name_hash', local_var_params['function_name_hash']))  # noqa: E501
+        if 'current_state' in local_var_params and local_var_params['current_state'] is not None:  # noqa: E501
+            query_params.append(('current_state', local_var_params['current_state']))  # noqa: E501
+            collection_formats['current_state'] = 'multi'  # noqa: E501
+        if 'text' in local_var_params and local_var_params['text'] is not None:  # noqa: E501
+            query_params.append(('text', local_var_params['text']))  # noqa: E501
+        if 'text_hash' in local_var_params and local_var_params['text_hash'] is not None:  # noqa: E501
+            query_params.append(('text_hash', local_var_params['text_hash']))  # noqa: E501
+        if 'job_id' in local_var_params and local_var_params['job_id'] is not None:  # noqa: E501
+            query_params.append(('job_id', local_var_params['job_id']))  # noqa: E501
+        if 'exception_type' in local_var_params and local_var_params['exception_type'] is not None:  # noqa: E501
+            query_params.append(('exception_type', local_var_params['exception_type']))  # noqa: E501
+        if 'attempt' in local_var_params and local_var_params['attempt'] is not None:  # noqa: E501
+            query_params.append(('attempt', local_var_params['attempt']))  # noqa: E501
+        if 'data_operator_id' in local_var_params and local_var_params['data_operator_id'] is not None:  # noqa: E501
+            query_params.append(('data_operator_id', local_var_params['data_operator_id']))  # noqa: E501
+        if 'latest_attempt_only' in local_var_params and local_var_params['latest_attempt_only'] is not None:  # noqa: E501
+            query_params.append(('latest_attempt_only', local_var_params['latest_attempt_only']))  # noqa: E501
+        if 'node_id' in local_var_params and local_var_params['node_id'] is not None:  # noqa: E501
+            query_params.append(('node_id', local_var_params['node_id']))  # noqa: E501
+        if 'actor_id' in local_var_params and local_var_params['actor_id'] is not None:  # noqa: E501
+            query_params.append(('actor_id', local_var_params['actor_id']))  # noqa: E501
 
         header_params = {}
 
@@ -37723,14 +38498,8 @@ class DefaultApi(object):
         local_var_files = {}
 
         body_params = None
-        if 'task_table_config' in local_var_params:
-            body_params = local_var_params['task_table_config']
         # HTTP header `Accept`
         header_params['Accept'] = self.api_client.select_header_accept(
-            ['application/json'])  # noqa: E501
-
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
             ['application/json'])  # noqa: E501
 
         # Authentication setting
@@ -37744,7 +38513,7 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='TaskTableResponse',  # noqa: E501
+            response_type='TasktableresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -46328,7 +47097,7 @@ class DefaultApi(object):
     def list_log_files_api_v2_logs_entity_type_entity_id_files_get(self, entity_type, entity_id, **kwargs):  # noqa: E501
         """List Log Files  # noqa: E501
 
-        Lists the log files a job, service, workspace or cluster wrote to the cloud bucket, with a presigned URL for each chunk.  The workload is resolved to one cluster: a job to its latest run's cluster (or the run named by ``job_run``), a service to its primary version's newest cluster (or the version named by ``service_version``), a workspace to its cluster.  # noqa: E501
+        Lists the log files a job, service, workspace or cluster wrote to the cloud bucket, with a presigned URL for each chunk.  The workload is resolved to one cluster: a job to its latest run's cluster (or the run named by ``job_run``), a service to its primary version's newest cluster (or the version named by ``service_version``), a workspace to its cluster. A job with application logs and no file or node filter lists only its output, the `job-driver-<run>.log` file, as `anyscale job logs` does; with a glob or a node filter its cluster is listed like any other.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_log_files_api_v2_logs_entity_type_entity_id_files_get(entity_type, entity_id, async_req=True)
@@ -46369,7 +47138,7 @@ class DefaultApi(object):
     def list_log_files_api_v2_logs_entity_type_entity_id_files_get_with_http_info(self, entity_type, entity_id, **kwargs):  # noqa: E501
         """List Log Files  # noqa: E501
 
-        Lists the log files a job, service, workspace or cluster wrote to the cloud bucket, with a presigned URL for each chunk.  The workload is resolved to one cluster: a job to its latest run's cluster (or the run named by ``job_run``), a service to its primary version's newest cluster (or the version named by ``service_version``), a workspace to its cluster.  # noqa: E501
+        Lists the log files a job, service, workspace or cluster wrote to the cloud bucket, with a presigned URL for each chunk.  The workload is resolved to one cluster: a job to its latest run's cluster (or the run named by ``job_run``), a service to its primary version's newest cluster (or the version named by ``service_version``), a workspace to its cluster. A job with application logs and no file or node filter lists only its output, the `job-driver-<run>.log` file, as `anyscale job logs` does; with a glob or a node filter its cluster is listed like any other.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_log_files_api_v2_logs_entity_type_entity_id_files_get_with_http_info(entity_type, entity_id, async_req=True)
@@ -47366,6 +48135,125 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def list_organization_owners_api_v2_organization_collaborators_owners_get(self, **kwargs):  # noqa: E501
+        """List Organization Owners  # noqa: E501
+
+        Retrieves the owners of the logged in user's organization  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_organization_owners_api_v2_organization_collaborators_owners_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str paging_token:
+        :param int count:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: OrganizationownerListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_organization_owners_api_v2_organization_collaborators_owners_get_with_http_info(**kwargs)  # noqa: E501
+
+    def list_organization_owners_api_v2_organization_collaborators_owners_get_with_http_info(self, **kwargs):  # noqa: E501
+        """List Organization Owners  # noqa: E501
+
+        Retrieves the owners of the logged in user's organization  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_organization_owners_api_v2_organization_collaborators_owners_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str paging_token:
+        :param int count:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(OrganizationownerListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'paging_token',
+            'count'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_organization_owners_api_v2_organization_collaborators_owners_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 50:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_organization_owners_api_v2_organization_collaborators_owners_get`, must be a value less than or equal to `50`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_organization_owners_api_v2_organization_collaborators_owners_get`, must be a value greater than or equal to `0`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
+            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
+        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
+            query_params.append(('count', local_var_params['count']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/organization_collaborators/owners', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='OrganizationownerListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def list_principals_api_v2_role_bindings_principals_get(self, **kwargs):  # noqa: E501
         """List Principals  # noqa: E501
 
@@ -47640,6 +48528,7 @@ class DefaultApi(object):
         :param str name_contains: filter by name of project
         :param str creator_id: filter by creator id
         :param str parent_cloud_id: filter by cloud this project is associated with
+        :param ProjectCreatePermission create_permission: only projects the caller can create this kind of workload in. Has no effect when per-project access control is not enabled for the organization.
         :param bool include_defaults: include default projects
         :param ProjectsSortField sort_field: If absent, the sort order will be determined according to the entity type.
         :param SortOrder sort_order: If sort_field is absent, this field is ignored.If absent, this field defaults to ascending.
@@ -47671,6 +48560,7 @@ class DefaultApi(object):
         :param str name_contains: filter by name of project
         :param str creator_id: filter by creator id
         :param str parent_cloud_id: filter by cloud this project is associated with
+        :param ProjectCreatePermission create_permission: only projects the caller can create this kind of workload in. Has no effect when per-project access control is not enabled for the organization.
         :param bool include_defaults: include default projects
         :param ProjectsSortField sort_field: If absent, the sort order will be determined according to the entity type.
         :param SortOrder sort_order: If sort_field is absent, this field is ignored.If absent, this field defaults to ascending.
@@ -47696,6 +48586,7 @@ class DefaultApi(object):
             'name_contains',
             'creator_id',
             'parent_cloud_id',
+            'create_permission',
             'include_defaults',
             'sort_field',
             'sort_order',
@@ -47735,6 +48626,8 @@ class DefaultApi(object):
             query_params.append(('creator_id', local_var_params['creator_id']))  # noqa: E501
         if 'parent_cloud_id' in local_var_params and local_var_params['parent_cloud_id'] is not None:  # noqa: E501
             query_params.append(('parent_cloud_id', local_var_params['parent_cloud_id']))  # noqa: E501
+        if 'create_permission' in local_var_params and local_var_params['create_permission'] is not None:  # noqa: E501
+            query_params.append(('create_permission', local_var_params['create_permission']))  # noqa: E501
         if 'include_defaults' in local_var_params and local_var_params['include_defaults'] is not None:  # noqa: E501
             query_params.append(('include_defaults', local_var_params['include_defaults']))  # noqa: E501
         if 'sort_field' in local_var_params and local_var_params['sort_field'] is not None:  # noqa: E501
@@ -48951,6 +49844,7 @@ class DefaultApi(object):
         :param str cloud_resource_id: Filter by cloud_resource_id
         :param str user_id: Filter by user_id
         :param str search_id: Exact id lookup. The id type is inferred from its prefix: cluster, cloud resource, job, service, or workspace id.
+        :param str workload_name: Filter to workloads whose name contains this value, ignoring case.
         :param list[EventLevel] level: Return events matching any of the specified levels
         :param list[SchedulerEventType] event_type: Return events matching any of the specified event types
         :param datetime start_time: Inclusive lower bound on emission time; beginning of time if unset
@@ -48990,6 +49884,7 @@ class DefaultApi(object):
         :param str cloud_resource_id: Filter by cloud_resource_id
         :param str user_id: Filter by user_id
         :param str search_id: Exact id lookup. The id type is inferred from its prefix: cluster, cloud resource, job, service, or workspace id.
+        :param str workload_name: Filter to workloads whose name contains this value, ignoring case.
         :param list[EventLevel] level: Return events matching any of the specified levels
         :param list[SchedulerEventType] event_type: Return events matching any of the specified event types
         :param datetime start_time: Inclusive lower bound on emission time; beginning of time if unset
@@ -49022,6 +49917,7 @@ class DefaultApi(object):
             'cloud_resource_id',
             'user_id',
             'search_id',
+            'workload_name',
             'level',
             'event_type',
             'start_time',
@@ -49075,6 +49971,8 @@ class DefaultApi(object):
             query_params.append(('user_id', local_var_params['user_id']))  # noqa: E501
         if 'search_id' in local_var_params and local_var_params['search_id'] is not None:  # noqa: E501
             query_params.append(('search_id', local_var_params['search_id']))  # noqa: E501
+        if 'workload_name' in local_var_params and local_var_params['workload_name'] is not None:  # noqa: E501
+            query_params.append(('workload_name', local_var_params['workload_name']))  # noqa: E501
         if 'level' in local_var_params and local_var_params['level'] is not None:  # noqa: E501
             query_params.append(('level', local_var_params['level']))  # noqa: E501
             collection_formats['level'] = 'multi'  # noqa: E501
@@ -49916,6 +50814,152 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='DatacatalogtableListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def list_task_children_api_v2_tasks_dashboard_children_get(self, cluster_id, ray_session_name, task_id, **kwargs):  # noqa: E501
+        """List Task Children  # noqa: E501
+
+        The task's children, each as its latest attempt, most recently started first.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_task_children_api_v2_tasks_dashboard_children_get(cluster_id, ray_session_name, task_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str ray_session_name: (required)
+        :param str task_id: (required)
+        :param int offset:
+        :param int page_size:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: TasktableresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_task_children_api_v2_tasks_dashboard_children_get_with_http_info(cluster_id, ray_session_name, task_id, **kwargs)  # noqa: E501
+
+    def list_task_children_api_v2_tasks_dashboard_children_get_with_http_info(self, cluster_id, ray_session_name, task_id, **kwargs):  # noqa: E501
+        """List Task Children  # noqa: E501
+
+        The task's children, each as its latest attempt, most recently started first.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_task_children_api_v2_tasks_dashboard_children_get_with_http_info(cluster_id, ray_session_name, task_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str ray_session_name: (required)
+        :param str task_id: (required)
+        :param int offset:
+        :param int page_size:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(TasktableresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cluster_id',
+            'ray_session_name',
+            'task_id',
+            'offset',
+            'page_size'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_task_children_api_v2_tasks_dashboard_children_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cluster_id' is set
+        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cluster_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cluster_id` when calling `list_task_children_api_v2_tasks_dashboard_children_get`")  # noqa: E501
+        # verify the required parameter 'ray_session_name' is set
+        if self.api_client.client_side_validation and ('ray_session_name' not in local_var_params or  # noqa: E501
+                                                        local_var_params['ray_session_name'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `ray_session_name` when calling `list_task_children_api_v2_tasks_dashboard_children_get`")  # noqa: E501
+        # verify the required parameter 'task_id' is set
+        if self.api_client.client_side_validation and ('task_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['task_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `task_id` when calling `list_task_children_api_v2_tasks_dashboard_children_get`")  # noqa: E501
+
+        if self.api_client.client_side_validation and 'offset' in local_var_params and local_var_params['offset'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `offset` when calling `list_task_children_api_v2_tasks_dashboard_children_get`, must be a value greater than or equal to `0`")  # noqa: E501
+        if self.api_client.client_side_validation and 'page_size' in local_var_params and local_var_params['page_size'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `page_size` when calling `list_task_children_api_v2_tasks_dashboard_children_get`, must be a value greater than or equal to `0`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
+            query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'ray_session_name' in local_var_params and local_var_params['ray_session_name'] is not None:  # noqa: E501
+            query_params.append(('ray_session_name', local_var_params['ray_session_name']))  # noqa: E501
+        if 'task_id' in local_var_params and local_var_params['task_id'] is not None:  # noqa: E501
+            query_params.append(('task_id', local_var_params['task_id']))  # noqa: E501
+        if 'offset' in local_var_params and local_var_params['offset'] is not None:  # noqa: E501
+            query_params.append(('offset', local_var_params['offset']))  # noqa: E501
+        if 'page_size' in local_var_params and local_var_params['page_size'] is not None:  # noqa: E501
+            query_params.append(('page_size', local_var_params['page_size']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/tasks_dashboard/children', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='TasktableresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -66095,6 +67139,124 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def update_scheduler_visibility_api_v2_scheduler_visibility_put(self, update_scheduler_visibility_request, **kwargs):  # noqa: E501
+        """Update Scheduler Visibility  # noqa: E501
+
+        Let every user in the organization view the read-only workload scheduler pages, or limit them to organization owners. Requires the permission to update the scheduler config.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_scheduler_visibility_api_v2_scheduler_visibility_put(update_scheduler_visibility_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param UpdateSchedulerVisibilityRequest update_scheduler_visibility_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: SchedulervisibilityresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.update_scheduler_visibility_api_v2_scheduler_visibility_put_with_http_info(update_scheduler_visibility_request, **kwargs)  # noqa: E501
+
+    def update_scheduler_visibility_api_v2_scheduler_visibility_put_with_http_info(self, update_scheduler_visibility_request, **kwargs):  # noqa: E501
+        """Update Scheduler Visibility  # noqa: E501
+
+        Let every user in the organization view the read-only workload scheduler pages, or limit them to organization owners. Requires the permission to update the scheduler config.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_scheduler_visibility_api_v2_scheduler_visibility_put_with_http_info(update_scheduler_visibility_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param UpdateSchedulerVisibilityRequest update_scheduler_visibility_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(SchedulervisibilityresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'update_scheduler_visibility_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method update_scheduler_visibility_api_v2_scheduler_visibility_put" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'update_scheduler_visibility_request' is set
+        if self.api_client.client_side_validation and ('update_scheduler_visibility_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['update_scheduler_visibility_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `update_scheduler_visibility_request` when calling `update_scheduler_visibility_api_v2_scheduler_visibility_put`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'update_scheduler_visibility_request' in local_var_params:
+            body_params = local_var_params['update_scheduler_visibility_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/scheduler/visibility', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='SchedulervisibilityresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def update_system_cluster_config_api_v2_clouds_cloud_id_update_system_cluster_config_put(self, cloud_id, **kwargs):  # noqa: E501
         """Update System Cluster Config  # noqa: E501
 
@@ -66344,7 +67506,7 @@ class DefaultApi(object):
     def update_user_group_name_api_v2_user_groups_group_id_patch(self, group_id, update_user_group_name, **kwargs):  # noqa: E501
         """Update User Group Name  # noqa: E501
 
-        Update a user group's name.  Path Parameters: - **group_id**: The ID of the user group to update  Request Body: - **name**: New name for the user group (1-255 characters)  Returns: - Updated user group  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        Update a user group's name.  Path Parameters: - **group_id**: The ID of the user group to update  Request Body: - **name**: New name for the user group (1-255 characters)  Returns: - Updated user group  Permission requirements: - Caller must be an organization admin  All users, Service accounts and the organization admin group cannot be renamed (409).  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.update_user_group_name_api_v2_user_groups_group_id_patch(group_id, update_user_group_name, async_req=True)
@@ -66370,7 +67532,7 @@ class DefaultApi(object):
     def update_user_group_name_api_v2_user_groups_group_id_patch_with_http_info(self, group_id, update_user_group_name, **kwargs):  # noqa: E501
         """Update User Group Name  # noqa: E501
 
-        Update a user group's name.  Path Parameters: - **group_id**: The ID of the user group to update  Request Body: - **name**: New name for the user group (1-255 characters)  Returns: - Updated user group  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        Update a user group's name.  Path Parameters: - **group_id**: The ID of the user group to update  Request Body: - **name**: New name for the user group (1-255 characters)  Returns: - Updated user group  Permission requirements: - Caller must be an organization admin  All users, Service accounts and the organization admin group cannot be renamed (409).  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.update_user_group_name_api_v2_user_groups_group_id_patch_with_http_info(group_id, update_user_group_name, async_req=True)

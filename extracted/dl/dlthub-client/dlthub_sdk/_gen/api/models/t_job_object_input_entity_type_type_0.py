@@ -4,6 +4,7 @@ from enum import Enum
 class TJobObjectInputEntityTypeType0(str, Enum):
     DATASET = "dataset"
     JOB = "job"
+    JOB_RUN = "job-run"
     JOB_RUNS = "job-runs"
     PIPELINE = "pipeline"
     WORKSPACE = "workspace"

@@ -20,11 +20,13 @@ class LogLine:
     """
     Attributes:
         content (str): Contents of the log message
-        io_stream (LogIoStream | str): Stream the line was written to
-        line_num (int): Line number of the log
-        reported_at (datetime.datetime): datetime with the constraint that the value must have timezone info
+        io_stream (LogIoStream | str): Stream the line was written to: `stdout`, `stderr`, or `other` (a provider's info
+            channel, or a line stored before streams were kept).
+        line_num (int): Position of the line in the run's log.
+        reported_at (datetime.datetime): Timestamp when the log was reported
         source (LogSource | str): Who emitted the line
-        stage (RunSignalStage | str): Stage of the run the line belongs to
+        stage (RunSignalStage | str): Stage of the run the line belongs to: `build` (installing dependencies before the
+            job starts) or `run` (the job's execution).
     """
 
     content: str

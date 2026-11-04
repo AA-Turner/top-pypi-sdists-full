@@ -18,18 +18,16 @@ class CreateJobRunRequest:
     """
     Attributes:
         job_id (UUID): The ID of the job to run.
-        trigger (str): The trigger that starts this run, must be one of the triggers defined in the job definition (e.g.
-            manual:, schedule:0 8 * * *, tag:backfill).
-        mode (RunMode | Unset): Run creation mode. 'always' creates a new run every time. 'when_not_running' returns an
-            existing active run if one exists, otherwise creates a new one.
-        profile (None | str | Unset): The name of the profile to use for the run, will default to the default profile of
-            the job.
-        refresh (bool | Unset): When true, eagerly clear the job's prev_completed_run and all transitive freshness-graph
-            downstream, then ship a refresh signal to the launcher so the job performs a full reload instead of processing
-            the interval window. Default: False.
-        skip_freshness (bool | Unset): When true, bypass freshness gating and start the run even if upstream freshness
-            constraints are unmet. Default false: the run is skipped (status='skipped_fresh') when upstreams are not fresh.
-            Use this opt-in only when the caller explicitly wants to run regardless of upstream state. Default: False.
+        trigger (str): The trigger recorded on the run, e.g. `manual:jobs.my_job`, `schedule:0 8 * * *`. Must be a valid
+            trigger string.
+        mode (RunMode | Unset): How to create a run: `always` creates a new run; `when_not_running` returns the job's
+            pending, starting or running run if it has one, otherwise creates a new one.
+        profile (None | str | Unset): The profile to run under; defaults to the job's own profile.
+        refresh (bool | Unset): Start the run as a refresh: the job's progress goes back to its interval start and the
+            run receives `refresh: true` in its run context, leaving what to reload to the job's code. The progress of the
+            jobs downstream of it is reset too. Ignored when the job's `refresh_propagation` is `block`. Default: False.
+        skip_freshness (bool | Unset): Start the run even if its upstream jobs are not fresh. When false and an upstream
+            is stale, no run is created and the call answers 409 `upstream_not_fresh`. Default: False.
     """
 
     job_id: UUID

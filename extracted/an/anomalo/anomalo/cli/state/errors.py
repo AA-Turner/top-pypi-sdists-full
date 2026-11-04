@@ -100,3 +100,34 @@ class CheckNotFound(TableRefError):
 
     def __str__(self) -> str:
         return f'Check "{self.check_ref}" not found on table "{self.table_ref}"'
+
+
+class DbtManifestNotConverted(StateMachineError):
+    def __init__(self, filename: str):
+        self.filename = filename
+
+    def __str__(self) -> str:
+        return (
+            f"{self.filename} is a dbt manifest; convert it with `anomalo convert_config"
+            f" {self.filename} <output.yaml> --format dbt` and use the output"
+        )
+
+
+class UnknownConfigFormat(StateMachineError):
+    def __init__(self, config_format: str | None, formats: Sequence[str]) -> None:
+        self.config_format = config_format
+        self.formats = formats
+
+    def __str__(self) -> str:
+        known = ", ".join(self.formats)
+        if not self.config_format:
+            return f"--format is required; use one of {known}"
+        return f'Unknown --format "{self.config_format}"; use one of {known}'
+
+
+class UnknownWarehouse(StateMachineError):
+    def __init__(self, name: str):
+        self.name = name
+
+    def __str__(self) -> str:
+        return f'No Anomalo warehouse is uniquely named "{self.name}"'

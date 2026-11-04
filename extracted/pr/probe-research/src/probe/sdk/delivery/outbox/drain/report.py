@@ -165,9 +165,19 @@ class DrainReport:
     #: Ops left queued because their run's lane is held (`outbox/held`): nothing of that run passes
     #: its stuck write. Counted in ``remaining``.
     lane_held: int = 0
+    #: Servers (`held.get_server_key`: base URLs) a write landed on this pass, and
+    #: those a write never held before failed on: the worker lets a server's held writes out once
+    #: it answers again (I14).
+    answered_servers: set = field(default_factory=set)
+    failing_servers: set = field(default_factory=set)
+    #: I15d: runs whose close the server held this pass for queued data (``run_ref`` -> its
+    #: pending points): moving, not failing; the waiting finish() says so.
+    server_storing: dict = field(default_factory=dict)
 
     def note_run_progress(self, op: Any, *, delivered: bool) -> None:
         """One write of ``op``'s run moved: counted per run for the progress record."""
+        if delivered and isinstance(op, dict):
+            self.answered_servers.add(get_server_key(op))
         ref = op.get("run_ref") if isinstance(op, dict) else None
         if ref is not None and not isinstance(ref, str):
             return
@@ -196,3 +206,4 @@ class CredentialNotHere(OpHeldHere):
         super().__init__(message)
         self.permanent = permanent
 from probe.sdk.delivery.journal.failures.discards import DiscardCounts  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.outbox.held import get_server_key  # noqa: E402 -- pieces need each other; the front door loads this one first

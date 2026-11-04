@@ -6,9 +6,20 @@ import traceback
 from contextlib import nullcontext
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Literal, Optional, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+)
 
-from pydantic_ai.messages import ModelMessage
+if TYPE_CHECKING:
+    from pydantic_ai.messages import ModelMessage
 
 from code_puppy.error_logging import log_error
 
@@ -87,6 +98,8 @@ PhaseType = Literal[
     "feature_capability",
     "transform_model_messages",
     "error_logged",
+    "banner_notice",
+    "prompt_ready",
 ]
 CallbackFunc = Callable[..., Any]
 
@@ -179,6 +192,8 @@ _callbacks: Dict[PhaseType, List[CallbackFunc]] = {
     "feature_capability": [],
     "transform_model_messages": [],
     "error_logged": [],
+    "banner_notice": [],
+    "prompt_ready": [],
 }
 
 logger = logging.getLogger(__name__)
@@ -915,6 +930,18 @@ def on_error_logged(
     )
 
 
+def on_banner_notice(banner: dict) -> List[Any]:
+    """Fired by ``code_puppy.banners.emit_notice`` when a plugin emits a notice.
+
+    ``banner`` is the camelCase wire dict from ``Banner.to_wire`` so ACP and
+    other frontends can forward it unchanged. Observers only; return values
+    are ignored. Deliberately synchronous because ``emit_notice`` can run from
+    sync or async code. Subscribers must return promptly and must not raise;
+    the trigger isolates each callback's errors. Core ships no subscriber.
+    """
+    return _trigger_callbacks_sync("banner_notice", banner)
+
+
 def on_awaiting_user_input(awaiting: bool) -> List[Any]:
     """Fired whenever code-puppy starts or stops waiting on the human.
 
@@ -933,6 +960,15 @@ def on_awaiting_user_input(awaiting: bool) -> List[Any]:
     paths.
     """
     return _trigger_callbacks_sync("awaiting_user_input", awaiting)
+
+
+def on_prompt_ready() -> List[Any]:
+    """Fired each time the interactive idle prompt is about to block for input.
+
+    Observers only, sync and fire-and-forget. Fires once per idle prompt, so
+    observers must tolerate repeat calls.
+    """
+    return _trigger_callbacks_sync("prompt_ready")
 
 
 async def on_file_permission_async(
@@ -1119,7 +1155,7 @@ async def on_stream_event(
 
 
 async def on_transform_model_messages(
-    agent_name: str | None, messages: List[ModelMessage]
+    agent_name: str | None, messages: "List[ModelMessage]"
 ) -> List[Any]:
     """Let plugins mutate the final outbound model messages in place."""
     return await _trigger_callbacks("transform_model_messages", agent_name, messages)

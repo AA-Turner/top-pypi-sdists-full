@@ -159,8 +159,12 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ListPageWorkspaceMemberResponse]:
     """ListWorkspaceMembers
 
-     List a workspace's members as a paginated list. Returns all members by default; pass one or more
-    `kind` values to filter. Requires READ permission on the workspace.
+    Lists a workspace's direct members as a paginated list, oldest first. Workspace API keys are
+    listed too, with `kind=service_account`; pass one or more `kind` values to filter.
+    Organization owners and members who reach the workspace only through its default member
+    role are not listed.
+
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -215,8 +219,12 @@ def sync(
 ) -> ErrorResponse | ListPageWorkspaceMemberResponse | None:
     """ListWorkspaceMembers
 
-     List a workspace's members as a paginated list. Returns all members by default; pass one or more
-    `kind` values to filter. Requires READ permission on the workspace.
+    Lists a workspace's direct members as a paginated list, oldest first. Workspace API keys are
+    listed too, with `kind=service_account`; pass one or more `kind` values to filter.
+    Organization owners and members who reach the workspace only through its default member
+    role are not listed.
+
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -266,8 +274,12 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | ListPageWorkspaceMemberResponse]:
     """ListWorkspaceMembers
 
-     List a workspace's members as a paginated list. Returns all members by default; pass one or more
-    `kind` values to filter. Requires READ permission on the workspace.
+    Lists a workspace's direct members as a paginated list, oldest first. Workspace API keys are
+    listed too, with `kind=service_account`; pass one or more `kind` values to filter.
+    Organization owners and members who reach the workspace only through its default member
+    role are not listed.
+
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -320,8 +332,12 @@ async def asyncio(
 ) -> ErrorResponse | ListPageWorkspaceMemberResponse | None:
     """ListWorkspaceMembers
 
-     List a workspace's members as a paginated list. Returns all members by default; pass one or more
-    `kind` values to filter. Requires READ permission on the workspace.
+    Lists a workspace's direct members as a paginated list, oldest first. Workspace API keys are
+    listed too, with `kind=service_account`; pass one or more `kind` values to filter.
+    Organization owners and members who reach the workspace only through its default member
+    role are not listed.
+
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

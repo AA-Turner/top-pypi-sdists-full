@@ -253,24 +253,31 @@ def show(candidate_id: int) -> None:
 
     async def body(
         store: ReviewStore,
-    ) -> tuple[dict[str, object], ThresholdStatus, bool, tuple[Correction, ...]]:
+    ) -> tuple[dict[str, object], ThresholdStatus, bool, tuple[Correction, ...], dict[str, object] | None]:
         return (
             await store.candidate(candidate_id),
             await store.threshold_status(candidate_id, settings=settings),
             await store.eligible(candidate_id, settings=settings),
             await store.correction_evidence(candidate_id),
+            await store.brain_outcome(candidate_id),
         )
 
     try:
-        row, status, ok, evidence = run_store(body)
+        row, status, ok, evidence, outcome = run_store(body)
     except LookupError as exc:
         raise click.ClickException(str(exc)) from exc
     for key, value in row.items():
         click.echo(f"{key}: {value}")
     click.echo(
         f"thresholds: sessions={status.sessions} days={status.days} open_prs={status.open_prs} "
-        f"single_observation={status.single_observation} eligible={ok}"
+        f"single_observation={status.single_observation} eligible={ok} considered={status.considered} "
+        f"older={status.older}"
     )
+    if outcome is not None:
+        click.echo(
+            f"brain: {outcome['outcome']} at {outcome['considered_at']} evidence={outcome['evidence']} "
+            f"reason={outcome.get('reason')}"
+        )
     if row["pack_name"]:
         click.echo(
             f"routing: target_repo={row['repo_key']} pack={row['pack_name']} origin_repo={row['origin_repo_key']}"
@@ -285,7 +292,7 @@ def show(candidate_id: int) -> None:
 @click.argument("candidate_id", type=int)
 @click.option("--limit", type=click.IntRange(1, 40), default=10)
 def evidence(candidate_id: int, limit: int) -> None:
-    """Verify recorded quotes against bounded, pinned transcript evidence."""
+    """Verify recorded quotes from the evidence window against bounded, pinned transcript evidence."""
     import asyncio
     import json
     from dataclasses import asdict
@@ -293,24 +300,35 @@ def evidence(candidate_id: int, limit: int) -> None:
     from cc_transcript.context import ContextWindow
 
     from captain_hook.review.judge import CONTEXT_BUDGET, TRIGGER_BUDGET
-    from captain_hook.snapshots.review import RenderedEvidence, render_review_windows, review_roots
+    from captain_hook.review.settings import ReviewSettings
+    from captain_hook.review.store import evidence_cutoff
+    from captain_hook.snapshots.review import RenderedEvidence, render_review_windows
+
+    settings = ReviewSettings()
 
     async def body(store: ReviewStore) -> dict[str, object]:
         await store.candidate(candidate_id)
+        cutoff = evidence_cutoff(settings)
         rows = await store.db.sql(
             "SELECT e.text, e.context_json, e.occurred_at, e.payload_json FROM candidate_observations o "
             "JOIN feedback_events e ON e.dedup_key = o.dedup_key "
-            "WHERE o.candidate_id = ? ORDER BY o.id LIMIT ?",
-            (candidate_id, limit + 1),
+            "WHERE o.candidate_id = ? AND o.occurred_at >= ? ORDER BY o.id LIMIT ?",
+            (candidate_id, cutoff, limit + 1),
+        )
+        older = await store.db.sql(
+            "SELECT count(*) AS older FROM candidate_observations WHERE candidate_id = ? AND occurred_at < ?",
+            (candidate_id, cutoff),
         )
         selected = rows[:limit]
         windows = [ContextWindow.from_json(str(row["context_json"])) for row in selected]
-        source_paths = [json.loads(str(row["payload_json"])).get("source_path") for row in selected]
         rendered = await asyncio.to_thread(
             render_review_windows,
             windows,
-            source_paths=source_paths,
-            roots=review_roots(list(await store.file_mtimes())) if None in source_paths else [],
+            source_paths=[
+                json.loads(str(row["payload_json"])).get("source_path")
+                or await store.transcript_path(window.anchor.session_id)
+                for row, window in zip(selected, windows, strict=True)
+            ],
             render={
                 "before": asdict(CONTEXT_BUDGET),
                 "trigger": asdict(TRIGGER_BUDGET),
@@ -319,6 +337,8 @@ def evidence(candidate_id: int, limit: int) -> None:
         )
         return {
             "candidate_id": candidate_id,
+            "window_days": settings.evidence_window_days,
+            "older": older[0]["older"],
             "complete": len(rows) <= limit and not any(isinstance(item, Exception) for item in rendered),
             "evidence": [
                 {
@@ -371,6 +391,7 @@ def threshold_check(state: CliState, candidate_id: int | None, repo_: str | None
             lines.append(
                 f"#{cid} eligible={eligible} {progress}"
                 f" open_prs={status.open_prs}/{open_pr_cap(status.kind, settings=settings)} watching={status.watching}"
+                f" considered={status.considered} older={status.older}"
             )
         return lines
 
@@ -382,6 +403,45 @@ def threshold_check(state: CliState, candidate_id: int | None, repo_: str | None
         click.echo("no candidates")
     for line in lines:
         click.echo(line)
+
+
+@review.command()
+@click.argument("candidate_id", type=int)
+@click.option("--reason", required=True, help="Why the candidate gets no PR; shown by `review show`")
+def skip(candidate_id: int, reason: str) -> None:
+    """Record the brain's decision against a PR, holding the candidate until its evidence changes."""
+    from captain_hook.review.settings import ReviewSettings
+
+    settings = ReviewSettings()
+
+    async def body(store: ReviewStore) -> None:
+        status = await store.threshold_status(candidate_id, settings=settings)
+        await store.record_brain_skip(candidate_id, evidence=status.evidence, reason=reason)
+
+    try:
+        run_store(body)
+    except LookupError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"#{candidate_id} skipped: {reason}")
+
+
+@review.command()
+@click.argument("candidate_id", type=int, required=False)
+@click.option("--repo", "repo_", default=None, help="Repo key (default: the current repo)")
+@click.option("--failed", is_flag=True, help="Only candidates a failed brain run left undecided")
+@click.pass_obj
+def reconsider(state: CliState, candidate_id: int | None, repo_: str | None, failed: bool) -> None:
+    """Make candidates the brain already considered eligible again without new evidence."""
+
+    async def body(store: ReviewStore) -> int:
+        return await store.reconsider(
+            [candidate_id]
+            if candidate_id is not None
+            else [int(str(row["id"])) for row in await store.candidates(resolve_repo(repo_, state.root))],
+            failed_only=failed,
+        )
+
+    click.echo(f"{run_store(body)} candidate(s) re-armed")
 
 
 @review.command()

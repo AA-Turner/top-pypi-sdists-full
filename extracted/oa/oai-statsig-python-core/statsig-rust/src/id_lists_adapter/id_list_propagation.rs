@@ -1,13 +1,15 @@
 use std::{collections::VecDeque, ops::Range};
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use super::IdListMetadata;
 
 /// Optional delivery evidence for ID-list propagation telemetry.
 /// Existing listeners may ignore this and continue receiving ordinary list updates.
+#[derive(Clone, Serialize, Deserialize)]
 pub struct IdListPropagationUpdate {
     pub(crate) file_id: Option<String>,
+    pub(crate) creation_time: i64,
     pub(crate) url: String,
     pub(crate) ts: Option<u64>,
     pub(crate) size: u64,
@@ -15,7 +17,7 @@ pub struct IdListPropagationUpdate {
 }
 
 // Keep telemetry out of the public metadata struct and tolerate malformed optional fields.
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub(super) struct IdListManifestEntry {
     #[serde(flatten)]
     pub metadata: IdListMetadata,
@@ -31,6 +33,7 @@ impl IdListManifestEntry {
     pub fn propagation_update(&self) -> IdListPropagationUpdate {
         IdListPropagationUpdate {
             file_id: self.metadata.file_id.clone(),
+            creation_time: self.metadata.creation_time,
             url: file_identity_url(&self.metadata.url),
             ts: self.ts.filter(|ts| *ts > 0),
             size: self.metadata.size,
@@ -155,12 +158,12 @@ impl IdListPropagationState {
 mod tests;
 
 // Validate the received interval before applying bytes or recording propagation.
-pub(super) fn downloaded_range(content_range: &str, body_len: usize) -> Option<Range<u64>> {
+pub(super) fn downloaded_range(content_range: &str, body_len: usize) -> Option<(Range<u64>, u64)> {
     let len = u64::try_from(body_len).ok()?;
     let (range, total) = content_range.strip_prefix("bytes ")?.split_once('/')?;
     let (start, end) = range.split_once('-')?;
     let start = start.parse::<u64>().ok()?;
     let end = end.parse::<u64>().ok()?.checked_add(1)?;
     let total = total.parse::<u64>().ok()?;
-    (end <= total && end.checked_sub(start) == Some(len)).then_some(start..end)
+    (end <= total && end.checked_sub(start) == Some(len)).then_some((start..end, total))
 }

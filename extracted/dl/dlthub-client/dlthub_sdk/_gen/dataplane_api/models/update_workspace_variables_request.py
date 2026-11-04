@@ -20,7 +20,8 @@ T = TypeVar("T", bound="UpdateWorkspaceVariablesRequest")
 class UpdateWorkspaceVariablesRequest:
     """
     Attributes:
-        profile (None | str): Scope to change; `null` targets the workspace-wide scope
+        profile (None | str): Profile whose scope to change: letters, digits, `_` and `-`, starting with a letter or
+            digit, up to 64 characters; `null` targets the workspace-wide scope
         deletes (list[str] | Unset): Variable names to remove
         upserts (list[PlainVariableUpsert | SecretVariableUpsert] | Unset): Variables to create or update
     """

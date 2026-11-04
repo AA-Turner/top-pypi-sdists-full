@@ -1,15 +1,18 @@
-import time
-import json
-import datetime
 import calendar
+import datetime
+import json
+import math
+import time
+from collections.abc import Callable
 from json import JSONEncoder
-from typing import TypedDict, Any, Callable
-from ..util import to_bytes
+from typing import Any, TypedDict, TypeGuard
+
 from ..errors import (
-    MissingClaimError,
-    InvalidClaimError,
     ExpiredTokenError,
+    InvalidClaimError,
+    MissingClaimError,
 )
+from ..util import to_bytes
 
 Claims = dict[str, Any]
 
@@ -29,7 +32,7 @@ def convert_claims(claims: Claims, encoder_cls: type[JSONEncoder] | None = None)
 class ClaimsOption(TypedDict, total=False):
     essential: bool
     allow_blank: bool | None
-    value: str | int | bool
+    value: str | int | bool | list[str | int | bool]
     values: list[str | int | bool] | list[str] | list[int] | list[bool]
 
 
@@ -62,20 +65,25 @@ class BaseClaimsRegistry:
 
         option_values = option.get("values")
 
-        if option_values is None:
-            option_value = option.get("value")
-            if option_value is not None:
-                option_values = [option_value]
-
-        if not option_values:
+        if option_values:
+            if isinstance(value, list):
+                if not any(v in value for v in option_values):
+                    raise InvalidClaimError(claim_name)
+            elif value not in option_values:
+                raise InvalidClaimError(claim_name)
             return
 
+        option_value = option.get("value")
+        if option_value is None:
+            return
+
+        # "value" is the expected claim value itself; a list claim also
+        # matches when one of its elements is the expected value
         if isinstance(value, list):
-            if not any(v in value for v in option_values):
+            if value != option_value and option_value not in value:
                 raise InvalidClaimError(claim_name)
-        else:
-            if value not in option_values:
-                raise InvalidClaimError(claim_name)
+        elif value != option_value:
+            raise InvalidClaimError(claim_name)
 
     def validate(self, claims: dict[str, Any]) -> None:
         """
@@ -120,7 +128,7 @@ class JWTClaimsRegistry(BaseClaimsRegistry):
             return self._now()
         return self._now
 
-    def validate_iss(self, value: str) -> None:
+    def validate_iss(self, value: object) -> None:
         """The "iss" (issuer) claim identifies the principal that issued the
         JWT.  The processing of this claim is generally application specific.
         The "iss" value is a case-sensitive string containing a StringOrURI
@@ -130,7 +138,7 @@ class JWTClaimsRegistry(BaseClaimsRegistry):
             raise InvalidClaimError("iss", "Claim 'iss' must be a StringOrURI value")
         self.check_value("iss", value)
 
-    def validate_sub(self, value: str) -> None:
+    def validate_sub(self, value: object) -> None:
         """The "sub" (subject) claim identifies the principal that is the
         subject of the JWT.  The claims in a JWT are normally statements
         about the subject.  The subject value MUST either be scoped to be
@@ -143,7 +151,7 @@ class JWTClaimsRegistry(BaseClaimsRegistry):
             raise InvalidClaimError("sub", "Claim 'sub' must be a StringOrURI value")
         self.check_value("sub", value)
 
-    def validate_jti(self, value: str) -> None:
+    def validate_jti(self, value: object) -> None:
         """The "jti" (JWT ID) claim provides a unique identifier for the JWT.
         Its value MUST be a case-sensitive string. Use of this claim is OPTIONAL.
         """
@@ -151,7 +159,7 @@ class JWTClaimsRegistry(BaseClaimsRegistry):
             raise InvalidClaimError("jti", "Claim 'jti' must be a string")
         self.check_value("jti", value)
 
-    def validate_aud(self, value: str | list[str]) -> None:
+    def validate_aud(self, value: object) -> None:
         """The "aud" (audience) claim identifies the recipients that the JWT is
         intended for.  Each principal intended to process the JWT MUST
         identify itself with a value in the audience claim.  If the principal
@@ -171,7 +179,7 @@ class JWTClaimsRegistry(BaseClaimsRegistry):
                 "aud", "Claim 'aud' must be an array of StringOrURI value or a single StringOrURI value"
             )
 
-    def validate_exp(self, value: int) -> None:
+    def validate_exp(self, value: object) -> None:
         """The "exp" (expiration time) claim identifies the expiration time on
         or after which the JWT MUST NOT be accepted for processing.  The
         processing of the "exp" claim requires that the current date/time
@@ -182,11 +190,11 @@ class JWTClaimsRegistry(BaseClaimsRegistry):
         """
         if not _validate_numeric_time(value):
             raise InvalidClaimError("exp", "Claim 'exp' must be a NumericDate value")
-        if value < (self.now - self.leeway):
+        if value <= (self.now - self.leeway):
             raise ExpiredTokenError("exp")
         self.check_value("exp", value)
 
-    def validate_nbf(self, value: int) -> None:
+    def validate_nbf(self, value: object) -> None:
         """The "nbf" (not before) claim identifies the time before which the JWT
         MUST NOT be accepted for processing.  The processing of the "nbf"
         claim requires that the current date/time MUST be after or equal to
@@ -201,7 +209,7 @@ class JWTClaimsRegistry(BaseClaimsRegistry):
             raise InvalidClaimError("nbf", "The token is not yet valid")
         self.check_value("nbf", value)
 
-    def validate_iat(self, value: int) -> None:
+    def validate_iat(self, value: object) -> None:
         """The "iat" (issued at) claim identifies the time at which the JWT was
         issued.  This claim can be used to determine the age of the JWT.  Its
         value MUST be a number containing a NumericDate value.  Use of this
@@ -214,11 +222,14 @@ class JWTClaimsRegistry(BaseClaimsRegistry):
         self.check_value("iat", value)
 
 
-def _validate_numeric_time(s: int) -> bool:
-    return isinstance(s, (int, float))
+def _validate_numeric_time(s: object) -> TypeGuard[int | float]:
+    # NumericDate is a JSON number, and NaN and Infinity are not. Every comparison with NaN
+    # is false, so an "exp" of NaN would never expire. An int is always finite, and math.isfinite
+    # raises OverflowError for one too large for a float.
+    return not isinstance(s, bool) and (isinstance(s, int) or (isinstance(s, float) and math.isfinite(s)))
 
 
-def _validate_list_of_strings(s: list[str]) -> bool:
+def _validate_list_of_strings(s: object) -> TypeGuard[list[str]]:
     return isinstance(s, list) and all(isinstance(v, str) for v in s)
 
 

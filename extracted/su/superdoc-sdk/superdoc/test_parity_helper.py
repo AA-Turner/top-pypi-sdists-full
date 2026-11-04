@@ -79,12 +79,12 @@ def main() -> None:
 
         elif action == 'describe':
             from superdoc import SuperDocClient
-            client = SuperDocClient(document_host_path='/missing/superdoc-document-host')
+            client = SuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
             print(json.dumps({'ok': True, 'result': client.describe()}))
 
         elif action == 'describeCommands':
             from superdoc import SuperDocClient
-            client = SuperDocClient(document_host_path='/missing/superdoc-document-host')
+            client = SuperDocClient(env={'SUPERDOC_CLI_BIN': '/missing/superdoc'})
             results = [
                 client.describe_command({'operationId': operation_id})
                 for operation_id in command['operationIds']

@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 from collections.abc import Sequence
 from copy import copy
 from typing import List
 
 from ...client import Client
+from ..dbt.manifest import read_dbt_manifest
+from ..dbt.report import difference_summary
 from .api import APIDriver
+from .convert import convert
 from .errors import (
     ConflictingTableFilters,
+    DbtManifestNotConverted,
     StateMachineError,
     UnsatisfiableDependencies,
     handle_state_errors,
@@ -197,6 +202,84 @@ class StateMachine:
         print(output.to_string().strip())
 
     @handle_state_errors
+    def convert_config(
+        self,
+        filename: str,
+        output_filename: str,
+        config_format: str | None,
+        warehouse: str | None = None,
+    ) -> None:
+        """Write `filename`, read as `config_format`, as an Anomalo configuration file."""
+        conversion = convert(
+            config_format, filename, lambda: APIDriver(self.client), warehouse
+        )
+        for line in conversion.report:
+            print(line)
+        self._get_file_driver(output_filename, conversion.state).write_file(
+            output_filename
+        )
+        tables = len(conversion.state.tables)
+        print(
+            f"Configuration for {tables} table{'' if tables == 1 else 's'} saved to"
+            f' "{output_filename}"'
+        )
+
+    @handle_state_errors
+    def compare_config(
+        self,
+        filename: str,
+        target_filename: str,
+        config_format: str | None,
+        warehouse: str | None = None,
+    ) -> None:
+        """Show how `target_filename` differs from `filename` converted, and exit 1 if it does.
+
+        Only the tables the source covers are compared, since applying a converted file
+        changes nothing else.
+        """
+        conversion = convert(
+            config_format, filename, lambda: APIDriver(self.client), warehouse
+        )
+        for line in conversion.report:
+            print(line)
+        target = self._get_file_driver(target_filename)
+        target.load_file(target_filename)
+        compared = State()
+        for table_ref in conversion.state.tables:
+            if table_ref in target.state.tables:
+                compared.tables[table_ref] = target.state.tables[table_ref]
+        uncompared = len(set(target.state.tables) - set(conversion.state.tables))
+        if uncompared:
+            print(
+                f"{uncompared} table{' is' if uncompared == 1 else 's are'} in"
+                f" {target_filename} but not in {filename}, and weren't compared"
+            )
+        actions = self._compute_actions(
+            compared, self._as_written(conversion.state, target_filename)
+        )
+        if not actions:
+            print(f"No differences: {target_filename} matches {filename}")
+            return
+        diff_format = "shacl" if target_filename.endswith(".ttl") else "yaml"
+        self._display_diff(actions, diff_format)
+        print(f"Differences: {difference_summary(actions)}")
+        sys.exit(1)
+
+    def _as_written(self, state: State, like_filename: str) -> State:
+        """`state` as it reads back from a file in `like_filename`'s format.
+
+        Each format drops some empty values when it loads, so a converted state is only
+        comparable with a loaded file once it has made the same trip.
+        """
+        suffix = os.path.splitext(like_filename)[1] or ".yaml"
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, f"converted{suffix}")
+            self._get_file_driver(path, state).write_file(path)
+            written = self._get_file_driver(path)
+            written.load_file(path)
+        return written.state
+
+    @handle_state_errors
     def apply(
         self,
         filename: str,
@@ -205,6 +288,8 @@ class StateMachine:
         destroy: bool = False,
         strict: bool = True,
     ) -> None:
+        if read_dbt_manifest(filename) is not None:
+            raise DbtManifestNotConverted(filename)
         input_file = self._get_file_driver(filename)
         input_file.load_file(filename)
         api_state = APIDriver(self.client)

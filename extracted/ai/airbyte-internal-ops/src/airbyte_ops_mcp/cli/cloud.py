@@ -43,7 +43,7 @@ import time
 import uuid
 from contextlib import suppress
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, NoReturn
 
 import google.auth.exceptions
 import requests
@@ -235,7 +235,9 @@ from airbyte_ops_mcp.regression_tests.report import (
     build_comparison_report_model,
     build_diff_block,
     build_json_block,
+    build_record_comparison_checks,
     build_single_version_report_model,
+    comparison_label_inputs,
     consolidate_reports,
     failed_checks,
     render_inline_summary,
@@ -1139,6 +1141,7 @@ def _run_connector_command(
     max_records: int | None = None,
     output_mode: OutputMode = "raw",
     mask_key: bytes | None = None,
+    mask_catalog_path: Path | None = None,
     extra_env: dict[str, str] | None = None,
 ) -> tuple[dict, ComparableOutputs]:
     """Run a connector command and return its results and its declared objects.
@@ -1175,6 +1178,9 @@ def _run_connector_command(
         mask_key: The run's masking key, which every token is hashed under;
             both sides of a comparison are given the same one. Required on a
             masked run, unused on a raw one.
+        mask_catalog_path: The catalog the mask policy is built from, when it
+            is not `catalog_path`'s: both sides of a comparison must mask under
+            one policy, so their tokens pair.
         extra_env: Additional environment variables for the connector container.
 
     Returns:
@@ -1192,6 +1198,10 @@ def _run_connector_command(
         catalog_json = catalog_path.read_text()
         configured_catalog = ConfiguredAirbyteCatalog.parse_raw(catalog_json)
 
+    mask_catalog = configured_catalog
+    if mask_catalog_path is not None and output_mode == "masked":
+        mask_catalog = ConfiguredAirbyteCatalog.parse_raw(mask_catalog_path.read_text())
+
     # Pass log level as an environment variable to the connector container
     container_env: dict[str, str] = {}
     if enable_debug_logs:
@@ -1208,7 +1218,7 @@ def _run_connector_command(
         environment_variables=container_env or None,
     )
 
-    mask_policy = _mask_policy(configured_catalog, output_mode, mask_key)
+    mask_policy = _mask_policy(mask_catalog, output_mode, mask_key)
     runner = ConnectorRunner(
         execution_inputs,
         timeout_seconds=(
@@ -1360,6 +1370,29 @@ def _annotate_run_verdict(command: str, result: dict[str, Any]) -> dict[str, Any
         ),
         "exited_cleanly": result["success"],
     }
+
+
+def _check_results(
+    extra_checks: tuple[CheckResult, ...],
+    record_comparison: RecordComparisonSummary | None,
+) -> list[dict[str, Any]]:
+    """Project comparison checks onto the metadata-only CLI report shape."""
+    checks = (
+        *extra_checks,
+        *(
+            build_record_comparison_checks(record_comparison)
+            if record_comparison is not None
+            else ()
+        ),
+    )
+    return [
+        {
+            "name": check.name,
+            "passed": check.passed,
+            "severity": check.severity,
+        }
+        for check in checks
+    ]
 
 
 # The lists in the run's JSON payload that hold record values: missing and
@@ -2002,6 +2035,7 @@ def _run_with_optional_http_metrics(
     max_records: int | None = None,
     output_mode: OutputMode = "raw",
     mask_key: bytes | None = None,
+    mask_catalog_path: Path | None = None,
 ) -> tuple[dict, ComparableOutputs]:
     """Run a connector command with optional HTTP metrics capture.
 
@@ -2036,6 +2070,7 @@ def _run_with_optional_http_metrics(
         max_records: Passed through to `_run_connector_command`.
         output_mode: Passed through to `_run_connector_command`.
         mask_key: Passed through to `_run_connector_command`.
+        mask_catalog_path: Passed through to `_run_connector_command`.
 
     Returns:
         What `_run_connector_command` returns, with `http_metrics` added to the
@@ -2065,6 +2100,7 @@ def _run_with_optional_http_metrics(
             max_records=max_records,
             output_mode=output_mode,
             mask_key=mask_key,
+            mask_catalog_path=mask_catalog_path,
             extra_env=extra_env,
         )
         if capture_gap:
@@ -2108,6 +2144,7 @@ def _run_with_optional_http_metrics(
                 max_records=max_records,
                 output_mode=output_mode,
                 mask_key=mask_key,
+                mask_catalog_path=mask_catalog_path,
                 extra_env=extra_env,
             )
             if replay_expected:
@@ -2162,6 +2199,7 @@ def _run_with_optional_http_metrics(
             max_records=max_records,
             output_mode=output_mode,
             mask_key=mask_key,
+            mask_catalog_path=mask_catalog_path,
             extra_env=extra_env,
         )
 
@@ -3540,6 +3578,7 @@ def regression_test(
             sync_mode=injected_sync_mode,
             output_mode=output_mode,
             mask_key=mask_key,
+            read_budget=read_budget,
         )
         if injected is not None:
             catalog_file, control_catalog_file, injection = injected
@@ -3676,6 +3715,8 @@ def regression_test(
         annotated_result["not_exercised"] = False
         annotated_result["setup_error"] = False
         annotated_result["could_not_test"] = False
+        annotated_result["strict_failed"] = False
+        annotated_result["comparison_errored"] = False
 
         print_json(_printable_payload(annotated_result, output_mode))
 
@@ -3777,6 +3818,8 @@ def regression_test(
         control_timeout_s = (
             read_budget.control_share_s() if read_timeout_seconds is not None else None
         )
+        # Use the target catalog so changed shared-stream cursor or primary-key
+        # declarations cannot change record tokens; catalog comparison shows them.
         control_result, control_outputs = _run_with_optional_http_metrics(
             connector_image=resolved_control_image,  # type: ignore[arg-type]
             command=cmd,
@@ -3793,6 +3836,7 @@ def regression_test(
             max_records=max_records,
             output_mode=output_mode,
             mask_key=mask_key,
+            mask_catalog_path=catalog_file,
         )
         _record_read_share(control_result, control_timeout_s, read_timeout)
         control_sandbox = _check_sandbox_twin_gaps(
@@ -4028,6 +4072,23 @@ def regression_test(
                 could_not_test=could_not_test_result,
             )
         failed_comparisons = failed_checks(comparison_checks)
+        extra_checks = (
+            *new_record_checks,
+            *comparison_checks,
+            *([record_comparison_skipped] if record_comparison_skipped else []),
+        )
+        check_results = _check_results(extra_checks, record_comparison)
+        strict_failed, comparison_errored_for_label = comparison_label_inputs(
+            record_comparison=record_comparison,
+            extra_checks=extra_checks,
+            record_checks_regression=record_checks_regression,
+            regression_detected=outcome.regression_detected,
+            both_failed=outcome.both_failed,
+            stopped=bool(incomplete),
+            setup_error=setup_error,
+            could_not_test=could_not_test_result,
+            not_exercised=bool(not_exercised),
+        )
 
         # `regression_detected` stays with the strict checks: an incomplete run
         # fails without claiming a regression it did not see.
@@ -4090,7 +4151,10 @@ def regression_test(
             "not_exercised": not_exercised,
             "setup_error": setup_error,
             "could_not_test": could_not_test_result,
+            "strict_failed": strict_failed,
+            "comparison_errored": comparison_errored_for_label,
             "output_mode": output_mode,
+            "check_results": check_results,
         }
         if record_checks_payload:
             combined_result["record_checks"] = record_checks_payload
@@ -4215,11 +4279,7 @@ def regression_test(
             control_result=control_result,
             outcome=outcome,
             record_comparison=record_comparison,
-            extra_checks=(
-                *new_record_checks,
-                *comparison_checks,
-                *([record_comparison_skipped] if record_comparison_skipped else []),
-            ),
+            extra_checks=extra_checks,
             extra_diff_blocks=comparison_diff_blocks,
             configured_streams=_configured_stream_names(cmd, catalog_file),
             connection_objects=_collect_connection_objects(
@@ -4768,6 +4828,36 @@ def _split_csv(value: str | None) -> list[str]:
     return [item.strip() for item in (value or "").split(",") if item.strip()]
 
 
+def _stop_with_setup_error(message: str) -> NoReturn:
+    """Report a failed setup verdict but exit 0 to avoid infrastructure failures."""
+    write_github_output("success", False)
+    write_github_output("setup_error", True)
+    write_github_output("error", message)
+    write_github_summary(
+        f"## `READ` Test Results\n\n**Result:** SETUP ERROR — {message}"
+    )
+    print_error(message)
+    raise SystemExit(0)
+
+
+def _injection_discover_timeout_message(
+    image: str, timeout_s: int, read_budget: ReadBudget
+) -> str:
+    if timeout_s <= 0:
+        return (
+            f"Setup error: DISCOVER of {image} for --discover-missing-streams had "
+            "no read time left to run in "
+            f"(--read-timeout {read_budget.budget_s} s). Raise read_timeout_minutes, "
+            "or check why DISCOVER hangs."
+        )
+    return (
+        f"Setup error: DISCOVER of {image} for --discover-missing-streams did not "
+        f"finish within the {timeout_s} s left of the read budget "
+        f"(--read-timeout {read_budget.budget_s} s). Raise read_timeout_minutes, "
+        "or check why DISCOVER hangs."
+    )
+
+
 def _discovered_catalog(
     connector_image: str,
     target_or_control: TargetOrControl,
@@ -4777,13 +4867,15 @@ def _discovered_catalog(
     extra_env: dict[str, str] | None,
     output_mode: OutputMode,
     mask_key: bytes | None,
-) -> dict[str, Any] | None:
-    """Run DISCOVER and return the catalog as a protocol dict, or `None` if none came."""
-    _, outputs = _run_connector_command(
+    timeout_seconds: int,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Run a budgeted DISCOVER and return its catalog and stopped-early result."""
+    result, outputs = _run_connector_command(
         connector_image=connector_image,
         command=Command.DISCOVER,
         output_dir=output_dir,
         target_or_control=target_or_control,
+        timeout_seconds=timeout_seconds,
         config_path=config_file,
         enable_debug_logs=enable_debug_logs,
         output_mode=output_mode,
@@ -4791,8 +4883,11 @@ def _discovered_catalog(
         extra_env=extra_env,
     )
     if outputs.catalog is None:
-        return None
-    return outputs.catalog.model_dump(mode="json", exclude_none=True)
+        return None, result.get("stopped_early")
+    return (
+        outputs.catalog.model_dump(mode="json", exclude_none=True),
+        result.get("stopped_early"),
+    )
 
 
 def _inject_discovered_streams(
@@ -4809,15 +4904,17 @@ def _inject_discovered_streams(
     sync_mode: InjectedSyncMode | None,
     output_mode: OutputMode,
     mask_key: bytes | None,
+    read_budget: ReadBudget,
 ) -> tuple[Path, Path, InjectedCatalogs] | None:
     """Add the selected streams the configured catalog lacks, from DISCOVER.
 
     The target's DISCOVER configures the streams. The reference version's
     DISCOVER -- the control image, or in single-version mode the released
     image -- says whether each one is new: a stream it also discovers is only
-    unselected on the connection, so both versions read it. Without the
-    reference catalog the novelty is unknown and the stream is read by the
-    target only, as if new, and reported as unknown.
+    unselected on the connection, so both versions read it using their own
+    discovered entries. Without the reference catalog the novelty is unknown
+    and the stream is read by the target only, as if new, and reported as
+    unknown. Each DISCOVER gets the read time left when it starts.
 
     A selected stream already in the catalog that the reference version does
     not discover is kept from the control, as a new stream would be. That is
@@ -4840,7 +4937,14 @@ def _inject_discovered_streams(
     missing = selected_stream_names - configured_names
 
     discover_dir = output_path / "discover_for_injection"
-    target_catalog = _discovered_catalog(
+    target_timeout_s = read_budget.setup_share_s()
+    if target_timeout_s <= 0:
+        _stop_with_setup_error(
+            _injection_discover_timeout_message(
+                test_image, target_timeout_s, read_budget
+            )
+        )
+    target_catalog, target_stopped_early = _discovered_catalog(
         test_image,
         TargetOrControl.TARGET,
         discover_dir / "target",
@@ -4849,7 +4953,14 @@ def _inject_discovered_streams(
         extra_env,
         output_mode,
         mask_key,
+        target_timeout_s,
     )
+    if target_stopped_early:
+        _stop_with_setup_error(
+            _injection_discover_timeout_message(
+                test_image, target_timeout_s, read_budget
+            )
+        )
     if target_catalog is None and not missing:
         print_warning(
             f"{test_image} returned no catalog from DISCOVER; the selected streams "
@@ -4858,13 +4969,10 @@ def _inject_discovered_streams(
         return None
     if target_catalog is None:
         error_msg = (
-            f"{test_image} returned no catalog from DISCOVER, so the selected "
+            f"Setup error: {test_image} returned no catalog from DISCOVER, so the selected "
             "streams missing from the configured catalog cannot be added."
         )
-        write_github_output("success", False)
-        write_github_output("setup_error", True)
-        write_github_output("error", error_msg)
-        exit_with_error(error_msg)
+        _stop_with_setup_error(error_msg)
 
     reference_catalog: dict[str, Any] | None = None
     if reference_image and reference_image != test_image:
@@ -4874,7 +4982,14 @@ def _inject_discovered_streams(
                 "new is unknown, so they are read by the target only"
             )
         else:
-            reference_catalog = _discovered_catalog(
+            reference_timeout_s = read_budget.setup_share_s()
+            if reference_timeout_s <= 0:
+                _stop_with_setup_error(
+                    _injection_discover_timeout_message(
+                        reference_image, reference_timeout_s, read_budget
+                    )
+                )
+            reference_catalog, reference_stopped_early = _discovered_catalog(
                 reference_image,
                 TargetOrControl.CONTROL,
                 discover_dir / "control",
@@ -4883,7 +4998,14 @@ def _inject_discovered_streams(
                 extra_env,
                 output_mode,
                 mask_key,
+                reference_timeout_s,
             )
+            if reference_stopped_early:
+                _stop_with_setup_error(
+                    _injection_discover_timeout_message(
+                        reference_image, reference_timeout_s, read_budget
+                    )
+                )
             if reference_catalog is None:
                 print_warning(
                     f"{reference_image} returned no catalog from DISCOVER; whether "
@@ -4906,10 +5028,7 @@ def _inject_discovered_streams(
             sync_mode=sync_mode,
         )
     except StreamsNotDiscoveredError as exc:
-        write_github_output("success", False)
-        write_github_output("setup_error", True)
-        write_github_output("error", str(exc))
-        exit_with_error(f"Setup error: {exc}")
+        _stop_with_setup_error(f"Setup error: {exc}")
     if not injection.changes_anything:
         return None
 
@@ -4921,10 +5040,7 @@ def _inject_discovered_streams(
             "--selected-streams. --skip-compare is no substitute: without a control, "
             "a new stream that returns no records passes."
         )
-        write_github_output("success", False)
-        write_github_output("setup_error", True)
-        write_github_output("error", error_msg)
-        exit_with_error(error_msg)
+        _stop_with_setup_error(f"Setup error: {error_msg}")
 
     catalog_dir = output_path / "connection_data"
     catalog_dir.mkdir(parents=True, exist_ok=True)

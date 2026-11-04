@@ -136,7 +136,7 @@ def _recorded_call(span_name: str, original: Callable[..., Any]) -> Any:
         return owner._jev_auto_run(span_name, original)
     if SYSTEM_ONE in session.exclude:
         return None
-    if not subtree.admits_discovered_call(session, span_name):
+    if not subtree.admits_llm_call(session):
         return None
     return owner._jev_auto_traced_call(span_name, original)
 

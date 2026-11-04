@@ -32,6 +32,9 @@ def _get_kwargs(
     dataset_name: list[str] | None | Unset = UNSET,
     destination_name: list[str] | None | Unset = UNSET,
     job_run_id: list[UUID] | None | Unset = UNSET,
+    error_step: list[str] | None | Unset = UNSET,
+    min_duration_ms: int | None | Unset = UNSET,
+    max_duration_ms: int | None | Unset = UNSET,
     is_empty_run: bool | None | Unset = UNSET,
     sort: list[ListPipelineRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineRunsOrderType0Item] | None | Unset = UNSET,
@@ -125,6 +128,30 @@ def _get_kwargs(
     else:
         json_job_run_id = job_run_id
     params["job_run_id"] = json_job_run_id
+
+    json_error_step: list[str] | None | Unset
+    if isinstance(error_step, Unset):
+        json_error_step = UNSET
+    elif isinstance(error_step, list):
+        json_error_step = error_step
+
+    else:
+        json_error_step = error_step
+    params["error_step"] = json_error_step
+
+    json_min_duration_ms: int | None | Unset
+    if isinstance(min_duration_ms, Unset):
+        json_min_duration_ms = UNSET
+    else:
+        json_min_duration_ms = min_duration_ms
+    params["min_duration_ms"] = json_min_duration_ms
+
+    json_max_duration_ms: int | None | Unset
+    if isinstance(max_duration_ms, Unset):
+        json_max_duration_ms = UNSET
+    else:
+        json_max_duration_ms = max_duration_ms
+    params["max_duration_ms"] = json_max_duration_ms
 
     json_is_empty_run: bool | None | Unset
     if isinstance(is_empty_run, Unset):
@@ -239,6 +266,9 @@ def sync_detailed(
     dataset_name: list[str] | None | Unset = UNSET,
     destination_name: list[str] | None | Unset = UNSET,
     job_run_id: list[UUID] | None | Unset = UNSET,
+    error_step: list[str] | None | Unset = UNSET,
+    min_duration_ms: int | None | Unset = UNSET,
+    max_duration_ms: int | None | Unset = UNSET,
     is_empty_run: bool | None | Unset = UNSET,
     sort: list[ListPipelineRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineRunsOrderType0Item] | None | Unset = UNSET,
@@ -246,23 +276,27 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ListPagePipelineRunResponse]:
     """ListPipelineRuns
 
-    Lists the pipeline runs of a workspace within a time range.
+    Lists the pipeline runs of a workspace whose `started_at` falls in the time range
+    `[start, end)`, newest first by default.
 
-    Search with `q` over the pipeline name; filter by status, pipeline, dataset,
-    destination, job run, or empty run; sort with paired `sort` and `order` lists.
+    Search with `q` over the pipeline name, or by exact run id; filter by status,
+    pipeline, dataset, destination, job run, error step, duration, or empty run; sort
+    with paired `sort` and `order` lists.
 
     Args:
         workspace_id (UUID):
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`. Defaults to 7 days before `end`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`. Defaults to now.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
-        q (None | str | Unset): Case-insensitive substring match on `pipeline_name`.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`. Defaults to 7 days before
+            `end`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`. Defaults to now.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
+        q (None | str | Unset): Case-insensitive substring match on `pipeline_name`. A value that
+            is a UUID also matches the exact `id`.
         status (list[PipelineRunStatus] | None | Unset): Exact match on `status`. Repeat the
             parameter to match any of several values.
         pipeline_name (list[str] | None | Unset): Exact match on `pipeline_name`. Repeat the
@@ -273,6 +307,12 @@ def sync_detailed(
             parameter to match any of several values.
         job_run_id (list[UUID] | None | Unset): Exact match on `job_run_id`. Repeat the parameter
             to match any of several values.
+        error_step (list[str] | None | Unset): Exact match on `error_step`. Repeat the parameter
+            to match any of several values.
+        min_duration_ms (int | None | Unset): Inclusive range over `duration_ms`, given as
+            `min_duration_ms` and `max_duration_ms`. Either bound may stand alone.
+        max_duration_ms (int | None | Unset): Inclusive range over `duration_ms`, given as
+            `min_duration_ms` and `max_duration_ms`. Either bound may stand alone.
         is_empty_run (bool | None | Unset): Match `is_empty_run`. Omit to list both.
         sort (list[ListPipelineRunsSortType0Item] | None | Unset): Keys to sort by, applied in the
             order given. Pairs positionally with `order`, which must have the same number of entries.
@@ -302,6 +342,9 @@ def sync_detailed(
         dataset_name=dataset_name,
         destination_name=destination_name,
         job_run_id=job_run_id,
+        error_step=error_step,
+        min_duration_ms=min_duration_ms,
+        max_duration_ms=max_duration_ms,
         is_empty_run=is_empty_run,
         sort=sort,
         order=order,
@@ -330,6 +373,9 @@ def sync(
     dataset_name: list[str] | None | Unset = UNSET,
     destination_name: list[str] | None | Unset = UNSET,
     job_run_id: list[UUID] | None | Unset = UNSET,
+    error_step: list[str] | None | Unset = UNSET,
+    min_duration_ms: int | None | Unset = UNSET,
+    max_duration_ms: int | None | Unset = UNSET,
     is_empty_run: bool | None | Unset = UNSET,
     sort: list[ListPipelineRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineRunsOrderType0Item] | None | Unset = UNSET,
@@ -337,23 +383,27 @@ def sync(
 ) -> ErrorResponse | ListPagePipelineRunResponse | None:
     """ListPipelineRuns
 
-    Lists the pipeline runs of a workspace within a time range.
+    Lists the pipeline runs of a workspace whose `started_at` falls in the time range
+    `[start, end)`, newest first by default.
 
-    Search with `q` over the pipeline name; filter by status, pipeline, dataset,
-    destination, job run, or empty run; sort with paired `sort` and `order` lists.
+    Search with `q` over the pipeline name, or by exact run id; filter by status,
+    pipeline, dataset, destination, job run, error step, duration, or empty run; sort
+    with paired `sort` and `order` lists.
 
     Args:
         workspace_id (UUID):
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`. Defaults to 7 days before `end`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`. Defaults to now.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
-        q (None | str | Unset): Case-insensitive substring match on `pipeline_name`.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`. Defaults to 7 days before
+            `end`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`. Defaults to now.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
+        q (None | str | Unset): Case-insensitive substring match on `pipeline_name`. A value that
+            is a UUID also matches the exact `id`.
         status (list[PipelineRunStatus] | None | Unset): Exact match on `status`. Repeat the
             parameter to match any of several values.
         pipeline_name (list[str] | None | Unset): Exact match on `pipeline_name`. Repeat the
@@ -364,6 +414,12 @@ def sync(
             parameter to match any of several values.
         job_run_id (list[UUID] | None | Unset): Exact match on `job_run_id`. Repeat the parameter
             to match any of several values.
+        error_step (list[str] | None | Unset): Exact match on `error_step`. Repeat the parameter
+            to match any of several values.
+        min_duration_ms (int | None | Unset): Inclusive range over `duration_ms`, given as
+            `min_duration_ms` and `max_duration_ms`. Either bound may stand alone.
+        max_duration_ms (int | None | Unset): Inclusive range over `duration_ms`, given as
+            `min_duration_ms` and `max_duration_ms`. Either bound may stand alone.
         is_empty_run (bool | None | Unset): Match `is_empty_run`. Omit to list both.
         sort (list[ListPipelineRunsSortType0Item] | None | Unset): Keys to sort by, applied in the
             order given. Pairs positionally with `order`, which must have the same number of entries.
@@ -394,6 +450,9 @@ def sync(
         dataset_name=dataset_name,
         destination_name=destination_name,
         job_run_id=job_run_id,
+        error_step=error_step,
+        min_duration_ms=min_duration_ms,
+        max_duration_ms=max_duration_ms,
         is_empty_run=is_empty_run,
         sort=sort,
         order=order,
@@ -416,6 +475,9 @@ async def asyncio_detailed(
     dataset_name: list[str] | None | Unset = UNSET,
     destination_name: list[str] | None | Unset = UNSET,
     job_run_id: list[UUID] | None | Unset = UNSET,
+    error_step: list[str] | None | Unset = UNSET,
+    min_duration_ms: int | None | Unset = UNSET,
+    max_duration_ms: int | None | Unset = UNSET,
     is_empty_run: bool | None | Unset = UNSET,
     sort: list[ListPipelineRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineRunsOrderType0Item] | None | Unset = UNSET,
@@ -423,23 +485,27 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | ListPagePipelineRunResponse]:
     """ListPipelineRuns
 
-    Lists the pipeline runs of a workspace within a time range.
+    Lists the pipeline runs of a workspace whose `started_at` falls in the time range
+    `[start, end)`, newest first by default.
 
-    Search with `q` over the pipeline name; filter by status, pipeline, dataset,
-    destination, job run, or empty run; sort with paired `sort` and `order` lists.
+    Search with `q` over the pipeline name, or by exact run id; filter by status,
+    pipeline, dataset, destination, job run, error step, duration, or empty run; sort
+    with paired `sort` and `order` lists.
 
     Args:
         workspace_id (UUID):
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`. Defaults to 7 days before `end`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`. Defaults to now.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
-        q (None | str | Unset): Case-insensitive substring match on `pipeline_name`.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`. Defaults to 7 days before
+            `end`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`. Defaults to now.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
+        q (None | str | Unset): Case-insensitive substring match on `pipeline_name`. A value that
+            is a UUID also matches the exact `id`.
         status (list[PipelineRunStatus] | None | Unset): Exact match on `status`. Repeat the
             parameter to match any of several values.
         pipeline_name (list[str] | None | Unset): Exact match on `pipeline_name`. Repeat the
@@ -450,6 +516,12 @@ async def asyncio_detailed(
             parameter to match any of several values.
         job_run_id (list[UUID] | None | Unset): Exact match on `job_run_id`. Repeat the parameter
             to match any of several values.
+        error_step (list[str] | None | Unset): Exact match on `error_step`. Repeat the parameter
+            to match any of several values.
+        min_duration_ms (int | None | Unset): Inclusive range over `duration_ms`, given as
+            `min_duration_ms` and `max_duration_ms`. Either bound may stand alone.
+        max_duration_ms (int | None | Unset): Inclusive range over `duration_ms`, given as
+            `min_duration_ms` and `max_duration_ms`. Either bound may stand alone.
         is_empty_run (bool | None | Unset): Match `is_empty_run`. Omit to list both.
         sort (list[ListPipelineRunsSortType0Item] | None | Unset): Keys to sort by, applied in the
             order given. Pairs positionally with `order`, which must have the same number of entries.
@@ -479,6 +551,9 @@ async def asyncio_detailed(
         dataset_name=dataset_name,
         destination_name=destination_name,
         job_run_id=job_run_id,
+        error_step=error_step,
+        min_duration_ms=min_duration_ms,
+        max_duration_ms=max_duration_ms,
         is_empty_run=is_empty_run,
         sort=sort,
         order=order,
@@ -505,6 +580,9 @@ async def asyncio(
     dataset_name: list[str] | None | Unset = UNSET,
     destination_name: list[str] | None | Unset = UNSET,
     job_run_id: list[UUID] | None | Unset = UNSET,
+    error_step: list[str] | None | Unset = UNSET,
+    min_duration_ms: int | None | Unset = UNSET,
+    max_duration_ms: int | None | Unset = UNSET,
     is_empty_run: bool | None | Unset = UNSET,
     sort: list[ListPipelineRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineRunsOrderType0Item] | None | Unset = UNSET,
@@ -512,23 +590,27 @@ async def asyncio(
 ) -> ErrorResponse | ListPagePipelineRunResponse | None:
     """ListPipelineRuns
 
-    Lists the pipeline runs of a workspace within a time range.
+    Lists the pipeline runs of a workspace whose `started_at` falls in the time range
+    `[start, end)`, newest first by default.
 
-    Search with `q` over the pipeline name; filter by status, pipeline, dataset,
-    destination, job run, or empty run; sort with paired `sort` and `order` lists.
+    Search with `q` over the pipeline name, or by exact run id; filter by status,
+    pipeline, dataset, destination, job run, error step, duration, or empty run; sort
+    with paired `sort` and `order` lists.
 
     Args:
         workspace_id (UUID):
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-01T00:00:00`. Defaults to 7 days before `end`.
-        end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
-            interpreted in `timezone`. E.g. `2026-03-11T00:00:00`. Defaults to now.
-        timezone (str | Unset): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
-            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
-        q (None | str | Unset): Case-insensitive substring match on `pipeline_name`.
+        start (datetime.datetime | None | Unset): Lower bound (inclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-01T00:00:00`. Defaults to 7 days before
+            `end`.
+        end (datetime.datetime | None | Unset): Upper bound (exclusive) on `started_at`, as a
+            naive local time read in `timezone`, e.g. `2026-03-11T00:00:00`. Defaults to now.
+        timezone (str | Unset): IANA timezone in which naive datetime bounds are read, e.g.
+            `Europe/Berlin`. Default UTC. Default: 'UTC'.
+        q (None | str | Unset): Case-insensitive substring match on `pipeline_name`. A value that
+            is a UUID also matches the exact `id`.
         status (list[PipelineRunStatus] | None | Unset): Exact match on `status`. Repeat the
             parameter to match any of several values.
         pipeline_name (list[str] | None | Unset): Exact match on `pipeline_name`. Repeat the
@@ -539,6 +621,12 @@ async def asyncio(
             parameter to match any of several values.
         job_run_id (list[UUID] | None | Unset): Exact match on `job_run_id`. Repeat the parameter
             to match any of several values.
+        error_step (list[str] | None | Unset): Exact match on `error_step`. Repeat the parameter
+            to match any of several values.
+        min_duration_ms (int | None | Unset): Inclusive range over `duration_ms`, given as
+            `min_duration_ms` and `max_duration_ms`. Either bound may stand alone.
+        max_duration_ms (int | None | Unset): Inclusive range over `duration_ms`, given as
+            `min_duration_ms` and `max_duration_ms`. Either bound may stand alone.
         is_empty_run (bool | None | Unset): Match `is_empty_run`. Omit to list both.
         sort (list[ListPipelineRunsSortType0Item] | None | Unset): Keys to sort by, applied in the
             order given. Pairs positionally with `order`, which must have the same number of entries.
@@ -570,6 +658,9 @@ async def asyncio(
             dataset_name=dataset_name,
             destination_name=destination_name,
             job_run_id=job_run_id,
+            error_step=error_step,
+            min_duration_ms=min_duration_ms,
+            max_duration_ms=max_duration_ms,
             is_empty_run=is_empty_run,
             sort=sort,
             order=order,

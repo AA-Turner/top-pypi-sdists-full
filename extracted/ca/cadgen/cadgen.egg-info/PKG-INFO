@@ -1,17 +1,17 @@
 Metadata-Version: 2.4
 Name: cadgen
-Version: 0.10.0
+Version: 0.10.3
 Summary: The text-to-cad library under its earlier name: installs cad, imported as cad (and as cadgen, an alias of it).
 Author: earthtojake
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/earthtojake/text-to-cad
 Requires-Python: >=3.14
 Description-Content-Type: text/markdown
-Requires-Dist: cad==0.10.0
+Requires-Dist: cad==0.10.3
 Provides-Extra: build123d
-Requires-Dist: cad[build123d]==0.10.0; extra == "build123d"
+Requires-Dist: cad[build123d]==0.10.3; extra == "build123d"
 Provides-Extra: kernel
-Requires-Dist: cad[build123d]==0.10.0; extra == "kernel"
+Requires-Dist: cad[build123d]==0.10.3; extra == "kernel"
 
 # cadgen
 

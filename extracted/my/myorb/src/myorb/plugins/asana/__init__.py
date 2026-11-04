@@ -1,6 +1,7 @@
 """Asana: tasks assigned to the user across their workspaces, overdue and due soon first."""
 
 import asyncio
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -36,7 +37,12 @@ ICON = (
     "M12 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6M5 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6"
     "M19 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6"
 )
-TASK_FIELDS = "name,due_on,due_at,permalink_url,projects.name"
+TASK_FIELDS = (
+    "name,due_on,due_at,permalink_url,projects.name,assignee_section.name,memberships.section.name"
+)
+# The backlog: a task in My Tasks' "Do later", or in a project's section so named. Not counted
+# in the number, listed last, as Jira's backlog.
+BACKLOG = re.compile(r"(?i)\b(later|backlog|someday|icebox|nesk[oô]r)\b")
 # Tasks read per workspace, in pages of PAGE.
 MAX_TASKS = 300
 PAGE = 100
@@ -52,6 +58,7 @@ class Task:
     workspace: str
     project: str
     gid: str = ""  # Asana's id of the task, for Ask's actions
+    backlog: bool = False
 
 
 class Asana(Provider):
@@ -145,6 +152,10 @@ def convert(item: dict[str, Any], workspace: str) -> Task:
     due_at = datetime.fromisoformat(item["due_at"]) if item.get("due_at") else None
     due_on = date.fromisoformat(item["due_on"]) if item.get("due_on") else None
     projects = item.get("projects") or []
+    sections = [(item.get("assignee_section") or {}).get("name") or ""] + [
+        (membership.get("section") or {}).get("name") or ""
+        for membership in item.get("memberships") or []
+    ]
     return Task(
         name=item.get("name") or "(untitled)",
         due=due_on or (due_at.date() if due_at else None),
@@ -153,6 +164,7 @@ def convert(item: dict[str, Any], workspace: str) -> Task:
         workspace=workspace,
         project=projects[0].get("name", "") if projects else "No project",
         gid=str(item.get("gid", "")),
+        backlog=any(BACKLOG.search(section) for section in sections),
     )
 
 
@@ -225,20 +237,26 @@ class AsanaPlugin(Plugin):
         now = context.now
         today = now.date()
         tasks = [task for r in loaded for task in r.data]
-        overdue = [t for t in tasks if is_overdue(t, now)]
-        due_today = [t for t in tasks if t.due == today and not is_overdue(t, now)]
-        soon = [t for t in tasks if t.due and today < t.due < today + SOON]
-        # Overdue first, then by due date; tasks without one last.
-        ordered = sorted(tasks, key=lambda t: (t.due is None, t.due or date.max, t.name.lower()))
+        # The number counts what is to do now; the backlog is listed, but last and apart.
+        active = [t for t in tasks if not t.backlog]
+        backlog = [t for t in tasks if t.backlog]
+        overdue = [t for t in active if is_overdue(t, now)]
+        due_today = [t for t in active if t.due == today and not is_overdue(t, now)]
+        soon = [t for t in active if t.due and today < t.due < today + SOON]
+        # Overdue first, then by due date; tasks without one last; the backlog after them all.
+        ordered = sorted(
+            tasks, key=lambda t: (t.backlog, t.due is None, t.due or date.max, t.name.lower())
+        )
         rows = []
         for task in ordered:
-            late = is_overdue(task, now)
+            late = is_overdue(task, now) and not task.backlog
             tags = tuple(
                 tag
                 for tag, applies in (
                     ("overdue", late),
                     ("today", task in due_today),
                     ("soon", task in soon),
+                    ("backlog", task.backlog),
                 )
                 if applies
             )
@@ -246,8 +264,8 @@ class AsanaPlugin(Plugin):
                 Row(
                     task.name,
                     task.project,
-                    due_badge(task, now),
-                    "fail" if late else "info" if task.due == today else "neutral",
+                    "Backlog" if task.backlog else due_badge(task, now),
+                    "fail" if late else "info" if task in due_today else "neutral",
                     task.url,
                     tags=tags,
                     group=task.workspace,
@@ -256,13 +274,14 @@ class AsanaPlugin(Plugin):
                 )
             )
         return WidgetData(
-            value=len(tasks),
+            value=len(active),
             summary=" · ".join(
                 p
                 for p in (
                     "assigned to you",
                     f"{len(overdue)} overdue" if overdue else "",
                     f"{len(due_today)} due today" if due_today else "",
+                    f"{len(backlog)} more in the backlog" if backlog else "",
                 )
                 if p
             ),
@@ -271,6 +290,7 @@ class AsanaPlugin(Plugin):
                 Stat(len(overdue), "Overdue", filter="overdue"),
                 Stat(len(due_today), "Due today", filter="today"),
                 Stat(len(soon), "Next 7 days", filter="soon"),
+                Stat(len(backlog), "Backlog", filter="backlog"),
             ],
             list_title="Assigned to you",
             group_label="workspaces",
@@ -284,8 +304,10 @@ class AsanaPlugin(Plugin):
         if not loaded:
             return None
         now = context.now
-        tasks = [t for r in loaded for t in r.data]
-        lines = [f"{len(tasks)} open Asana tasks assigned to you."]
+        tasks = [t for r in loaded for t in r.data if not t.backlog]
+        backlog = sum(t.backlog for r in loaded for t in r.data)
+        more = f", and {backlog} more in the backlog (Do later)" if backlog else ""
+        lines = [f"{len(tasks)} open Asana tasks assigned to you{more}."]
         for task in sorted(tasks, key=lambda t: t.due or date.max):
             if task.due is None or task.due > now.date() + timedelta(days=2):
                 continue

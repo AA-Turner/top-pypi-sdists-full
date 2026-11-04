@@ -90,9 +90,10 @@ def sync_detailed(
 ) -> Response[DetailedJobRunResponse | ErrorResponse]:
     """CancelJobRun
 
-    Cancels a run for a workspace by ID.
+    Requests cancellation of a run. The run moves to `cancelling` and then to `cancelled` once
+    stopped. A run that is already finished or cancelling answers 400.
 
-    Requires WRITE permission on the organization level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -125,9 +126,10 @@ def sync(
 ) -> DetailedJobRunResponse | ErrorResponse | None:
     """CancelJobRun
 
-    Cancels a run for a workspace by ID.
+    Requests cancellation of a run. The run moves to `cancelling` and then to `cancelled` once
+    stopped. A run that is already finished or cancelling answers 400.
 
-    Requires WRITE permission on the organization level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -155,9 +157,10 @@ async def asyncio_detailed(
 ) -> Response[DetailedJobRunResponse | ErrorResponse]:
     """CancelJobRun
 
-    Cancels a run for a workspace by ID.
+    Requests cancellation of a run. The run moves to `cancelling` and then to `cancelled` once
+    stopped. A run that is already finished or cancelling answers 400.
 
-    Requires WRITE permission on the organization level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -188,9 +191,10 @@ async def asyncio(
 ) -> DetailedJobRunResponse | ErrorResponse | None:
     """CancelJobRun
 
-    Cancels a run for a workspace by ID.
+    Requests cancellation of a run. The run moves to `cancelling` and then to `cancelled` once
+    stopped. A run that is already finished or cancelling answers 400.
 
-    Requires WRITE permission on the organization level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

@@ -11,12 +11,14 @@ import subprocess
 import sys
 import tarfile
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
 from urllib.parse import unquote, urlsplit
 
 import pytest
 import yaml
 
+from airbyte_ops_mcp.cli.cloud import _check_results
+from airbyte_ops_mcp.regression_tests.eu_runner.cli import render_summary
 from airbyte_ops_mcp.regression_tests.eu_runner.job_spec import (
     build_batch_job,
     validate_environment,
@@ -25,6 +27,16 @@ from airbyte_ops_mcp.regression_tests.eu_runner.timeouts import (
     max_run_duration_seconds,
 )
 from airbyte_ops_mcp.regression_tests.eu_runner.verdict import build_verdict
+from airbyte_ops_mcp.regression_tests.regression.comparators import (
+    ComparisonResult,
+    RecordComparisonSummary,
+)
+from airbyte_ops_mcp.regression_tests.report import (
+    CheckResult,
+    build_comparison_report_model,
+    comparison_label_inputs,
+)
+from tests.test_regression_test_workflow_inputs import _EXPRESSION, _run_step
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/connector-regression-test.yml"
@@ -86,6 +98,7 @@ class _BatchStepRun(NamedTuple):
     summary: str
     gcloud_calls: list[str]
     sleeps: list[str]
+    stdout: str
 
 
 def _run_batch_step(run: str, tmp_path: Path, states: list[str], **env: str):
@@ -149,6 +162,7 @@ def _run_batch_step(run: str, tmp_path: Path, states: list[str], **env: str):
         paths["github-summary"].read_text(),
         paths["gcloud-args"].read_text().splitlines(),
         paths["sleeps"].read_text().splitlines(),
+        result.stdout,
     )
 
 
@@ -194,7 +208,7 @@ def _run_spec() -> dict:
 
 def _valid_finalize_verdict(*, success: bool = True, incomplete: bool = False) -> dict:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "output_mode": "masked",
         "commands": [],
         "success": success,
@@ -202,6 +216,10 @@ def _valid_finalize_verdict(*, success: bool = True, incomplete: bool = False) -
         "both_failed": False,
         "incomplete": incomplete,
         "not_exercised": False,
+        "setup_error": False,
+        "could_not_test": False,
+        "strict_failed": False,
+        "comparison_errored": False,
         "totals": {
             "stream_count": 0,
             "control_record_count": 0,
@@ -339,6 +357,10 @@ def test_s13_workflow_outputs_and_cleanup_are_defined() -> None:
     assert "validate_verdict" in finalize["run"]
     assert finalize["env"]["RUN_PREFIX"] == "${{ steps.paths.outputs.prefix }}"
     assert "RUN_PREFIX" in finalize["run"]
+    assert "printf 'setup_error=%s\\n' \"$setup_error\"" in finalize["run"]
+    assert "printf 'could_not_test=%s\\n' \"$could_not_test\"" in finalize["run"]
+    assert "::error::SETUP ERROR" in finalize["run"]
+    assert "::error::COULD NOT TEST (config error)" in finalize["run"]
 
 
 def test_finalize_invalid_verdict_emits_internal_failure_and_prefix_urls(
@@ -376,6 +398,8 @@ def test_finalize_invalid_verdict_emits_internal_failure_and_prefix_urls(
         ("both_failed", "false"),
         ("incomplete", "false"),
         ("not_exercised", "false"),
+        ("setup_error", "false"),
+        ("could_not_test", "false"),
     ):
         assert lines.count(f"{key}={value}") == 1
         assert sum(line.startswith(f"{key}=") for line in lines) == 1
@@ -501,6 +525,14 @@ def test_finalize_deletes_run_prefix_only_after_a_clean_pass(
         f"not_exercised={str(verdict.get('not_exercised', False)).lower()}"
         in output_path.read_text()
     )
+    assert (
+        f"setup_error={str(verdict.get('setup_error', False)).lower()}"
+        in output_path.read_text()
+    )
+    assert (
+        f"could_not_test={str(verdict.get('could_not_test', False)).lower()}"
+        in output_path.read_text()
+    )
     calls = (
         gcloud_args_path.read_text().splitlines() if gcloud_args_path.exists() else []
     )
@@ -530,6 +562,265 @@ def test_finalize_deletes_run_prefix_only_after_a_clean_pass(
         )
         ended = "FAILED" if scenario == "batch-failed" else "in an unknown state"
         assert f"**EU Batch job ended {ended}:**" in summary
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "clean-pass",
+        "diagnostic-new-stream",
+        "diagnostic-catalog",
+        "strict-new-stream-failure",
+        "setup-error",
+        "injection-setup-error",
+        "could-not-test",
+        "not-exercised",
+        "regression",
+        "crashed-new-stream-not-exercised",
+        "crashed-comparison-not-exercised",
+    ],
+)
+def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
+    tmp_path: Path, capsys, scenario: str
+) -> None:
+    extra_checks: tuple[CheckResult, ...] = ()
+    record_comparison: RecordComparisonSummary | None = None
+    record_checks_regression: bool | None = None
+    target_only_streams: tuple[str, ...] = ()
+    flags: dict[str, bool] = {}
+    success = True
+    regression_detected = False
+    target_result: dict[str, Any] = {"exit_code": 0, "success": True}
+    control_result: dict[str, Any] = {"exit_code": 0, "success": True}
+
+    if scenario == "diagnostic-new-stream":
+        extra_checks = (
+            CheckResult(
+                name="Record schema (new streams)",
+                passed=False,
+                severity="diagnostic",
+            ),
+        )
+    elif scenario == "diagnostic-catalog":
+        extra_checks = (
+            CheckResult(name="Catalog schema", passed=False, severity="diagnostic"),
+        )
+    elif scenario == "strict-new-stream-failure":
+        success = False
+        regression_detected = True
+        record_checks_regression = True
+        target_result["record_checks_regression"] = True
+        extra_checks = (
+            CheckResult(
+                name="Record schema (new streams)",
+                passed=False,
+            ),
+        )
+    elif scenario in {"setup-error", "injection-setup-error"}:
+        success = False
+        flags = {"setup_error": True}
+        target_result["setup_error"] = True
+    elif scenario == "could-not-test":
+        success = False
+        flags = {"could_not_test": True}
+        target_result["could_not_test"] = True
+    elif scenario == "not-exercised":
+        success = False
+        flags = {"not_exercised": True}
+        target_only_streams = ("new_stream",)
+        target_result["record_counts_per_stream"] = {"new_stream": 0}
+    elif scenario == "regression":
+        success = False
+        regression_detected = True
+        target_result["success"] = False
+    elif scenario == "crashed-new-stream-not-exercised":
+        success = False
+        flags = {"not_exercised": True}
+        target_only_streams = ("new_stream",)
+        target_result["record_counts_per_stream"] = {"new_stream": 0}
+        target_result["record_checks_regression"] = False
+        record_checks_regression = False
+        extra_checks = (
+            CheckResult(
+                name="Record schema (new streams)",
+                passed=False,
+            ),
+        )
+    elif scenario == "crashed-comparison-not-exercised":
+        success = False
+        flags = {"not_exercised": True}
+        target_only_streams = ("new_stream",)
+        target_result["record_counts_per_stream"] = {"new_stream": 0}
+        record_comparison = RecordComparisonSummary(
+            passed=False,
+            errored=True,
+            count_comparison=ComparisonResult(
+                passed=False,
+                message="Record comparison errored",
+            ),
+            errors=["Record comparison errored"],
+        )
+
+    strict_failed, comparison_errored = comparison_label_inputs(
+        record_comparison=record_comparison,
+        extra_checks=extra_checks,
+        record_checks_regression=record_checks_regression,
+        regression_detected=regression_detected,
+        both_failed=False,
+        stopped=False,
+        setup_error=flags.get("setup_error", False),
+        could_not_test=flags.get("could_not_test", False),
+        not_exercised=flags.get("not_exercised", False),
+    )
+    output_dir = tmp_path / "out"
+    read_dir = output_dir / "read"
+    read_dir.mkdir(parents=True)
+    report = {
+        "output_mode": "masked",
+        "target": {"exit_code": 0},
+        "control": {"exit_code": 0},
+        "success": success,
+        "regression_detected": regression_detected,
+        "both_failed": False,
+        "incomplete": False,
+        "not_exercised": False,
+        "setup_error": False,
+        "could_not_test": False,
+        "check_results": _check_results(extra_checks, record_comparison),
+        "strict_failed": strict_failed,
+        "comparison_errored": comparison_errored,
+        **flags,
+    }
+    injection_setup_error = scenario == "injection-setup-error"
+    if injection_setup_error:
+        report["success"] = False
+        report["setup_error"] = True
+    else:
+        (read_dir / "regression_report.json").write_text(json.dumps(report))
+    summary: dict[str, Any] = {
+        "success": not injection_setup_error,
+        "both_failed": False,
+        "incomplete": False,
+        "not_exercised": False,
+        "setup_error": injection_setup_error,
+        "could_not_test": False,
+    }
+    if injection_setup_error:
+        summary["commands"] = [{"command": "read", "exit_code": 0, "passed": False}]
+    (output_dir / "summary.json").write_text(json.dumps(summary))
+    verdict = build_verdict(output_dir)
+    verdict_path = tmp_path / "verdict.json"
+    verdict_path.write_text(json.dumps(verdict))
+    render_summary(
+        batch_url="batch",
+        logs_url="logs",
+        report_url="report",
+        verdict=verdict_path,
+    )
+    eu_summary = capsys.readouterr().out
+    eu_label = next(
+        line.split(":** ", 1)[1]
+        for line in eu_summary.splitlines()
+        if line.startswith("- **Result:** ")
+    )
+
+    finalize = next(step for step in _eu_job()["steps"] if step.get("id") == "finalize")
+    eu_run = _run_batch_step(
+        finalize["run"],
+        tmp_path,
+        [],
+        CANCELLED="false",
+        BATCH_STATE="SUCCEEDED",
+        RUN_PREFIX="gs://internal-airbyte-ai-infra-connector-regression-eu/gh/123-1",
+        VERDICT_PATH=str(verdict_path),
+    )
+    eu_outputs = dict(line.split("=", 1) for line in eu_run.outputs)
+
+    workflow = _workflow()
+    us_script = next(
+        step["run"]
+        for step in workflow["jobs"]["regression-test"]["steps"]
+        if step.get("id") == "final-status"
+    )
+    expressions = dict.fromkeys(_EXPRESSION.findall(us_script), "")
+    expressions.update(
+        {
+            "inputs.skip_read_action": "false",
+            "needs.build-target-image.result": "success",
+            "steps.load-target-image.outcome": "success",
+        }
+    )
+    for command in ("spec", "check", "discover", "read"):
+        expressions[f"steps.run-{command}.outcome"] = "success"
+        for flag in (
+            "success",
+            "both_failed",
+            "incomplete",
+            "not_exercised",
+            "regression_detected",
+            "setup_error",
+            "could_not_test",
+        ):
+            value = report.get(flag, False) if command == "read" else False
+            if flag == "success" and command != "read":
+                value = True
+            expressions[f"steps.run-{command}.outputs.{flag}"] = str(value).lower()
+    us_run = _run_step(
+        "final-status",
+        tmp_path,
+        env={},
+        expressions=expressions,
+    )
+
+    expected_returncode = 0 if success else 1
+    assert eu_run.returncode == expected_returncode, scenario
+    assert us_run.returncode == expected_returncode, scenario
+    for flag in (
+        "success",
+        "both_failed",
+        "incomplete",
+        "regression_detected",
+        "not_exercised",
+        "setup_error",
+        "could_not_test",
+    ):
+        assert eu_outputs[flag] == us_run.outputs[flag], scenario
+    if scenario in {
+        "setup-error",
+        "injection-setup-error",
+        "could-not-test",
+        "not-exercised",
+        "crashed-new-stream-not-exercised",
+        "crashed-comparison-not-exercised",
+    }:
+        us_model = build_comparison_report_model(
+            target_image="target",
+            control_image="control",
+            command="read",
+            target_result=target_result,
+            control_result=control_result,
+            record_comparison=record_comparison,
+            extra_checks=extra_checks,
+            target_only_streams=target_only_streams,
+        )
+        assert eu_label == us_model.verdict_label, scenario
+    if scenario == "crashed-new-stream-not-exercised":
+        assert report["regression_detected"] is False
+        assert eu_outputs["regression_detected"] == "false"
+        assert eu_label == "FAIL (inconclusive)"
+    if scenario == "crashed-comparison-not-exercised":
+        assert report["regression_detected"] is False
+        assert eu_outputs["regression_detected"] == "false"
+        assert eu_label == "NOT EXERCISED"
+    if flags.get("setup_error"):
+        assert "::error::SETUP ERROR" in eu_run.stdout
+    if injection_setup_error:
+        assert eu_label == "SETUP ERROR"
+        assert eu_outputs["internal_failure"] == "false"
+        assert us_run.outputs["internal_failure"] == "false"
+        assert eu_run.returncode == us_run.returncode == 1
+    if flags.get("could_not_test"):
+        assert "::error::COULD NOT TEST (config error)" in eu_run.stdout
 
 
 def test_finalize_fails_after_writing_outputs() -> None:
@@ -745,7 +1036,7 @@ def test_vm_runner_with_connection_can_skip_read() -> None:
     ]
 
 
-def test_vm_summary_folds_not_exercised_from_command_outputs(tmp_path: Path) -> None:
+def test_vm_summary_folds_verdict_flags_from_command_outputs(tmp_path: Path) -> None:
     text = VM_SCRIPT.read_text()
     start = text.index('python3 - "$OUT" "$rc" "$WORK" <<\'PY\'')
     program_start = text.index("\n", start) + 1
@@ -755,7 +1046,10 @@ def test_vm_summary_folds_not_exercised_from_command_outputs(tmp_path: Path) -> 
     work_dir.mkdir()
     output_dir.mkdir()
     (work_dir / "read.exit-code").write_text("0")
-    (work_dir / "read.github-output").write_text("not_exercised=true\n")
+    (work_dir / "read.github-output").write_text(
+        "success=false\nnot_exercised=true\nsetup_error=true\ncould_not_test=true\n"
+        "error=Setup error: DISCOVER did not finish within the read budget\n"
+    )
 
     subprocess.run(
         [sys.executable, "-", str(output_dir), "0", str(work_dir)],
@@ -765,13 +1059,23 @@ def test_vm_summary_folds_not_exercised_from_command_outputs(tmp_path: Path) -> 
     )
 
     summary = json.loads((output_dir / "summary.json").read_text())
+    assert not list(output_dir.rglob("regression_report.json"))
+    assert summary["success"] is False
     assert summary["not_exercised"] is True
+    assert summary["setup_error"] is True
+    assert summary["could_not_test"] is True
+    assert summary["commands"] == [{"command": "read", "exit_code": 0, "passed": False}]
+    verdict = build_verdict(output_dir)
+    assert verdict["success"] is False
+    assert verdict["setup_error"] is True
     assert set(summary) == {
         "exit_code",
         "success",
         "both_failed",
         "incomplete",
         "not_exercised",
+        "setup_error",
+        "could_not_test",
         "commands",
     }
 

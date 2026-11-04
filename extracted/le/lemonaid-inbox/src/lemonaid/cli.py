@@ -23,6 +23,8 @@ import lemonaid.opencode.cli
 import lemonaid.places.cli
 import lemonaid.restore.cli
 import lemonaid.skills.cli
+import lemonaid.tasks.cli
+import lemonaid.tasks.inspection.service
 import lemonaid.terminal.cli
 import lemonaid.tmux.cli
 import lemonaid.tmux.label_host
@@ -156,11 +158,14 @@ def main() -> None:
     lemonaid.restore.cli.setup_parser(subparsers)
     lemonaid.brief.cli.setup_parser(subparsers)
     lemonaid.skills.cli.setup_parser(subparsers)
+    lemonaid.tasks.cli.setup_parser(subparsers)
     lemonaid.terminal.cli.setup_parser(subparsers)
     lemonaid.tmux.cli.setup_parser(subparsers)
     lemonaid.usage.cli.setup_parser(subparsers)
     lemonaid.watch.wait_cli.setup_parser(subparsers)
-    lemonaid.watch.cli.setup_parser(subparsers, (lemonaid.tmux.label_host.service,))
+    lemonaid.watch.cli.setup_parser(
+        subparsers, (lemonaid.tmux.label_host.service, lemonaid.tasks.inspection.service.service)
+    )
     lemonaid.wezterm.cli.setup_parser(subparsers)
     setup_config_parser(subparsers)
     setup_mark_read_parser(subparsers)

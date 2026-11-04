@@ -16,7 +16,7 @@ from airbyte_ops_mcp.regression_tests.eu_runner.verdict import (
 
 def _valid_verdict() -> dict:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "output_mode": "masked",
         "commands": [
             {
@@ -31,12 +31,16 @@ def _valid_verdict() -> dict:
         "both_failed": False,
         "incomplete": False,
         "not_exercised": False,
+        "setup_error": False,
+        "could_not_test": False,
+        "strict_failed": False,
+        "comparison_errored": False,
         "totals": {
             "stream_count": 1,
             "control_record_count": 2,
             "target_record_count": 2,
         },
-        "checks": [{"check_name": "Record counts", "passed": True}],
+        "checks": [{"check_name": "Record counts", "passed": True, "status": "pass"}],
     }
 
 
@@ -67,10 +71,17 @@ def test_verdict_projects_cli_report_to_metadata(tmp_path) -> None:
         "target_record_count": 2,
     }
     assert verdict["checks"] == [
-        {"check_name": "Command execution", "passed": True},
-        {"check_name": "Spec compatibility", "passed": True},
+        {
+            "check_name": "Command execution",
+            "passed": True,
+            "status": "pass",
+        },
     ]
     assert verdict["not_exercised"] is True
+    assert verdict["setup_error"] is False
+    assert verdict["could_not_test"] is False
+    assert verdict["strict_failed"] is False
+    assert verdict["comparison_errored"] is False
     assert "private_stream" not in json.dumps(verdict)
 
 
@@ -133,6 +144,146 @@ def test_verdict_reads_not_exercised_from_summary(tmp_path) -> None:
     verdict = build_verdict(tmp_path)
 
     assert verdict["not_exercised"] is True
+
+
+@pytest.mark.parametrize("flag", ["strict_failed", "comparison_errored"])
+def test_verdict_aggregates_label_inputs_from_reports_only(tmp_path, flag) -> None:
+    read_dir = tmp_path / "read"
+    read_dir.mkdir()
+    (read_dir / "regression_report.json").write_text(
+        json.dumps(
+            {
+                "output_mode": "masked",
+                "success": True,
+                flag: True,
+            }
+        )
+    )
+    (tmp_path / "summary.json").write_text(json.dumps({"success": True, flag: False}))
+
+    verdict = build_verdict(tmp_path)
+
+    assert verdict[flag] is True
+    validate_verdict(verdict)
+
+
+@pytest.mark.parametrize("flag", ["strict_failed", "comparison_errored"])
+def test_verdict_does_not_read_label_inputs_from_summary(tmp_path, flag) -> None:
+    (tmp_path / "summary.json").write_text(json.dumps({"success": True, flag: True}))
+
+    verdict = build_verdict(tmp_path)
+
+    assert verdict[flag] is False
+    validate_verdict(verdict)
+
+
+@pytest.mark.parametrize(
+    ("source", "flag"),
+    [
+        ("report", "setup_error"),
+        ("report", "could_not_test"),
+        ("summary", "setup_error"),
+        ("summary", "could_not_test"),
+    ],
+)
+def test_verdict_reads_setup_and_config_errors_from_report_and_summary(
+    tmp_path, source, flag
+) -> None:
+    if source == "report":
+        read_dir = tmp_path / "read"
+        read_dir.mkdir()
+        (read_dir / "regression_report.json").write_text(
+            json.dumps(
+                {
+                    "output_mode": "masked",
+                    "success": False,
+                    "regression_detected": False,
+                    flag: True,
+                }
+            )
+        )
+        (tmp_path / "summary.json").write_text(json.dumps({"success": True}))
+    else:
+        (tmp_path / "summary.json").write_text(
+            json.dumps({"success": False, flag: True})
+        )
+
+    verdict = build_verdict(tmp_path)
+
+    assert verdict[flag] is True
+    assert verdict["success"] is False
+
+
+@pytest.mark.parametrize(
+    ("name", "passed", "severity", "expected_status", "report_success"),
+    [
+        ("Record schema (new streams)", False, "diagnostic", "warn", True),
+        ("Record schema (new streams)", False, "strict", "fail", False),
+        ("Catalog schema", False, "diagnostic", "warn", True),
+    ],
+)
+def test_verdict_projects_check_results_with_severity(
+    tmp_path, name, passed, severity, expected_status, report_success
+) -> None:
+    read_dir = tmp_path / "read"
+    read_dir.mkdir()
+    (read_dir / "regression_report.json").write_text(
+        json.dumps(
+            {
+                "output_mode": "masked",
+                "target": {"exit_code": 0},
+                "control": {"exit_code": 0},
+                "success": report_success,
+                "regression_detected": expected_status == "fail",
+                "check_results": [
+                    {"name": name, "passed": passed, "severity": severity}
+                ],
+            }
+        )
+    )
+    (tmp_path / "summary.json").write_text(json.dumps({"success": True}))
+
+    verdict = build_verdict(tmp_path)
+
+    assert verdict["success"] is (expected_status != "fail")
+    assert verdict["checks"][-1] == {
+        "check_name": name,
+        "passed": passed,
+        "status": expected_status,
+    }
+
+
+def test_verdict_drops_unknown_and_invalid_check_results(tmp_path) -> None:
+    read_dir = tmp_path / "read"
+    read_dir.mkdir()
+    (read_dir / "regression_report.json").write_text(
+        json.dumps(
+            {
+                "output_mode": "masked",
+                "target": {"exit_code": 0},
+                "success": True,
+                "check_results": [
+                    {"name": "unrecognized", "passed": True, "severity": "strict"},
+                    {
+                        "name": "Record schema (new streams)",
+                        "passed": "true",
+                        "severity": "strict",
+                    },
+                ],
+            }
+        )
+    )
+    (tmp_path / "summary.json").write_text(json.dumps({"success": True}))
+
+    verdict = build_verdict(tmp_path)
+
+    assert verdict["checks"] == [
+        {
+            "check_name": "Command execution",
+            "passed": True,
+            "status": "pass",
+        }
+    ]
 
 
 @pytest.mark.parametrize(
@@ -212,6 +363,9 @@ def test_verdict_refuses_a_non_masked_cli_report(tmp_path) -> None:
             {"target_record_count": "record-data"}
         ),
         lambda verdict: verdict["checks"][0].update({"check_name": "private_field"}),
+        lambda verdict: verdict["checks"][0].update({"status": "private_value"}),
+        lambda verdict: verdict["checks"][0].update({"status": "bad-status"}),
+        lambda verdict: verdict["checks"][0].update({"passed": False}),
     ],
 )
 def test_verdict_rejects_unknown_or_record_like_values(mutate) -> None:
@@ -226,11 +380,18 @@ def test_verdict_rejects_unknown_or_record_like_values(mutate) -> None:
     "mutate",
     [
         lambda verdict: verdict.pop("not_exercised"),
+        lambda verdict: verdict.pop("setup_error"),
         lambda verdict: verdict.update({"not_exercised": "true"}),
-        lambda verdict: verdict.update({"schema_version": 1}),
+        lambda verdict: verdict.update({"setup_error": 1}),
+        lambda verdict: verdict.update({"could_not_test": None}),
+        lambda verdict: verdict.pop("strict_failed"),
+        lambda verdict: verdict.pop("comparison_errored"),
+        lambda verdict: verdict.update({"strict_failed": 1}),
+        lambda verdict: verdict.update({"comparison_errored": "false"}),
+        lambda verdict: verdict.update({"schema_version": 2}),
     ],
 )
-def test_verdict_requires_schema_v2_and_not_exercised_boolean(mutate) -> None:
+def test_verdict_requires_schema_v3_and_boolean_flags(mutate) -> None:
     verdict = _valid_verdict()
     mutate(verdict)
 
@@ -238,7 +399,9 @@ def test_verdict_requires_schema_v2_and_not_exercised_boolean(mutate) -> None:
         validate_verdict(verdict)
 
 
-@pytest.mark.parametrize("flag", ["incomplete", "not_exercised"])
+@pytest.mark.parametrize(
+    "flag", ["incomplete", "not_exercised", "setup_error", "could_not_test"]
+)
 def test_verdict_rejects_success_with_incomplete_or_not_exercised(flag) -> None:
     verdict = _valid_verdict()
     verdict.update({"success": True, flag: True})
@@ -247,7 +410,16 @@ def test_verdict_rejects_success_with_incomplete_or_not_exercised(flag) -> None:
         validate_verdict(verdict)
 
 
-@pytest.mark.parametrize("flag", ["incomplete", "not_exercised"])
+def test_verdict_allows_label_inputs_on_a_successful_report() -> None:
+    verdict = _valid_verdict()
+    verdict.update({"strict_failed": True, "comparison_errored": True})
+
+    validate_verdict(verdict)
+
+
+@pytest.mark.parametrize(
+    "flag", ["incomplete", "not_exercised", "setup_error", "could_not_test"]
+)
 def test_build_verdict_forces_failure_for_incomplete_or_not_exercised(
     tmp_path, flag
 ) -> None:
@@ -283,8 +455,8 @@ def test_render_summary_uses_validated_verdict(tmp_path, capsys) -> None:
     ("flags", "expected"),
     [
         ({}, "NOT EXERCISED"),
-        ({"regression_detected": True}, "failed"),
-        ({"both_failed": True}, "failed"),
+        ({"regression_detected": True}, "FAIL (regression)"),
+        ({"both_failed": True}, "FAIL (inconclusive)"),
         ({"incomplete": True}, "INCOMPLETE"),
     ],
 )
@@ -306,6 +478,108 @@ def test_render_summary_ranks_not_exercised_below_fail(
     summary = capsys.readouterr().out
     assert f"- **Result:** {expected}\n" in summary
     assert "- **Not exercised:** True" in summary
+
+
+@pytest.mark.parametrize(
+    ("flag", "expected"),
+    [
+        ("setup_error", "SETUP ERROR"),
+        ("could_not_test", "COULD NOT TEST (config error)"),
+    ],
+)
+def test_render_summary_shows_setup_and_config_error_labels(
+    tmp_path, capsys, flag, expected
+) -> None:
+    verdict = _valid_verdict()
+    verdict.update({"success": False, flag: True})
+    verdict_path = tmp_path / "verdict.json"
+    verdict_path.write_text(json.dumps(verdict))
+
+    render_summary(
+        batch_url="batch",
+        logs_url="logs",
+        report_url="report",
+        verdict=verdict_path,
+    )
+
+    summary = capsys.readouterr().out
+    assert f"- **Result:** {expected}" in summary
+    assert f"- **Setup error:** {flag == 'setup_error'}" in summary
+    assert f"- **Could not test:** {flag == 'could_not_test'}" in summary
+
+
+@pytest.mark.parametrize(
+    ("strict_failed", "expected"),
+    [
+        (True, "FAIL (regression)"),
+        (False, "COULD NOT TEST (config error)"),
+    ],
+)
+def test_render_summary_ranks_strict_check_failure_with_could_not_test(
+    tmp_path, capsys, strict_failed, expected
+) -> None:
+    verdict = _valid_verdict()
+    verdict.update(
+        {
+            "success": False,
+            "regression_detected": False,
+            "could_not_test": True,
+            "strict_failed": strict_failed,
+            "comparison_errored": False,
+            "checks": [
+                {
+                    "check_name": "Record counts",
+                    "passed": False,
+                    "status": "fail",
+                }
+            ],
+        }
+    )
+    verdict_path = tmp_path / "verdict.json"
+    verdict_path.write_text(json.dumps(verdict))
+
+    render_summary(
+        batch_url="batch",
+        logs_url="logs",
+        report_url="report",
+        verdict=verdict_path,
+    )
+
+    summary = capsys.readouterr().out
+    assert f"- **Result:** {expected}" in summary
+
+
+def test_render_summary_uses_comparison_error_flag_with_not_exercised(
+    tmp_path, capsys
+) -> None:
+    verdict = _valid_verdict()
+    verdict.update(
+        {
+            "success": False,
+            "not_exercised": True,
+            "strict_failed": False,
+            "comparison_errored": True,
+            "checks": [
+                {
+                    "check_name": "Record counts",
+                    "passed": False,
+                    "status": "fail",
+                }
+            ],
+        }
+    )
+    verdict_path = tmp_path / "verdict.json"
+    verdict_path.write_text(json.dumps(verdict))
+
+    render_summary(
+        batch_url="batch",
+        logs_url="logs",
+        report_url="report",
+        verdict=verdict_path,
+    )
+
+    summary = capsys.readouterr().out
+    assert "- **Result:** FAIL (inconclusive)" in summary
 
 
 def test_render_summary_does_not_echo_invalid_verdict(tmp_path, capsys) -> None:
@@ -346,6 +620,25 @@ def test_not_exercised_stream_names_do_not_enter_verdict_or_summary(
                 "stream": "secret_stream_b",
             }
         ],
+        "record_checks": {"secret_stream_d": {"secret_field": "secret_value"}},
+        "record_comparison": {
+            "checks": {"secret_stream_e": {"secret_field": "secret_value"}},
+            "streams": ["secret_stream_f"],
+        },
+        "comparison": {
+            "final_state": {
+                "secret_stream_g": {"passed": False, "value": "secret_value"}
+            }
+        },
+        "check_results": [
+            {
+                "name": "Record schema (new streams)",
+                "passed": False,
+                "severity": "diagnostic",
+                "stream": "secret_stream_h",
+                "summary": "secret_value",
+            }
+        ],
     }
     (read_dir / "regression_report.json").write_text(json.dumps(report))
     (read_dir / "stream_injection.json").write_text(
@@ -364,6 +657,16 @@ def test_not_exercised_stream_names_do_not_enter_verdict_or_summary(
 
     summary = capsys.readouterr().out
     assert "- **Result:** NOT EXERCISED" in summary
-    for name in ("secret_stream_a", "secret_stream_b", "secret_stream_c"):
+    for name in (
+        "secret_stream_a",
+        "secret_stream_b",
+        "secret_stream_c",
+        "secret_stream_d",
+        "secret_stream_e",
+        "secret_stream_f",
+        "secret_stream_g",
+        "secret_stream_h",
+        "secret_value",
+    ):
         assert name not in json.dumps(verdict)
         assert name not in summary

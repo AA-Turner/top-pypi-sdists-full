@@ -31,16 +31,17 @@ from mistralai.vibe.harness.runtime.capabilities import (
     MistralConnectorConfiguration,
     MistralConnectorDescriptor,
 )
+from mistralai.vibe.harness.runtime.capabilities.plugins import mistral_connectors as harness_connectors
 from mistralai.vibe.harness.runtime.capabilities.plugins.mcp import McpCapabilityHost
 from mistralai.vibe.harness.runtime.capabilities.plugins.mistral_connectors import (
     MistralConnectorHost,
     MistralConnectorNotConnectedError,
-    MistralConnectorNotFoundError,
 )
 from mistralai.vibe.harness.runtime.content import to_model_json_text
 from mistralai.vibe.harness.runtime.hosts.mcp_http import McpHttpCapabilityHost
 from mistralai.vibe_agents.sdk.assembly.local_mistral import local_mistral_client
 from mistralai.vibe_agents.sdk.authoring import connector_selection
+from mistralai.vibe_agents.sdk.authoring.errors import MistralConnectorNotFoundError
 from mistralai.workflows.client import get_mistral_client as get_workflows_mistral_client
 from mistralai.workflows.core.config.config import config as workflows_config
 from mistralai.workflows.plugins.mistralai.connectors import decorator as connector_decorator
@@ -779,7 +780,7 @@ class AgentsSdkConnectorResource(McpCapabilityHost, MistralConnectorHost):
         authored_name = slot.connector_name
         try:
             resolved = await self._api.resolve(authored_name)
-        except MistralConnectorNotFoundError as error:
+        except harness_connectors.MistralConnectorNotFoundError as error:
             raise MistralConnectorNotFoundError(
                 authored_name, close_matches=await self._close_connector_names(authored_name)
             ) from error

@@ -1,6 +1,6 @@
 [project]
 name = "atlan-application-sdk"
-version = "3.53.2"
+version = "3.54.0"
 description = "Atlan Application SDK is a Python library for developing applications on the Atlan Platform"
 license = "Apache-2.0"
 authors = [
@@ -20,14 +20,14 @@ classifiers = [
 ]
 keywords = ["atlan", "sdk", "platform", "app", "development"]
 dependencies = [
-    "atlan-application-sdk-api==3.53.2",
+    "atlan-application-sdk-api==3.54.0",
     "aiohttp>=3.10.0,<4.0.0",
     "opentelemetry-exporter-otlp>=1.45.0,<2.0.0",
     "opentelemetry-exporter-prometheus>=0.66b0,<0.67",
     "opentelemetry-instrumentation-fastapi>=0.66b0,<0.67",
     "prometheus-client>=0.20.0,<1.0",
     "fastapi[standard]>=0.162.0,<0.163.0",
-    "pyatlan>=11.6.0,<12",  # floor carries authlib~=1.9.1 (CVE-2026-96760) to consumers
+    "pyatlan>=11.7.0,<12",  # floor carries authlib~=1.9.1 (CVE-2026-96760) to consumers
     "httpx>=0.27.0,<0.29.0",
     "httpx-retries>=0.6.0,<0.7.0",
     # Published floor (not just [tool.uv] constraint-dependencies, which only
@@ -320,6 +320,7 @@ exclude = [
     "application_sdk/_install.py",
     "application_sdk/_logging.py",
     "application_sdk/_runtime/__init__.py",
+    "application_sdk/_runtime/cgroup.py",
     "application_sdk/_runtime/offload.py",
     "application_sdk/_runtime/progress.py",
     "application_sdk/clients/__init__.py",
@@ -337,6 +338,7 @@ exclude = [
     "application_sdk/common/_listing.py",
     "application_sdk/common/aws_utils.py",
     "application_sdk/common/aws_utils_errors.py",
+    "application_sdk/common/backoff.py",
     "application_sdk/common/build_identity.py",
     "application_sdk/common/concurrency.py",
     "application_sdk/common/errors.py",
@@ -359,6 +361,7 @@ exclude = [
     "application_sdk/credentials/extra.py",
     "application_sdk/credentials/ingress.py",
     "application_sdk/credentials/ref.py",
+    "application_sdk/credentials/requirements.py",
     "application_sdk/credentials/spec.py",
     "application_sdk/credentials/types.py",
     "application_sdk/credentials/utils.py",

@@ -102,10 +102,20 @@ class FunctionBodyExtractor(ast.NodeVisitor):
         if not body:
             return
 
+        source_lines = self.source_code.splitlines(keepends=True)
+        # A body on the same line as the header (`def f(outputs): return True`) shares that line
+        # with the header, so taking whole lines would take the header too. Such a body has only
+        # simple statements on one logical line, so take each statement and put it on its own line.
+        first = node.body[0]
+        if source_lines[first.lineno - 1][: first.col_offset].strip():
+            self.function_body = "\n".join(
+                ast.get_source_segment(self.source_code, stmt) for stmt in body
+            )
+            return
+
         start_lineno = body[0].lineno
         end_lineno = body[-1].end_lineno
 
-        source_lines = self.source_code.splitlines(keepends=True)
         function_body_lines = source_lines[start_lineno - 1 : end_lineno]
 
         self.function_body = dedent("".join(function_body_lines)).rstrip("\n")
@@ -143,6 +153,18 @@ def _extract_params_from_signature(signature: str) -> str:
     raise MlflowException(
         f"Invalid signature format: '{signature}'", error_code=INVALID_PARAMETER_VALUE
     )
+
+
+def _signature_param_names(signature: str) -> set[str]:
+    """The parameter names in a stored ``@scorer`` signature, read without running any code."""
+    try:
+        args = ast.parse(f"def _f{signature}: pass").body[0].args
+    # Before Python 3.12, a null byte in the source raises ValueError instead of SyntaxError.
+    except (SyntaxError, ValueError):
+        raise MlflowException(
+            f"Invalid signature format: {signature!r}", error_code=INVALID_PARAMETER_VALUE
+        )
+    return {arg.arg for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
 
 
 def recreate_function(source: str, signature: str, func_name: str) -> Callable[..., Any]:
@@ -386,6 +408,16 @@ def _scorer_job_param_names() -> _ScorerJobParamNames:
     )
 
 
+def is_online_scoring_job(job_name: str) -> bool:
+    """Whether ``job_name`` is an online scoring job.
+
+    Online scoring jobs run custom scorers only in job containers they start themselves (see
+    ``mlflow.genai.scorers.online.container_scoring``), and skip them when job containers are not
+    enabled, so they never run custom scorer code in the job's own process.
+    """
+    return job_name in _scorer_job_param_names().online
+
+
 def _obj_has_call_source(obj: Any) -> bool:
     # Recurse so a decorator sub-scorer nested in an ensemble (under
     # ``ensemble_scorer_data["scorers"]``) is detected, not only a top-level scorer.
@@ -396,6 +428,43 @@ def _obj_has_call_source(obj: Any) -> bool:
     if isinstance(obj, list):
         return any(_obj_has_call_source(item) for item in obj)
     return False
+
+
+def has_empty_call_source(serialized_data: dict[str, Any]) -> bool:
+    """Whether a serialized custom ``@scorer`` (not an ensemble of them) has empty source code."""
+    call_source = serialized_data.get("call_source")
+    return isinstance(call_source, str) and not call_source.strip()
+
+
+def find_custom_scorer_without_source(obj: Any) -> str | None:
+    """Return the name of a custom ``@scorer`` in ``obj`` whose stored source code is empty.
+
+    ``obj`` is a parsed serialized scorer. Ensembles are searched too. Returns None if every custom
+    scorer has source code. A custom scorer gets empty source code when its function body cannot be
+    read, for example because its file changed after it was imported.
+    """
+    if isinstance(obj, dict):
+        if has_empty_call_source(obj):
+            return str(obj.get("name") or obj.get("original_func_name") or "")
+        for value in obj.values():
+            if (name := find_custom_scorer_without_source(value)) is not None:
+                return name
+    elif isinstance(obj, list):
+        for item in obj:
+            if (name := find_custom_scorer_without_source(item)) is not None:
+                return name
+    return None
+
+
+def custom_scorer_without_source_error_message(name: str) -> str:
+    return (
+        f"Scorer '{name or '<unnamed>'}' has no source code: the body of its function is empty "
+        "or could not be read. Common causes: a lambda (use `def` instead), a body with only a "
+        "docstring (add the scoring code), an `async def` function (not supported), or a "
+        "function defined with `exec`, in a REPL, or in a file that changed after it was "
+        "imported (define it in a file or notebook cell, and register it before you change "
+        "the file)."
+    )
 
 
 def _parse_serialized_scorer(serialized_scorer: str) -> dict[str, Any]:
@@ -434,6 +503,18 @@ def params_contain_custom_scorer_code(job_name: str, params: dict[str, Any]) -> 
         _obj_has_call_source(_parse_serialized_scorer(s))
         for s in _iter_serialized_scorers(job_name, params)
     )
+
+
+# Same value as ``mlflow.server.jobs.executor_registry.DOCKER_EXECUTOR_BACKEND``, kept here because
+# importing that module loads the server package, which the tracking store must not do.
+_DOCKER_EXECUTOR_BACKEND = "docker"
+
+
+def container_scoring_enabled() -> bool:
+    """Whether online scoring jobs run custom scorers in job containers."""
+    from mlflow.environment_variables import MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND
+
+    return MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND.get() == _DOCKER_EXECUTOR_BACKEND
 
 
 def custom_scorer_execution_blocked(serialized_data: Any) -> bool:

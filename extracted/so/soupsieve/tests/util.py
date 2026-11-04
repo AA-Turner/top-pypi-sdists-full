@@ -26,16 +26,17 @@ LXML_HTML = 0x20
 NOCACHE = 0x100
 
 
-def skip_no_lxml(func):
-    """Decorator that skips lxml is not available."""
+def escapes_iframe(parser):
+    """Check if a parser escapes the contents of an `iframe`."""
 
-    def skip_if(self, *args, **kwargs):
-        """Skip conditional wrapper."""
+    return bs4.BeautifulSoup('<iframe><p></p></iframe>', parser).iframe.p is None
 
-        if LXML_PRESENT:
-            return func(self, *args, **kwargs)
-        else:
-            raise pytest.skip('lxml is not found')
+
+# Like a browser, `html5lib` and recent versions of Python's `html.parser` and `lxml` (`libxml2` 2.14+) escape
+# the contents of an `iframe`, so it only has text. Older versions parse the contents as elements, which are then
+# normal children of the `iframe`. Before `lxml` 7, Windows wheels of `lxml` use an older `libxml2`.
+PYHTML_ESCAPES_IFRAME = escapes_iframe('html.parser')
+LXML_ESCAPES_IFRAME = LXML_PRESENT and escapes_iframe('lxml')
 
 
 class TestCase(unittest.TestCase):

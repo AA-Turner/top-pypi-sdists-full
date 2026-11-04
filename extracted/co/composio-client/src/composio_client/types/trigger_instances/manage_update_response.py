@@ -1,12 +1,20 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.trigger_instances.manage_update_response."""
 
-from typing_extensions import Literal
+from __future__ import annotations
 
-from ..._models import BaseModel
+from typing import Literal
 
-__all__ = ["ManageUpdateResponse"]
+from pydantic import ConfigDict
+from ..._base_model import BaseModel
 
 
 class ManageUpdateResponse(BaseModel):
-    status: Literal["success"]
-    """Status of the operation"""
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    status: Literal['success']
+    "Status of the operation"
+
+
+__all__ = [
+    "ManageUpdateResponse",
+]

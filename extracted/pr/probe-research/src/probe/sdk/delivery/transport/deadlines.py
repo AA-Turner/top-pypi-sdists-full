@@ -89,6 +89,22 @@ def _patient() -> bool:
     return _patience_outer.get() is not _NOT_PATIENT
 
 
+#: Set by :func:`disable_retries`: every request in that block is sent once.
+_retries_off: ContextVar[bool] = ContextVar("probe_transport_retries_off", default=False)
+
+
+@contextmanager
+def disable_retries():
+    """Send each request in this block once, whatever its method or status: no quick retries, no
+    `patience`. For a periodic write whose next tick is its retry (a lease beat, a log chunk):
+    retried inline, each failed one cost 4 requests in an outage (I14)."""
+    token = _retries_off.set(True)
+    try:
+        yield
+    finally:
+        _retries_off.reset(token)
+
+
 @contextmanager
 def patience(seconds: float | None):
     """Retry for up to ``seconds`` of wall clock instead of ``max_retries`` quick tries, for a process
@@ -286,7 +302,10 @@ class RetryPolicyMixin:
 
     def _may_retry(self, attempt: int) -> bool:
         """The COUNT half of the retry decision: ``max_retries`` quick tries, or,
-        inside :func:`patience`, as many as the deadline allows."""
+        inside :func:`patience`, as many as the deadline allows; none inside
+        :func:`disable_retries`."""
+        if _retries_off.get():
+            return False
         return attempt <= self.max_retries or _patient()
 
     @staticmethod

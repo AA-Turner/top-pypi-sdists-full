@@ -9,9 +9,11 @@ from collections import deque
 from typing import TYPE_CHECKING, Any
 
 import attrs
+import numpy as np
 import pyarrow as pa
 
 from geneva.apply.task import ReadTask
+from geneva.transformer import BACKFILL_SELECTED
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -21,6 +23,9 @@ _LOG = logging.getLogger(__name__)
 
 
 _FLOOR_PROBE_INTERVAL = 16
+# One measurement may at most double the size, so a single unusually fast batch
+# (warm caches, short inputs) cannot jump straight to the maximum.
+_MAX_GROWTH_FACTOR = 2
 
 
 @attrs.define
@@ -63,6 +68,9 @@ class AdaptiveCheckpointSizer:
     def record(self, *, duration_seconds: float, rows: int) -> None:
         """Update size from observed batch duration and row count.
 
+        The size can shrink to the measured target in one step but grows by at
+        most ``_MAX_GROWTH_FACTOR`` per measurement.
+
         This implementation is intentionally simple and can be extended to use
         additional signals (e.g. EMA
         smoothing by recording the last N durations and rows)
@@ -80,6 +88,10 @@ class AdaptiveCheckpointSizer:
             desired = self.max_size
         else:
             clamped_by = "none"
+        growth_limit = self._current_size * _MAX_GROWTH_FACTOR
+        if desired > growth_limit:
+            clamped_by = "growth"
+            desired = growth_limit
 
         reason = "measurement"
         if desired == self.min_size:
@@ -138,6 +150,32 @@ class BatchSizeTracker:
         return self._sizes.popleft()
 
 
+def _selected_row_counts(batch: pa.RecordBatch | list[dict]) -> np.ndarray | None:
+    """Running count of rows selected for the UDF, or None to cut by total rows.
+
+    Only a RecordBatch limits UDF work to its selected rows. A list-of-dict
+    (legacy blob) batch reaches the UDF whole, and array and record-batch UDFs
+    run on every row of it, so it is cut by total rows. A null selection counts
+    as unselected, matching ``_count_udf_rows``.
+    """
+    if isinstance(batch, pa.RecordBatch) and BACKFILL_SELECTED in batch.schema.names:
+        mask = batch[BACKFILL_SELECTED].fill_null(False)
+        return np.cumsum(mask.to_numpy(zero_copy_only=False))
+    return None
+
+
+def _slice_rows(
+    counts: np.ndarray | None, offset: int, selected_target: int, limit: int
+) -> int:
+    """Rows to take from ``offset`` so the slice holds ``selected_target``
+    selected rows, but at most ``limit`` rows in total."""
+    if counts is None:
+        return max(1, min(selected_target, limit))
+    before = int(counts[offset - 1]) if offset > 0 else 0
+    last = int(np.searchsorted(counts, before + selected_target, side="left"))
+    return max(1, min(last - offset + 1, limit))
+
+
 @attrs.define
 class AdaptiveReadTask(ReadTask):
     """ReadTask wrapper that slices max-size batches into adaptive checkpoints.
@@ -150,6 +188,13 @@ class AdaptiveReadTask(ReadTask):
     memory usage. The goal is to start with small checkpoints (faster
     proof-of-life and frequent progress) and grow them as timings arrive, while
     never exceeding the max size to avoid memory/OOM risk.
+
+    The sizer's size counts rows selected for the UDF (``BACKFILL_SELECTED``),
+    since only those cost UDF time. On a filtered backfill a slice therefore
+    ends once it holds that many selected rows; unselected rows ride along, up
+    to the max size in total. Every slice then carries about the same UDF work
+    however few of its rows are selected. List-of-dict batches are cut by total
+    rows, since the UDF does work for all of them.
     """
 
     inner: ReadTask = attrs.field()
@@ -168,36 +213,31 @@ class AdaptiveReadTask(ReadTask):
         # The inner scan's ``batch_size`` sets how many rows Lance
         # materializes per read, not the consumer batch shape — the loop
         # below re-slices each inner batch to the sizer's
-        # ``current_size``. Scan at least ``max_size`` so one inner batch
-        # can always fill a full consumer slice, and honor a larger
-        # caller hint when there is one.
+        # ``current_size`` selected rows. Scan at least ``max_size`` so one
+        # inner batch can always fill a full consumer slice, and honor a
+        # larger caller hint when there is one.
         scan_size = max(int(batch_size or 0), max_size)
         if scan_size <= 0:
             scan_size = max(1, max_size)
 
         for batch in self.inner.to_batches(batch_size=scan_size):
-            if isinstance(batch, pa.RecordBatch):
-                total = batch.num_rows
-                offset = 0
-                while offset < total:
-                    size = min(self.sizer.current_size, max_size, total - offset)
-                    if size <= 0:
-                        size = 1
-                    if self.size_tracker is not None:
-                        self.size_tracker.record(size)
+            counts = _selected_row_counts(batch)
+            total = batch.num_rows if isinstance(batch, pa.RecordBatch) else len(batch)
+            offset = 0
+            while offset < total:
+                size = _slice_rows(
+                    counts,
+                    offset,
+                    self.sizer.current_size,
+                    min(max_size, total - offset),
+                )
+                if self.size_tracker is not None:
+                    self.size_tracker.record(size)
+                if isinstance(batch, pa.RecordBatch):
                     yield batch.slice(offset, size)
-                    offset += size
-            else:
-                total = len(batch)
-                offset = 0
-                while offset < total:
-                    size = min(self.sizer.current_size, max_size, total - offset)
-                    if size <= 0:
-                        size = 1
-                    if self.size_tracker is not None:
-                        self.size_tracker.record(size)
+                else:
                     yield batch[offset : offset + size]
-                    offset += size
+                offset += size
 
     def checkpoint_key(self) -> str:
         return self.inner.checkpoint_key()

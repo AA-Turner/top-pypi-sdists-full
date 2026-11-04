@@ -99,9 +99,10 @@ def sync_detailed(
     """SetOrganizationRegion
 
     Sets the organization's region, its data plane. This is one-time and
-    irreversible: a second attempt returns 409. An unknown dataplane_id returns 400.
+    irreversible: a second attempt returns 409. An unknown `dataplane_id` returns 400. List the
+    available data planes with `list_dataplanes`.
 
-    Requires MANAGE_ORG permission on the organization level.
+    Requires the organization owner role.
 
     Args:
         organization_id (UUID):
@@ -135,9 +136,10 @@ def sync(
     """SetOrganizationRegion
 
     Sets the organization's region, its data plane. This is one-time and
-    irreversible: a second attempt returns 409. An unknown dataplane_id returns 400.
+    irreversible: a second attempt returns 409. An unknown `dataplane_id` returns 400. List the
+    available data planes with `list_dataplanes`.
 
-    Requires MANAGE_ORG permission on the organization level.
+    Requires the organization owner role.
 
     Args:
         organization_id (UUID):
@@ -166,9 +168,10 @@ async def asyncio_detailed(
     """SetOrganizationRegion
 
     Sets the organization's region, its data plane. This is one-time and
-    irreversible: a second attempt returns 409. An unknown dataplane_id returns 400.
+    irreversible: a second attempt returns 409. An unknown `dataplane_id` returns 400. List the
+    available data planes with `list_dataplanes`.
 
-    Requires MANAGE_ORG permission on the organization level.
+    Requires the organization owner role.
 
     Args:
         organization_id (UUID):
@@ -200,9 +203,10 @@ async def asyncio(
     """SetOrganizationRegion
 
     Sets the organization's region, its data plane. This is one-time and
-    irreversible: a second attempt returns 409. An unknown dataplane_id returns 400.
+    irreversible: a second attempt returns 409. An unknown `dataplane_id` returns 400. List the
+    available data planes with `list_dataplanes`.
 
-    Requires MANAGE_ORG permission on the organization level.
+    Requires the organization owner role.
 
     Args:
         organization_id (UUID):

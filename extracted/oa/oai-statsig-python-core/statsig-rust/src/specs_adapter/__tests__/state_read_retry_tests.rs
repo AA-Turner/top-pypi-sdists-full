@@ -611,3 +611,58 @@ async fn explicit_budget_overrides_specs_body_read_default_ceiling() {
         assert_eq!(provider.specs.load(Ordering::SeqCst), 3);
     }
 }
+
+#[derive(Default)]
+struct SourceMetadataListener(Mutex<Vec<Option<String>>>);
+
+impl SpecsUpdateListener for SourceMetadataListener {
+    fn did_receive_specs_update(&self, update: SpecsUpdate) -> Result<(), StatsigErr> {
+        self.0.lock().push(update.source_api);
+        Ok(())
+    }
+
+    fn get_current_specs_info(&self) -> SpecsInfo {
+        SpecsInfo::empty()
+    }
+}
+
+#[tokio::test]
+async fn source_metadata_omits_userinfo_without_changing_requests() {
+    use crate::observability::ops_stats::OpsStatsEvent;
+
+    let url = "https://fake-user:fake-password@proxy.test:8443/v2/download_config_specs";
+    let expected_source = "https://proxy.test:8443/v2";
+    let (mut adapter, provider, _) = setup(false);
+    adapter.specs_url = url.to_owned();
+    adapter.ops_stats = Arc::new(OpsStatsForInstance::new());
+    let mut events = adapter.ops_stats.subscribe_for_test();
+    let listener = Arc::new(SourceMetadataListener::default());
+    adapter.initialize(listener.clone());
+
+    for status in [200, 400] {
+        provider.status.store(status, Ordering::SeqCst);
+        let result = adapter
+            .manually_sync_specs(SpecsInfo::empty(), SpecsSyncTrigger::Manual)
+            .await;
+        assert_eq!(result.is_ok(), status == 200);
+        assert_eq!(provider.calls.lock().last().unwrap().url, url);
+        assert_eq!(
+            listener.0.lock().as_slice(),
+            &[Some(expected_source.to_owned())]
+        );
+
+        let mut found = false;
+        while let Ok(event) = events.try_recv() {
+            if let OpsStatsEvent::Observability(event) = event {
+                if event.metric_name == "config_sync_overall.latency" {
+                    let tags = event.tags.unwrap();
+                    assert_eq!(tags["source_api"], expected_source);
+                    assert_eq!(tags["network_success"], (status == 200).to_string());
+                    found = true;
+                }
+            }
+        }
+        assert!(found, "missing config sync metric for status {status}");
+    }
+    assert_eq!(provider.calls.lock().len(), 2);
+}

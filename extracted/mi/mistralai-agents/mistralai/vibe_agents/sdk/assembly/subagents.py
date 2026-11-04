@@ -26,14 +26,13 @@ from mistralai.vibe.harness.runtime.completion.providers.anthropic import Anthro
 from mistralai.vibe.harness.runtime.completion.providers.mistral import MistralCompletionConfig
 from mistralai.vibe.harness.runtime.completion.providers.openai import OpenAICompletionConfig
 from mistralai.vibe_agents import session_workflow as wire
-from mistralai.vibe_agents.sdk.authoring import contracts
+from mistralai.vibe_agents.sdk.authoring import contracts, mcp_sources
 from mistralai.vibe_agents.sdk.authoring import subagent as subagent_authoring
 from mistralai.vibe_agents.sdk.authoring import tool as tool_authoring
 from mistralai.vibe_agents.sdk.authoring import types as authoring_types
 from mistralai.vibe_agents.sdk.authoring.errors import SdkError, UnsupportedAgentFeatureError
 
 from . import assemble, sandbox_skills
-from . import mcp as mcp_assembly
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,13 +135,17 @@ def _compile_subagent(
         ]
     mcps = layer.mcps
     if harness is not None and (tools is not None or mcps is not None):
-        mcp_assembly.refuse_tool_namespaces(
+        mcp_sources.refuse_tool_namespaces(
             harness.tools if tools is None else tools, harness.mcps if mcps is None else mcps, subagent=path
         )
+    resolved_mcps = None
     if mcps is not None:
-        values["mcps"] = assemble._resolve_mcp_model_access(mcps, programmatic=programmatic)
+        resolved_mcps = assemble._resolve_mcp_model_access(mcps, programmatic=programmatic)
     elif inherited is not None and inherited.mcps:
-        values["mcps"] = assemble._resolve_mcp_model_access(inherited.mcps, programmatic=programmatic)
+        resolved_mcps = assemble._resolve_mcp_model_access(inherited.mcps, programmatic=programmatic)
+    if resolved_mcps is not None:
+        mcp_sources.check_mcp_sources(resolved_mcps, programmatic=programmatic, owner=f"Subagent {'/'.join(path)!r}")
+        values["mcps"] = resolved_mcps
     if layer.connectors is not None:
         values["connectors"] = assemble._build_connector_configuration(
             tuple(layer.connectors), layer.connector_discovery
@@ -222,7 +225,7 @@ def _compile_subagent_completion(
 
     ``provider`` or ``completion`` replace the parent's completion under the rules of
     ``agents.Agent``. ``model``, ``reasoning_effort`` and ``temperature`` change the inherited
-    one, which must then use a built-in provider, and which loses its ``response_format``.
+    one, which must then use a built-in provider, and which loses its ``output_type``.
     """
 
     label = "/".join(path)

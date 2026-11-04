@@ -35,16 +35,18 @@ class UserGroupMember(object):
     openapi_types = {
         'user_id': 'str',
         'user_email': 'str',
-        'user_name': 'str'
+        'user_name': 'str',
+        'joined_organization_at': 'datetime'
     }
 
     attribute_map = {
         'user_id': 'user_id',
         'user_email': 'user_email',
-        'user_name': 'user_name'
+        'user_name': 'user_name',
+        'joined_organization_at': 'joined_organization_at'
     }
 
-    def __init__(self, user_id=None, user_email=None, user_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, user_id=None, user_email=None, user_name=None, joined_organization_at=None, local_vars_configuration=None):  # noqa: E501
         """UserGroupMember - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,11 +55,13 @@ class UserGroupMember(object):
         self._user_id = None
         self._user_email = None
         self._user_name = None
+        self._joined_organization_at = None
         self.discriminator = None
 
         self.user_id = user_id
         self.user_email = user_email
         self.user_name = user_name
+        self.joined_organization_at = joined_organization_at
 
     @property
     def user_id(self):
@@ -127,6 +131,31 @@ class UserGroupMember(object):
             raise ValueError("Invalid value for `user_name`, must not be `None`")  # noqa: E501
 
         self._user_name = user_name
+
+    @property
+    def joined_organization_at(self):
+        """Gets the joined_organization_at of this UserGroupMember.  # noqa: E501
+
+        When the member's account joined the organization.  # noqa: E501
+
+        :return: The joined_organization_at of this UserGroupMember.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._joined_organization_at
+
+    @joined_organization_at.setter
+    def joined_organization_at(self, joined_organization_at):
+        """Sets the joined_organization_at of this UserGroupMember.
+
+        When the member's account joined the organization.  # noqa: E501
+
+        :param joined_organization_at: The joined_organization_at of this UserGroupMember.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and joined_organization_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `joined_organization_at`, must not be `None`")  # noqa: E501
+
+        self._joined_organization_at = joined_organization_at
 
     def to_dict(self):
         """Returns the model properties as a dict"""

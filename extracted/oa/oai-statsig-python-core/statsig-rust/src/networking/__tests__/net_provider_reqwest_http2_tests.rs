@@ -125,7 +125,7 @@ async fn http2_limited_body_deadline_retains_received_status() {
     assert!(response.error.is_some());
     assert!(response.data.is_none());
     assert!(!exceeded && !unsupported);
-    assert_eq!(provider.http2_clients.lock().entries.len(), 1);
+    assert_eq!(provider.transport.http2_clients.lock().entries.len(), 1);
     mock.assert_async().await;
 }
 }
@@ -204,7 +204,7 @@ async fn http2_opt_in_uses_prior_knowledge_and_reuses_connection() {
         );
         assert_eq!(connections.load(Ordering::SeqCst), expected_connections);
     }
-    assert_eq!(provider.http2_clients.lock().entries.len(), 1);
+    assert_eq!(provider.transport.http2_clients.lock().entries.len(), 1);
     server.verify().await;
     relay.abort();
     assert!(relay.await.unwrap_err().is_cancelled());
@@ -229,11 +229,18 @@ fn http2_client_cache_respects_connection_reuse_for_all_routes() {
             log_event_connection_reuse: false,
             ..RequestArgs::new()
         };
-        provider.get_http2_client(&args, true).unwrap();
-        assert!(provider.http2_clients.lock().entries.is_empty(), "{route}");
+        provider.http2_client(&args).unwrap();
+        assert!(
+            provider.transport.http2_clients.lock().entries.is_empty(),
+            "{route}"
+        );
         args.log_event_connection_reuse = true;
-        provider.get_http2_client(&args, true).unwrap();
-        assert_eq!(provider.http2_clients.lock().entries.len(), 1, "{route}");
+        provider.http2_client(&args).unwrap();
+        assert_eq!(
+            provider.transport.http2_clients.lock().entries.len(),
+            1,
+            "{route}"
+        );
     }
 }
 
@@ -303,7 +310,7 @@ async fn http2_opt_in_falls_back_before_post_and_default_uses_http1() {
         assert!(preface.starts_with(b"POST /v1/log_event"));
         assert_eq!(response.status_code, Some(200));
         assert!(response.error.is_none());
-        assert!(provider.http2_clients.lock().entries.is_empty());
+        assert!(provider.transport.http2_clients.lock().entries.is_empty());
     }
 }
 }
@@ -343,7 +350,7 @@ async fn http2_respects_shutdown_and_does_not_replay_a_timed_out_post() {
         .into_parts()
         .0;
     assert_eq!(cancelled.error.as_deref(), Some("Request was shutdown"));
-    assert!(provider.http2_clients.lock().entries.is_empty());
+    assert!(provider.transport.http2_clients.lock().entries.is_empty());
     assert!(server.received_requests().await.unwrap().is_empty());
 
     // Exclude cold discovery and connection setup from the POST timeout check.
@@ -364,7 +371,7 @@ async fn http2_respects_shutdown_and_does_not_replay_a_timed_out_post() {
         .0;
     assert_eq!(ready.status_code, Some(200));
     assert!(ready.error.is_none());
-    assert_eq!(provider.http2_clients.lock().entries.len(), 1);
+    assert_eq!(provider.transport.http2_clients.lock().entries.len(), 1);
 
     args.is_shutdown = None;
     let timed_out = provider
@@ -374,7 +381,7 @@ async fn http2_respects_shutdown_and_does_not_replay_a_timed_out_post() {
         .0;
     assert!(timed_out.error.is_some());
     assert_eq!(timed_out.status_code, None);
-    assert_eq!(provider.http2_clients.lock().entries.len(), 1);
+    assert_eq!(provider.transport.http2_clients.lock().entries.len(), 1);
     server.verify().await;
 }
 }
@@ -423,7 +430,7 @@ async fn http2_preserves_redirect_policy_in_separate_client_pools() {
             Some(if disable_redirects { 302 } else { 200 })
         );
     }
-    assert_eq!(provider.http2_clients.lock().entries.len(), 1);
+    assert_eq!(provider.transport.http2_clients.lock().entries.len(), 1);
     source.verify().await;
     target.verify().await;
 }
@@ -432,16 +439,13 @@ async fn http2_preserves_redirect_policy_in_separate_client_pools() {
 #[tokio::test]
 async fn http2_invalid_ca_fails_without_default_client_fallback() {
     let provider = NetworkProviderReqwest::new();
-    let result = provider.get_http2_client(
-        &RequestArgs {
-            url: "https://receiver.invalid/any-path".into(),
-            ca_cert_pem: Some(b"invalid certificate".to_vec()),
-            ..RequestArgs::new()
-        },
-        true,
-    );
+    let result = provider.http2_client(&RequestArgs {
+        url: "https://receiver.invalid/any-path".into(),
+        ca_cert_pem: Some(b"invalid certificate".to_vec()),
+        ..RequestArgs::new()
+    });
     assert!(result.is_err());
-    assert!(provider.http2_clients.lock().entries.is_empty());
+    assert!(provider.transport.http2_clients.lock().entries.is_empty());
 }
 
 isolated_http2_test! {
@@ -508,7 +512,7 @@ async fn http2_redirect_to_http1_preserves_post_rules_and_strips_cross_origin_au
             .into_parts()
             .0;
         assert_eq!(response.status_code, Some(200), "{:?}", response.error);
-        assert_eq!(provider.http2_clients.lock().entries.len(), 1);
+        assert_eq!(provider.transport.http2_clients.lock().entries.len(), 1);
         receiver.await.unwrap();
         source.verify().await;
     }
@@ -537,24 +541,24 @@ async fn plaintext_discovery_is_coalesced_cached_and_expires() {
         ..RequestArgs::new()
     };
     let results = futures::future::join_all(
-        (0..16).map(|_| provider.plaintext_http2_available(&args, Duration::from_secs(1))),
+        (0..16).map(|_| provider.transport.plaintext_http2_available(&args, Duration::from_secs(1))),
     )
     .await;
     assert!(results.into_iter().all(|supports| supports));
     receiver.await.unwrap();
     assert!(
-        provider
+        provider.transport
             .plaintext_http2_available(&args, Duration::from_secs(1))
             .await
     );
-    provider.http2_origins.lock().get_mut(&origin).unwrap().0 =
+    provider.transport.http2_origins.lock().get_mut(&origin).unwrap().0 =
         Instant::now() - HTTP2_CAPABILITY_TTL;
     assert!(
-        !provider
+        !provider.transport
             .plaintext_http2_available(&args, Duration::from_secs(1))
             .await
     );
-    assert_eq!(provider.http2_origins.lock().len(), 1);
+    assert_eq!(provider.transport.http2_origins.lock().len(), 1);
 }
 }
 

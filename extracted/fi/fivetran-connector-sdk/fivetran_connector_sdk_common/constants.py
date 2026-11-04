@@ -41,6 +41,12 @@ TOGGLE_LABEL = "TOGGLE_FIELD"
 OUTPUT_FILES_DIR = "files"
 CRASH_REPORTS_DIR = "crash-reports"
 CRASH_REPORT_FILENAME_FORMAT = "crash_%Y%m%d-%H%M%S.log"
+
+# Record: fixtures/<scenario>/ holds the golden data and is meant to be committed.
+FIXTURES_DIR = "fixtures"
+# Replay output is throwaway and must never be committed, so it lives next to fixtures/.
+REPLAY_ROOT_DIR = ".fixtures_replay"
+GITIGNORE_REPLAY_PATTERN = f"{REPLAY_ROOT_DIR}/"
 REQUIREMENTS_TXT = "requirements.txt"
 PYPROJECT_TOML = "pyproject.toml"
 PYPROJECT_SKIP_VALIDATION_MESSAGE = "using pyproject.toml; skipping dependency validation"
@@ -76,6 +82,7 @@ CONNECTOR_LOGGING_PREFIX = "⚡ connector"
 VIRTUAL_ENV_CONFIG = "pyvenv.cfg"
 GITIGNORE_FILENAME = ".gitignore"
 ROOT_FILENAME = "connector.py"
+PROJECT_DETECTION_FILES = (ROOT_FILENAME, PYPROJECT_TOML)
 MAX_RECORDS_IN_BATCH = 100
 MAX_BATCH_SIZE_IN_BYTES = 100000 # Default 100 KB
 QUEUE_SIZE = 100
@@ -84,7 +91,7 @@ FILE_UPLOAD_READ_TIMEOUT_SEC = int(300) # 5 minutes
 FIVETRAN_FILE_PATH_COLUMN = "_fivetran_file_path"
 
 ALWAYS_INCLUDED_FILES = [GITIGNORE_FILENAME]
-EXCLUDED_DIRS = ["__pycache__", "lib", "include", OUTPUT_FILES_DIR, CRASH_REPORTS_DIR]
+EXCLUDED_DIRS = ["__pycache__", "lib", "include", OUTPUT_FILES_DIR, CRASH_REPORTS_DIR, FIXTURES_DIR]
 EXCLUDED_PIPREQS_DIRS = ["bin", "etc", "include", "lib", "Lib", "lib64", "Scripts", "share"]
 VALID_COMMANDS = ["version", "init", "debug", "run", "deploy", "reset", "package", "configuration", "help"]
 PACKAGE_SUBCOMMANDS = ["create", "update", "list"]
@@ -138,6 +145,7 @@ EXAMPLES_GITHUB_REPO = "fivetran/connector_sdk"
 GITHUB_BRANCH = "main"
 CONNECTORS_GITHUB_REPO = "fivetran/community_connectors"
 CONNECTORS_TEMPLATE_PREFIX = "connectors/"
+EXAMPLES_TEMPLATE_PREFIX = "examples/"
 TOOLS_GITHUB_REPO = "fivetran/connector_sdk_tools"
 TOOLS_GITHUB_REPO_URL = f"https://github.com/{TOOLS_GITHUB_REPO}"
 AI_TOOLS_INSTALLATION_DOCS_URL = (

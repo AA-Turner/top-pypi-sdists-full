@@ -19,8 +19,8 @@ class CancelJobRunsResponse:
     """
     Attributes:
         failed (list[BulkItemFailure]): Requested runs that do not exist in the workspace.
-        skipped (list[CancelledJobRun]): Runs that were already in a terminal state.
-        succeeded (list[CancelledJobRun]): Runs that were cancelled (or would be in dry-run mode).
+        skipped (list[CancelledJobRun]): Runs already finished or already being cancelled.
+        succeeded (list[CancelledJobRun]): Runs moved to `cancelling` (or that would be, in dry-run).
     """
 
     failed: list[BulkItemFailure]

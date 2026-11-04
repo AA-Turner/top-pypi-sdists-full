@@ -2230,6 +2230,21 @@ SELECT_CONNECTIONS_BY_SOURCE_CONNECTOR_AND_STREAM = sqlalchemy.text(
     JOIN workspace
       ON source_actor.workspace_id = workspace.id
      AND workspace.tombstone = false
+    LEFT JOIN scoped_configuration AS actor_pin
+      ON actor_pin.scope_id = source_actor.id
+     AND actor_pin.scope_type = 'actor'
+     AND actor_pin.key = 'connector_version'
+     AND actor_pin.resource_id = source_actor.actor_definition_id
+    LEFT JOIN scoped_configuration AS ws_pin
+      ON ws_pin.scope_id = workspace.id
+     AND ws_pin.scope_type = 'workspace'
+     AND ws_pin.key = 'connector_version'
+     AND ws_pin.resource_id = source_actor.actor_definition_id
+    LEFT JOIN scoped_configuration AS org_pin
+      ON org_pin.scope_id = workspace.organization_id
+     AND org_pin.scope_type = 'organization'
+     AND org_pin.key = 'connector_version'
+     AND org_pin.resource_id = source_actor.actor_definition_id
     LEFT JOIN dataplane_group
       ON workspace.dataplane_group_id = dataplane_group.id
     WHERE
@@ -2265,6 +2280,21 @@ SELECT_CONNECTIONS_BY_SOURCE_CONNECTOR_AND_STREAM_AND_ORG = sqlalchemy.text(
     JOIN workspace
       ON source_actor.workspace_id = workspace.id
      AND workspace.tombstone = false
+    LEFT JOIN scoped_configuration AS actor_pin
+      ON actor_pin.scope_id = source_actor.id
+     AND actor_pin.scope_type = 'actor'
+     AND actor_pin.key = 'connector_version'
+     AND actor_pin.resource_id = source_actor.actor_definition_id
+    LEFT JOIN scoped_configuration AS ws_pin
+      ON ws_pin.scope_id = workspace.id
+     AND ws_pin.scope_type = 'workspace'
+     AND ws_pin.key = 'connector_version'
+     AND ws_pin.resource_id = source_actor.actor_definition_id
+    LEFT JOIN scoped_configuration AS org_pin
+      ON org_pin.scope_id = workspace.organization_id
+     AND org_pin.scope_type = 'organization'
+     AND org_pin.key = 'connector_version'
+     AND org_pin.resource_id = source_actor.actor_definition_id
     LEFT JOIN dataplane_group
       ON workspace.dataplane_group_id = dataplane_group.id
     WHERE

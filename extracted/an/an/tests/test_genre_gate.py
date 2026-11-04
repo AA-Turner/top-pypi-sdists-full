@@ -128,16 +128,38 @@ def test_every_api_level_is_documented():
     assert documented == set(range(1, API_LEVEL + 1)), documented
 
 
-def test_api_level_13_names_are_public_and_the_old_ones_still_resolve():
+def test_api_level_13_names_are_public_and_their_old_spellings_are_gone():
     """reeleehq/cutan#148: the four names cutan read privately are public at
-    API level 13; the private spellings stay as aliases, so a cutan built
-    before the switch still runs against this `an`."""
+    API level 13; cutan requires level 14 and imports them, so the private
+    aliases are gone (an#709)."""
     from an.audio import loudness
     from an.ir import validate
     from an.semantic import matcher
 
-    assert validate._rig_scope is validate.rig_scope
-    assert matcher._method is matcher.lookup_method
-    assert matcher._as_choice is matcher.as_choice
-    assert loudness._offset is loudness.voice_loudness_offset
+    assert callable(validate.rig_scope) and callable(loudness.voice_loudness_offset)
     assert {"lookup_method", "as_choice"} <= set(matcher.__all__)
+    for module, old in [(validate, "_rig_scope"), (matcher, "_method"),
+                        (matcher, "_as_choice"), (loudness, "_offset")]:  # fmt: skip
+        assert not hasattr(module, old), (module.__name__, old)
+
+
+def test_api_level_16_names_are_public_and_the_old_ones_still_resolve():
+    """an#730: the private helpers cutan imported are public at API level 16;
+    the private spellings stay as aliases (removed by an#747), so a cutan
+    built before the switch still runs against this `an`."""
+    from an import motion
+    from an.ir import validate
+    from an.stage import rig
+
+    renamed = {
+        motion: {"_alternating": "alternating", "_positive": "require_positive",
+                 "_rest": "rest_value", "_settled": "settled", "_side_sign": "side_sign",
+                 "_through": "through", "_tweens": "tweens_of"},
+        validate: {"_built_node_paths": "built_node_paths", "_rig_document": "rig_document",
+                   "_text_ids": "text_block_ids"},
+        rig: {"_asset_file": "asset_file"},
+    }  # fmt: skip
+    for module, names in renamed.items():
+        for old, new in names.items():
+            assert getattr(module, old) is getattr(module, new), (module.__name__, old)
+    assert set(renamed[motion].values()) <= set(motion.__all__)

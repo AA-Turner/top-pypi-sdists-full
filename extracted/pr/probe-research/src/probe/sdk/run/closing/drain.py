@@ -240,7 +240,10 @@ class CloseDrainMixin:
                 return self._close_unrecorded(unrecorded, wait=wait)
         if not wait:
             return self._hand_close_to_worker(left)
-        return self._settle_wait(self._wait_for_worker(wait_limit), status, summary, accounting, should_warn, verdict_sent)
+        return self._settle_wait(
+            self._wait_for_worker(wait_limit), status, summary, accounting, should_warn, verdict_sent,
+            wait_limit=wait_limit,
+        )
 
     def _close_now(self, status, summary, accounting, should_warn, deadline):
         """Nothing of the run is queued: the close is one sync write that returns the row. None
@@ -268,6 +271,11 @@ class CloseDrainMixin:
             return None
         self._warn_unrecoverable(accounting, recorded=True)
         self._release_run_lock()
+        if is_async_ack_declared(self._client):
+            # Its writes went earlier and may have been acked before they were stored (I15d).
+            fresh = self._read_fresh_row()
+            if fresh is not None:
+                self._check_stored_data(fresh)
         return result
 
     def _queue_close(self, status, summary, accounting, left: int, *, deferred: bool):
@@ -316,7 +324,7 @@ class CloseDrainMixin:
             min_epoch=self.write_epoch,
         ).wait()
 
-    def _settle_wait(self, result, status, summary, accounting, should_warn, verdict_sent):
+    def _settle_wait(self, result, status, summary, accounting, should_warn, verdict_sent, *, wait_limit=None):
         """The outcomes table: the row, a queued report (stopped waiting), or `DeliveryIncomplete`."""
         from ...delivery.outbox.waiter import DeliveryIncomplete
 
@@ -326,7 +334,7 @@ class CloseDrainMixin:
             if should_warn and not verdict_sent:
                 self._warn_if_capture_incomplete()
             self._warn_unrecoverable(accounting, recorded=True)
-            return self._read_closed_row()
+            return self._check_stored_data(self._read_row_after_delivery(), wait_limit=wait_limit)
         if self._leased():
             self._draining_beat()  # the worker keeps sending: the lease stays live meanwhile
         self._release_run_lock()
@@ -344,19 +352,38 @@ class CloseDrainMixin:
             return {"finish_queued": True, "delivered": result.delivered, "remaining": result.pending}
         raise DeliveryIncomplete(result)
 
-    def _read_closed_row(self) -> dict:
-        """The run as the server has it now (one read, R4), or the last row this handle saw."""
+    def _check_stored_data(self, row: Any, *, wait_limit: float | None = None) -> Any:
+        """I15d: once delivered, wait (no time cap unless the caller set one) until the server STORED
+        the run's queued data, and raise `DeliveryIncomplete` for what it refused of this attempt. A
+        server or team without the ingest queue serves no `ingest`: the row as is."""
+        from .stored import wait_for_stored_data
+
+        stored = wait_for_stored_data(
+            self._read_fresh_row, row, run_ref=self.id, write_epoch=self.write_epoch, deadline=wait_limit
+        )
+        return stored if isinstance(stored, dict) else self._data
+
+    def _read_row_after_delivery(self) -> dict | None:
+        """The run's row once delivered: None (read again by the store wait) when the read failed
+        and the server is known to have the ingest queue, else the last row this handle saw."""
+        fresh = self._read_fresh_row()
+        if fresh is not None or is_async_ack_declared(self._client):
+            return fresh
+        return self._data
+
+    def _read_fresh_row(self) -> dict | None:
+        """The run as the server has it now, or None when the read failed (asked again later)."""
         from ...delivery.transport.deadlines import fresh_deadline_scope
 
         try:
             with fresh_deadline_scope(time.monotonic() + _ROW_READ_SECONDS):
                 row = self._client.get_run(self.id)
-        except Exception:  # noqa: BLE001 -- delivered either way
-            return self._data
+        except Exception:  # noqa: BLE001 -- a failed read says nothing
+            return None
         if isinstance(row, dict):
             self._data = row
             return row
-        return self._data
+        return None
 
     def _has_queued_tag_write(self) -> bool:
         """Whether this run has a PATCH carrying `tags` still in the queue.
@@ -404,4 +431,5 @@ class CloseDrainMixin:
         """Any op of this run still queued, blocking or not."""
         return any(op.get("run_ref") == self.id for _, op in rows)
 from probe.sdk.run.metrics.values import _now  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.ops.ingest_queue import is_async_ack_declared  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.summary import _with_finish_accounting  # noqa: E402 -- pieces need each other; the front door loads this one first

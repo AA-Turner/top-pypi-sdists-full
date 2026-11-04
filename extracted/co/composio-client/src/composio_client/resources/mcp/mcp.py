@@ -1,933 +1,2978 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""``client.mcp`` — the generated resource classes.
+
+``McpResource`` (sync) and ``AsyncMcpResource`` (async),
+dispatching through the hand-written httpx kernel with Stainless-style
+flat request fields and raw / streaming response wrappers.
+"""
 
 from __future__ import annotations
 
-from typing import Optional
-from typing_extensions import Literal
+from functools import cached_property
+from typing import TYPE_CHECKING, Literal
 
 import httpx
+from typing_extensions import overload
 
-from .custom import (
-    CustomResource,
-    AsyncCustomResource,
-    CustomResourceWithRawResponse,
-    AsyncCustomResourceWithRawResponse,
-    CustomResourceWithStreamingResponse,
-    AsyncCustomResourceWithStreamingResponse,
-)
-from ...types import mcp_list_params, mcp_create_params, mcp_update_params, mcp_retrieve_app_params
-from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from ..._utils import path_template, maybe_transform, async_maybe_transform
-from .generate import (
-    GenerateResource,
-    AsyncGenerateResource,
-    GenerateResourceWithRawResponse,
-    AsyncGenerateResourceWithRawResponse,
-    GenerateResourceWithStreamingResponse,
-    AsyncGenerateResourceWithStreamingResponse,
-)
-from ..._compat import cached_property
-from ..._resource import SyncAPIResource, AsyncAPIResource
-from ..._response import (
-    to_raw_response_wrapper,
-    to_streamed_response_wrapper,
-    async_to_raw_response_wrapper,
-    async_to_streamed_response_wrapper,
-)
-from ..._base_client import make_request_options
-from ...types.mcp_list_response import McpListResponse
+from ..._base_client import BodyParam, QueryParam, RequestOptions
+from ..._models import McpCreateBody, McpCreateInstanceBody, McpUpdateBody
+from ..._operations import OPERATIONS_BY_CHAIN
+from ..._response import APIResponse, AsyncAPIResponse, AsyncResponseContextManager, ResponseContextManager
+from ..._types import NOT_GIVEN, Body, Headers, NotGiven, Omit, Query, SequenceNotStr, omit
+from ...types.mcp_create_instance_response import McpCreateInstanceResponse
 from ...types.mcp_create_response import McpCreateResponse
+from ...types.mcp_delete_instance_response import McpDeleteInstanceResponse
 from ...types.mcp_delete_response import McpDeleteResponse
-from ...types.mcp_update_response import McpUpdateResponse
-from ...types.mcp_retrieve_response import McpRetrieveResponse
+from ...types.mcp_list_instances_response import McpListInstancesResponse
+from ...types.mcp_list_response import McpListResponse
 from ...types.mcp_retrieve_app_response import McpRetrieveAppResponse
+from ...types.mcp_retrieve_response import McpRetrieveResponse
+from ...types.mcp_update_response import McpUpdateResponse
+from .._base import (
+    AsyncAPIResource,
+    SyncAPIResource,
+    build_path,
+    compact,
+    make_request_options,
+    merge_body,
+    merge_mapping,
+    normalize_path_arguments,
+    require_fields,
+)
+from .custom import AsyncCustomResource, CustomResource
+from .generate import AsyncGenerateResource, GenerateResource
 
-__all__ = ["McpResource", "AsyncMcpResource"]
+if TYPE_CHECKING:
+    from ..._base_client import AsyncAPIClient, SyncAPIClient
+
+_CREATE_OPERATION = OPERATIONS_BY_CHAIN[("mcp", "create")]
+_RETRIEVE_OPERATION = OPERATIONS_BY_CHAIN[("mcp", "retrieve")]
+_UPDATE_OPERATION = OPERATIONS_BY_CHAIN[("mcp", "update")]
+_LIST_OPERATION = OPERATIONS_BY_CHAIN[("mcp", "list")]
+_DELETE_OPERATION = OPERATIONS_BY_CHAIN[("mcp", "delete")]
+_CREATE_INSTANCE_OPERATION = OPERATIONS_BY_CHAIN[("mcp", "create_instance")]
+_DELETE_INSTANCE_OPERATION = OPERATIONS_BY_CHAIN[("mcp", "delete_instance")]
+_LIST_INSTANCES_OPERATION = OPERATIONS_BY_CHAIN[("mcp", "list_instances")]
+_RETRIEVE_APP_OPERATION = OPERATIONS_BY_CHAIN[("mcp", "retrieve_app")]
 
 
 class McpResource(SyncAPIResource):
-    """MCP server management"""
+    custom: CustomResource
+    generate: GenerateResource
 
-    @cached_property
-    def custom(self) -> CustomResource:
-        """MCP server management"""
-        return CustomResource(self._client)
-
-    @cached_property
-    def generate(self) -> GenerateResource:
-        """MCP server management"""
-        return GenerateResource(self._client)
+    def __init__(self, client: SyncAPIClient) -> None:
+        super().__init__(client)
+        self.custom = CustomResource(client)
+        self.generate = GenerateResource(client)
 
     @cached_property
     def with_raw_response(self) -> McpResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return McpResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> McpResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return McpResourceWithStreamingResponse(self)
 
+    # Deprecated in the input OpenAPI schema.
+    @overload
     def create(
         self,
+        body: BodyParam | None = None,
         *,
-        auth_config_ids: SequenceNotStr[str],
         name: str,
+        auth_config_ids: SequenceNotStr[str],
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
         allowed_tools: SequenceNotStr[str] | Omit = omit,
         managed_auth_via_composio: bool | Omit = omit,
-        no_auth_apps: SequenceNotStr[str] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpCreateResponse: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpCreateResponse: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> McpCreateResponse:
-        """
-        Creates a new Model Control Protocol (MCP) server instance for the authenticated
-        project. An MCP server provides a connection point for AI assistants to access
-        your applications and services. The server is configured with specific
-        authentication and tool permissions that determine what actions the connected
-        assistants can perform.
-
-        Args:
-          auth_config_ids: ID references to existing authentication configurations
-
-          name: Human-readable name to identify this MCP server instance (4-30 characters,
-              alphanumeric, spaces, and hyphens only)
-
-          allowed_tools: List of tool slugs that should be allowed for this server. If not provided, all
-              available tools for the authentication configuration will be enabled.
-
-          managed_auth_via_composio: Whether the MCP server is managed by Composio
-
-          no_auth_apps: List of NO_AUTH apps to enable for this MCP server
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return self._post(
+        body_fields = compact(
+            {
+                "name": name,
+                "auth_config_ids": auth_config_ids,
+                "no_auth_apps": no_auth_apps,
+                "allowed_tools": allowed_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("name", "auth_config_ids"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
             "/api/v3.1/mcp/servers",
-            body=maybe_transform(
-                {
-                    "auth_config_ids": auth_config_ids,
-                    "name": name,
-                    "allowed_tools": allowed_tools,
-                    "managed_auth_via_composio": managed_auth_via_composio,
-                    "no_auth_apps": no_auth_apps,
-                },
-                mcp_create_params.McpCreateParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=McpCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=McpCreateBody,
+            options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
     def retrieve(
         self,
         id: str,
         *,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> McpRetrieveResponse:
-        """
-        Retrieves detailed configuration information for a specific Model Control
-        Protocol (MCP) server. The returned data includes connection details, associated
-        applications, enabled tools, and authentication configuration.
-
-        Args:
-          id: Unique identifier of the MCP server to retrieve, update, or delete
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not id:
-            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
-        return self._get(
-            path_template("/api/v3.1/mcp/{id}", id=id),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/mcp/{id}",
+                {"id": id},
             ),
             cast_to=McpRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
     def update(
         self,
         id: str,
+        body: BodyParam | None = None,
         *,
-        allowed_tools: SequenceNotStr[str] | Omit = omit,
-        auth_config_ids: SequenceNotStr[str] | Omit = omit,
-        managed_auth_via_composio: bool | Omit = omit,
         name: str | Omit = omit,
         toolkits: SequenceNotStr[str] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> McpUpdateResponse:
-        """
-        Updates the configuration of an existing Model Control Protocol (MCP) server.
-        You can modify the server name, associated applications, and enabled tools. Only
-        the fields included in the request will be updated.
-
-        Args:
-          id: Unique identifier of the MCP server to retrieve, update, or delete
-
-          allowed_tools: List of action identifiers that should be enabled for this server
-
-          auth_config_ids: List of auth config IDs to use for this MCP server.
-
-          managed_auth_via_composio: Whether the MCP server is managed by Composio
-
-          name: Human-readable name to identify this MCP server instance (4-30 characters,
-              alphanumeric, spaces, and hyphens only)
-
-          toolkits: List of toolkit slugs this server should be configured to work with.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not id:
-            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
-        return self._patch(
-            path_template("/api/v3.1/mcp/{id}", id=id),
-            body=maybe_transform(
-                {
-                    "allowed_tools": allowed_tools,
-                    "auth_config_ids": auth_config_ids,
-                    "managed_auth_via_composio": managed_auth_via_composio,
-                    "name": name,
-                    "toolkits": toolkits,
-                },
-                mcp_update_params.McpUpdateParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        body_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "allowed_tools": allowed_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+                "auth_config_ids": auth_config_ids,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "patch",
+            build_path(
+                "/api/v3.1/mcp/{id}",
+                {"id": id},
             ),
             cast_to=McpUpdateResponse,
+            operation=_UPDATE_OPERATION,
+            body=body_data,
+            body_model=McpUpdateBody,
+            options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
     def list(
         self,
         *,
-        auth_config_ids: str | Omit = omit,
-        limit: Optional[float] | Omit = omit,
         name: str | Omit = omit,
+        toolkits: str | Omit = omit,
+        auth_config_ids: str | Omit = omit,
         order_by: Literal["created_at", "updated_at"] | Omit = omit,
         order_direction: Literal["asc", "desc"] | Omit = omit,
-        page_no: Optional[float] | Omit = omit,
-        toolkits: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> McpListResponse:
-        """
-        Retrieves a paginated list of MCP servers associated with the authenticated
-        project. Results can be filtered by name, toolkit, or authentication
-        configuration ID. MCP servers are used to provide Model Control Protocol
-        integration points for connecting AI assistants to your applications and
-        services.
-
-        Args:
-          auth_config_ids: Comma-separated list of auth config IDs to filter servers by
-
-          limit: Number of items per page (default: 10)
-
-          name: Filter MCP servers by name (case-insensitive partial match)
-
-          order_by: Field to order results by
-
-          order_direction: Direction of ordering
-
-          page_no: Page number for pagination (1-based)
-
-          toolkits: Comma-separated list of toolkit slugs to filter servers by
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return self._get(
+        query_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "auth_config_ids": auth_config_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "page_no": page_no,
+                "limit": limit,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
             "/api/v3.1/mcp/servers",
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=maybe_transform(
-                    {
-                        "auth_config_ids": auth_config_ids,
-                        "limit": limit,
-                        "name": name,
-                        "order_by": order_by,
-                        "order_direction": order_direction,
-                        "page_no": page_no,
-                        "toolkits": toolkits,
-                    },
-                    mcp_list_params.McpListParams,
-                ),
-            ),
             cast_to=McpListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
     def delete(
         self,
         id: str,
         *,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> McpDeleteResponse:
-        """
-        Performs a soft delete on a Model Control Protocol (MCP) server, making it
-        unavailable for future use. This operation is reversible in the database but
-        cannot be undone through the API. Any applications or services connected to this
-        server will lose access after deletion.
-
-        Args:
-          id: Unique identifier of the MCP server to retrieve, update, or delete
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not id:
-            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
-        return self._delete(
-            path_template("/api/v3.1/mcp/{id}", id=id),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "delete",
+            build_path(
+                "/api/v3.1/mcp/{id}",
+                {"id": id},
             ),
             cast_to=McpDeleteResponse,
+            operation=_DELETE_OPERATION,
+            options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam | None = None,
+        *,
+        user_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpCreateInstanceResponse: ...
+
+    @overload
+    def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpCreateInstanceResponse: ...
+
+    def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam | None = None,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpCreateInstanceResponse:
+        body_fields = compact(
+            {
+                "user_id": user_id,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("user_id",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "post",
+            build_path(
+                "/api/v3.1/mcp/servers/{serverId}/instances",
+                {"serverId": server_id},
+            ),
+            cast_to=McpCreateInstanceResponse,
+            operation=_CREATE_INSTANCE_OPERATION,
+            body=body_data,
+            body_model=McpCreateInstanceBody,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def delete_instance(
+        self,
+        instance_id: str,
+        *,
+        server_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpDeleteInstanceResponse: ...
+
+    @overload
+    def delete_instance(
+        self,
+        instance_id: str,
+        legacy_path: str,
+        /,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpDeleteInstanceResponse: ...
+
+    def delete_instance(
+        self,
+        instance_id: str,
+        *legacy_args: object,
+        server_id: str | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpDeleteInstanceResponse:
+        instance_id, (server_id,), _legacy_body = normalize_path_arguments(
+            instance_id,
+            legacy_args,
+            leading_values=(server_id,),
+            leading_names=("server_id",),
+            trailing_name="instance_id",
+            accepts_body=False,
+        )
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "delete",
+            build_path(
+                "/api/v3.1/mcp/servers/{serverId}/instances/{instanceId}",
+                {"serverId": server_id, "instanceId": instance_id},
+            ),
+            cast_to=McpDeleteInstanceResponse,
+            operation=_DELETE_INSTANCE_OPERATION,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def list_instances(
+        self,
+        server_id: str,
+        *,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        search: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> McpListInstancesResponse:
+        query_fields = compact(
+            {
+                "page_no": page_no,
+                "limit": limit,
+                "search": search,
+                "order_by": order_by,
+                "order_direction": order_direction,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/mcp/servers/{serverId}/instances",
+                {"serverId": server_id},
+            ),
+            cast_to=McpListInstancesResponse,
+            operation=_LIST_INSTANCES_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
     def retrieve_app(
         self,
         app_key: str,
         *,
-        auth_config_ids: str | Omit = omit,
-        limit: Optional[float] | Omit = omit,
         name: str | Omit = omit,
+        toolkits: str | Omit = omit,
+        auth_config_ids: str | Omit = omit,
         order_by: Literal["created_at", "updated_at"] | Omit = omit,
         order_direction: Literal["asc", "desc"] | Omit = omit,
-        page_no: Optional[float] | Omit = omit,
-        toolkits: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> McpRetrieveAppResponse:
-        """
-        Retrieves a paginated list of Model Control Protocol (MCP) servers that are
-        configured for a specific application or toolkit. This endpoint allows you to
-        find all MCP server instances that have access to a particular application, such
-        as GitHub, Slack, or Jira.
-
-        Args:
-          app_key: Toolkit or application slug identifier to filter MCP servers by
-
-          auth_config_ids: Comma-separated list of auth config IDs to filter servers by
-
-          limit: Number of items per page (default: 10)
-
-          name: Filter MCP servers by name (case-insensitive partial match)
-
-          order_by: Field to order results by
-
-          order_direction: Direction of ordering
-
-          page_no: Page number for pagination (1-based)
-
-          toolkits: Comma-separated list of toolkit slugs to filter servers by
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not app_key:
-            raise ValueError(f"Expected a non-empty value for `app_key` but received {app_key!r}")
-        return self._get(
-            path_template("/api/v3.1/mcp/app/{app_key}", app_key=app_key),
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=maybe_transform(
-                    {
-                        "auth_config_ids": auth_config_ids,
-                        "limit": limit,
-                        "name": name,
-                        "order_by": order_by,
-                        "order_direction": order_direction,
-                        "page_no": page_no,
-                        "toolkits": toolkits,
-                    },
-                    mcp_retrieve_app_params.McpRetrieveAppParams,
-                ),
+        query_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "auth_config_ids": auth_config_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "page_no": page_no,
+                "limit": limit,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/mcp/app/{appKey}",
+                {"appKey": app_key},
             ),
             cast_to=McpRetrieveAppResponse,
+            operation=_RETRIEVE_APP_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
 
 class AsyncMcpResource(AsyncAPIResource):
-    """MCP server management"""
+    custom: AsyncCustomResource
+    generate: AsyncGenerateResource
 
-    @cached_property
-    def custom(self) -> AsyncCustomResource:
-        """MCP server management"""
-        return AsyncCustomResource(self._client)
-
-    @cached_property
-    def generate(self) -> AsyncGenerateResource:
-        """MCP server management"""
-        return AsyncGenerateResource(self._client)
+    def __init__(self, client: AsyncAPIClient) -> None:
+        super().__init__(client)
+        self.custom = AsyncCustomResource(client)
+        self.generate = AsyncGenerateResource(client)
 
     @cached_property
     def with_raw_response(self) -> AsyncMcpResourceWithRawResponse:
-        """
-        This property can be used as a prefix for any HTTP method call to return
-        the raw response object instead of the parsed content.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#accessing-raw-response-data-eg-headers
-        """
         return AsyncMcpResourceWithRawResponse(self)
 
     @cached_property
     def with_streaming_response(self) -> AsyncMcpResourceWithStreamingResponse:
-        """
-        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
-
-        For more information, see https://www.github.com/ComposioHQ/composio-base-py#with_streaming_response
-        """
         return AsyncMcpResourceWithStreamingResponse(self)
 
+    # Deprecated in the input OpenAPI schema.
+    @overload
     async def create(
         self,
+        body: BodyParam | None = None,
         *,
-        auth_config_ids: SequenceNotStr[str],
         name: str,
+        auth_config_ids: SequenceNotStr[str],
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
         allowed_tools: SequenceNotStr[str] | Omit = omit,
         managed_auth_via_composio: bool | Omit = omit,
-        no_auth_apps: SequenceNotStr[str] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpCreateResponse: ...
+
+    @overload
+    async def create(
+        self,
+        body: BodyParam,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpCreateResponse: ...
+
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> McpCreateResponse:
-        """
-        Creates a new Model Control Protocol (MCP) server instance for the authenticated
-        project. An MCP server provides a connection point for AI assistants to access
-        your applications and services. The server is configured with specific
-        authentication and tool permissions that determine what actions the connected
-        assistants can perform.
-
-        Args:
-          auth_config_ids: ID references to existing authentication configurations
-
-          name: Human-readable name to identify this MCP server instance (4-30 characters,
-              alphanumeric, spaces, and hyphens only)
-
-          allowed_tools: List of tool slugs that should be allowed for this server. If not provided, all
-              available tools for the authentication configuration will be enabled.
-
-          managed_auth_via_composio: Whether the MCP server is managed by Composio
-
-          no_auth_apps: List of NO_AUTH apps to enable for this MCP server
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return await self._post(
+        body_fields = compact(
+            {
+                "name": name,
+                "auth_config_ids": auth_config_ids,
+                "no_auth_apps": no_auth_apps,
+                "allowed_tools": allowed_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("name", "auth_config_ids"),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
             "/api/v3.1/mcp/servers",
-            body=await async_maybe_transform(
-                {
-                    "auth_config_ids": auth_config_ids,
-                    "name": name,
-                    "allowed_tools": allowed_tools,
-                    "managed_auth_via_composio": managed_auth_via_composio,
-                    "no_auth_apps": no_auth_apps,
-                },
-                mcp_create_params.McpCreateParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-            ),
             cast_to=McpCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=McpCreateBody,
+            options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
     async def retrieve(
         self,
         id: str,
         *,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> McpRetrieveResponse:
-        """
-        Retrieves detailed configuration information for a specific Model Control
-        Protocol (MCP) server. The returned data includes connection details, associated
-        applications, enabled tools, and authentication configuration.
-
-        Args:
-          id: Unique identifier of the MCP server to retrieve, update, or delete
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not id:
-            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
-        return await self._get(
-            path_template("/api/v3.1/mcp/{id}", id=id),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/mcp/{id}",
+                {"id": id},
             ),
             cast_to=McpRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
     async def update(
         self,
         id: str,
+        body: BodyParam | None = None,
         *,
-        allowed_tools: SequenceNotStr[str] | Omit = omit,
-        auth_config_ids: SequenceNotStr[str] | Omit = omit,
-        managed_auth_via_composio: bool | Omit = omit,
         name: str | Omit = omit,
         toolkits: SequenceNotStr[str] | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> McpUpdateResponse:
-        """
-        Updates the configuration of an existing Model Control Protocol (MCP) server.
-        You can modify the server name, associated applications, and enabled tools. Only
-        the fields included in the request will be updated.
-
-        Args:
-          id: Unique identifier of the MCP server to retrieve, update, or delete
-
-          allowed_tools: List of action identifiers that should be enabled for this server
-
-          auth_config_ids: List of auth config IDs to use for this MCP server.
-
-          managed_auth_via_composio: Whether the MCP server is managed by Composio
-
-          name: Human-readable name to identify this MCP server instance (4-30 characters,
-              alphanumeric, spaces, and hyphens only)
-
-          toolkits: List of toolkit slugs this server should be configured to work with.
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not id:
-            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
-        return await self._patch(
-            path_template("/api/v3.1/mcp/{id}", id=id),
-            body=await async_maybe_transform(
-                {
-                    "allowed_tools": allowed_tools,
-                    "auth_config_ids": auth_config_ids,
-                    "managed_auth_via_composio": managed_auth_via_composio,
-                    "name": name,
-                    "toolkits": toolkits,
-                },
-                mcp_update_params.McpUpdateParams,
-            ),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        body_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "allowed_tools": allowed_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+                "auth_config_ids": auth_config_ids,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "patch",
+            build_path(
+                "/api/v3.1/mcp/{id}",
+                {"id": id},
             ),
             cast_to=McpUpdateResponse,
+            operation=_UPDATE_OPERATION,
+            body=body_data,
+            body_model=McpUpdateBody,
+            options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
     async def list(
         self,
         *,
-        auth_config_ids: str | Omit = omit,
-        limit: Optional[float] | Omit = omit,
         name: str | Omit = omit,
+        toolkits: str | Omit = omit,
+        auth_config_ids: str | Omit = omit,
         order_by: Literal["created_at", "updated_at"] | Omit = omit,
         order_direction: Literal["asc", "desc"] | Omit = omit,
-        page_no: Optional[float] | Omit = omit,
-        toolkits: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> McpListResponse:
-        """
-        Retrieves a paginated list of MCP servers associated with the authenticated
-        project. Results can be filtered by name, toolkit, or authentication
-        configuration ID. MCP servers are used to provide Model Control Protocol
-        integration points for connecting AI assistants to your applications and
-        services.
-
-        Args:
-          auth_config_ids: Comma-separated list of auth config IDs to filter servers by
-
-          limit: Number of items per page (default: 10)
-
-          name: Filter MCP servers by name (case-insensitive partial match)
-
-          order_by: Field to order results by
-
-          order_direction: Direction of ordering
-
-          page_no: Page number for pagination (1-based)
-
-          toolkits: Comma-separated list of toolkit slugs to filter servers by
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        return await self._get(
+        query_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "auth_config_ids": auth_config_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "page_no": page_no,
+                "limit": limit,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
             "/api/v3.1/mcp/servers",
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=await async_maybe_transform(
-                    {
-                        "auth_config_ids": auth_config_ids,
-                        "limit": limit,
-                        "name": name,
-                        "order_by": order_by,
-                        "order_direction": order_direction,
-                        "page_no": page_no,
-                        "toolkits": toolkits,
-                    },
-                    mcp_list_params.McpListParams,
-                ),
-            ),
             cast_to=McpListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
     async def delete(
         self,
         id: str,
         *,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
     ) -> McpDeleteResponse:
-        """
-        Performs a soft delete on a Model Control Protocol (MCP) server, making it
-        unavailable for future use. This operation is reversible in the database but
-        cannot be undone through the API. Any applications or services connected to this
-        server will lose access after deletion.
-
-        Args:
-          id: Unique identifier of the MCP server to retrieve, update, or delete
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not id:
-            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
-        return await self._delete(
-            path_template("/api/v3.1/mcp/{id}", id=id),
-            options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "delete",
+            build_path(
+                "/api/v3.1/mcp/{id}",
+                {"id": id},
             ),
             cast_to=McpDeleteResponse,
+            operation=_DELETE_OPERATION,
+            options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    async def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam | None = None,
+        *,
+        user_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpCreateInstanceResponse: ...
+
+    @overload
+    async def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpCreateInstanceResponse: ...
+
+    async def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam | None = None,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpCreateInstanceResponse:
+        body_fields = compact(
+            {
+                "user_id": user_id,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("user_id",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "post",
+            build_path(
+                "/api/v3.1/mcp/servers/{serverId}/instances",
+                {"serverId": server_id},
+            ),
+            cast_to=McpCreateInstanceResponse,
+            operation=_CREATE_INSTANCE_OPERATION,
+            body=body_data,
+            body_model=McpCreateInstanceBody,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    async def delete_instance(
+        self,
+        instance_id: str,
+        *,
+        server_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpDeleteInstanceResponse: ...
+
+    @overload
+    async def delete_instance(
+        self,
+        instance_id: str,
+        legacy_path: str,
+        /,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpDeleteInstanceResponse: ...
+
+    async def delete_instance(
+        self,
+        instance_id: str,
+        *legacy_args: object,
+        server_id: str | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> McpDeleteInstanceResponse:
+        instance_id, (server_id,), _legacy_body = normalize_path_arguments(
+            instance_id,
+            legacy_args,
+            leading_values=(server_id,),
+            leading_names=("server_id",),
+            trailing_name="instance_id",
+            accepts_body=False,
+        )
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "delete",
+            build_path(
+                "/api/v3.1/mcp/servers/{serverId}/instances/{instanceId}",
+                {"serverId": server_id, "instanceId": instance_id},
+            ),
+            cast_to=McpDeleteInstanceResponse,
+            operation=_DELETE_INSTANCE_OPERATION,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    async def list_instances(
+        self,
+        server_id: str,
+        *,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        search: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> McpListInstancesResponse:
+        query_fields = compact(
+            {
+                "page_no": page_no,
+                "limit": limit,
+                "search": search,
+                "order_by": order_by,
+                "order_direction": order_direction,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/mcp/servers/{serverId}/instances",
+                {"serverId": server_id},
+            ),
+            cast_to=McpListInstancesResponse,
+            operation=_LIST_INSTANCES_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
     async def retrieve_app(
         self,
         app_key: str,
         *,
-        auth_config_ids: str | Omit = omit,
-        limit: Optional[float] | Omit = omit,
         name: str | Omit = omit,
+        toolkits: str | Omit = omit,
+        auth_config_ids: str | Omit = omit,
         order_by: Literal["created_at", "updated_at"] | Omit = omit,
         order_direction: Literal["asc", "desc"] | Omit = omit,
-        page_no: Optional[float] | Omit = omit,
-        toolkits: str | Omit = omit,
-        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
-        # The extra values given here take precedence over values defined on the client or passed to this method.
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
     ) -> McpRetrieveAppResponse:
-        """
-        Retrieves a paginated list of Model Control Protocol (MCP) servers that are
-        configured for a specific application or toolkit. This endpoint allows you to
-        find all MCP server instances that have access to a particular application, such
-        as GitHub, Slack, or Jira.
-
-        Args:
-          app_key: Toolkit or application slug identifier to filter MCP servers by
-
-          auth_config_ids: Comma-separated list of auth config IDs to filter servers by
-
-          limit: Number of items per page (default: 10)
-
-          name: Filter MCP servers by name (case-insensitive partial match)
-
-          order_by: Field to order results by
-
-          order_direction: Direction of ordering
-
-          page_no: Page number for pagination (1-based)
-
-          toolkits: Comma-separated list of toolkit slugs to filter servers by
-
-          extra_headers: Send extra headers
-
-          extra_query: Add additional query parameters to the request
-
-          extra_body: Add additional JSON properties to the request
-
-          timeout: Override the client-level default timeout for this request, in seconds
-        """
-        if not app_key:
-            raise ValueError(f"Expected a non-empty value for `app_key` but received {app_key!r}")
-        return await self._get(
-            path_template("/api/v3.1/mcp/app/{app_key}", app_key=app_key),
-            options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                query=await async_maybe_transform(
-                    {
-                        "auth_config_ids": auth_config_ids,
-                        "limit": limit,
-                        "name": name,
-                        "order_by": order_by,
-                        "order_direction": order_direction,
-                        "page_no": page_no,
-                        "toolkits": toolkits,
-                    },
-                    mcp_retrieve_app_params.McpRetrieveAppParams,
-                ),
+        query_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "auth_config_ids": auth_config_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "page_no": page_no,
+                "limit": limit,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request(
+            "get",
+            build_path(
+                "/api/v3.1/mcp/app/{appKey}",
+                {"appKey": app_key},
             ),
             cast_to=McpRetrieveAppResponse,
+            operation=_RETRIEVE_APP_OPERATION,
+            query=query_data,
+            options=options_data,
         )
 
 
 class McpResourceWithRawResponse:
-    def __init__(self, mcp: McpResource) -> None:
-        self._mcp = mcp
+    def __init__(self, resource: McpResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = to_raw_response_wrapper(
-            mcp.create,
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str,
+        auth_config_ids: SequenceNotStr[str],
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpCreateResponse]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpCreateResponse]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpCreateResponse]:
+        body_fields = compact(
+            {
+                "name": name,
+                "auth_config_ids": auth_config_ids,
+                "no_auth_apps": no_auth_apps,
+                "allowed_tools": allowed_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+            }
         )
-        self.retrieve = to_raw_response_wrapper(
-            mcp.retrieve,
+        require_fields(
+            body,
+            body_fields,
+            ("name", "auth_config_ids"),
+            "body",
         )
-        self.update = to_raw_response_wrapper(
-            mcp.update,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.list = to_raw_response_wrapper(
-            mcp.list,
-        )
-        self.delete = to_raw_response_wrapper(
-            mcp.delete,
-        )
-        self.retrieve_app = to_raw_response_wrapper(
-            mcp.retrieve_app,
+        return self._client._request_raw(
+            "post",
+            "/api/v3.1/mcp/servers",
+            cast_to=McpCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=McpCreateBody,
+            options=options_data,
         )
 
-    @cached_property
-    def custom(self) -> CustomResourceWithRawResponse:
-        """MCP server management"""
-        return CustomResourceWithRawResponse(self._mcp.custom)
+    # Deprecated in the input OpenAPI schema.
+    def retrieve(
+        self,
+        id: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpRetrieveResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/mcp/{id}",
+                {"id": id},
+            ),
+            cast_to=McpRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            options=options_data,
+        )
 
-    @cached_property
-    def generate(self) -> GenerateResourceWithRawResponse:
-        """MCP server management"""
-        return GenerateResourceWithRawResponse(self._mcp.generate)
+    # Deprecated in the input OpenAPI schema.
+    def update(
+        self,
+        id: str,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpUpdateResponse]:
+        body_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "allowed_tools": allowed_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+                "auth_config_ids": auth_config_ids,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "patch",
+            build_path(
+                "/api/v3.1/mcp/{id}",
+                {"id": id},
+            ),
+            cast_to=McpUpdateResponse,
+            operation=_UPDATE_OPERATION,
+            body=body_data,
+            body_model=McpUpdateBody,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def list(
+        self,
+        *,
+        name: str | Omit = omit,
+        toolkits: str | Omit = omit,
+        auth_config_ids: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpListResponse]:
+        query_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "auth_config_ids": auth_config_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "page_no": page_no,
+                "limit": limit,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "get",
+            "/api/v3.1/mcp/servers",
+            cast_to=McpListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def delete(
+        self,
+        id: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpDeleteResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "delete",
+            build_path(
+                "/api/v3.1/mcp/{id}",
+                {"id": id},
+            ),
+            cast_to=McpDeleteResponse,
+            operation=_DELETE_OPERATION,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam | None = None,
+        *,
+        user_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpCreateInstanceResponse]: ...
+
+    @overload
+    def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpCreateInstanceResponse]: ...
+
+    def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam | None = None,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpCreateInstanceResponse]:
+        body_fields = compact(
+            {
+                "user_id": user_id,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("user_id",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/mcp/servers/{serverId}/instances",
+                {"serverId": server_id},
+            ),
+            cast_to=McpCreateInstanceResponse,
+            operation=_CREATE_INSTANCE_OPERATION,
+            body=body_data,
+            body_model=McpCreateInstanceBody,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def delete_instance(
+        self,
+        instance_id: str,
+        *,
+        server_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpDeleteInstanceResponse]: ...
+
+    @overload
+    def delete_instance(
+        self,
+        instance_id: str,
+        legacy_path: str,
+        /,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpDeleteInstanceResponse]: ...
+
+    def delete_instance(
+        self,
+        instance_id: str,
+        *legacy_args: object,
+        server_id: str | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpDeleteInstanceResponse]:
+        instance_id, (server_id,), _legacy_body = normalize_path_arguments(
+            instance_id,
+            legacy_args,
+            leading_values=(server_id,),
+            leading_names=("server_id",),
+            trailing_name="instance_id",
+            accepts_body=False,
+        )
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "delete",
+            build_path(
+                "/api/v3.1/mcp/servers/{serverId}/instances/{instanceId}",
+                {"serverId": server_id, "instanceId": instance_id},
+            ),
+            cast_to=McpDeleteInstanceResponse,
+            operation=_DELETE_INSTANCE_OPERATION,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def list_instances(
+        self,
+        server_id: str,
+        *,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        search: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpListInstancesResponse]:
+        query_fields = compact(
+            {
+                "page_no": page_no,
+                "limit": limit,
+                "search": search,
+                "order_by": order_by,
+                "order_direction": order_direction,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/mcp/servers/{serverId}/instances",
+                {"serverId": server_id},
+            ),
+            cast_to=McpListInstancesResponse,
+            operation=_LIST_INSTANCES_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def retrieve_app(
+        self,
+        app_key: str,
+        *,
+        name: str | Omit = omit,
+        toolkits: str | Omit = omit,
+        auth_config_ids: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> APIResponse[McpRetrieveAppResponse]:
+        query_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "auth_config_ids": auth_config_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "page_no": page_no,
+                "limit": limit,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/mcp/app/{appKey}",
+                {"appKey": app_key},
+            ),
+            cast_to=McpRetrieveAppResponse,
+            operation=_RETRIEVE_APP_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
 
 
 class AsyncMcpResourceWithRawResponse:
-    def __init__(self, mcp: AsyncMcpResource) -> None:
-        self._mcp = mcp
+    def __init__(self, resource: AsyncMcpResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = async_to_raw_response_wrapper(
-            mcp.create,
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str,
+        auth_config_ids: SequenceNotStr[str],
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpCreateResponse]: ...
+
+    @overload
+    async def create(
+        self,
+        body: BodyParam,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpCreateResponse]: ...
+
+    async def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpCreateResponse]:
+        body_fields = compact(
+            {
+                "name": name,
+                "auth_config_ids": auth_config_ids,
+                "no_auth_apps": no_auth_apps,
+                "allowed_tools": allowed_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+            }
         )
-        self.retrieve = async_to_raw_response_wrapper(
-            mcp.retrieve,
+        require_fields(
+            body,
+            body_fields,
+            ("name", "auth_config_ids"),
+            "body",
         )
-        self.update = async_to_raw_response_wrapper(
-            mcp.update,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.list = async_to_raw_response_wrapper(
-            mcp.list,
-        )
-        self.delete = async_to_raw_response_wrapper(
-            mcp.delete,
-        )
-        self.retrieve_app = async_to_raw_response_wrapper(
-            mcp.retrieve_app,
+        return await self._client._request_raw(
+            "post",
+            "/api/v3.1/mcp/servers",
+            cast_to=McpCreateResponse,
+            operation=_CREATE_OPERATION,
+            body=body_data,
+            body_model=McpCreateBody,
+            options=options_data,
         )
 
-    @cached_property
-    def custom(self) -> AsyncCustomResourceWithRawResponse:
-        """MCP server management"""
-        return AsyncCustomResourceWithRawResponse(self._mcp.custom)
+    # Deprecated in the input OpenAPI schema.
+    async def retrieve(
+        self,
+        id: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpRetrieveResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/mcp/{id}",
+                {"id": id},
+            ),
+            cast_to=McpRetrieveResponse,
+            operation=_RETRIEVE_OPERATION,
+            options=options_data,
+        )
 
-    @cached_property
-    def generate(self) -> AsyncGenerateResourceWithRawResponse:
-        """MCP server management"""
-        return AsyncGenerateResourceWithRawResponse(self._mcp.generate)
+    # Deprecated in the input OpenAPI schema.
+    async def update(
+        self,
+        id: str,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpUpdateResponse]:
+        body_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "allowed_tools": allowed_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+                "auth_config_ids": auth_config_ids,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "patch",
+            build_path(
+                "/api/v3.1/mcp/{id}",
+                {"id": id},
+            ),
+            cast_to=McpUpdateResponse,
+            operation=_UPDATE_OPERATION,
+            body=body_data,
+            body_model=McpUpdateBody,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    async def list(
+        self,
+        *,
+        name: str | Omit = omit,
+        toolkits: str | Omit = omit,
+        auth_config_ids: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpListResponse]:
+        query_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "auth_config_ids": auth_config_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "page_no": page_no,
+                "limit": limit,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "get",
+            "/api/v3.1/mcp/servers",
+            cast_to=McpListResponse,
+            operation=_LIST_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    async def delete(
+        self,
+        id: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpDeleteResponse]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "delete",
+            build_path(
+                "/api/v3.1/mcp/{id}",
+                {"id": id},
+            ),
+            cast_to=McpDeleteResponse,
+            operation=_DELETE_OPERATION,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    async def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam | None = None,
+        *,
+        user_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpCreateInstanceResponse]: ...
+
+    @overload
+    async def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpCreateInstanceResponse]: ...
+
+    async def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam | None = None,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpCreateInstanceResponse]:
+        body_fields = compact(
+            {
+                "user_id": user_id,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("user_id",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "post",
+            build_path(
+                "/api/v3.1/mcp/servers/{serverId}/instances",
+                {"serverId": server_id},
+            ),
+            cast_to=McpCreateInstanceResponse,
+            operation=_CREATE_INSTANCE_OPERATION,
+            body=body_data,
+            body_model=McpCreateInstanceBody,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    async def delete_instance(
+        self,
+        instance_id: str,
+        *,
+        server_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpDeleteInstanceResponse]: ...
+
+    @overload
+    async def delete_instance(
+        self,
+        instance_id: str,
+        legacy_path: str,
+        /,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpDeleteInstanceResponse]: ...
+
+    async def delete_instance(
+        self,
+        instance_id: str,
+        *legacy_args: object,
+        server_id: str | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpDeleteInstanceResponse]:
+        instance_id, (server_id,), _legacy_body = normalize_path_arguments(
+            instance_id,
+            legacy_args,
+            leading_values=(server_id,),
+            leading_names=("server_id",),
+            trailing_name="instance_id",
+            accepts_body=False,
+        )
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "delete",
+            build_path(
+                "/api/v3.1/mcp/servers/{serverId}/instances/{instanceId}",
+                {"serverId": server_id, "instanceId": instance_id},
+            ),
+            cast_to=McpDeleteInstanceResponse,
+            operation=_DELETE_INSTANCE_OPERATION,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    async def list_instances(
+        self,
+        server_id: str,
+        *,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        search: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpListInstancesResponse]:
+        query_fields = compact(
+            {
+                "page_no": page_no,
+                "limit": limit,
+                "search": search,
+                "order_by": order_by,
+                "order_direction": order_direction,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/mcp/servers/{serverId}/instances",
+                {"serverId": server_id},
+            ),
+            cast_to=McpListInstancesResponse,
+            operation=_LIST_INSTANCES_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    async def retrieve_app(
+        self,
+        app_key: str,
+        *,
+        name: str | Omit = omit,
+        toolkits: str | Omit = omit,
+        auth_config_ids: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncAPIResponse[McpRetrieveAppResponse]:
+        query_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "auth_config_ids": auth_config_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "page_no": page_no,
+                "limit": limit,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return await self._client._request_raw(
+            "get",
+            build_path(
+                "/api/v3.1/mcp/app/{appKey}",
+                {"appKey": app_key},
+            ),
+            cast_to=McpRetrieveAppResponse,
+            operation=_RETRIEVE_APP_OPERATION,
+            query=query_data,
+            options=options_data,
+        )
 
 
 class McpResourceWithStreamingResponse:
-    def __init__(self, mcp: McpResource) -> None:
-        self._mcp = mcp
+    def __init__(self, resource: McpResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = to_streamed_response_wrapper(
-            mcp.create,
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str,
+        auth_config_ids: SequenceNotStr[str],
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpCreateResponse]]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpCreateResponse]]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpCreateResponse]]:
+        body_fields = compact(
+            {
+                "name": name,
+                "auth_config_ids": auth_config_ids,
+                "no_auth_apps": no_auth_apps,
+                "allowed_tools": allowed_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+            }
         )
-        self.retrieve = to_streamed_response_wrapper(
-            mcp.retrieve,
+        require_fields(
+            body,
+            body_fields,
+            ("name", "auth_config_ids"),
+            "body",
         )
-        self.update = to_streamed_response_wrapper(
-            mcp.update,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.list = to_streamed_response_wrapper(
-            mcp.list,
-        )
-        self.delete = to_streamed_response_wrapper(
-            mcp.delete,
-        )
-        self.retrieve_app = to_streamed_response_wrapper(
-            mcp.retrieve_app,
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                "/api/v3.1/mcp/servers",
+                cast_to=McpCreateResponse,
+                operation=_CREATE_OPERATION,
+                body=body_data,
+                body_model=McpCreateBody,
+                options=options_data,
+                stream=True,
+            )
         )
 
-    @cached_property
-    def custom(self) -> CustomResourceWithStreamingResponse:
-        """MCP server management"""
-        return CustomResourceWithStreamingResponse(self._mcp.custom)
+    # Deprecated in the input OpenAPI schema.
+    def retrieve(
+        self,
+        id: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpRetrieveResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/mcp/{id}",
+                    {"id": id},
+                ),
+                cast_to=McpRetrieveResponse,
+                operation=_RETRIEVE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
 
-    @cached_property
-    def generate(self) -> GenerateResourceWithStreamingResponse:
-        """MCP server management"""
-        return GenerateResourceWithStreamingResponse(self._mcp.generate)
+    # Deprecated in the input OpenAPI schema.
+    def update(
+        self,
+        id: str,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpUpdateResponse]]:
+        body_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "allowed_tools": allowed_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+                "auth_config_ids": auth_config_ids,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "patch",
+                build_path(
+                    "/api/v3.1/mcp/{id}",
+                    {"id": id},
+                ),
+                cast_to=McpUpdateResponse,
+                operation=_UPDATE_OPERATION,
+                body=body_data,
+                body_model=McpUpdateBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def list(
+        self,
+        *,
+        name: str | Omit = omit,
+        toolkits: str | Omit = omit,
+        auth_config_ids: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpListResponse]]:
+        query_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "auth_config_ids": auth_config_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "page_no": page_no,
+                "limit": limit,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                "/api/v3.1/mcp/servers",
+                cast_to=McpListResponse,
+                operation=_LIST_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def delete(
+        self,
+        id: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpDeleteResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "delete",
+                build_path(
+                    "/api/v3.1/mcp/{id}",
+                    {"id": id},
+                ),
+                cast_to=McpDeleteResponse,
+                operation=_DELETE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam | None = None,
+        *,
+        user_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpCreateInstanceResponse]]: ...
+
+    @overload
+    def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpCreateInstanceResponse]]: ...
+
+    def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam | None = None,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpCreateInstanceResponse]]:
+        body_fields = compact(
+            {
+                "user_id": user_id,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("user_id",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/mcp/servers/{serverId}/instances",
+                    {"serverId": server_id},
+                ),
+                cast_to=McpCreateInstanceResponse,
+                operation=_CREATE_INSTANCE_OPERATION,
+                body=body_data,
+                body_model=McpCreateInstanceBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def delete_instance(
+        self,
+        instance_id: str,
+        *,
+        server_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpDeleteInstanceResponse]]: ...
+
+    @overload
+    def delete_instance(
+        self,
+        instance_id: str,
+        legacy_path: str,
+        /,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpDeleteInstanceResponse]]: ...
+
+    def delete_instance(
+        self,
+        instance_id: str,
+        *legacy_args: object,
+        server_id: str | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpDeleteInstanceResponse]]:
+        instance_id, (server_id,), _legacy_body = normalize_path_arguments(
+            instance_id,
+            legacy_args,
+            leading_values=(server_id,),
+            leading_names=("server_id",),
+            trailing_name="instance_id",
+            accepts_body=False,
+        )
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "delete",
+                build_path(
+                    "/api/v3.1/mcp/servers/{serverId}/instances/{instanceId}",
+                    {"serverId": server_id, "instanceId": instance_id},
+                ),
+                cast_to=McpDeleteInstanceResponse,
+                operation=_DELETE_INSTANCE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def list_instances(
+        self,
+        server_id: str,
+        *,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        search: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpListInstancesResponse]]:
+        query_fields = compact(
+            {
+                "page_no": page_no,
+                "limit": limit,
+                "search": search,
+                "order_by": order_by,
+                "order_direction": order_direction,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/mcp/servers/{serverId}/instances",
+                    {"serverId": server_id},
+                ),
+                cast_to=McpListInstancesResponse,
+                operation=_LIST_INSTANCES_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def retrieve_app(
+        self,
+        app_key: str,
+        *,
+        name: str | Omit = omit,
+        toolkits: str | Omit = omit,
+        auth_config_ids: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> ResponseContextManager[APIResponse[McpRetrieveAppResponse]]:
+        query_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "auth_config_ids": auth_config_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "page_no": page_no,
+                "limit": limit,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return ResponseContextManager(
+            lambda: self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/mcp/app/{appKey}",
+                    {"appKey": app_key},
+                ),
+                cast_to=McpRetrieveAppResponse,
+                operation=_RETRIEVE_APP_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
 
 
 class AsyncMcpResourceWithStreamingResponse:
-    def __init__(self, mcp: AsyncMcpResource) -> None:
-        self._mcp = mcp
+    def __init__(self, resource: AsyncMcpResource) -> None:
+        self._resource = resource
+        self._client = resource._client
 
-        self.create = async_to_streamed_response_wrapper(
-            mcp.create,
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str,
+        auth_config_ids: SequenceNotStr[str],
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpCreateResponse]]: ...
+
+    @overload
+    def create(
+        self,
+        body: BodyParam,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpCreateResponse]]: ...
+
+    def create(
+        self,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        no_auth_apps: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpCreateResponse]]:
+        body_fields = compact(
+            {
+                "name": name,
+                "auth_config_ids": auth_config_ids,
+                "no_auth_apps": no_auth_apps,
+                "allowed_tools": allowed_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+            }
         )
-        self.retrieve = async_to_streamed_response_wrapper(
-            mcp.retrieve,
+        require_fields(
+            body,
+            body_fields,
+            ("name", "auth_config_ids"),
+            "body",
         )
-        self.update = async_to_streamed_response_wrapper(
-            mcp.update,
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
-        self.list = async_to_streamed_response_wrapper(
-            mcp.list,
-        )
-        self.delete = async_to_streamed_response_wrapper(
-            mcp.delete,
-        )
-        self.retrieve_app = async_to_streamed_response_wrapper(
-            mcp.retrieve_app,
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                "/api/v3.1/mcp/servers",
+                cast_to=McpCreateResponse,
+                operation=_CREATE_OPERATION,
+                body=body_data,
+                body_model=McpCreateBody,
+                options=options_data,
+                stream=True,
+            )
         )
 
-    @cached_property
-    def custom(self) -> AsyncCustomResourceWithStreamingResponse:
-        """MCP server management"""
-        return AsyncCustomResourceWithStreamingResponse(self._mcp.custom)
+    # Deprecated in the input OpenAPI schema.
+    def retrieve(
+        self,
+        id: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpRetrieveResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/mcp/{id}",
+                    {"id": id},
+                ),
+                cast_to=McpRetrieveResponse,
+                operation=_RETRIEVE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
 
-    @cached_property
-    def generate(self) -> AsyncGenerateResourceWithStreamingResponse:
-        """MCP server management"""
-        return AsyncGenerateResourceWithStreamingResponse(self._mcp.generate)
+    # Deprecated in the input OpenAPI schema.
+    def update(
+        self,
+        id: str,
+        body: BodyParam | None = None,
+        *,
+        name: str | Omit = omit,
+        toolkits: SequenceNotStr[str] | Omit = omit,
+        allowed_tools: SequenceNotStr[str] | Omit = omit,
+        managed_auth_via_composio: bool | Omit = omit,
+        auth_config_ids: SequenceNotStr[str] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpUpdateResponse]]:
+        body_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "allowed_tools": allowed_tools,
+                "managed_auth_via_composio": managed_auth_via_composio,
+                "auth_config_ids": auth_config_ids,
+            }
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "patch",
+                build_path(
+                    "/api/v3.1/mcp/{id}",
+                    {"id": id},
+                ),
+                cast_to=McpUpdateResponse,
+                operation=_UPDATE_OPERATION,
+                body=body_data,
+                body_model=McpUpdateBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def list(
+        self,
+        *,
+        name: str | Omit = omit,
+        toolkits: str | Omit = omit,
+        auth_config_ids: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpListResponse]]:
+        query_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "auth_config_ids": auth_config_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "page_no": page_no,
+                "limit": limit,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                "/api/v3.1/mcp/servers",
+                cast_to=McpListResponse,
+                operation=_LIST_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def delete(
+        self,
+        id: str,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpDeleteResponse]]:
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "delete",
+                build_path(
+                    "/api/v3.1/mcp/{id}",
+                    {"id": id},
+                ),
+                cast_to=McpDeleteResponse,
+                operation=_DELETE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam | None = None,
+        *,
+        user_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpCreateInstanceResponse]]: ...
+
+    @overload
+    def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpCreateInstanceResponse]]: ...
+
+    def create_instance(
+        self,
+        server_id: str,
+        body: BodyParam | None = None,
+        *,
+        user_id: str | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpCreateInstanceResponse]]:
+        body_fields = compact(
+            {
+                "user_id": user_id,
+            }
+        )
+        require_fields(
+            body,
+            body_fields,
+            ("user_id",),
+            "body",
+        )
+        body_data = merge_body(body, body_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "post",
+                build_path(
+                    "/api/v3.1/mcp/servers/{serverId}/instances",
+                    {"serverId": server_id},
+                ),
+                cast_to=McpCreateInstanceResponse,
+                operation=_CREATE_INSTANCE_OPERATION,
+                body=body_data,
+                body_model=McpCreateInstanceBody,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    @overload
+    def delete_instance(
+        self,
+        instance_id: str,
+        *,
+        server_id: str,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpDeleteInstanceResponse]]: ...
+
+    @overload
+    def delete_instance(
+        self,
+        instance_id: str,
+        legacy_path: str,
+        /,
+        *,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpDeleteInstanceResponse]]: ...
+
+    def delete_instance(
+        self,
+        instance_id: str,
+        *legacy_args: object,
+        server_id: str | None = None,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpDeleteInstanceResponse]]:
+        instance_id, (server_id,), _legacy_body = normalize_path_arguments(
+            instance_id,
+            legacy_args,
+            leading_values=(server_id,),
+            leading_names=("server_id",),
+            trailing_name="instance_id",
+            accepts_body=False,
+        )
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "delete",
+                build_path(
+                    "/api/v3.1/mcp/servers/{serverId}/instances/{instanceId}",
+                    {"serverId": server_id, "instanceId": instance_id},
+                ),
+                cast_to=McpDeleteInstanceResponse,
+                operation=_DELETE_INSTANCE_OPERATION,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def list_instances(
+        self,
+        server_id: str,
+        *,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        search: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpListInstancesResponse]]:
+        query_fields = compact(
+            {
+                "page_no": page_no,
+                "limit": limit,
+                "search": search,
+                "order_by": order_by,
+                "order_direction": order_direction,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/mcp/servers/{serverId}/instances",
+                    {"serverId": server_id},
+                ),
+                cast_to=McpListInstancesResponse,
+                operation=_LIST_INSTANCES_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )
+
+    # Deprecated in the input OpenAPI schema.
+    def retrieve_app(
+        self,
+        app_key: str,
+        *,
+        name: str | Omit = omit,
+        toolkits: str | Omit = omit,
+        auth_config_ids: str | Omit = omit,
+        order_by: Literal["created_at", "updated_at"] | Omit = omit,
+        order_direction: Literal["asc", "desc"] | Omit = omit,
+        page_no: float | None | Omit = omit,
+        limit: float | None | Omit = omit,
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        query: QueryParam | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncResponseContextManager[AsyncAPIResponse[McpRetrieveAppResponse]]:
+        query_fields = compact(
+            {
+                "name": name,
+                "toolkits": toolkits,
+                "auth_config_ids": auth_config_ids,
+                "order_by": order_by,
+                "order_direction": order_direction,
+                "page_no": page_no,
+                "limit": limit,
+            }
+        )
+        query_data = merge_mapping(query, query_fields)
+        options_data = make_request_options(
+            request_options,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+        )
+        return AsyncResponseContextManager(
+            self._client._request_raw(
+                "get",
+                build_path(
+                    "/api/v3.1/mcp/app/{appKey}",
+                    {"appKey": app_key},
+                ),
+                cast_to=McpRetrieveAppResponse,
+                operation=_RETRIEVE_APP_OPERATION,
+                query=query_data,
+                options=options_data,
+                stream=True,
+            )
+        )

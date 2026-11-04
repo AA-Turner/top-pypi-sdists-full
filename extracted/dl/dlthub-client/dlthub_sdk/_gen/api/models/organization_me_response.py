@@ -23,12 +23,13 @@ class OrganizationMeResponse:
     """
     Attributes:
         email (str): The email of the current user
-        organization (OrganizationResponse): The organization where new workspaces are created by default
+        organization (OrganizationResponse):
         organization_membership_id (UUID): The ID of the organization member for this organization
         role (OrganizationMembershipRole | str): The role of the user in this organization
         user_id (UUID): The ID of the current user
-        workspace_memberships (list[WorkspaceMembershipResponse] | Unset): Workspace memberships in this organization
-            with role information
+        workspace_memberships (list[WorkspaceMembershipResponse] | Unset): The workspaces you can access in this
+            organization, with your role in each: those you belong to plus, unless you are a collaborator, those you reach
+            through a workspace's default member role. Archived workspaces are not listed.
     """
 
     email: str

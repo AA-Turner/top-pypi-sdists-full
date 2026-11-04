@@ -12,14 +12,13 @@ from collections.abc import Callable, Generator
 from typing import Any
 
 import certifi
-import lz4.frame
 import urllib3
 from urllib3.exceptions import HTTPError
 from urllib3.poolmanager import PoolManager, ProxyManager
 from urllib3.response import HTTPResponse
 
 from clickhouse_connect import common
-from clickhouse_connect.driver.compression import _zstd_decompress, _zstd_decompressor, _ZstdError
+from clickhouse_connect.driver.compression import _lz4_decompressor, _zstd_decompress, _zstd_decompressor, _ZstdError
 from clickhouse_connect.driver.exceptions import OperationalError, ProgrammingError
 
 logger = logging.getLogger(__name__)
@@ -55,7 +54,11 @@ def close_managers():
 
 def _close_pool_manager(manager: PoolManager) -> None:
     try:
-        manager.clear()
+        with manager.pools.lock:
+            pools = [manager.pools[key] for key in manager.pools.keys()]
+            manager.clear()
+        for pool in pools:
+            pool.close()
     finally:
         all_managers.pop(manager, None)
 
@@ -166,7 +169,7 @@ def get_response_data(response: HTTPResponse) -> bytes:
         except _ZstdError:
             pass
     if encoding == "lz4":
-        lz4_decom = lz4.frame.LZ4FrameDecompressor()
+        lz4_decom = _lz4_decompressor()
         return lz4_decom.decompress(response.data, len(response.data))
     return response.data
 
@@ -250,7 +253,7 @@ class ResponseSource:
 
             decompress = zstd_decompress
         elif compression == "lz4":
-            lz4_decom = lz4.frame.LZ4FrameDecompressor()
+            lz4_decom = _lz4_decompressor()
 
             def lz_decompress(c: deque) -> tuple[bytes | None, int]:
                 read_amt = 0

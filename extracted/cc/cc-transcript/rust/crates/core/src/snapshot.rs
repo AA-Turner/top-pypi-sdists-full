@@ -2236,6 +2236,8 @@ pub(crate) struct StoreState {
     loads: Table<SourceIdentity, Arc<LoadSlot>>,
     skill_admissions: Arc<AtomicUsize>,
     prepared_loads: Table<SourceIdentity, (Arc<LoadSlot>, u64)>,
+    last_refusal: Option<AdmissionRefusal>,
+    admission_refusals: u64,
     leases: Ledgered<String, Lease>,
     waiters: Ledgered<String, Waiter>,
     projections: Ledgered<String, ProjectionCursor>,
@@ -2290,6 +2292,7 @@ pub(crate) struct StoreState {
 }
 
 const TOUCH_TTL_MS: u64 = 30 * 60_000;
+pub(crate) const STALLED_PREPARED_LOAD_MS: u64 = 60_000;
 const EXPIRED_QUERY_TOMBSTONES: usize = 1024;
 const FACT_READ_WAIT_SLICE: Duration = Duration::from_millis(25);
 
@@ -2321,6 +2324,8 @@ impl StoreState {
             loads: Table::new(work.clone()),
             skill_admissions: Arc::new(AtomicUsize::new(0)),
             prepared_loads: Table::new(work.clone()),
+            last_refusal: None,
+            admission_refusals: 0,
             leases: Ledgered::new(work.clone()),
             waiters: Ledgered::new(work.clone()),
             projections: Ledgered::new(work.clone()),
@@ -2451,6 +2456,9 @@ impl StoreState {
                     LedgerEvent::IndexRegistry(id) => {
                         self.ledger.shared.release(id);
                     }
+                    LedgerEvent::IndexRegistryChanged(id) => {
+                        self.ledger.shared.refresh_index_registry(id);
+                    }
                     LedgerEvent::UnpublishedLoad(bytes) => {
                         self.ledger.pending = self
                             .ledger
@@ -2510,6 +2518,9 @@ impl StoreState {
             LedgerEvent::IndexRegistry(record.index_registry.0),
             credited,
         );
+        self.ledger
+            .shared
+            .refresh_index_registry(record.index_registry.0);
         if let Some(displaced) = self.generations.insert(key, record) {
             for anchor in displaced.anchors() {
                 self.ledger.shared.release(anchor.id);
@@ -2713,6 +2724,7 @@ impl StoreState {
             LedgerEvent::IndexRegistry(registry.0),
             credited,
         );
+        self.ledger.shared.refresh_index_registry(registry.0);
         self.carried_expiry
             .push(carried_deadline(&carried), lineage.clone());
         self.attach_carried_owner(&lineage, &carried);
@@ -3152,6 +3164,28 @@ impl StoreState {
         Some(slot)
     }
 
+    fn evict_idle_prepared_load(&mut self) -> bool {
+        let Some(identity) = self
+            .prepared_loads
+            .iter()
+            .filter(|(_, (slot, _))| Arc::strong_count(slot) <= 2)
+            .min_by_key(|(_, (_, touched))| *touched)
+            .map(|(identity, _)| *identity)
+        else {
+            return false;
+        };
+        self.prepared_loads.remove(&identity);
+        if self
+            .loads
+            .get(&identity)
+            .is_some_and(|slot| Arc::strong_count(slot) == 1)
+        {
+            self.remove_load(&identity);
+        }
+        self.drain();
+        true
+    }
+
     fn retain_loads(&mut self, mut keep: impl FnMut(&SourceIdentity, &Arc<LoadSlot>) -> bool) {
         let mut detached = Vec::new();
         self.loads.retain(|identity, slot| {
@@ -3582,6 +3616,7 @@ impl StoreState {
     }
 }
 
+#[derive(Clone, Copy)]
 struct GaugeTerms {
     entries: usize,
     indexes: usize,
@@ -3624,6 +3659,24 @@ impl GaugeTerms {
             "retained_total_accounted_bytes": total,
             "active_leases": state.leases.len(), "pending_loads": state.loads.len(), "live_generations": self.live_generations})
     }
+}
+
+#[derive(Clone, Copy)]
+struct AdmissionRefusal {
+    reason: &'static str,
+    foreground: bool,
+    cap: usize,
+    additional: usize,
+    terms: GaugeTerms,
+    total: usize,
+    owned: usize,
+    transient: usize,
+    leases: usize,
+    waiters: usize,
+    loads: usize,
+    parked_loads: usize,
+    parked_load_bytes: usize,
+    cache_owners: usize,
 }
 
 pub type ClassifierCallback =
@@ -4743,7 +4796,6 @@ impl NativeStore {
         snapshot: Arc<TranscriptSnapshot>,
         mut generation: GenerationRecord,
         classifier: Value,
-        seed: Option<&CarriedClassification>,
         carried: Option<((SourceIdentity, String), CarriedClassification)>,
         source_handle: &Value,
         context: &Value,
@@ -4767,33 +4819,7 @@ impl NativeStore {
             }
             (lineage, candidate, pending, registry)
         });
-        let shared: HashSet<_> = snapshot
-            .chunks
-            .iter()
-            .map(|chunk| Arc::as_ptr(&chunk.entries) as usize)
-            .collect();
-        let seeded: HashSet<_> = seed
-            .into_iter()
-            .flat_map(|seed| {
-                seed.activity
-                    .shared_allocations()
-                    .into_iter()
-                    .map(|(id, _)| id)
-            })
-            .collect();
-        let retained = generation
-            .entries
-            .iter()
-            .filter(|(id, _)| !shared.contains(id))
-            .map(|(_, charge)| charge.owned_capacity_bytes + charge.opaque_dom_accounted_bytes)
-            .sum::<usize>()
-            + generation
-                .indexes
-                .iter()
-                .filter(|(id, _)| !seeded.contains(id))
-                .map(|(_, bytes)| *bytes)
-                .sum::<usize>()
-            + generation.entries.capacity() * size_of::<(usize, MemoryCharge)>()
+        let record = generation.entries.capacity() * size_of::<(usize, MemoryCharge)>()
             + generation.indexes.capacity() * size_of::<(usize, usize)>()
             + size_of::<GenerationRecord>()
             + snapshot.id.capacity();
@@ -4822,39 +4848,45 @@ impl NativeStore {
                 )
         };
         let pledge = pledge + state.leases.growth(1);
-        let retained = retained
-            + pledge
-            + state.generations.growth_for(&key)
-            + state.ledger.shared.growth(anchors())
-            + state
-                .ledger
-                .shared
-                .unowned_bytes(generation.pending_anchors())
-            + state
-                .ledger
-                .shared
-                .registry_growth_bytes(generation.index_registry)
-            + carried
-                .as_ref()
-                .map_or(0, |(lineage, candidate, pending, registry)| {
-                    charged_bytes(lineage, candidate)
-                        + state.carried_growth(lineage, candidate)
-                        + state.ledger.shared.unowned_bytes(
-                            candidate
-                                .publication_anchors(pending, *registry)
-                                .filter(|anchor| !published.contains(&anchor.id)),
-                        )
-                        + if registry.0 == generation.index_registry.0 {
-                            0
-                        } else {
-                            state.ledger.shared.registry_growth_bytes(*registry)
-                        }
-                });
-        if retained > reservation.bytes {
-            return Err(SnapshotError::new(
-                Status::RetainedLimit,
-                "derived classifier publication exceeds reservation",
-            ));
+        let required = |state: &StoreState| {
+            record
+                + pledge
+                + state.generations.growth_for(&key)
+                + state.ledger.shared.growth(anchors())
+                + state
+                    .ledger
+                    .shared
+                    .unowned_bytes(generation.publication_anchors())
+                + state
+                    .ledger
+                    .shared
+                    .registry_growth_bytes(generation.index_registry)
+                + carried
+                    .as_ref()
+                    .map_or(0, |(lineage, candidate, pending, registry)| {
+                        charged_bytes(lineage, candidate)
+                            + state.carried_growth(lineage, candidate)
+                            + state.ledger.shared.unowned_bytes(
+                                candidate
+                                    .publication_anchors(pending, *registry)
+                                    .filter(|anchor| !published.contains(&anchor.id)),
+                            )
+                            + if registry.0 == generation.index_registry.0 {
+                                0
+                            } else {
+                                state.ledger.shared.registry_growth_bytes(*registry)
+                            }
+                    })
+        };
+        let mut retained = required(&state);
+        while retained > reservation.bytes {
+            self.extend_projection_reservation_in(
+                &mut state,
+                reservation,
+                context,
+                retained - reservation.bytes,
+            )?;
+            retained = required(&state);
         }
         state.ledger.shared.reserve(anchors());
         state.register_generation(&snapshot, generation);
@@ -4961,7 +4993,6 @@ impl NativeStore {
         if preparation.complete() {
             let work = preparation.usage();
             let classifier = preparation.derived_classifier();
-            let seed = preparation.seed().cloned();
             let (snapshot, carried) = preparation.finish(&binding, cancel)?;
             self.extend_projection_reservation(
                 &mut reservation,
@@ -4973,7 +5004,6 @@ impl NativeStore {
                 snapshot,
                 generation,
                 classifier,
-                seed.as_deref(),
                 carried.map(|carried| (lineage, carried)),
                 handle,
                 context,
@@ -5096,7 +5126,6 @@ impl NativeStore {
                     &binding.registry_generation,
                 ),
             );
-            let seed = slot.preparation.seed().cloned();
             let (snapshot, carried) = slot.preparation.finish(&binding, cancel)?;
             self.extend_projection_reservation(
                 &mut reservation,
@@ -5108,7 +5137,6 @@ impl NativeStore {
                 snapshot,
                 generation,
                 classifier,
-                seed.as_deref(),
                 carried.map(|carried| (lineage, carried)),
                 &source_handle,
                 context,
@@ -5452,7 +5480,11 @@ impl NativeStore {
                 state.set_classifier_charge(&slot, stage.accounted_bytes());
                 return Err(error);
             }
-            state.set_classifier_charge(&slot, accounted);
+            state
+                .ledger
+                .shared
+                .settle_existing_index_registry(&stage.activity.registry_witness());
+            state.set_classifier_charge(&slot, stage.accounted_bytes());
         }
         cancel.check(slot.deadline.min(bounds.deadline_unix_ms))?;
         if stop < snapshot.event_count {
@@ -5531,11 +5563,14 @@ impl NativeStore {
                             state.ledger.shared.registry_growth_bytes(*registry)
                         }
                 });
-            self.admit_memory(
+            if let Err(error) = self.admit_memory(
                 &mut state,
                 context,
                 additional.saturating_sub(slot.ledgered_bytes()),
-            )?;
+            ) {
+                state.set_classifier_charge(&slot, stage.accounted_bytes());
+                return Err(error);
+            }
             state.ledger.shared.reserve(anchors());
             state.set_classifier_charge(&slot, 0);
             state.register_generation(&derived, generation);
@@ -6935,6 +6970,70 @@ impl NativeStore {
             && context.get("work_class").and_then(Value::as_str) != Some("background"))
     }
 
+    fn note_refusal(
+        state: &mut StoreState,
+        reason: &'static str,
+        foreground: bool,
+        cap: usize,
+        additional: usize,
+    ) {
+        let terms = Self::gauge_terms(state);
+        let (_, _, total) = terms.totals(state);
+        state.admission_refusals += 1;
+        state.last_refusal = Some(AdmissionRefusal {
+            reason,
+            foreground,
+            cap,
+            additional,
+            terms,
+            total,
+            owned: state.owned.accounted_bytes(),
+            transient: state.transient_bytes,
+            leases: state.leases.len(),
+            waiters: state.waiters.len(),
+            loads: state.loads.len(),
+            parked_loads: state.prepared_loads.len(),
+            parked_load_bytes: state
+                .prepared_loads
+                .iter()
+                .map(|(_, (slot, _))| slot.accounted.load(Ordering::Acquire))
+                .sum(),
+            cache_owners: state.cache_order.len(),
+        });
+    }
+
+    pub fn take_admission_refusal(&self) -> Option<Value> {
+        let mut state = self.lock_state();
+        let refusal = state.last_refusal.take()?;
+        let refusals = std::mem::take(&mut state.admission_refusals);
+        Some(json!({
+            "refusals": refusals,
+            "reason": refusal.reason,
+            "foreground": refusal.foreground,
+            "cap_bytes": refusal.cap,
+            "additional_bytes": refusal.additional,
+            "total_bytes": refusal.total,
+            "entry_bytes": refusal.terms.entries,
+            "index_bytes": refusal.terms.indexes,
+            "pending_bytes": refusal.terms.pending,
+            "classifier_bytes": refusal.terms.classifier,
+            "label_bytes": refusal.terms.label,
+            "projection_bytes": refusal.terms.projections,
+            "discovery_bytes": refusal.terms.discovery,
+            "graph_bytes": refusal.terms.graph,
+            "metadata_bytes": refusal.terms.metadata,
+            "owned_bytes": refusal.owned,
+            "transient_bytes": refusal.transient,
+            "live_generations": refusal.terms.live_generations,
+            "leases": refusal.leases,
+            "waiters": refusal.waiters,
+            "loads": refusal.loads,
+            "parked_loads": refusal.parked_loads,
+            "parked_load_bytes": refusal.parked_load_bytes,
+            "cache_owners": refusal.cache_owners,
+        }))
+    }
+
     fn memory_cap(&self, context: &Value) -> Result<usize, SnapshotError> {
         Ok(if Self::foreground_admission(context)? {
             self.config.retained
@@ -6955,6 +7054,11 @@ impl NativeStore {
             state.ledger.shared.work().admitted(additional);
             return Ok(());
         }
+        let foreground = Self::foreground_admission(context)?;
+        while foreground
+            && Self::retained_total(state).saturating_add(additional) > cap
+            && state.evict_idle_prepared_load()
+        {}
         while Self::retained_total(state).saturating_add(additional) > cap {
             let Some(owner) = state.next_cache_victim() else {
                 break;
@@ -6966,10 +7070,9 @@ impl NativeStore {
                 bookkeeping.is_some_and(|before| Self::bookkeeping_bytes(state) <= before),
                 "a refused admission grew retained bookkeeping"
             );
-            return Err(SnapshotError::new(
-                Status::RetainedLimit,
-                "accounted storage admission exhausted",
-            ));
+            const REASON: &str = "accounted storage admission exhausted";
+            Self::note_refusal(state, REASON, foreground, cap, additional);
+            return Err(SnapshotError::new(Status::RetainedLimit, REASON));
         }
         state.ledger.shared.work().admitted(additional);
         Ok(())
@@ -8700,16 +8803,17 @@ impl NativeStore {
                 usage[8] += 1;
                 (Arc::clone(slot), false)
             } else {
-                let cap = if Self::foreground_admission(context)? {
+                let foreground = Self::foreground_admission(context)?;
+                let cap = if foreground {
                     self.config.loads
                 } else {
                     self.config.loads.saturating_sub(self.config.hook_loads)
                 };
+                while foreground && state.loads.len() >= cap && state.evict_idle_prepared_load() {}
                 if state.loads.len() >= cap {
-                    return Err(SnapshotError::new(
-                        Status::RetainedLimit,
-                        "preparation admission exhausted",
-                    ));
+                    const REASON: &str = "preparation admission exhausted";
+                    Self::note_refusal(&mut state, REASON, foreground, cap, 0);
+                    return Err(SnapshotError::new(Status::RetainedLimit, REASON));
                 }
                 let registry_generation = str_field(context, "registry_generation")?;
                 let record = LOAD_SLOT_BYTES
@@ -9042,8 +9146,10 @@ impl NativeStore {
         } else {
             None
         };
-        *slot.index_registry.lock().expect("load index registry") =
-            Some(load.activity.registry_witness());
+        if stepped.is_some() {
+            *slot.index_registry.lock().expect("load index registry") =
+                Some(load.activity.registry_witness());
+        }
         let unpublished = load.result.as_ref().is_some_and(|snapshot| {
             !self
                 .lock_state()
@@ -9124,6 +9230,15 @@ impl NativeStore {
                         if let Some((_, bytes)) = &pledge {
                             state.transient_bytes += bytes;
                         }
+                        let pending_charge = if publishing {
+                            pending_charge
+                        } else {
+                            state
+                                .ledger
+                                .shared
+                                .settle_existing_index_registry(&load.activity.registry_witness());
+                            Self::unpublished_load_charge(&load)
+                        };
                         state.set_load_charge(&slot, pending_charge);
                         lease = pledge.map(|(token, bytes)| {
                             (token, ProjectionReservation { store: self, bytes })
@@ -13084,7 +13199,7 @@ mod tests {
         assert!(Arc::ptr_eq(&prior.chunks[0], &current.chunks[0]));
         assert_eq!(
             store.state.lock().unwrap().counters[1] - before,
-            prior.fence.len() as u64 + added.len() as u64 + 128
+            added.len() as u64
         );
     }
 
@@ -14202,7 +14317,7 @@ mod tests {
         assert_eq!(snapshot.entry(0).meta().unwrap().uuid, "initial");
         let state = store.state.lock().unwrap();
         assert_eq!(state.counters[4], 1);
-        assert_eq!(state.counters[1], pinned_size + 128);
+        assert_eq!(state.counters[1], pinned_size);
     }
     #[test]
     fn turn_projection_cursor_preserves_native_page_status_and_zero_item_incompleteness() {
@@ -14485,16 +14600,20 @@ mod tests {
         id: &str,
         owner: &Value,
     ) -> Arc<TranscriptSnapshot> {
-        let response = finish(
-            store,
-            store.test_request(
-                &classifier_acquire(path, id, 1024 * 1024),
+        loop {
+            let response = finish(
+                store,
+                store.test_request(
+                    &classifier_acquire(path, id, 1024 * 1024),
+                    owner,
+                    &Cancellation::default(),
+                ),
                 owner,
-                &Cancellation::default(),
-            ),
-            owner,
-        );
-        store.pin(handle(&response), owner).unwrap()
+            );
+            if response["status"].as_str() != Some("changed") {
+                return store.pin(handle(&response), owner).unwrap();
+            }
+        }
     }
 
     fn users(range: Range<usize>) -> String {
@@ -14715,6 +14834,7 @@ mod tests {
         owner: &Value,
     ) -> (Arc<TranscriptSnapshot>, Vec<Range<usize>>) {
         let mut request = acquire(path);
+        request["deadline_unix_ms"] = json!(now_ms() + 300_000);
         request["limits"].insert("max_events", json!(100_000));
         request["limits"].insert("max_items", json!(100_000));
         request["limits"].insert("max_output_bytes", json!(16 * 1024 * 1024));
@@ -14755,7 +14875,13 @@ mod tests {
                     owner,
                     &Cancellation::default(),
                 )
-                .unwrap();
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{error:?} at page {:?}: {:?}",
+                        pages.last(),
+                        store.take_admission_refusal()
+                    )
+                });
         }
         (
             store.pin(&reply["description"]["handle"], owner).unwrap(),
@@ -14974,7 +15100,7 @@ mod tests {
         let suffix = format!("{}\n", user_text("new", &"x".repeat(256 * 1024)));
         let source = Source::new(&format!("{prefix}{suffix}"));
         let path = source.path.clone();
-        let store = NativeStore::new(&json!({})).unwrap();
+        let store = NativeStore::new_agent(&json!({})).unwrap();
         *store.read_hook.lock().unwrap() = Some(Arc::new(move || {
             std::fs::OpenOptions::new()
                 .append(true)
@@ -14983,7 +15109,7 @@ mod tests {
                 .write_all(format!("{}\n", user("appended")).as_bytes())
                 .unwrap();
         }));
-        let response = store.request(
+        let response = store.request_agent(
             &tail_request(&source.path, 1, 1024 * 1024),
             &context("a"),
             &Cancellation::default(),
@@ -16136,7 +16262,7 @@ mod tests {
     }
 
     #[test]
-    fn prepared_graph_survives_root_appends_and_rejects_root_rewrites() {
+    fn prepared_graph_survives_root_appends_and_rejects_a_truncated_root() {
         let source = Source::new(&format!("{}\n", user("root")));
         let child = source.directory.join("child.jsonl");
         std::fs::write(&child, format!("{}\n", user("child"))).unwrap();
@@ -16176,20 +16302,17 @@ mod tests {
         assert_eq!(appended["data"]["value"].as_bool(), Some(false));
         source.append(&format!("{}\n", user("again")));
         assert_eq!(query()["status"].as_str(), Some("ok"));
-        let contents = std::fs::read_to_string(&source.path).unwrap();
-        std::fs::write(&source.path, contents.replacen("hello", "HELLO", 1)).unwrap();
-        let rewritten = query();
+        std::fs::write(&source.path, "").unwrap();
+        let truncated = query();
         assert_eq!(
-            rewritten["status"].as_str(),
+            truncated["status"].as_str(),
             Some("changed"),
-            "{rewritten:?}"
+            "{truncated:?}"
         );
         assert_eq!(
-            rewritten["reason"].as_str(),
+            truncated["reason"].as_str(),
             Some("prepared root generation changed")
         );
-        std::fs::write(&source.path, "").unwrap();
-        assert_eq!(query()["status"].as_str(), Some("changed"));
     }
 
     #[test]
@@ -17042,17 +17165,17 @@ mod tests {
         let source = Source::new(&format!("{}\n", user("root")));
         let child = source.directory.join("child.jsonl");
         std::fs::write(&child, child_contents).unwrap();
-        let store = NativeStore::new(&json!({"max_read_bytes_per_step":128,"max_events_per_step":100,"max_entry_bytes":8192,"max_retained_bytes":32*1024*1024,"reserved_hook_accounted_bytes":4096,"max_leases":16,"reserved_hook_leases":1})).unwrap();
+        let store = NativeStore::new_agent(&json!({"max_read_bytes_per_step":128,"max_events_per_step":100,"max_entry_bytes":8192,"max_retained_bytes":32*1024*1024,"reserved_hook_accounted_bytes":4096,"max_leases":16,"reserved_hook_leases":1})).unwrap();
         let owner = context("a");
         let root = finish(
             &store,
-            store.request(&acquire(&source.path), &owner, &Cancellation::default()),
+            store.request_agent(&acquire(&source.path), &owner, &Cancellation::default()),
             &owner,
         );
         if cache_child {
             let cached = finish(
                 &store,
-                store.request(&acquire(&child), &owner, &Cancellation::default()),
+                store.request_agent(&acquire(&child), &owner, &Cancellation::default()),
                 &owner,
             );
             assert_eq!(cached["status"].as_str(), Some("ok"), "{cached:?}");
@@ -17061,14 +17184,14 @@ mod tests {
         let prepare = json!({"schema":SCHEMA,"id":"prepare","operation":"prepare_graph","view":{"handle":handle(&root),"classifier":{"id":"native","version":"1"},"selectors":[],"attachments":[]},"thread_ids":[],"roots":[],"direct_paths":[child.to_string_lossy().as_ref()],"deadline_unix_ms":template["deadline_unix_ms"],"limits":template["limits"]});
         let graph = finish_prepared(
             &store,
-            store.request(&prepare, &owner, &Cancellation::default()),
+            store.request_agent(&prepare, &owner, &Cancellation::default()),
             &owner,
         );
         assert_eq!(graph["status"].as_str(), Some("ok"), "{graph:?}");
         source.append(&format!("{}\n", user("appended")));
         let mut limits = template["limits"].clone();
         limits.insert("max_source_read_bytes", json!(allowance));
-        let mut reply = store.request(
+        let mut reply = store.request_agent(
             &json!({"schema":SCHEMA,"id":"query","operation":"query_graph","handle":graph["data"]["handle"],"selectors":[],"query":{"kind":"has_tool","pattern":"Read","subagents":true},"deadline_unix_ms":template["deadline_unix_ms"],"limits":limits}),
             &owner,
             &Cancellation::default(),
@@ -17078,7 +17201,7 @@ mod tests {
             let Some(cursor) = reply["cursor"].as_str().map(str::to_owned) else {
                 return (reply, read);
             };
-            reply = store.request(
+            reply = store.request_agent(
                 &json!({"schema":SCHEMA,"id":"resume","operation":"resume","cursor":cursor}),
                 &owner,
                 &Cancellation::default(),
@@ -17783,8 +17906,16 @@ mod tests {
         assert_eq!(store.prepared_disk.stats().writes, 2);
     }
 
+    fn fact_budget_config(fact_budget: usize) -> Value {
+        json!({"max_read_bytes_per_step":8192,"max_entry_bytes":128*1024,"max_retained_bytes":32*1024*1024,"max_prepared_fact_memory_bytes":fact_budget,"reserved_hook_accounted_bytes":4096,"max_leases":16,"reserved_hook_leases":1})
+    }
+
     fn fact_budget_store(fact_budget: usize) -> NativeStore {
-        NativeStore::new(&json!({"max_read_bytes_per_step":8192,"max_entry_bytes":128*1024,"max_retained_bytes":32*1024*1024,"max_prepared_fact_memory_bytes":fact_budget,"reserved_hook_accounted_bytes":4096,"max_leases":16,"reserved_hook_leases":1})).unwrap()
+        NativeStore::new(&fact_budget_config(fact_budget)).unwrap()
+    }
+
+    fn agent_fact_budget_store(fact_budget: usize) -> NativeStore {
+        NativeStore::new_agent(&fact_budget_config(fact_budget)).unwrap()
     }
 
     fn background_owner() -> Value {
@@ -19437,22 +19568,22 @@ mod tests {
     #[test]
     fn unbuilt_root_upgrades_from_the_pinned_snapshot_without_reparsing() {
         let source = Source::new(&format!("{}\n", user_text("root", "TOKEN-ROOT")));
-        let store = fact_budget_store(16 * 1024 * 1024);
+        let store = agent_fact_budget_store(16 * 1024 * 1024);
         let owner = context("a");
         let template = acquire(&source.path);
         let root = finish(
             &store,
-            store.request(&acquire(&source.path), &owner, &Cancellation::default()),
+            store.request_agent(&acquire(&source.path), &owner, &Cancellation::default()),
             &owner,
         );
         let graph = finish(
             &store,
-            store.request(&json!({"schema":SCHEMA,"id":"prepare","operation":"prepare_graph","view":{"handle":handle(&root),"classifier":{"id":"native","version":"1"},"selectors":[],"attachments":[]},"thread_ids":[],"roots":[],"direct_paths":[],"deadline_unix_ms":template["deadline_unix_ms"],"limits":template["limits"]}), &owner, &Cancellation::default()),
+            store.request_agent(&json!({"schema":SCHEMA,"id":"prepare","operation":"prepare_graph","view":{"handle":handle(&root),"classifier":{"id":"native","version":"1"},"selectors":[],"attachments":[]},"thread_ids":[],"roots":[],"direct_paths":[],"deadline_unix_ms":template["deadline_unix_ms"],"limits":template["limits"]}), &owner, &Cancellation::default()),
             &owner,
         );
         assert_eq!(graph["status"].as_str(), Some("ok"), "{graph:?}");
         let ask = |query: Value| {
-            single_step(store.request(
+            single_step(store.request_agent(
                 &prepared_graph_request(&graph, &template, json!([]), query, None),
                 &owner,
                 &Cancellation::default(),
@@ -19476,7 +19607,7 @@ mod tests {
                 appended["usage"]["source_opens"].as_u64(),
                 appended["usage"]["source_bytes_read"].as_u64()
             ),
-            (Some(2), Some(128))
+            (Some(0), Some(0))
         );
         let (builds, writes) = (
             store.fact_builds.load(Ordering::Relaxed),
@@ -19484,13 +19615,13 @@ mod tests {
         );
         let full = ask(has_override("TOKEN-ROOT", &[]));
         assert_eq!(value_of(&full), Some(true));
-        assert_eq!(cache_reads(&full), (Some(1), Some(indexed), Some(64)));
+        assert_eq!(cache_reads(&full), (Some(1), Some(indexed), Some(0)));
         assert_eq!(
             (
                 full["usage"]["cold_parses"].as_u64(),
                 full["usage"]["source_opens"].as_u64()
             ),
-            (Some(0), Some(1))
+            (Some(0), Some(0))
         );
         assert_eq!(
             (
@@ -22528,18 +22659,18 @@ mod tests {
     #[test]
     fn a_shared_chunk_prefix_is_released_exactly_once() {
         let source = Source::new(&format!("{}\n", user("a")));
-        let store = store();
+        let store = agent_store();
         let owner = context("a");
         let first = finish(
             &store,
-            store.request(&acquire(&source.path), &owner, &Cancellation::default()),
+            store.request_agent(&acquire(&source.path), &owner, &Cancellation::default()),
             &owner,
         );
         let prior = store.pin(handle(&first), &owner).unwrap();
         source.append(&format!("{}\n", user("b")));
         let second = finish(
             &store,
-            store.request(&acquire(&source.path), &owner, &Cancellation::default()),
+            store.request_agent(&acquire(&source.path), &owner, &Cancellation::default()),
             &owner,
         );
         let current = store.pin(handle(&second), &owner).unwrap();

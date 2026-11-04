@@ -148,11 +148,20 @@ def pick(model_key: str, pool: str = "", pin: Optional[str] = None,
     pairs, wildcards = routing_snapshot(model_key)
 
     def remember(w):
-        from hugpy_core.models.modeldb import record_routed_allocation
-        if not record_routed_allocation(model_key, w["id"], source):
-            raise NoWorker(f"{model_key!r} was explicitly unassigned from worker {w['id']!r}")
-        registry.stamp_picked(w["id"])
+        # Existing assignments and already-resident models are safe to retain
+        # immediately. A wildcard/cold route is only a candidate: its pair is
+        # promoted after the worker proves a fit and completes the load.
+        wid = w.get("id") or ""
+        assigned, _pinned, excluded = pairs.get(wid, (False, False, False))
+        if excluded:
+            raise NoWorker(f"{model_key!r} was explicitly unassigned from worker {wid!r}")
+        if assigned or _resident_on(w, model_key, wanted):
+            from hugpy_core.models.modeldb import record_routed_allocation
+            if not record_routed_allocation(model_key, wid, source):
+                raise NoWorker(f"{model_key!r} was explicitly unassigned from worker {wid!r}")
+        registry.stamp_picked(wid)
         return w
+
     def allowed(w):
         wid = w.get("id") or ""
         state = pairs.get(wid, (False, False, False))
@@ -214,6 +223,11 @@ def pick(model_key: str, pool: str = "", pin: Optional[str] = None,
                     central_has = _central_has(model_key)
                 if central_has:
                     cands = group  # central has it; the selected box pulls it
+            if not cands:
+                # Wildcard means this worker is a valid route even when its
+                # catalog has not seen the model yet. The worker's front door
+                # performs the real fit/load check and reports any refusal.
+                cands = [box for box in group if wildcards.get(box.get("id") or "", False)]
             if cands:
                 w = min(cands, key=lambda box: _routing_rank(box, model_key, wanted, pairs))
                 break
@@ -221,3 +235,10 @@ def pick(model_key: str, pool: str = "", pin: Optional[str] = None,
             scope = 'selected ' if selected is not None else ''
             raise NoWorker(f"Unknown model {model_key!r}: no eligible {scope}worker can serve it")
     return remember(w)
+
+
+def confirm_routed_allocation(model_key: str, worker: Dict[str, Any], source: str = "routing") -> bool:
+    """Record a cold/wildcard route only after its worker call succeeds."""
+    from hugpy_core.models.modeldb import record_routed_allocation
+    wid = (worker or {}).get("id") or ""
+    return bool(wid and record_routed_allocation(model_key, wid, source))

@@ -11,10 +11,11 @@ use std::{
 
 const TAG: &str = "SdkEventEmitter";
 
-#[derive(Clone)]
+type ListenerCallback = Arc<dyn Fn(SdkEvent) + Send + Sync>;
+
 struct Listener {
     sub_id_value: String,
-    callback: Arc<dyn Fn(SdkEvent) + Send + Sync>,
+    callback: ListenerCallback,
 }
 
 #[derive(Clone)]
@@ -160,24 +161,27 @@ impl SdkEventEmitter {
         let all_code = SdkEventCode::from_name(SdkEvent::ALL).as_raw();
         let event_code = event.get_code().as_raw();
 
-        let all_listeners = self.snapshot_listeners(all_code);
+        let all_callbacks = self.snapshot_callbacks(all_code);
         let all_internal_listeners = self.snapshot_internal_listeners(all_code);
-        let event_listeners = self.snapshot_listeners(event_code);
+        let event_callbacks = self.snapshot_callbacks(event_code);
         let event_internal_listeners = self.snapshot_internal_listeners(event_code);
 
-        Self::emit_to_listeners(&event, &all_listeners);
+        Self::emit_to_callbacks(&event, &all_callbacks);
         self.emit_to_internal_listeners(&event, all_code, &all_internal_listeners);
-        Self::emit_to_listeners(&event, &event_listeners);
+        Self::emit_to_callbacks(&event, &event_callbacks);
         self.emit_to_internal_listeners(&event, event_code, &event_internal_listeners);
     }
 
-    fn snapshot_listeners(&self, code: u8) -> Vec<Listener> {
+    fn snapshot_callbacks(&self, code: u8) -> Vec<ListenerCallback> {
         self.listeners
             .get()
             .and_then(|listeners| {
-                listeners
-                    .get(&code)
-                    .map(|listeners| listeners.value().clone())
+                listeners.get(&code).map(|listeners| {
+                    listeners
+                        .iter()
+                        .map(|listener| Arc::clone(&listener.callback))
+                        .collect()
+                })
             })
             .unwrap_or_default()
     }
@@ -193,10 +197,10 @@ impl SdkEventEmitter {
             .unwrap_or_default()
     }
 
-    fn emit_to_listeners(event: &SdkEvent, listeners: &[Listener]) {
-        listeners
-            .iter()
-            .for_each(|listener| (listener.callback)(event.clone()));
+    fn emit_to_callbacks(event: &SdkEvent, callbacks: &[ListenerCallback]) {
+        for callback in callbacks {
+            callback(event.clone());
+        }
     }
 
     fn emit_to_internal_listeners(

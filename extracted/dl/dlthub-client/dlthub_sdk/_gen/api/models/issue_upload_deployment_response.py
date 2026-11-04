@@ -15,8 +15,9 @@ class IssueUploadDeploymentResponse:
     """
     Attributes:
         deployment_id (UUID): ID the uploaded deployment will be created under
-        upload_token (str): DataplaneUserJwt to attach as Bearer on the upload POST
-        upload_url (str): Absolute URL on the data plane where bytes must be posted
+        upload_token (str): Token for the upload; send it as `Authorization: Bearer <upload_token>`. Valid for 10
+            minutes.
+        upload_url (str): Data plane URL to send the multipart upload POST to.
     """
 
     deployment_id: UUID

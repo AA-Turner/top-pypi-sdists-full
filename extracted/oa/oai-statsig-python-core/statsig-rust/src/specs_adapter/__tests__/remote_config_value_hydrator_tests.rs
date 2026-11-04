@@ -16,7 +16,7 @@ use crate::observability::observability_client_adapter::MetricType;
 use crate::observability::ops_stats::{OPS_STATS, OpsStatsEvent, OpsStatsForInstance};
 use crate::specs_response::{
     proto_specs::{
-        ProtobufHydrationContext, ProtobufUpdate, SpecsFieldChecksums, deserialize_protobuf,
+        ProtobufUpdate, SpecsFieldChecksums, deserialize_protobuf,
         deserialize_protobuf_for_store_with_hydration,
     },
     proto_stream_reader::ProtoStreamReader,
@@ -760,14 +760,11 @@ async fn rejects_markerless_remote_metadata_without_downloading() {
         Default::default(),
         &mut next_specs,
         &mut data,
-        ProtobufHydrationContext {
-            hydrator: &hydrator,
-            source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
-            sync_trigger: None,
-            mmap_project_id: MmapProjectId::for_sdk_key("markerless-remote-metadata"),
-            capture_hydrated_data_store_bytes: false,
-            preserve_session_update_mode: false,
-        },
+        &hydrator,
+        StoreHydrationOptions::new(
+            &format!("{}/v2/download_config_specs/key.json", server.uri()),
+            MmapProjectId::for_sdk_key("markerless-remote-metadata"),
+        ),
     )
     .await;
 
@@ -2223,7 +2220,7 @@ async fn store_parser_hydrates_protobuf_once_and_reuses_values_within_update() {
     let current_specs = SpecsResponseFull::default();
     let mut next_specs = SpecsResponseFull::default();
 
-    let (update, _, _) = deserialize_protobuf_for_store_with_hydration(
+    let update = deserialize_protobuf_for_store_with_hydration(
         OPS_STATS
             .get_for_instance("single-pass-store-parser-decode")
             .as_ref(),
@@ -2231,17 +2228,15 @@ async fn store_parser_hydrates_protobuf_once_and_reuses_values_within_update() {
         Default::default(),
         &mut next_specs,
         &mut data,
-        ProtobufHydrationContext {
-            hydrator: &hydrator,
-            source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
-            sync_trigger: None,
-            mmap_project_id: MmapProjectId::for_sdk_key("single-pass-store-parser"),
-            capture_hydrated_data_store_bytes: false,
-            preserve_session_update_mode: false,
-        },
+        &hydrator,
+        StoreHydrationOptions::new(
+            &format!("{}/v2/download_config_specs/key.json", server.uri()),
+            MmapProjectId::for_sdk_key("single-pass-store-parser"),
+        ),
     )
     .await
-    .unwrap();
+    .unwrap()
+    .update;
 
     let expected_checksums = SpecsFieldChecksums::from_specs(&next_specs);
     assert_ne!(expected_checksums, SpecsFieldChecksums::default());
@@ -2308,35 +2303,32 @@ async fn store_parser_reuses_non_remote_dynamic_configs_with_or_without_sidecar_
         let mut data = protobuf_response_data(response(Some(false)));
         let mut next_specs = SpecsResponseFull::default();
 
-        let (update, stats, hydrated_data_store_bytes) =
-            deserialize_protobuf_for_store_with_hydration(
-                ops_stats.as_ref(),
-                &current_specs,
-                Default::default(),
-                &mut next_specs,
-                &mut data,
-                ProtobufHydrationContext {
-                    hydrator: &hydrator,
-                    source_url: "https://statsigcdn.openai.com/v2/download_config_specs/key.json",
-                    sync_trigger: None,
-                    mmap_project_id: MmapProjectId::for_sdk_key("reused-config-decode-stats"),
-                    capture_hydrated_data_store_bytes: capture_sidecar,
-                    preserve_session_update_mode: false,
-                },
+        let hydrated = deserialize_protobuf_for_store_with_hydration(
+            ops_stats.as_ref(),
+            &current_specs,
+            Default::default(),
+            &mut next_specs,
+            &mut data,
+            &hydrator,
+            StoreHydrationOptions::new(
+                "https://statsigcdn.openai.com/v2/download_config_specs/key.json",
+                MmapProjectId::for_sdk_key("reused-config-decode-stats"),
             )
-            .await
-            .unwrap();
+            .with_data_store_capture(capture_sidecar),
+        )
+        .await
+        .unwrap();
 
         assert!(matches!(
-            update,
+            hydrated.update,
             ProtobufUpdate::Materialized {
                 is_delta: false,
                 ..
             }
         ));
-        assert_eq!(stats.total, 1);
-        assert_eq!(stats.mmap, 0);
-        assert!(hydrated_data_store_bytes.is_none());
+        assert_eq!(hydrated.spec_decode_stats.total, 1);
+        assert_eq!(hydrated.spec_decode_stats.mmap, 0);
+        assert!(hydrated.hydrated_data_store_bytes.is_none());
     }
 }
 
@@ -2359,14 +2351,12 @@ async fn store_parser_rejects_true_marker_without_remote_metadata() {
             Default::default(),
             &mut next_specs,
             &mut data,
-            ProtobufHydrationContext {
-                hydrator: &hydrator,
-                source_url: "https://statsigcdn.openai.com/v2/download_config_specs/key.json",
-                sync_trigger: None,
-                mmap_project_id: MmapProjectId::for_sdk_key("store-marker-without-metadata"),
-                capture_hydrated_data_store_bytes: capture_sidecar,
-                preserve_session_update_mode: false,
-            },
+            &hydrator,
+            StoreHydrationOptions::new(
+                "https://statsigcdn.openai.com/v2/download_config_specs/key.json",
+                MmapProjectId::for_sdk_key("store-marker-without-metadata"),
+            )
+            .with_data_store_capture(capture_sidecar),
         )
         .await;
 
@@ -2460,23 +2450,22 @@ async fn store_parser_reuses_verified_hydrated_current_values_without_downloadin
     for capture_sidecar in [false, true] {
         let mut data = protobuf_response_data(response(true));
         let mut next_specs = SpecsResponseFull::default();
-        let (_, _, sidecar) = deserialize_protobuf_for_store_with_hydration(
+        let sidecar = deserialize_protobuf_for_store_with_hydration(
             ops_stats.as_ref(),
             &current_specs,
             Default::default(),
             &mut next_specs,
             &mut data,
-            ProtobufHydrationContext {
-                hydrator: &hydrator,
-                source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
-                sync_trigger: None,
-                mmap_project_id: MmapProjectId::for_sdk_key("verified-current-reuse"),
-                capture_hydrated_data_store_bytes: capture_sidecar,
-                preserve_session_update_mode: false,
-            },
+            &hydrator,
+            StoreHydrationOptions::new(
+                &format!("{}/v2/download_config_specs/key.json", server.uri()),
+                MmapProjectId::for_sdk_key("verified-current-reuse"),
+            )
+            .with_data_store_capture(capture_sidecar),
         )
         .await
-        .unwrap();
+        .unwrap()
+        .hydrated_data_store_bytes;
 
         let next_pointer = next_specs
             .dynamic_configs
@@ -2573,14 +2562,11 @@ async fn store_parser_downloads_when_hydrated_value_cannot_reconstruct_wire_byte
         Default::default(),
         &mut next_specs,
         &mut data,
-        ProtobufHydrationContext {
-            hydrator: &hydrator,
-            source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
-            sync_trigger: None,
-            mmap_project_id: MmapProjectId::for_sdk_key("unreconstructable-current-value"),
-            capture_hydrated_data_store_bytes: false,
-            preserve_session_update_mode: false,
-        },
+        &hydrator,
+        StoreHydrationOptions::new(
+            &format!("{}/v2/download_config_specs/key.json", server.uri()),
+            MmapProjectId::for_sdk_key("unreconstructable-current-value"),
+        ),
     )
     .await
     .unwrap();
@@ -2647,14 +2633,11 @@ async fn store_parser_does_not_reuse_matching_placeholder_config() {
         Default::default(),
         &mut next_specs,
         &mut data,
-        ProtobufHydrationContext {
-            hydrator: &hydrator,
-            source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
-            sync_trigger: None,
-            mmap_project_id: MmapProjectId::for_sdk_key("placeholder-reuse"),
-            capture_hydrated_data_store_bytes: false,
-            preserve_session_update_mode: false,
-        },
+        &hydrator,
+        StoreHydrationOptions::new(
+            &format!("{}/v2/download_config_specs/key.json", server.uri()),
+            MmapProjectId::for_sdk_key("placeholder-reuse"),
+        ),
     )
     .await
     .unwrap();
@@ -2745,17 +2728,14 @@ rusty_fork_test! {
                     Default::default(),
                     &mut next_specs,
                     &mut data,
-                    ProtobufHydrationContext {
-                        hydrator: &hydrator,
-                        sync_trigger: None,
-                        source_url: &format!(
+                    &hydrator,
+                    StoreHydrationOptions::new(
+                        &format!(
                             "{}/v2/download_config_specs/key.json",
                             server.uri()
                         ),
-                        mmap_project_id: MmapProjectId::for_sdk_key(SDK_KEY),
-                        capture_hydrated_data_store_bytes: false,
-                        preserve_session_update_mode: false,
-                    },
+                        MmapProjectId::for_sdk_key(SDK_KEY),
+                    ),
                 )
                 .await
                 .unwrap();
@@ -2821,24 +2801,23 @@ rusty_fork_test! {
                 let ops_stats = OPS_STATS.get_for_instance(SDK_KEY);
                 let mut leader_data = protobuf_response_data(live_response);
                 let mut leader_specs = SpecsResponseFull::default();
-                let (_, _, sidecar) = deserialize_protobuf_for_store_with_hydration(
+                let sidecar = deserialize_protobuf_for_store_with_hydration(
                     ops_stats.as_ref(),
                     &SpecsResponseFull::default(),
                     Default::default(),
                     &mut leader_specs,
                     &mut leader_data,
-                    ProtobufHydrationContext {
-                        hydrator: &hydrator,
-                        source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
-                        sync_trigger: None,
-                        mmap_project_id: MmapProjectId::for_sdk_key(SDK_KEY),
-                        capture_hydrated_data_store_bytes: true,
-                        preserve_session_update_mode: false,
-                    },
+                    &hydrator,
+                    StoreHydrationOptions::new(
+                        &format!("{}/v2/download_config_specs/key.json", server.uri()),
+                        MmapProjectId::for_sdk_key(SDK_KEY),
+                    )
+                    .with_data_store_capture(true),
                 )
                 .await
-                .unwrap();
-                let sidecar = sidecar.expect("remote metadata should produce a sidecar");
+                .unwrap()
+                .hydrated_data_store_bytes
+                .expect("remote metadata should produce a sidecar");
 
                 let baseline = serde_json::to_vec(&serde_json::json!({
                     "experiment_to_layer": {},
@@ -2875,14 +2854,11 @@ rusty_fork_test! {
                     Default::default(),
                     &mut follower_specs,
                     &mut follower_data,
-                    ProtobufHydrationContext {
-                        hydrator: &hydrator,
-                        source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
-                        sync_trigger: None,
-                        mmap_project_id: MmapProjectId::for_sdk_key(SDK_KEY),
-                        capture_hydrated_data_store_bytes: false,
-                        preserve_session_update_mode: false,
-                    },
+                    &hydrator,
+                    StoreHydrationOptions::new(
+                        &format!("{}/v2/download_config_specs/key.json", server.uri()),
+                        MmapProjectId::for_sdk_key(SDK_KEY),
+                    ),
                 )
                 .await
                 .unwrap();
@@ -2991,7 +2967,7 @@ async fn store_parser_downloads_remote_values_across_envelopes_concurrently() {
     let current_specs = SpecsResponseFull::default();
     let mut next_specs = SpecsResponseFull::default();
 
-    let (update, _, hydrated_data_store_bytes) = tokio::time::timeout(
+    let hydrated = tokio::time::timeout(
         Duration::from_millis(1_300),
         deserialize_protobuf_for_store_with_hydration(
             OPS_STATS
@@ -3001,14 +2977,12 @@ async fn store_parser_downloads_remote_values_across_envelopes_concurrently() {
             Default::default(),
             &mut next_specs,
             &mut data,
-            ProtobufHydrationContext {
-                hydrator: &hydrator,
-                source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
-                sync_trigger: None,
-                mmap_project_id: MmapProjectId::for_sdk_key("concurrent-store-parser"),
-                capture_hydrated_data_store_bytes: true,
-                preserve_session_update_mode: false,
-            },
+            &hydrator,
+            StoreHydrationOptions::new(
+                &format!("{}/v2/download_config_specs/key.json", server.uri()),
+                MmapProjectId::for_sdk_key("concurrent-store-parser"),
+            )
+            .with_data_store_capture(true),
         ),
     )
     .await
@@ -3016,7 +2990,7 @@ async fn store_parser_downloads_remote_values_across_envelopes_concurrently() {
     .unwrap();
 
     assert!(matches!(
-        update,
+        hydrated.update,
         ProtobufUpdate::Materialized {
             is_delta: false,
             ..
@@ -3033,7 +3007,9 @@ async fn store_parser_downloads_remote_values_across_envelopes_concurrently() {
     );
 
     let mut sidecar_data = protobuf_response_data(
-        hydrated_data_store_bytes.expect("remote metadata should produce a hydrated sidecar"),
+        hydrated
+            .hydrated_data_store_bytes
+            .expect("remote metadata should produce a hydrated sidecar"),
     );
     let sidecar_envelopes = parse_protobuf_envelopes(&mut sidecar_data).unwrap();
     assert_eq!(
@@ -3135,24 +3111,21 @@ async fn store_parser_flushes_remote_configs_before_checksums_and_deletions() {
     let current_specs = SpecsResponseFull::default();
     let mut next_specs = SpecsResponseFull::default();
 
-    let (update, decode_stats, hydrated_data_store_bytes) =
-        deserialize_protobuf_for_store_with_hydration(
-            &OpsStatsForInstance::new(),
-            &current_specs,
-            Default::default(),
-            &mut next_specs,
-            &mut data,
-            ProtobufHydrationContext {
-                hydrator: &hydrator,
-                source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
-                sync_trigger: None,
-                mmap_project_id: MmapProjectId::for_sdk_key("control-barriers-store-parser"),
-                capture_hydrated_data_store_bytes: true,
-                preserve_session_update_mode: false,
-            },
+    let hydrated = deserialize_protobuf_for_store_with_hydration(
+        &OpsStatsForInstance::new(),
+        &current_specs,
+        Default::default(),
+        &mut next_specs,
+        &mut data,
+        &hydrator,
+        StoreHydrationOptions::new(
+            &format!("{}/v2/download_config_specs/key.json", server.uri()),
+            MmapProjectId::for_sdk_key("control-barriers-store-parser"),
         )
-        .await
-        .unwrap();
+        .with_data_store_capture(true),
+    )
+    .await
+    .unwrap();
 
     assert_eq!(next_specs.dynamic_configs.len(), 1);
     let next_json = serde_json::to_value(&next_specs).unwrap();
@@ -3162,16 +3135,16 @@ async fn store_parser_flushes_remote_configs_before_checksums_and_deletions() {
     );
     assert!(next_json["dynamic_configs"].get("deleted_config").is_none());
     assert_eq!(
-        update,
+        hydrated.update,
         ProtobufUpdate::Materialized {
             is_delta: false,
             field_checksums: SpecsFieldChecksums::from_specs(&next_specs),
         }
     );
-    assert_eq!(decode_stats.total, 1);
-    assert_eq!(decode_stats.mmap, 0);
+    assert_eq!(hydrated.spec_decode_stats.total, 1);
+    assert_eq!(hydrated.spec_decode_stats.mmap, 0);
 
-    let mut sidecar_data = protobuf_response_data(hydrated_data_store_bytes.unwrap());
+    let mut sidecar_data = protobuf_response_data(hydrated.hydrated_data_store_bytes.unwrap());
     let sidecar_envelopes = parse_protobuf_envelopes(&mut sidecar_data).unwrap();
     assert_eq!(
         sidecar_envelopes
@@ -3257,14 +3230,11 @@ async fn store_parser_keeps_download_window_full_behind_slow_blob() {
         Default::default(),
         &mut next_specs,
         &mut data,
-        ProtobufHydrationContext {
-            hydrator: &hydrator,
-            source_url: &source_url,
-            sync_trigger: None,
-            mmap_project_id: MmapProjectId::for_sdk_key("sliding-window-store-parser"),
-            capture_hydrated_data_store_bytes: false,
-            preserve_session_update_mode: false,
-        },
+        &hydrator,
+        StoreHydrationOptions::new(
+            &source_url,
+            MmapProjectId::for_sdk_key("sliding-window-store-parser"),
+        ),
     );
     let final_request_started = async {
         tokio::time::timeout(Duration::from_millis(500), async {
@@ -3286,7 +3256,7 @@ async fn store_parser_keeps_download_window_full_behind_slow_blob() {
     };
 
     let (result, ()) = tokio::join!(parse, final_request_started);
-    let (update, _, _) = result.unwrap();
+    let update = result.unwrap().update;
     assert!(matches!(
         update,
         ProtobufUpdate::Materialized {
@@ -3463,14 +3433,11 @@ async fn hydrate_protobuf_for_store(
         Default::default(),
         &mut next_specs,
         data,
-        ProtobufHydrationContext {
-            hydrator,
+        hydrator,
+        StoreHydrationOptions::new(
             source_url,
-            sync_trigger: None,
-            mmap_project_id: MmapProjectId::for_sdk_key("hydration-result-metrics"),
-            capture_hydrated_data_store_bytes: false,
-            preserve_session_update_mode: false,
-        },
+            MmapProjectId::for_sdk_key("hydration-result-metrics"),
+        ),
     )
     .await
     .map(|_| ())

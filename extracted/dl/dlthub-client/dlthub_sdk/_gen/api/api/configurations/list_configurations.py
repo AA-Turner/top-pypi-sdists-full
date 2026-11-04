@@ -150,10 +150,10 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ListPageConfigurationResponse]:
     """ListConfigurations
 
-    Gets all history of configurations for a workspace. Returns a paginated list of configurations
-    ordered by version number descending.
+    Lists the configurations of a workspace as a paginated list, newest version first unless `sort`
+    is given.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -207,10 +207,10 @@ def sync(
 ) -> ErrorResponse | ListPageConfigurationResponse | None:
     """ListConfigurations
 
-    Gets all history of configurations for a workspace. Returns a paginated list of configurations
-    ordered by version number descending.
+    Lists the configurations of a workspace as a paginated list, newest version first unless `sort`
+    is given.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -259,10 +259,10 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | ListPageConfigurationResponse]:
     """ListConfigurations
 
-    Gets all history of configurations for a workspace. Returns a paginated list of configurations
-    ordered by version number descending.
+    Lists the configurations of a workspace as a paginated list, newest version first unless `sort`
+    is given.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -314,10 +314,10 @@ async def asyncio(
 ) -> ErrorResponse | ListPageConfigurationResponse | None:
     """ListConfigurations
 
-    Gets all history of configurations for a workspace. Returns a paginated list of configurations
-    ordered by version number descending.
+    Lists the configurations of a workspace as a paginated list, newest version first unless `sort`
+    is given.
 
-    Requires READ permission on the organization level.
+    Requires the viewer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

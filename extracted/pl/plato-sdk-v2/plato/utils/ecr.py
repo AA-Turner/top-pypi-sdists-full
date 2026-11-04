@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -72,6 +73,49 @@ def _retag_via_chronos(
         logger.warning("Chronos retag %s", reason)
         return False, reason
     return True, None
+
+
+def _image_digest_via_chronos(
+    chronos_url: str, endpoint: str, tag: str, api_key: str
+) -> tuple[bool, str | None, str | None]:
+    """GET the digest of an image tag from a Chronos image-digest endpoint.
+
+    Read-only: Chronos describes the image with its own ECS task credentials,
+    so the caller needs no local AWS access and nothing in ECR is touched.
+
+    Returns ``(True, digest_or_None, None)`` when Chronos answered — ``None``
+    meaning the tag does not exist — or ``(False, None, reason)`` when the
+    lookup itself failed (network error, endpoint not deployed, auth), so the
+    caller can fall back rather than mistake "couldn't ask" for "absent".
+    """
+    chronos_url = chronos_url.rstrip("/")
+    url = f"{chronos_url}{endpoint}"
+    try:
+        response = httpx.get(url, params={"tag": tag}, headers={"X-API-Key": api_key}, timeout=30.0)
+    except httpx.HTTPError as e:
+        reason = f"request to {url} failed: {e!r}"
+        logger.warning("Chronos image digest %s", reason)
+        return False, None, reason
+    if response.status_code != 200:
+        reason = f"{url} returned HTTP {response.status_code}: {response.text.strip()}"
+        logger.warning("Chronos image digest %s", reason)
+        return False, None, reason
+    digest = response.json().get("image_digest")
+    return True, (str(digest) if digest else None), None
+
+
+def get_world_image_digest_via_chronos(
+    chronos_url: str, package_name: str, tag: str, api_key: str
+) -> tuple[bool, str | None, str | None]:
+    """Digest of a world image tag via Chronos — see ``_image_digest_via_chronos``."""
+    return _image_digest_via_chronos(chronos_url, f"/api/worlds/{package_name}/image-digest", tag, api_key)
+
+
+def get_agent_image_digest_via_chronos(
+    chronos_url: str, package_name: str, tag: str, api_key: str
+) -> tuple[bool, str | None, str | None]:
+    """Digest of an agent image tag via Chronos — see ``_image_digest_via_chronos``."""
+    return _image_digest_via_chronos(chronos_url, f"/api/agents/{package_name}/image-digest", tag, api_key)
 
 
 def retag_image_via_chronos(
@@ -349,39 +393,66 @@ def build_and_push(
     return result.returncode == 0
 
 
-def get_image_digest(repository: str, tag: str) -> str | None:
-    """Get the digest of an image tag in ECR. Returns None if not found."""
+class ImageLookupError(Exception):
+    """The local ECR lookup could not be performed (no aws CLI, no credentials, AWS error).
+
+    Distinct from the tag simply not existing, which is a ``None`` result.
+    """
+
+
+def describe_image_digest(repository: str, tag: str) -> str | None:
+    """Digest of ``repository:tag`` via the local aws CLI; ``None`` if the tag does not exist.
+
+    Raises :class:`ImageLookupError` when the lookup itself fails, so callers
+    that must know (e.g. ``--wheel-only``) never mistake "couldn't ask" for "absent".
+    """
     import json
 
-    result = subprocess.run(
-        [
-            "aws",
-            "ecr",
-            "describe-images",
-            "--repository-name",
-            repository,
-            "--image-ids",
-            f"imageTag={tag}",
-            "--region",
-            ECR_REGION,
-            "--output",
-            "json",
-        ],
-        capture_output=True,
-        text=True,
-        env=_clean_aws_env(),
-    )
+    try:
+        result = subprocess.run(
+            [
+                "aws",
+                "ecr",
+                "describe-images",
+                "--repository-name",
+                repository,
+                "--image-ids",
+                f"imageTag={tag}",
+                "--region",
+                ECR_REGION,
+                "--output",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
+            env=_clean_aws_env(),
+        )
+    except FileNotFoundError as e:
+        raise ImageLookupError("aws CLI not found") from e
     if result.returncode != 0:
-        return None
+        if "ImageNotFoundException" in result.stderr:
+            return None
+        raise ImageLookupError(result.stderr.strip() or f"aws ecr describe-images exited {result.returncode}")
 
     try:
         data = json.loads(result.stdout)
-        images = data.get("imageDetails", [])
-        if images:
-            return images[0].get("imageDigest")
-    except Exception:
-        pass
+    except ValueError as e:
+        raise ImageLookupError(f"unparseable aws ecr describe-images output: {e}") from e
+    images = data.get("imageDetails", [])
+    if images:
+        return images[0].get("imageDigest")
     return None
+
+
+def get_image_digest(repository: str, tag: str) -> str | None:
+    """Digest of an image tag in ECR, or ``None`` if absent *or* if the lookup failed.
+
+    Use :func:`describe_image_digest` when the difference matters.
+    """
+    try:
+        return describe_image_digest(repository, tag)
+    except ImageLookupError:
+        return None
 
 
 def retag_image(repository: str, source_tag: str, target_tag: str) -> bool:
@@ -449,7 +520,12 @@ def retag_image(repository: str, source_tag: str, target_tag: str) -> bool:
 
 @dataclass
 class DockerPublishResult:
-    """Result of a Docker publish operation."""
+    """Result of a Docker publish operation.
+
+    ``latest_image`` is the ``:latest`` ref for the repository. The build does
+    NOT push it — it is the promotion target the caller retags ``ecr_image`` to
+    once the image has been prefetched (see ``plato world publish``).
+    """
 
     success: bool
     ecr_image: str
@@ -466,8 +542,18 @@ def publish_docker_image(
     build_args: dict[str, str] | None = None,
     disable_provenance: bool = True,
     no_cache: bool = False,
+    secrets: dict[str, str] | None = None,
 ) -> DockerPublishResult:
-    """Build and publish a Docker image to ECR.
+    """Build and publish a Docker image to ECR under its version tag only.
+
+    ``:latest`` is deliberately NOT pushed here. A freshly pushed digest is cold
+    on every node (docker pull + rootfs conversion + snapshot-store ingest, 10+
+    minutes), so moving ``:latest`` at push time would send every launch that
+    resolves it — and every later ``--skip-docker`` retag minted from it —
+    through that cold path. Callers prefetch the version tag first (boot one VM
+    from it so the snapshot store is seeded) and only then retag it to
+    ``:latest``; the retag is a manifest copy, so the promoted digest is
+    already warm.
 
     Args:
         name: Short name for the image (e.g., 'my-agent')
@@ -478,6 +564,9 @@ def publish_docker_image(
         build_args: Optional build arguments
         disable_provenance: Disable BuildKit provenance attestations by default
             so unchanged image content yields stable digests.
+        secrets: Optional BuildKit secrets as {id: value}. Unlike build args,
+            secret values never land in image history — use for credentials
+            (e.g. the authenticated plato-pypi index URL).
 
     Returns:
         DockerPublishResult with success status and image URIs
@@ -497,6 +586,67 @@ def publish_docker_image(
             success=False, ecr_image=ecr_image, latest_image=latest_image, error="ECR login failed"
         )
 
+    # Flags shared by the depot and buildx paths. `--pull` always re-resolves
+    # `FROM ...:latest` base images against the registry. Without it, the
+    # builder reuses whatever base image it has cached, so a stale
+    # `plato-agent-base:latest` (e.g. an old build that left /root owned by a
+    # non-root uid, which breaks sshd into the VM) silently ships into the
+    # agent image. `--no-cache` does NOT cover this — it only busts
+    # build-layer cache, not the FROM base.
+    common_flags = ["--pull"]
+    if disable_provenance:
+        common_flags.append("--provenance=false")
+
+    # Version tag only — :latest is promoted by the caller after prefetch.
+    common_flags.extend(["-t", ecr_image])
+
+    # Reproducible builds
+    common_flags.extend(["--build-arg", "SOURCE_DATE_EPOCH=0"])
+
+    # Add --target if specified, or auto-detect from Dockerfile
+    dockerfile_path = Path(build_path) / "Dockerfile"
+    if target:
+        common_flags.extend(["--target", target])
+    elif dockerfile_path.exists():
+        dockerfile_content = dockerfile_path.read_text()
+        if "FROM" in dockerfile_content and "AS prod" in dockerfile_content:
+            common_flags.extend(["--target", "prod"])
+
+    # Add build args
+    if build_args:
+        for key, value in build_args.items():
+            common_flags.extend(["--build-arg", f"{key}={value}"])
+
+    if no_cache:
+        common_flags.append("--no-cache")
+
+    # BuildKit secrets: exposed to the builder via env (both depot and buildx
+    # support --secret id=...,env=...), so values stay out of image history
+    # and never touch disk.
+    secret_env: dict[str, str] | None = None
+    if secrets:
+        secret_env = os.environ.copy()
+        for secret_id, value in secrets.items():
+            env_var = f"PLATO_BUILD_SECRET_{secret_id.upper()}"
+            secret_env[env_var] = value
+            common_flags.extend(["--secret", f"id={secret_id},env={env_var}"])
+
+    # Prefer a Depot remote builder when available (depot CLI on PATH +
+    # DEPOT_PROJECT_ID set, e.g. in CI on depot runners). The persistent NVMe
+    # layer cache lives with the builder — no registry-cache import/export —
+    # and `--push` ships the image straight from the builder to ECR without it
+    # ever transiting this machine. Auth: depot forwards the local docker
+    # config's ECR credentials (ecr_login() above) to the remote builder.
+    depot_project = os.environ.get("DEPOT_PROJECT_ID")
+    if depot_project and shutil.which("depot"):
+        depot_cmd = ["depot", "build", "--project", depot_project, *common_flags, "--push", build_path]
+        if subprocess.run(depot_cmd, env=secret_env).returncode == 0:
+            return DockerPublishResult(success=True, ecr_image=ecr_image, latest_image=latest_image)
+        # Fall through to local buildx so a Depot-side problem (auth, project
+        # trust, outage) can never strand a deploy. A genuine Dockerfile error
+        # fails again below and surfaces there.
+        logger.warning("depot build failed; falling back to local buildx")
+
     # Use buildx with docker-container driver for registry cache support.
     # Registry cache stores cache metadata in a separate :cache tag so the
     # actual image digest stays stable when layers don't change.
@@ -509,54 +659,17 @@ def publish_docker_image(
     base_ref = _dockerfile_base_ref(build_path)
     base_digest = _resolve_registry_digest(base_ref) if base_ref else None
     builder = _ensure_buildx_builder(base_digest)
-    docker_cmd = [
-        "docker",
-        "buildx",
-        "build",
-        "--builder",
-        builder,
-        # Always re-resolve `FROM ...:latest` base images against the registry.
-        # Without this, buildx reuses whatever base image is cached locally / in
-        # the builder, so a stale `plato-agent-base:latest` (e.g. an old build
-        # that left /root owned by a non-root uid, which breaks sshd into the
-        # VM) silently ships into the agent image. `--no-cache` does NOT cover
-        # this — it only busts build-layer cache, not the FROM base.
-        "--pull",
-    ]
-    if disable_provenance:
-        docker_cmd.append("--provenance=false")
+    docker_cmd = ["docker", "buildx", "build", "--builder", builder, *common_flags]
 
-    # Tag with both versioned and latest
-    docker_cmd.extend(["-t", ecr_image, "-t", latest_image])
-
-    # Reproducible builds
-    docker_cmd.extend(["--build-arg", "SOURCE_DATE_EPOCH=0"])
-
-    # Registry cache
-    if no_cache:
-        docker_cmd.append("--no-cache")
-    else:
+    # Registry cache (buildx only — depot's builder-local cache replaces it)
+    if not no_cache:
         docker_cmd.extend(["--cache-from", f"type=registry,ref={cache_image}"])
     docker_cmd.extend(["--cache-to", f"type=registry,ref={cache_image},mode=max"])
-
-    # Add --target if specified, or auto-detect from Dockerfile
-    dockerfile_path = Path(build_path) / "Dockerfile"
-    if target:
-        docker_cmd.extend(["--target", target])
-    elif dockerfile_path.exists():
-        dockerfile_content = dockerfile_path.read_text()
-        if "FROM" in dockerfile_content and "AS prod" in dockerfile_content:
-            docker_cmd.extend(["--target", "prod"])
-
-    # Add build args
-    if build_args:
-        for key, value in build_args.items():
-            docker_cmd.extend(["--build-arg", f"{key}={value}"])
 
     # Build and push in one step
     docker_cmd.extend(["--push", build_path])
 
-    result = subprocess.run(docker_cmd)
+    result = subprocess.run(docker_cmd, env=secret_env)
     if result.returncode != 0:
         return DockerPublishResult(
             success=False, ecr_image=ecr_image, latest_image=latest_image, error="Docker build failed"

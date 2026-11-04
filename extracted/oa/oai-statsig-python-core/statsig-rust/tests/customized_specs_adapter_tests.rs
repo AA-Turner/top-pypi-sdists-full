@@ -36,10 +36,9 @@ pub mod specs_adapter_tests {
             .await;
 
         adapter.initialize(mock_listener.clone());
-        let _ = adapter.clone().start(&rt).await;
-        let _ = mock_listener.wait_for_next_update().await;
+        adapter.clone().start(&rt).await.unwrap();
         // Use data store
-        let mut received_update = mock_listener.force_get_most_recent_update();
+        let mut received_update = mock_listener.wait_for_next_update().await.unwrap();
         assert_eq!(
             received_update.source,
             SpecsSource::Adapter("DataStore".to_string())
@@ -48,10 +47,9 @@ pub mod specs_adapter_tests {
             received_update.data.read_to_string().unwrap(),
             "init_payload".to_string()
         ); // examine time
-        let _ = adapter.clone().schedule_background_sync(&rt).await;
+        adapter.clone().schedule_background_sync(&rt).await.unwrap();
 
-        let _ = mock_listener.wait_for_next_update().await;
-        let mut received_update_2 = mock_listener.force_get_most_recent_update();
+        let mut received_update_2 = mock_listener.wait_for_next_update().await.unwrap();
         assert_eq!(
             received_update_2.source,
             SpecsSource::Adapter("GRPC".to_string())
@@ -113,9 +111,8 @@ pub mod specs_adapter_tests {
             .await;
 
         adapter.initialize(mock_listener.clone());
-        let _ = adapter.clone().start(&rt).await;
-        let _ = mock_listener.wait_for_next_update().await;
-        let mut received_update = mock_listener.force_get_most_recent_update();
+        adapter.clone().start(&rt).await.unwrap();
+        let mut received_update = mock_listener.wait_for_next_update().await.unwrap();
         assert_eq!(
             received_update.source,
             SpecsSource::Adapter("GRPC".to_string())
@@ -131,8 +128,7 @@ pub mod specs_adapter_tests {
                 zstd_dict_id: None,
             }))
             .await;
-        let _ = mock_listener.wait_for_next_update().await;
-        let mut received_update_2 = mock_listener.force_get_most_recent_update();
+        let mut received_update_2 = mock_listener.wait_for_next_update().await.unwrap();
         assert_eq!(
             received_update_2.source,
             SpecsSource::Adapter("GRPC".to_string())

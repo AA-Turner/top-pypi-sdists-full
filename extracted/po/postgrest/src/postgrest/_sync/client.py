@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import platform
-import sys
-from typing import Any, Dict, Optional, Union, cast
 from warnings import warn
 
 from deprecation import deprecated
@@ -15,6 +13,7 @@ from ..constants import (
     DEFAULT_POSTGREST_CLIENT_TIMEOUT,
 )
 from ..types import CountMethod
+from ..utils import rpc_query_param
 from ..version import __version__
 from .request_builder import (
     RequestConfig,
@@ -31,11 +30,12 @@ class SyncPostgrestClient(BasePostgrestClient):
         base_url: str,
         *,
         schema: str = "public",
-        headers: Dict[str, str] = DEFAULT_POSTGREST_CLIENT_HEADERS,
-        timeout: Union[int, float, Timeout, None] = None,
-        verify: Optional[bool] = None,
-        proxy: Optional[str] = None,
-        http_client: Optional[Client] = None,
+        headers: dict[str, str] = DEFAULT_POSTGREST_CLIENT_HEADERS,
+        timeout: int | float | Timeout | None = None,
+        verify: bool | None = None,
+        proxy: str | None = None,
+        http_client: Client | None = None,
+        retry_enabled: bool = True,
     ) -> None:
         headers = {
             "X-Client-Info": (
@@ -47,13 +47,6 @@ class SyncPostgrestClient(BasePostgrestClient):
             ),
             **headers,
         }
-
-        if sys.version_info < (3, 10):
-            warn(
-                "Python versions below 3.10 are deprecated and will not be supported in future versions. Please upgrade to Python 3.10 or newer.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
         if timeout is not None:
             warn(
@@ -93,11 +86,13 @@ class SyncPostgrestClient(BasePostgrestClient):
             verify=self.verify,
             proxy=proxy,
         )
+        self.retry_enabled = retry_enabled
 
+        self._owns_session = True
         self.session = http_client or Client(
             base_url=base_url,
             headers=self.headers,
-            timeout=timeout,
+            timeout=self.timeout,
             verify=self.verify,
             proxy=proxy,
             follow_redirects=True,
@@ -105,15 +100,23 @@ class SyncPostgrestClient(BasePostgrestClient):
         )
 
     def schema(self, schema: str) -> SyncPostgrestClient:
-        """Switch to another schema."""
-        return SyncPostgrestClient(
+        """Switch to another schema.
+
+        The returned client shares the HTTP session of the client it was
+        derived from. Only the client that owns the session closes it: closing
+        a client returned by `schema()` does nothing, and every client sharing
+        the session stops sending requests once the owner is closed.
+        """
+        client = SyncPostgrestClient(
             base_url=str(self.base_url),
             schema=schema,
             headers=dict(self.headers),
-            timeout=self.timeout,
-            verify=self.verify,
-            proxy=self.proxy,
+            http_client=self.session,
+            retry_enabled=self.retry_enabled,
         )
+        client.basic_auth = self.basic_auth
+        client._owns_session = False
+        return client
 
     def __enter__(self) -> SyncPostgrestClient:
         return self
@@ -123,7 +126,8 @@ class SyncPostgrestClient(BasePostgrestClient):
 
     def aclose(self) -> None:
         """Close the underlying HTTP connections."""
-        self.session.close()
+        if self._owns_session:
+            self.session.close()
 
     def from_(self, table: str) -> SyncRequestBuilder:
         """Perform a table operation.
@@ -134,7 +138,11 @@ class SyncPostgrestClient(BasePostgrestClient):
             :class:`AsyncRequestBuilder`
         """
         return SyncRequestBuilder(
-            self.session, self.base_url.joinpath(table), self.headers, self.basic_auth
+            self.session,
+            self.base_url.joinpath(table),
+            self.headers,
+            self.basic_auth,
+            retry_enabled=self.retry_enabled,
         )
 
     def table(self, table: str) -> SyncRequestBuilder:
@@ -150,7 +158,7 @@ class SyncPostgrestClient(BasePostgrestClient):
         self,
         func: str,
         params: dict[str, str],
-        count: Optional[CountMethod] = None,
+        count: CountMethod | None = None,
         head: bool = False,
         get: bool = False,
     ) -> SyncRPCFilterRequestBuilder:
@@ -181,7 +189,7 @@ class SyncPostgrestClient(BasePostgrestClient):
         headers.update(self.headers)
         # the params here are params to be sent to the RPC and not the queryparams!
         json, http_params = (
-            ({}, QueryParams(params))
+            ({}, QueryParams({k: rpc_query_param(v) for k, v in params.items()}))
             if method in ("HEAD", "GET")
             else (params, QueryParams())
         )
@@ -193,5 +201,6 @@ class SyncPostgrestClient(BasePostgrestClient):
             http_params,
             self.basic_auth,
             json,
+            retry_enabled=self.retry_enabled,
         )
         return SyncRPCFilterRequestBuilder(request)

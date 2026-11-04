@@ -14,12 +14,14 @@ from agent_env.artifact.artifacts.computer import ComputerArtifact
 from agent_env.attribution import Attribution
 from agent_env.env.env import DeployedSandboxEnv, EnvCapabilityUnsupported
 from agent_env.env.envs.computer.utils import params as computer_params
+from agent_env.env.envs.computer.utils.probing import probe_first_boot
 from agent_env.env.envs.computer.utils.boot import (
     app_settings_environment,
     boot,
     control_environment,
     control_token,
     discard,
+    first_native,
     ready,
     ready_timeout,
     recorded_app_settings,
@@ -61,7 +63,8 @@ class EnvironmentComputerProvider(_SandboxEnvironmentProvider):
         env_params: Optional[dict] = None,
     ) -> DeployedSandboxEnv:
         """The env's first ready build, in its base's order of forms and arches (or of ``env_params.form``), that the sandbox
-        provider runs natively, booted; returns the record once the driver is ready with the env's display."""
+        provider runs natively, booted, once what it boots that no compose started is composed; returns the record once
+        the driver is ready with the env's display."""
         from agent_env.env.envs.computer.env import ComputerEnv
 
         if not isinstance(env, ComputerEnv):
@@ -71,8 +74,10 @@ class EnvironmentComputerProvider(_SandboxEnvironmentProvider):
         params, values, problems = computer_params.checked(env, env_params)
         if problems:
             raise DeployRefused(f"{env.id}: " + "; ".join(problems))
-        if not (builds := env.ready_builds(params.form)):
-            raise DeployRefused(f"{env.id} has no ready build to deploy; its builds are {env.build_statuses() or 'none yet'}")
+        await env.compose_unstarted(sandbox_provider, params.form)
+        if not (builds := env.deployable_builds(params.form)):
+            raise DeployRefused(f"{env.id} has no ready build to deploy; its builds are "
+                                f"{env.build_statuses() or 'none yet'}; compose it with: agent-env env build --id {env.id}")
         attempt = functools.partial(self._boot, env, builds, params, values, ttl_seconds=ttl_seconds,
                                     disk_size_gb=disk_size_gb, cpu=cpu, memory_mb=memory_mb, attribution=attribution)
         return await self._run(sandbox_provider, env.id, attempt)
@@ -87,12 +92,18 @@ class EnvironmentComputerProvider(_SandboxEnvironmentProvider):
         """One attempt on one sandbox provider: the first build it runs natively, booted and readied; its record."""
         from agent_env.env.envs.computer.env import ComputerEnv
 
-        native = [(form, arch, build) for form, arch, build in builds
-                  if f"linux/{arch}" in sandbox_provider.native_platforms()]
-        if not native:
+        pairs = [(form, arch) for form, arch, _ in builds]
+        if (picked := first_native(sandbox_provider, pairs, env.stored_id)) is None:
             raise ValueError(f"{type(sandbox_provider).__name__} runs none of {env.id}'s ready builds natively "
                              f"({', '.join(f'{form}/{arch}' for form, arch, _ in builds)})")
-        form, arch, build = native[0]
+        form, arch = picked
+        build = next(build for name, at, build in builds if (name, at) == picked)
+        if refusal := env.disk_size_refusal(form, disk_size_gb):
+            raise ValueError(refusal)
+        if build["status"] == "unverified":
+            build = await probe_first_boot(env, form, arch, sandbox_provider)
+            if build["status"] != "ready":
+                raise RuntimeError(f"{env.id}'s {form}/{arch} failed its probe on its first boot: {build['reason']}")
         computer, name, token = env.computer_artifact(), env.environment_name, control_token()
         values = _values(computer, values)
         app_settings = recorded_app_settings(env.composed_apps(), computer_params.app_settings(env, params.app_settings),
@@ -102,7 +113,7 @@ class EnvironmentComputerProvider(_SandboxEnvironmentProvider):
             sandbox_provider, image=build["image"], port=env.driver.port, network_policy=policy, token=token,
             environment=_environment(env, computer, values, params), timeout=ttl_seconds, attribution=attribution,
             disk_size_gb=disk_size_gb, cpu=cpu, memory_mb=memory_mb,
-            ready_s=ready_timeout(env.composed_apps(), env.computer.os.type))
+            ready_s=ready_timeout(env.composed_apps(), env.computer.os.type), form=form)
         self._container_sandboxes.append(booted.sandbox)
         self._environment_sandboxes[name] = booted.sandbox
         try:
@@ -128,9 +139,9 @@ class EnvironmentComputerProvider(_SandboxEnvironmentProvider):
         return record
 
     async def reboot(self, env: ComputerEnv, deployed: DeployedSandboxEnv) -> None:
-        """Replace the computer ``deployed`` records with a fresh container of the image it booted, once its recordings
-        ended, its settings applied as that deploy applied them (a generated one minted afresh) and its control token
-        the record's, on the same sandbox and port, readied as a deploy readies it."""
+        """Replace the computer ``deployed`` records with a fresh container of the image it booted, or its disk booted
+        afresh, once its recordings ended, its settings applied as that deploy applied them (a generated one minted
+        afresh) and its control token the record's, on the same sandbox and port, readied as a deploy readies it."""
         record = deployed.metadata["computer"]
         params, values, _ = computer_params.checked(env, record["env_params"])
         computer = ComputerArtifact.get(record["computer"]["id"], record["computer"]["version"])
@@ -138,10 +149,13 @@ class EnvironmentComputerProvider(_SandboxEnvironmentProvider):
         await end_recordings(deployed, "reset")
         sandbox_provider = build_sandbox_provider(deployed.sandbox_type)
         sandbox = await sandbox_provider.get_sandbox(deployed.sandbox_id)
+        environment = {**_environment(env, computer, values, params), **control_environment(deployed.control_token)}
         try:
-            await sandbox_provider.reset_container(sandbox, image_name=record["image"], port=env.driver.port,
-                                                      env={**_environment(env, computer, values, params),
-                                                           **control_environment(deployed.control_token)})
+            if record.get("form") == "disk":
+                await sandbox_provider.reset_vm(sandbox, image=record["image"], env=environment)
+            else:
+                await sandbox_provider.reset_container(sandbox, image_name=record["image"], port=env.driver.port,
+                                                       env=environment)
         except NotImplementedError as e:  # a reset the env supports, which this provider can't carry out
             raise RuntimeError(f"'{env.id}' can't be reset on {type(sandbox_provider).__name__}: {e}") from None
         card = await ready(deployed.environment_url, ready_timeout(env.composed_apps(), env.computer.os.type),

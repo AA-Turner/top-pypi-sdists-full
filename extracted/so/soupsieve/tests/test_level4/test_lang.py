@@ -193,6 +193,26 @@ class TestLang(util.TestCase):
             flags=util.HTML
         )
 
+    def test_language_empty_string_in_tagged_ancestor(self):
+        """Test that an empty string language is not replaced by the language of a tagged ancestor."""
+
+        markup = """
+        <div lang="de">
+            <p id="1" lang=""></p>
+            <div lang="">
+                <p id="2"></p>
+            </div>
+            <p id="3"></p>
+        </div>
+        """
+
+        self.assert_selector(
+            markup,
+            "p:lang(de)",
+            ['3'],
+            flags=util.HTML
+        )
+
     def test_language_list(self):
         """Test language list."""
 
@@ -265,6 +285,41 @@ class TestLang(util.TestCase):
             flags=util.HTML
         )
 
+    def test_svg_language_in_html5(self):
+        """Test that SVG elements use a `lang` attribute, but MathML elements don't."""
+
+        markup = """
+        <div lang="fr">
+            <svg id="1" lang="en">
+                <g id="2"></g>
+                <foreignObject id="3"><p id="4"></p></foreignObject>
+            </svg>
+            <svg id="5" lang="en" xml:lang="de"><g id="6"></g></svg>
+            <math id="7" lang="en"><mi id="8"></mi></math>
+        </div>
+        """
+
+        self.assert_selector(
+            markup,
+            ":lang(en)",
+            ['1', '2', '3', '4'],
+            flags=util.HTML5
+        )
+
+        self.assert_selector(
+            markup,
+            ":lang(de)",
+            ['5', '6'],
+            flags=util.HTML5
+        )
+
+        self.assert_selector(
+            markup,
+            "[id]:lang(fr)",
+            ['7', '8'],
+            flags=util.HTML5
+        )
+
     def test_xml_style_language_in_html5(self):
         """Test XML style language when out of HTML5 namespace."""
 
@@ -318,6 +373,28 @@ class TestLang(util.TestCase):
             markup,
             "p:lang(de-DE)",
             ['1', '2', '3', '4', '5', '6'],
+            flags=util.XML
+        )
+
+    def test_xml_style_language_empty_string(self):
+        """Test that an empty XML style language is not replaced by the language of a tagged ancestor."""
+
+        markup = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <html>
+        <head>
+        </head>
+        <body xml:lang="de">
+        <p id="1" xml:lang=""></p>
+        <p id="2"></p>
+        </body>
+        </html>
+        """
+
+        self.assert_selector(
+            markup,
+            "p:lang(de)",
+            ['2'],
             flags=util.XML
         )
 

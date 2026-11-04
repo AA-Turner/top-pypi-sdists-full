@@ -171,8 +171,8 @@ def _uncarried_issues(agent: AgentAuthoring, harness: contracts.Harness) -> Iter
         yield "guardrails need the author's code"
     if agent.subagents or agent.subagent_policy is not None:
         yield "subagents need the author's code"
-    if agent.response_format is not None:
-        yield "response_format needs the author's code"
+    if agent.output_type is not None:
+        yield "output_type needs the author's code"
     if harness.skills or harness.skill_discovery is not None:
         yield "skills are not supported on the shared worker yet"
     if agent.completion is not None:

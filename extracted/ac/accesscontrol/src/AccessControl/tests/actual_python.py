@@ -128,7 +128,10 @@ def f7():
         assert list(iter_) == list(iter_)
 
         assert sorted([*getattr(d, meth)()]) == expected[kind]
+        assert sorted(tuple(getattr(d, meth)())) == expected[kind]
         assert sorted(k for k in getattr(d, meth)()) == expected[kind]
+        assert sorted(tuple(k for k in getattr(d, meth)())) == expected[kind]
+        assert bytes(getattr(d, 'keys')()) == b'\x01\x03'
     assert {**d} == d
 
     assert 1 in d

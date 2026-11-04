@@ -55,6 +55,7 @@ if typing.TYPE_CHECKING:
     from .chunk_content_item import ChunkContentItem, ChunkContentItem_ImageUrl, ChunkContentItem_Text
     from .chunk_result import ChunkResult
     from .chunk_result_chunk_id import ChunkResultChunkId
+    from .collab_agent_pending_action_out import CollabAgentPendingActionOut
     from .collab_agent_send_message_response_out import CollabAgentSendMessageResponseOut
     from .collab_token_response import CollabTokenResponse
     from .collab_token_response_access_type import CollabTokenResponseAccessType
@@ -289,6 +290,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChunkContentItem_Text": ".chunk_content_item",
     "ChunkResult": ".chunk_result",
     "ChunkResultChunkId": ".chunk_result_chunk_id",
+    "CollabAgentPendingActionOut": ".collab_agent_pending_action_out",
     "CollabAgentSendMessageResponseOut": ".collab_agent_send_message_response_out",
     "CollabTokenResponse": ".collab_token_response",
     "CollabTokenResponseAccessType": ".collab_token_response_access_type",
@@ -545,6 +547,7 @@ __all__ = [
     "ChunkContentItem_Text",
     "ChunkResult",
     "ChunkResultChunkId",
+    "CollabAgentPendingActionOut",
     "CollabAgentSendMessageResponseOut",
     "CollabTokenResponse",
     "CollabTokenResponseAccessType",

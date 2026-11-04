@@ -5,9 +5,9 @@ client imports this module on first use, so importing ``sessions_client`` (as Wo
 does not load the Harness.
 """
 
-from typing import Annotated, get_args
+from typing import Annotated
 
-from pydantic import AfterValidator, BeforeValidator, ConfigDict, Field
+from pydantic import AfterValidator, BeforeValidator, ConfigDict, Field, TypeAdapter, ValidationError
 
 from mistralai.vibe.harness.app_server.session import (
     CallbackResult,
@@ -17,7 +17,6 @@ from mistralai.vibe.harness.app_server.session import (
     TreeCallback,
     UserMessageInput,
 )
-from mistralai.vibe.harness.app_server.session.models.callbacks import CallbackKind
 from mistralai.vibe.harness.app_server.session.models.common import (
     DEFAULT_INTERRUPT_REASON,
     HistoryEntryId,
@@ -25,7 +24,7 @@ from mistralai.vibe.harness.app_server.session.models.common import (
 )
 from mistralai.vibe_agents.session_workflow.commands import require_canonical_source
 
-_KNOWN_CALLBACK_KINDS = frozenset(get_args(CallbackKind.__value__))
+_TREE_CALLBACK: TypeAdapter[TreeCallback] = TypeAdapter(TreeCallback)
 
 
 # The surface that sent the command, such as ``vibe_code_web`` or ``slack``. The Harness params have
@@ -104,28 +103,26 @@ class CallbackResultRequest(SessionModel):
     result: CallbackResult
 
 
-def _drop_unknown_callback_kinds(items: object) -> object:
-    """Leave out callbacks of a kind newer than this SDK, which no handler here can answer."""
+def _drop_unreadable_callbacks(items: object) -> object:
+    """Leave out each callback this SDK cannot read, such as one of a newer kind, which no
+    handler here can answer, so that it does not fail the others."""
 
     if not isinstance(items, list):
         return items
-    return [
-        item
-        for item in items
-        if not (
-            isinstance(item, dict)
-            and isinstance(callback := item.get("callback"), dict)
-            and isinstance(kind := callback.get("kind"), str)
-            and kind not in _KNOWN_CALLBACK_KINDS
-        )
-    ]
+    readable: list[TreeCallback] = []
+    for item in items:
+        try:
+            readable.append(_TREE_CALLBACK.validate_python(item))
+        except ValidationError:
+            continue
+    return readable
 
 
 class _SessionCallbacksResponse(CallbacksTreeResponse):
     """Body of ``GET /sessions/{id}/callbacks`` and data of each ``/callbacks/stream`` frame:
-    Harness ``CallbacksTreeResponse``, without the callbacks of kinds this SDK does not know."""
+    Harness ``CallbacksTreeResponse``, without the callbacks this SDK cannot read."""
 
-    callbacks: Annotated[list[TreeCallback], BeforeValidator(_drop_unknown_callback_kinds)]
+    callbacks: Annotated[list[TreeCallback], BeforeValidator(_drop_unreadable_callbacks)]
 
 
 __all__ = [

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: free-claude-code
-Version: 6.18.7
+Version: 6.18.9
 Summary: Local proxy connecting coding agents to OpenAI-compatible AI providers
 License-Expression: AGPL-3.0-only
 License-File: LICENSE

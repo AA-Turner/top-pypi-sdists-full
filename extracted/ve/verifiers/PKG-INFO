@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: verifiers
-Version: 0.4.0
+Version: 0.4.1
 Summary: Verifiers: Environments for LLM Reinforcement Learning
 Project-URL: Homepage, https://github.com/primeintellect-ai/verifiers
 Project-URL: Documentation, https://github.com/primeintellect-ai/verifiers
@@ -30,28 +30,21 @@ Requires-Dist: httpx2>=2.12.0
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: loguru>=0.7.0
 Requires-Dist: math-verify>=0.8.0
-Requires-Dist: mcp==2.0.0
-Requires-Dist: msgpack>=1.1.2
+Requires-Dist: mcp==2.2.0
 Requires-Dist: numpy>=2.1.0
 Requires-Dist: openai<3.0.0,>=2.54.0
+Requires-Dist: orjson>=3.10.0
 Requires-Dist: prime-pydantic-config[toml]>=0.4.3
-Requires-Dist: prime-runs>=0.1.4
-Requires-Dist: prime-sandboxes>=0.4.2
-Requires-Dist: prime-tunnel>=0.1.14
+Requires-Dist: prime-sandboxes>=0.5.5
+Requires-Dist: prime-tunnel>=0.1.17
 Requires-Dist: pydantic>=2.12.3
-Requires-Dist: pyzmq>=27.1.0
-Requires-Dist: renderers[multimodal]>=0.1.12
-Requires-Dist: rich>=11.0.0
+Requires-Dist: renderers[multimodal]>=0.2.0
 Requires-Dist: tenacity>=8.5.0
 Requires-Dist: tomli-w>=1.0.0
 Requires-Dist: typing-extensions>=4.12.2
 Requires-Dist: uvicorn>=0.52.0
-Provides-Extra: e2b
-Requires-Dist: e2b<3,>=2.35.0; extra == 'e2b'
 Provides-Extra: harbor
 Requires-Dist: harbor==0.24.0; (python_full_version >= '3.12') and extra == 'harbor'
-Provides-Extra: modal
-Requires-Dist: modal>=1.5.4; extra == 'modal'
 Provides-Extra: openenv
 Requires-Dist: openenv>=0.4.1; extra == 'openenv'
 Provides-Extra: ta
@@ -90,6 +83,34 @@ uv tool install prime
 
 - The [docs](docs/) contain short, human-written guides and overviews about the architecture.
 - The [AGENTS.md](AGENTS.md) and [skills](skills/) are for coding agents and go into more details.
+
+## Contributing
+
+We welcome community contributions. We use [issues](https://github.com/PrimeIntellect-ai/verifiers/issues) to track bugs and feature requests. If you hit a bug, a pain point, or have an idea for a feature, please open an issue.
+
+Contributions are welcome via PR. Please follow these guidelines:
+
+1. Install the [pre-commit hooks](#pre-commit-hooks) so your code is formatted and type-checked.
+2. Keep your PR in "Draft" until it is ready for review.
+3. If your PR resolves an issue, link the issue in the PR description.
+4. Run the [tests](#tests) for the areas you touched.
+
+### Pre-commit hooks
+
+```bash
+uv run pre-commit install
+```
+
+### Tests
+
+Unit tests run one component in isolation, with no network, and mirror the `verifiers/v1` layout. Integration tests run real evals: they need `PRIME_API_KEY` and skip without it.
+
+```bash
+uv run pytest tests/unit -n auto                       # unit
+uv run pytest tests/integration -n 8                   # integration
+uv run pytest tests/integration/test_single_turn.py    # one behavior
+uv run pytest tests/integration -m "docker and codex"  # one runtime and harness
+```
 
 ## Citation
 

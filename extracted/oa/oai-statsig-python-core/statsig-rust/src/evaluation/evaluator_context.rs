@@ -53,9 +53,13 @@ pub struct EvaluatorContext<'a> {
     pub override_adapter: Option<&'a Arc<dyn OverrideAdapter>>,
     pub nested_gate_memo: NestedGateMemo,
     pub(crate) sampling_metadata_revision: u64,
+    pub(crate) reuse_default_only_layer_values: bool,
     pub should_user_third_party_parser: bool,
     pub(crate) capture_nested_experiment_exposures: bool,
+    pub(crate) manual_layer_exposure_only: bool,
     pub(crate) nested_experiment_exposures: Vec<NestedExperimentExposure>,
+    /// Distinguishes a body that failed lazy materialization from an empty list.
+    pub(crate) unresolved_missing_id_lists: bool,
     pub gcir_hashes: Vec<u64>,
 }
 
@@ -84,9 +88,12 @@ impl<'a> EvaluatorContext<'a> {
             nested_count: 0,
             nested_gate_memo: AHashMap::new(),
             sampling_metadata_revision: 0,
+            reuse_default_only_layer_values: false,
             should_user_third_party_parser,
             capture_nested_experiment_exposures,
+            manual_layer_exposure_only: false,
             nested_experiment_exposures: Vec::new(),
+            unresolved_missing_id_lists: false,
             gcir_hashes: Vec::new(),
         }
     }

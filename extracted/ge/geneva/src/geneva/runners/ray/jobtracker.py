@@ -846,7 +846,10 @@ class _JobTracker:
 
 # Ray actor wrapping the progress ledger. ``_JobTracker`` holds the logic so it
 # can be unit-tested in-process without a Ray runtime.
-JobTracker = ray.remote(_JobTracker)
+# Recover metrics/status after transient actor loss, but bound the restart
+# budget so memory pressure cannot replay this actor indefinitely. Drivers
+# remain non-retryable; worker recovery is owned by the pipeline.
+JobTracker = ray.remote(max_restarts=2)(_JobTracker)
 
 
 def job_tracker_options(**kwargs: Any) -> Any:

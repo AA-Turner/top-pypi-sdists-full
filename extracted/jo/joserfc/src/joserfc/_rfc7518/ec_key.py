@@ -1,40 +1,38 @@
-import typing as t
 from functools import cached_property
+from typing import Any, Literal, NotRequired, Self, TypedDict, TypeVar
+
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.ec import (
-    generate_private_key,
-    derive_private_key,
     ECDH,
-    EllipticCurvePublicKey,
-    EllipticCurvePrivateKey,
-    EllipticCurvePrivateNumbers,
-    EllipticCurvePublicNumbers,
-    EllipticCurve,
     SECP256R1,
     SECP384R1,
     SECP521R1,
+    EllipticCurve,
+    EllipticCurvePrivateKey,
+    EllipticCurvePrivateNumbers,
+    EllipticCurvePublicKey,
+    EllipticCurvePublicNumbers,
+    derive_private_key,
+    generate_private_key,
 )
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from ..errors import InvalidExchangeKeyError, InvalidKeyCurveError
+
 from .._rfc7517.models import CurveKey
 from .._rfc7517.pem import CryptographyBinding
-from .._rfc7517.types import KeyParameters, AnyKey
-from ..util import base64_to_int, int_to_base64, to_bytes
+from .._rfc7517.types import AnyKey, KeyParameters
+from ..errors import InvalidExchangeKeyError, InvalidKeyCurveError
 from ..registry import KeyParameter
+from ..util import base64_to_int, int_to_base64, to_bytes
 
 __all__ = ["ECKey"]
 
-ECDictKey = t.TypedDict(
-    "ECDictKey",
-    {
-        "crv": str,
-        "x": str,
-        "y": str,
-        "d": str,  # optional
-    },
-    total=False,
-)
+
+class ECDictKey(TypedDict):
+    crv: str
+    x: str
+    y: str
+    d: NotRequired[str]
 
 
 class ECBinding(CryptographyBinding):
@@ -153,26 +151,26 @@ class ECKey(CurveKey[EllipticCurvePrivateKey, EllipticCurvePublicKey]):
 
     @classmethod
     def import_key(
-        cls: t.Any,
+        cls,
         value: AnyKey | EllipticCurvePrivateKey | EllipticCurvePublicKey,
         parameters: KeyParameters | None = None,
-        password: t.Any = None,
-    ) -> "ECKey":
-        key: ECKey
+        password: str | bytes | None = None,
+    ) -> Self:
+        key: Self
         if isinstance(value, (EllipticCurvePrivateKey, EllipticCurvePublicKey)):
             key = cls(value, value, parameters)
         else:
-            key = super(ECKey, cls).import_key(value, parameters, password)
+            key = super().import_key(value, parameters, password)
         return key
 
     @classmethod
     def generate_key(
-        cls: type["ECKey"],
+        cls,
         crv: str | None = "P-256",
         parameters: KeyParameters | None = None,
         private: bool = True,
         auto_kid: bool = False,
-    ) -> "ECKey":
+    ) -> Self:
         """Generate a ``ECKey`` with the given "crv" value.
 
         :param crv: ECKey curve name
@@ -187,15 +185,15 @@ class ECKey(CurveKey[EllipticCurvePrivateKey, EllipticCurvePublicKey]):
 
     @classmethod
     def derive_key(
-        cls: type["ECKey"],
+        cls,
         secret: bytes | str,
         crv: str = "P-256",
         parameters: KeyParameters | None = None,
         private: bool = True,
         auto_kid: bool = False,
-        kdf_name: t.Literal["HKDF", "PBKDF2"] = "HKDF",
-        kdf_options: dict[str, t.Any] | None = None,
-    ) -> "ECKey":
+        kdf_name: Literal["HKDF", "PBKDF2"] = "HKDF",
+        kdf_options: dict[str, Any] | None = None,
+    ) -> Self:
         """
         Generate an elliptic curve cryptographic key derived from a secret input using a key
         derivation function (KDF). This allows the creation of deterministic elliptic curve
@@ -211,8 +209,8 @@ class ECKey(CurveKey[EllipticCurvePrivateKey, EllipticCurvePublicKey]):
         """
         try:
             curve_class = cls.binding._dss_curves[crv]
-        except KeyError:
-            raise InvalidKeyCurveError(f"Invalid crv value: '{crv}'")
+        except KeyError as error:
+            raise InvalidKeyCurveError(f"Invalid crv value: '{crv}'") from error
 
         curve = curve_class()
         length = (curve.group_order.bit_length() + 7) // 8 * 2
@@ -249,13 +247,16 @@ class ECKey(CurveKey[EllipticCurvePrivateKey, EllipticCurvePublicKey]):
         return _wrap_key(cls, raw_key, private, auto_kid, parameters)
 
 
+ECKeyType = TypeVar("ECKeyType", bound=ECKey)
+
+
 def _wrap_key(
-    cls: type["ECKey"],
+    cls: type[ECKeyType],
     raw_key: EllipticCurvePrivateKey,
     private: bool,
     auto_kid: bool,
     parameters: KeyParameters | None = None,
-) -> ECKey:
+) -> ECKeyType:
     if private:
         key = cls(raw_key, raw_key, parameters)
     else:

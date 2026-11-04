@@ -8,6 +8,7 @@ from __future__ import annotations
 import ctypes
 import json
 import os
+import random
 import shutil
 import stat
 import sys
@@ -34,7 +35,8 @@ def backoff_delays(
     ``attempts`` is total tries, so this yields one fewer delay ("3 attempts" sleeps twice).
     ``attempts=None`` never runs out: for loops stopped by a clock or an empty queue (the
     outbox worker, the in-process exporter, `Run.finish()`'s deadline loop; plan 0.6), so
-    poll rate is one policy.
+    poll rate is one policy. These are the exact steps: a loop that retries a server shared with
+    a fleet waits `pick_jittered_wait(step)` and keeps the step for its "at the ceiling" checks.
     """
     start, cap = backoff
     delay = max(0.0, float(start))
@@ -47,14 +49,34 @@ def backoff_delays(
             remaining -= 1
 
 
+#: The jitter's own generator: `random`'s shared one would shift a training script's seeded
+#: stream. OS-seeded, and re-seeded in every forked child so forked ranks do not retry in step.
+_JITTER = random.Random()
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_JITTER.seed)
+
+#: A `Retry-After` is waited out plus up to this fraction of it again: 10k clients told "30 s" in
+#: one second come back over 15 s, not in one (infra-capacity I14).
+RETRY_AFTER_SPREAD = 0.5
+
+
+def pick_jittered_wait(step: float) -> float:
+    """A wait drawn evenly from ``[0, step]`` ("full jitter"), for a loop that retries one server
+    with many others: clients that failed in the same second spread over the whole step instead
+    of retrying in it together (infra-capacity I14; the ladder is `backoff_delays`)."""
+    return _JITTER.uniform(0.0, max(0.0, float(step)))
+
+
 def honor_retry_after(delay: float, retry_after: float | None, *, ceiling: float) -> float:
     """The wait before the next try: the backoff ``delay``, or the server's longer
-    ``Retry-After``, never past ``ceiling``. Only LENGTHENS: "retry in 0 s" cannot make a
-    loop hot, and "retry in a day" cannot park a queue past the ceiling.
+    ``Retry-After`` plus up to `RETRY_AFTER_SPREAD` of it, never past ``ceiling``. Only
+    LENGTHENS: "retry in 0 s" cannot make a loop hot, and "retry in a day" cannot park a queue
+    past the ceiling.
     """
     wait = max(0.0, float(delay))
-    if retry_after is not None:
-        wait = max(wait, float(retry_after))
+    if retry_after is not None and float(retry_after) > wait:
+        asked = float(retry_after)
+        wait = asked + _JITTER.uniform(0.0, asked * RETRY_AFTER_SPREAD)
     return min(wait, max(0.0, float(ceiling)))
 
 
@@ -294,9 +316,11 @@ def snapshot_file(src: str | Path, dst: str | Path, *, mode: int = 0o600) -> Non
 
 
 __all__ = [
+    "RETRY_AFTER_SPREAD",
     "RETRY_BACKOFF",
     "backoff_delays",
     "honor_retry_after",
+    "pick_jittered_wait",
     "retry",
     "now_iso",
     "fsync_directory",

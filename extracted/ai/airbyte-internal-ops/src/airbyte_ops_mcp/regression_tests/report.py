@@ -89,6 +89,13 @@ TEMPLATE_NAME = "report.html.j2"
 CONSOLIDATED_TEMPLATE_NAME = "consolidated.html.j2"
 HTML_REPORT_FILENAME = "report.html"
 CONSOLIDATED_REPORT_FILENAME = "report.html"
+_NEW_STREAM_CHECK_NAMES = frozenset(
+    {
+        "Record schema (new streams)",
+        "Primary key (new streams)",
+        "Incremental cursor (new streams)",
+    }
+)
 
 # The contract between a per-command report and the consolidated one. Each
 # report carries a JSON header and wraps its own body in markers, so the whole
@@ -2425,6 +2432,73 @@ def _connector_cache_check(
     )
 
 
+def comparison_label_inputs(
+    *,
+    record_comparison: RecordComparisonSummary | None,
+    extra_checks: tuple[CheckResult, ...],
+    record_checks_regression: bool | None,
+    regression_detected: bool,
+    both_failed: bool,
+    stopped: bool,
+    setup_error: bool,
+    could_not_test: bool,
+    not_exercised: bool,
+) -> tuple[bool, bool]:
+    """Return (strict_failed, comparison_errored) such that
+    new_stream_verdict_label(...) with these gives the US comparison verdict label."""
+    comparison_errored = bool(
+        record_comparison is not None and record_comparison.errored
+    )
+    new_stream_check_failed = any(
+        check.name in _NEW_STREAM_CHECK_NAMES and check.status == "fail"
+        for check in extra_checks
+    )
+    record_checks_regression = (
+        new_stream_check_failed
+        if record_checks_regression is None
+        else bool(record_checks_regression)
+    )
+    record_checks_errored = new_stream_check_failed and not record_checks_regression
+    other_strict_failures = failed_checks(
+        tuple(
+            check for check in extra_checks if check.name not in _NEW_STREAM_CHECK_NAMES
+        )
+    )
+    strict_failed = bool(
+        record_checks_regression
+        or (
+            record_comparison is not None
+            and not record_comparison.passed
+            and not comparison_errored
+        )
+        or other_strict_failures
+    )
+    comparison_errored_for_label = bool(
+        (comparison_errored or record_checks_errored)
+        and not strict_failed
+        and not regression_detected
+    )
+    pre_override_label = new_stream_verdict_label(
+        stopped=stopped,
+        setup_error=setup_error,
+        strict_failed=strict_failed,
+        regression=regression_detected,
+        both_failed=both_failed,
+        comparison_errored=comparison_errored_for_label,
+        could_not_test=could_not_test,
+        not_exercised=not_exercised,
+    )
+    if (
+        comparison_errored
+        and not both_failed
+        and not_exercised
+        and not could_not_test
+        and pre_override_label == "FAIL (inconclusive)"
+    ):
+        comparison_errored_for_label = False
+    return strict_failed, comparison_errored_for_label
+
+
 def build_comparison_report_model(
     *,
     target_image: str,
@@ -2530,45 +2604,40 @@ def build_comparison_report_model(
         else ()
     )
     strict_failures = failed_checks((*comparison_checks, *extra_checks))
-    comparison_errored = bool(
+    record_comparison_errored = bool(
         record_comparison is not None and record_comparison.errored
     )
-    new_stream_check_names = {
-        "Record schema (new streams)",
-        "Primary key (new streams)",
-        "Incremental cursor (new streams)",
-    }
     new_stream_check_failed = any(
-        check.name in new_stream_check_names and check.status == "fail"
+        check.name in _NEW_STREAM_CHECK_NAMES and check.status == "fail"
         for check in extra_checks
     )
-    record_checks_regression = bool(
-        target_result.get("record_checks_regression", new_stream_check_failed)
+    record_checks_regression = target_result.get("record_checks_regression")
+    effective_record_checks_regression = (
+        new_stream_check_failed
+        if record_checks_regression is None
+        else bool(record_checks_regression)
     )
-    record_checks_errored = new_stream_check_failed and not record_checks_regression
-    other_strict_failures = failed_checks(
-        tuple(
-            check for check in extra_checks if check.name not in new_stream_check_names
-        )
+    record_checks_errored = (
+        new_stream_check_failed and not effective_record_checks_regression
     )
-    real_strict_failure = bool(
-        record_checks_regression
-        or (
-            record_comparison is not None
-            and not record_comparison.passed
-            and not comparison_errored
-        )
-        or other_strict_failures
+    strict_failed, comparison_errored_for_label = comparison_label_inputs(
+        record_comparison=record_comparison,
+        extra_checks=extra_checks,
+        record_checks_regression=record_checks_regression,
+        regression_detected=outcome.regression_detected,
+        both_failed=outcome.both_failed,
+        stopped=bool(stopped),
+        setup_error=setup_error,
+        could_not_test=could_not_test,
+        not_exercised=bool(not_exercised),
     )
     new_stream_label = new_stream_verdict_label(
         stopped=bool(stopped),
         setup_error=setup_error,
-        strict_failed=real_strict_failure,
+        strict_failed=strict_failed,
         regression=outcome.regression_detected,
         both_failed=outcome.both_failed,
-        comparison_errored=(comparison_errored or record_checks_errored)
-        and not real_strict_failure
-        and not outcome.regression_detected,
+        comparison_errored=comparison_errored_for_label,
         could_not_test=could_not_test,
         not_exercised=bool(not_exercised),
     )
@@ -2617,8 +2686,8 @@ def build_comparison_report_model(
         # An errored record check or comparison fails the run as INCONCLUSIVE:
         # a tooling failure is not evidence the connector regressed.
         failed_label="FAIL (inconclusive)"
-        if (comparison_errored or record_checks_errored)
-        and not (real_strict_failure or outcome.regression_detected)
+        if (record_comparison_errored or record_checks_errored)
+        and not (strict_failed or outcome.regression_detected)
         else "FAIL (regression)",
     )
     if passed and outcome.both_succeeded:
@@ -2652,10 +2721,13 @@ def build_comparison_report_model(
             # An errored comparator's failed rows are a tooling failure, so
             # they are named as inconclusive below rather than as a regression.
             failed=failed_checks(
-                (*(() if comparison_errored else comparison_checks), *extra_checks)
+                (
+                    *(() if record_comparison_errored else comparison_checks),
+                    *extra_checks,
+                )
             ),
             regression=outcome.regression_detected,
-            comparison_errored=comparison_errored,
+            comparison_errored=record_comparison_errored,
         )
     elif new_stream_label == "SETUP ERROR":
         passed = False
@@ -2679,19 +2751,16 @@ def build_comparison_report_model(
     elif not_exercised and new_stream_label is not None:
         passed, verdict_label, verdict_detail = _never_a_pass_verdict(
             describe_not_exercised(not_exercised),
-            verdict_label=(
-                "NOT EXERCISED"
-                if comparison_errored
-                and not outcome.both_failed
-                and new_stream_label == "FAIL (inconclusive)"
-                else new_stream_label
-            ),
+            verdict_label=new_stream_label,
             command_detail=None if outcome.success else command_detail,
             failed=failed_checks(
-                (*(() if comparison_errored else comparison_checks), *extra_checks)
+                (
+                    *(() if record_comparison_errored else comparison_checks),
+                    *extra_checks,
+                )
             ),
             regression=outcome.regression_detected,
-            comparison_errored=comparison_errored,
+            comparison_errored=record_comparison_errored,
         )
     if setup_error or could_not_test:
         other_reasons = []

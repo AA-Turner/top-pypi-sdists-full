@@ -153,7 +153,7 @@ class BookingNamespace:
         Price: $0.0022 per request plus $0.00495 per result (maximum $0.102).
 
         Example:
-            res = client.booking.search(adults=2, checkIn="2026-12-03", checkOut="2026-12-05", limit=3, query="New York")
+            res = client.booking.search(adults=2, checkIn="2026-12-04", checkOut="2026-12-06", limit=3, query="New York")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "booking.search", dict(input), options
@@ -182,7 +182,7 @@ class AsyncBookingNamespace:
         Price: $0.0022 per request plus $0.00495 per result (maximum $0.102).
 
         Example:
-            res = client.booking.search(adults=2, checkIn="2026-12-03", checkOut="2026-12-05", limit=3, query="New York")
+            res = client.booking.search(adults=2, checkIn="2026-12-04", checkOut="2026-12-06", limit=3, query="New York")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "booking.search", dict(input), options

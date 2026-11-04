@@ -1066,13 +1066,18 @@ def _normalize_per_prompt_images(
 
 def _normalize_prompt_token_ids(
     prompt_token_ids: list[int] | list[list[int]],
+    *,
+    validated: bool = False,
 ) -> list[list[int]]:
     """Normalize ``prompt_token_ids`` to per-prompt form (``list[list[int]]``).
 
     A flat ``list[int]`` means a single token prompt. Rejects empty
     prompts and non-int ids early — an empty or malformed id list on the
     wire is at best a confusing server error and at worst (on older
-    servers) a crashed sampler.
+    servers) a crashed sampler. ``validated`` ids, as lowered from
+    ``model_input`` chunks, are known to be non-negative ints and are only
+    checked for emptiness; the per-id checks walk every token of every
+    multi-turn prompt otherwise.
     """
     if not prompt_token_ids:
         raise ValueError("prompt_token_ids must not be empty")
@@ -1084,6 +1089,13 @@ def _normalize_prompt_token_ids(
     for idx, ids in enumerate(per_prompt):
         if not ids:
             raise ValueError(f"prompt_token_ids[{idx}] must not be empty")
+        if validated:
+            continue
+        # A list of non-negative ints, the usual case and tens of thousands
+        # of ids long on multi-turn prompts, passes in two C-speed sweeps;
+        # anything else takes the element-wise checks for their diagnostics.
+        if set(map(type, ids)) == {int} and min(ids) >= 0:
+            continue
         for token_id in ids:
             if not isinstance(token_id, int) or isinstance(token_id, bool):
                 raise ValueError(
@@ -1192,7 +1204,25 @@ def _lower_model_input_chunks(
                     raise ValueError(
                         f"model_input[{pidx}][{cidx}]: text chunk missing 'tokens'"
                     )
-                ids.extend(int(t) for t in tokens)
+                # Trajectory chunks are lists of ints, tens of thousands per
+                # prompt on long contexts, so they are checked in C sweeps
+                # rather than element by element: a list of plain ints is
+                # taken as it is, anything else is coerced the way int()
+                # always has been, and the smallest value rules out negatives.
+                if not isinstance(tokens, list) or set(map(type, tokens)) != {int}:
+                    try:
+                        tokens = [int(t) for t in tokens]
+                    except (TypeError, ValueError) as error:
+                        raise ValueError(
+                            f"model_input[{pidx}][{cidx}]: text chunk 'tokens' "
+                            "must contain only ints"
+                        ) from error
+                if tokens and min(tokens) < 0:
+                    raise ValueError(
+                        f"model_input[{pidx}][{cidx}]: text chunk 'tokens' "
+                        f"contains negative token id {min(tokens)}"
+                    )
+                ids.extend(tokens)
             elif ctype == "image":
                 data = chunk.get("data")
                 if isinstance(data, ImageHandle):
@@ -1219,7 +1249,7 @@ def _lower_model_input_chunks(
         # deep in the engine and gets retried as if transient; images >
         # placeholders silently drops images), so reject it here where the
         # placeholder id is known.
-        n_placeholders = sum(1 for t in ids if t == image_placeholder_token_id)
+        n_placeholders = ids.count(image_placeholder_token_id)
         if n_placeholders != len(images):
             raise ValueError(
                 f"model_input[{pidx}]: found {n_placeholders} image placeholder "
@@ -1293,13 +1323,16 @@ def _build_sample_prompt_dicts(
     images: list[Image] | list[list[Image]] | None = None,
     return_expert_routing: bool = False,
     prompt_token_ids: list[int] | list[list[int]] | None = None,
+    prompt_token_ids_validated: bool = False,
 ) -> tuple[list[str] | list[list[int]], list[dict]]:
     if (prompts is None) == (prompt_token_ids is None):
         raise ValueError("exactly one of `prompts` and `prompt_token_ids` is required")
 
     token_prompts: list[list[int]] | None = None
     if prompt_token_ids is not None:
-        token_prompts = _normalize_prompt_token_ids(prompt_token_ids)
+        token_prompts = _normalize_prompt_token_ids(
+            prompt_token_ids, validated=prompt_token_ids_validated
+        )
         prompts = [""] * len(token_prompts)
     elif isinstance(prompts, str):
         prompts = [prompts]
@@ -2793,6 +2826,63 @@ class Model:
 
     # --- Weights management ---
 
+    def submit_save_weights(
+        self,
+        name: str,
+        mode: str = "training",
+        *,
+        timeout: float = _DEFAULT_TIMEOUT_SECS,
+        ttl: datetime.timedelta | None = None,
+        immutable: bool = False,
+        expected_policy_id: str | None = None,
+        durable: bool = True,
+    ) -> PendingOp:
+        """Enqueue a checkpoint at this position in the model's operation stream.
+
+        The returned operation resolves to a complete :class:`Checkpoint`.
+        Submission finishes before subsequent training operations are enqueued;
+        waiting for export completion can run independently of training.
+        Arguments have the same meaning as :meth:`save_weights`.
+        """
+        if mode not in ("training", "inference", "publish"):
+            raise ValueError(f"Invalid checkpoint mode {mode!r}")
+        ttl_seconds = int(ttl.total_seconds()) if ttl is not None else None
+        if ttl_seconds is not None and ttl_seconds <= 0:
+            raise ValueError("ttl must be positive")
+        step = self._step
+        request_id = self._session._submit_save_weights(
+            model_id=self._model_id,
+            seq_id=self._next_seq_id(),
+            name=f"{self._training_run_id}/{name}",
+            mode=mode,
+            ttl_seconds=ttl_seconds,
+            immutable=immutable,
+            expected_policy_id=expected_policy_id,
+            durable=durable,
+        )
+        return self.resume_save_weights(
+            request_id, step=step, mode=mode, timeout=timeout
+        )
+
+    def resume_save_weights(
+        self,
+        request_id: str,
+        *,
+        step: int,
+        mode: str = "inference",
+        timeout: float = _DEFAULT_TIMEOUT_SECS,
+    ) -> PendingOp:
+        """Reattach to a previously submitted checkpoint without saving new weights."""
+        return PendingOp(
+            request_id=request_id,
+            _session=self._session,
+            _model_id=self._model_id,
+            _parse_result=partial(
+                self._session._save_weights_result, step=step, mode=mode
+            ),
+            _timeout=timeout,
+        )
+
     def save_weights(
         self,
         name: str,
@@ -3472,8 +3562,9 @@ class Session:
     ) -> list[list[Sample]]:
         """Sample from a base model or checkpoint.
 
-        When ``checkpoint`` is provided, the server loads the LoRA from the
-        saved checkpoint, generates text, then unloads.
+        With ``checkpoint``, the server samples the saved weights. LoRA
+        checkpoints load an adapter; full-weight checkpoints use an on-demand
+        sampler that stays pinned to that export while training continues.
 
         Args:
             prompts: Single prompt string or list of prompts.
@@ -3481,7 +3572,7 @@ class Session:
             base_model: Base model name
                 (e.g. ``"Qwen/Qwen3.6-35B-A3B-FP8"``).
             checkpoint: Optional ``river://`` path or :class:`Checkpoint` object.
-                If provided, samples from that checkpoint's LoRA weights.
+                If provided, samples from that checkpoint's saved weights.
             num_samples: Number of independent samples per prompt.
             max_tokens: Maximum tokens to generate per sample.
             temperature: Sampling temperature.
@@ -4320,6 +4411,30 @@ class Session:
         durable: bool = True,
     ) -> Checkpoint:
         """Save checkpoint (training or inference mode)."""
+        request_id = self._submit_save_weights(
+            model_id=model_id,
+            seq_id=seq_id,
+            name=name,
+            mode=mode,
+            ttl_seconds=ttl_seconds,
+            immutable=immutable,
+            expected_policy_id=expected_policy_id,
+            durable=durable,
+        )
+        result = self._wait_for_future(request_id, timeout=timeout, model_id=model_id)
+        return self._save_weights_result(result, step=step, mode=mode)
+
+    def _submit_save_weights(
+        self,
+        model_id: str,
+        seq_id: int,
+        name: str,
+        mode: str,
+        ttl_seconds: int | None = None,
+        immutable: bool = False,
+        expected_policy_id: str | None = None,
+        durable: bool = True,
+    ) -> str:
         req = pb2.SaveWeightsRequest(
             model_id=model_id,
             seq_id=seq_id,
@@ -4344,12 +4459,10 @@ class Session:
             context="Saving weights",
             heartbeat_check=self._check_heartbeat_health,
         )
-        result = self._wait_for_future(
-            response.request_id,
-            timeout=timeout,
-            model_id=model_id,
-        )
+        return response.request_id
 
+    @staticmethod
+    def _save_weights_result(result, *, step: int, mode: str) -> Checkpoint:
         if result.WhichOneof("response") != "save_weights":
             raise RiverError(
                 f"Unexpected response type: {result.WhichOneof('response')}"
@@ -5358,8 +5471,8 @@ class Client:
                 (e.g. ``"Qwen/Qwen3.6-35B-A3B-FP8"``); with ``checkpoint``,
                 the base model the checkpoint was trained from.
             checkpoint: Optional ``river://`` path or :class:`Checkpoint`
-                object. If provided, samples from that checkpoint's LoRA
-                weights, which the caller must own or which must be public.
+                object. Samples from the checkpoint's saved LoRA or full-weight
+                weights, subject to the checkpoint's access permissions.
             num_samples: Number of independent samples per prompt.
             max_tokens: Maximum tokens to generate per sample.
             temperature: Sampling temperature.
@@ -5414,7 +5527,7 @@ class Client:
         # Use the shared ``_build_sample_prompt_dicts`` helper so the
         # images normalization (None / list[Image] / list[list[Image]])
         # is consistent across Client.sample / Session.sample / Model.sample.
-        _, prompt_dicts = _build_sample_prompt_dicts(
+        prompt_list, prompt_dicts = _build_sample_prompt_dicts(
             prompts,
             num_samples=num_samples,
             max_tokens=max_tokens,
@@ -5470,37 +5583,19 @@ class Client:
 
         raw_results = Session._inference_to_dicts(future_result.inference)
 
-        # Build flat list of Sample objects
-        samples: list[Sample] = []
-        for r in raw_results:
-            tokens, token_lps, stop_reason = _tokens_and_logprobs_from_raw(
-                r, tokenizer, max_tokens
-            )
-            samples.append(
-                Sample(
-                    tokens=tokens,
-                    text=r["text"],
-                    logprobs=token_lps,
-                    token_data_is_exact=bool(r.get("token_ids"))
-                    and len(r.get("token_logprobs") or []) == len(r["token_ids"]),
-                    stop_reason=stop_reason,
-                    model_step=model_step,
-                    prompt_logprobs=_optional_prompt_logprobs(
-                        r, return_prompt_logprobs
-                    ),
-                    prompt_token_ids=_optional_prompt_token_ids(
-                        r, return_prompt_logprobs
-                    ),
-                    top_logprobs=r.get("top_logprobs"),
-                    prompt_top_logprobs=r.get("prompt_top_logprobs"),
-                    sampling_log_masses=_optional_sampling_log_masses(
-                        r, return_sampling_log_mass
-                    ),
-                    metrics=dict(r.get("metrics") or {}),
-                )
-            )
-
-        return samples
+        grouped = _group_sample_dicts(
+            raw_results,
+            num_prompts=len(prompt_list),
+            num_samples=num_samples,
+            tokenizer=tokenizer,
+            max_tokens=max_tokens,
+            model_step=model_step,
+            request_id=response.request_id,
+            return_prompt_logprobs=return_prompt_logprobs,
+            return_prompt_token_ids=return_prompt_logprobs,
+            return_sampling_log_mass=return_sampling_log_mass,
+        )
+        return [sample for group in grouped for sample in group]
 
     def health_check(self) -> bool:
         """Check API health.
@@ -6168,6 +6263,8 @@ def _prepare_independent_samples(
         images=images,
         return_expert_routing=return_expert_routing,
         prompt_token_ids=prompt_token_ids,
+        # Lowering model_input checked every id already.
+        prompt_token_ids_validated=model_input is not None,
     )
     if len(prompt_dicts) != len(prompt_list) * num_samples:
         raise ValueError("Invalid sample grid")

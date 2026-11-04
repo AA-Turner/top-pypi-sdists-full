@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -72,6 +73,7 @@ from mistralai.vibe.harness.runtime.completion.profile import WireFormat, parse_
 from mistralai.vibe.harness.runtime.completion.providers.anthropic import AnthropicCompletionConfig
 from mistralai.vibe.harness.runtime.completion.providers.mistral import MistralCompletionConfig
 from mistralai.vibe.harness.runtime.completion.providers.openai import OpenAICompletionConfig
+from mistralai.vibe.harness.runtime.configuration import validate_permission_policy_tools
 from mistralai.vibe.harness.runtime.hosts.workflows.harness_definition import (
     WorkflowCapabilityDefinition,
     WorkflowConnectorDefinition,
@@ -82,7 +84,7 @@ from mistralai.vibe.harness.runtime.hosts.workflows.harness_definition import (
 from mistralai.vibe.harness.runtime.session.definition import SessionSubagentConnectors
 from mistralai.vibe_agents import session_workflow as wire
 from mistralai.vibe_agents.sdk.app import config as app_config
-from mistralai.vibe_agents.sdk.authoring import connector_selection, contracts, session_input
+from mistralai.vibe_agents.sdk.authoring import connector_selection, contracts, mcp_sources, session_input
 from mistralai.vibe_agents.sdk.authoring import hooks as hook_authoring
 from mistralai.vibe_agents.sdk.authoring import subagent as subagent_authoring
 from mistralai.vibe_agents.sdk.authoring import tool as tool_authoring
@@ -92,15 +94,16 @@ from mistralai.vibe_agents.sdk.authoring.skills import AllRegistrySkills, Regist
 from mistralai.vibe_agents.sdk.authoring.tool_definition import ToolAnnotations
 from mistralai.vibe_agents.sdk.authoring.tool_errors import (
     DEFAULT_TOOL_ERRORS,
+    ToolCodeError,
     ToolError,
     ToolErrors,
     ToolFunctionError,
+    call_is_cancelling,
     failed_tool_result,
 )
 from mistralai.workflows.plugins.mistralai.connectors import decorator as connector_decorator
 
 from . import capabilities, sandbox_skills, stateful_hooks, tool_results
-from . import mcp as mcp_assembly
 from . import sandbox as sandbox_assembly
 from . import session_inputs as session_input_assembly
 from . import subagents as subagent_assembly
@@ -210,6 +213,7 @@ CallbackContext = contracts.CallbackContext
 HookCallbackContext = contracts.HookCallbackContext
 ToolCallbackContext = contracts.ToolCallbackContext
 CallbackSession = contracts.CallbackSession
+KeepCallbackOpen = contracts.KeepCallbackOpen
 Hook = contracts.Hook
 
 
@@ -265,7 +269,7 @@ def _completion_response_format(completion: CompletionConfig, response_format: t
     if completion.response_format is not None:
         raise UnsupportedAgentFeatureError(
             "structured_output",
-            "the completion config already sets response_format; pass the format on the Agent (or to run()) "
+            "the completion config already sets response_format; pass output_type= on the Agent (or to run()) "
             "or on the completion config, not both",
         )
     return _structured_output_payload(response_format, provider=completion.type)
@@ -375,6 +379,51 @@ def build_agent_config(
     )
 
 
+def check_permission_policy_tools(
+    config: AgentConfig,
+    authored_harness: contracts.Harness,
+    subagents: Sequence[AuthoredSubagent],
+) -> None:
+    """Reject a permission pattern that names a namespace of the tree's tools but none of them.
+
+    Computed without compiling the tree, so a deploy can fail before it uploads anything. The
+    check reads the tools and MCP sources of the whole tree, so every one the tree declares is
+    listed on the root here: the root's, those its guardrails and Hooks bring, and every
+    subagent's. Each MCP source is keyed by its position and keeps its own namespace.
+    """
+
+    layer_mcps = [
+        authored_harness.mcps,
+        *(layer.mcps or {} for _path, layer in subagent_assembly.authored_subagent_layers(subagents)),
+    ]
+    sources = [
+        source.model_copy(update={"namespace": source.namespace or key})
+        for mcps_of_layer in layer_mcps
+        for key, source in mcps_of_layer.items()
+    ]
+    mcps = {str(index): source for index, source in enumerate(sources)}
+    tools = [
+        *authored_harness.tools,
+        *(tool for guardrail in authored_harness.guardrails for tool in guardrail.tools),
+        *(tool for hook in authored_harness.hooks for tool in hook.tools),
+        *(
+            tool
+            for path, layer in subagent_assembly.authored_subagent_layers(subagents)
+            for tool in subagent_assembly.subagent_tools(layer, path) or ()
+        ),
+    ]
+    _validate_permission_policy_tools(
+        config.model_copy(update={"tools": [_build_tool_definition(tool) for tool in tools], "mcps": mcps})
+    )
+
+
+def _validate_permission_policy_tools(config: AgentConfig) -> None:
+    try:
+        validate_permission_policy_tools(config, is_subagent=False)
+    except ValueError as error:
+        raise SdkError(str(error)) from error
+
+
 def assemble_agent(
     config: AgentConfig,
     authored_harness: contracts.Harness,
@@ -418,13 +467,13 @@ def assemble_agent(
     for tool in tools:
         tool_id = tool_authoring.tool_id(tool)
         if tool_id in names:
-            raise ValueError(f"duplicate tool ID {tool_id!r}")
+            raise SdkError(f"duplicate tool ID {tool_id!r}")
         names.add(tool_id)
         definition = _build_tool_definition(tool, programmatic=config.builtins.programmatic_enabled)
         definitions.append(definition)
         compiled_tools.append((tool, definition))
         table.add_tool(_tool_capability(tool, definition), tool, owner=())
-    mcp_assembly.refuse_tool_namespaces(tools, authored_harness.mcps)
+    mcp_sources.refuse_tool_namespaces(tools, authored_harness.mcps)
 
     compiled_guardrails = [
         (guardrail, compiled)
@@ -487,6 +536,7 @@ def assemble_agent(
         config = with_session_agent_customization(config, customization)
     sandbox = sandbox_assembly.compile_sandbox(authored_harness.sandbox, session_id=session_id)
     mcps = _resolve_mcp_model_access(authored_harness.mcps, programmatic=config.builtins.programmatic_enabled)
+    mcp_sources.check_mcp_sources(mcps, programmatic=config.builtins.programmatic_enabled)
     skills = _skill_delivery(authored_harness, subagent_catalog, subagents)
     # Revalidate rather than copy so authored subagent layers are checked against the compiled
     # parent configuration they inherit from.
@@ -507,6 +557,7 @@ def assemble_agent(
             "subagents": subagent_catalog,
         },
     ).model_copy(deep=True)
+    _validate_permission_policy_tools(compiled_config)
     _require_subagent_capabilities_in_tree(
         compiled_config.subagents, {capability.binding_id for capability in capability_definitions}
     )
@@ -646,7 +697,7 @@ def _skill_delivery(
         raise UnsupportedAgentFeatureError(
             "skills",
             "SandboxWorkspaceSkills finds skills with a Python program in the sandbox; use a sandbox that runs "
-            "Python, such as sandbox=MistralSandbox()",
+            "Python, such as environment=MistralSandbox()",
         )
     _check_skill_sandbox(skills, sandbox, owner=None, discovery=discovery)
     authored = {
@@ -710,7 +761,7 @@ def _check_skill_sandbox(
         raise UnsupportedAgentFeatureError(
             "skills",
             f"{prefix}skills are served as sandbox files and {type(sandbox).__name__}() cannot hold files; use a "
-            "sandbox that holds files, such as sandbox=BashkitSandbox()",
+            "sandbox that holds files, such as environment=BashkitSandbox()",
         )
     unpinned = [str(skill.id) for skill in skills if isinstance(skill, RegistrySkill) and skill.version is None]
     if unpinned:
@@ -918,6 +969,10 @@ def _build_tool_registration(
                 )
                 try:
                     result = await tool_authoring.call_handler(handler, **handler_kwargs)
+                except asyncio.CancelledError as error:
+                    if call_is_cancelling():
+                        raise
+                    raise ToolFunctionError(error) from error
                 except Exception as error:
                     raise ToolFunctionError(error) from error
         except ToolFunctionError as raised:
@@ -936,7 +991,7 @@ def _build_tool_registration(
 
 
 def _tool_raised(
-    error: Exception, *, tool_name: str, tool_errors: ToolErrors
+    error: ToolCodeError, *, tool_name: str, tool_errors: ToolErrors
 ) -> tool_results.ProvidedToolResult | CapabilityInvocationFailed:
     """The result of a Python tool, by ``tool_errors``, whose function raised ``error`` or returned a value
     that cannot be sent (``error`` says why)."""

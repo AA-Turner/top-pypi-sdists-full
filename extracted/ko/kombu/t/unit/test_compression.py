@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import importlib.util
 import sys
 
 import pytest
 
 from kombu import compression
+
+_has_brotli = importlib.util.find_spec('brotli') is not None
 
 
 class test_compression:
@@ -17,7 +20,7 @@ class test_compression:
         assert 'application/x-bz2' in compression.encoders()
 
     def test_encoders__brotli(self):
-        pytest.importorskip('brotli')
+        pytest.importorskip('brotli' if _has_brotli else 'brotlicffi')
 
         assert 'application/x-brotli' in compression.encoders()
 
@@ -27,7 +30,7 @@ class test_compression:
         assert 'application/x-lzma' in compression.encoders()
 
     def test_encoders__zstd(self):
-        pytest.importorskip('zstandard')
+        pytest.importorskip('compression.zstd' if sys.version_info >= (3, 14) else 'backports.zstd')
 
         assert 'application/zstd' in compression.encoders()
 
@@ -46,7 +49,7 @@ class test_compression:
         assert d == text
 
     def test_compress__decompress__brotli(self):
-        pytest.importorskip('brotli')
+        pytest.importorskip('brotli' if _has_brotli else 'brotlicffi')
 
         text = b'The Brown Quick Fox Over The Lazy Dog Jumps'
         c, ctype = compression.compress(text, 'brotli')
@@ -64,7 +67,7 @@ class test_compression:
         assert d == text
 
     def test_compress__decompress__zstd(self):
-        pytest.importorskip('zstandard')
+        pytest.importorskip('compression.zstd' if sys.version_info >= (3, 14) else 'backports.zstd')
 
         text = b'The Brown Quick Fox Over The Lazy Dog Jumps'
         c, ctype = compression.compress(text, 'zstd')

@@ -2,16 +2,15 @@
 #
 # v1: Legacy SDK (deprecated)
 # v2: New SDK with separate sync/async modules
-# agents: Harbor agent framework re-exports (ClaudeCode, OpenHands, Codex, etc.)
+# agents: Agent SDK (BaseAgent, AgentTask, run_agent) + schemas
 # sims: Simulation clients (Spree, Firefly, etc.)
 # chronos: Chronos agent evaluation platform SDK
 #
 # Usage (v2 - recommended):
 #   from plato.v2 import AsyncPlato, Plato, Env
 #
-# Usage (agents - Harbor):
-#   from plato.agents import ClaudeCode, OpenHands, AgentFactory, AgentName
-#   from plato.agents import BaseAgent, BaseInstalledAgent  # For custom agents
+# Usage (agents):
+#   from plato.agents import BaseAgent, AgentTask, run_agent
 #
 # Usage (sims):
 #   from plato.sims import SpreeClient, FireflyClient

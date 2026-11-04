@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import signal
 import sys
@@ -111,6 +112,7 @@ from autoware_carla_scenario.registry import (
     register_scenario,
 )
 from autoware_carla_scenario.scenario_glob import resolve_scenario_glob, scenario_dirs
+from autoware_carla_scenario.scenario_runner import _run_file_stem
 
 from .argv import (
     BatchCase,
@@ -710,6 +712,7 @@ def run_scenario_with_queue(
     reload_every: int = 0,
     t4scene: T4SceneExporter | None = None,
     backends: BackendPool | None = None,
+    file_stem: str | None = None,
 ) -> ScenarioResult:
     """Run a single pre-built scenario using :class:`ScenarioQueue`.
 
@@ -724,6 +727,10 @@ def run_scenario_with_queue(
     *world_reset* and *reload_every* are how the queue resets the world
     (:func:`world_reset_settings`).  *t4scene* writes the run's trajectory log
     as a T4Scene once it is closed (:func:`build_t4scene_exporter`).
+    *file_stem* is the stem the run's files are named by
+    (``{file_stem}_result.json`` ...); ``None`` names them by the scenario's
+    class, numbered past the runs already in *output_dir*
+    (:meth:`ScenarioQueue.add`).
 
     This is the extracted orchestration logic that was previously embedded
     inside :func:`run_scenario`.  Downstream projects can use this to execute
@@ -762,7 +769,7 @@ def run_scenario_with_queue(
         t4scene=t4scene,
         backends=backends,
     )
-    queue.add(scenario, case=case)
+    queue.add(scenario, case=case, file_stem=file_stem)
     with queue:
         results = queue.run_all()
     return results[0]
@@ -832,11 +839,39 @@ def _rerun_settings(cfg: DictConfig) -> tuple[bool, bool]:
 
 
 def _rerun_lidar_max_points(cfg: DictConfig) -> int | None:
-    """``rerun.lidar_max_points`` when ``rerun.lidar`` is set; ``None`` otherwise."""
+    """``rerun.lidar_max_points`` when ``rerun.lidar`` is set; ``None`` otherwise.
+
+    0 (or ``null``, or no value) keeps every point of a sweep.  An integral
+    float (``1e5`` in YAML) or a string of an integer (what ``${oc.env:...}``
+    gives) counts as that integer, as ``int()`` read them before (#1226).
+
+    Raises:
+        ValueError: It is not a non-negative integer (a bool is not one).
+    """
     rerun_cfg = cfg.get("rerun") or {}
     if not rerun_cfg.get("lidar", False):
         return None
-    return int(rerun_cfg.get("lidar_max_points", 0) or 0)
+    value = rerun_cfg.get("lidar_max_points", 0)
+    if value is None:
+        return 0
+    points: int | None = None
+    if isinstance(value, bool):
+        points = None
+    elif isinstance(value, int):
+        points = value
+    elif isinstance(value, float) and value.is_integer():
+        points = int(value)
+    elif isinstance(value, str):
+        try:
+            points = int(value)
+        except ValueError:
+            points = None
+    if points is None or points < 0:
+        raise ValueError(
+            "rerun.lidar_max_points must be a non-negative integer "
+            f"(0 keeps every point), got {value!r}"
+        )
+    return points
 
 
 def build_rerun_converter(*cfgs: DictConfig) -> RerunConverter | None:
@@ -847,9 +882,12 @@ def build_rerun_converter(*cfgs: DictConfig) -> RerunConverter | None:
     those asking, 0 being all), and with ``rerun.cameras`` its camera frames.
 
     Called before anything runs, so a run asking for recordings without the
-    ``rerun`` extra installed is refused at once.
+    ``rerun`` extra installed, or with a ``rerun.lidar_max_points`` that is not
+    a non-negative integer in any of its cases, is refused at once.
 
     Raises:
+        ValueError: A case asking for LiDAR sweeps sets a
+            ``rerun.lidar_max_points`` that is not a non-negative integer.
         RerunUnavailableError: The extra is not installed.
         LidarRerunUnavailableError: ``rerun.lidar`` is set and the Rerun SDK
             is not installed.
@@ -887,6 +925,17 @@ def build_t4_recorder(*cfgs: DictConfig) -> T4Recorder | None:
         T4UnavailableError: The extra is not installed.
         ValueError: The ``t4`` or ``driver`` settings are not valid.
     """
+    settings = _t4_settings(*cfgs)
+    return None if settings is None else T4Recorder(settings)
+
+
+def _t4_settings(*cfgs: DictConfig) -> T4Settings | None:
+    """The settings :func:`build_t4_recorder` builds its recorder with, read
+    and checked, needing no extra; ``None`` when no case sets ``t4.enabled``.
+
+    Raises:
+        ValueError: The ``t4`` or ``driver`` settings are not valid.
+    """
     from autoware_carla_scenario.driver import DriverClientConfig  # noqa: PLC0415
 
     for cfg in cfgs:
@@ -903,10 +952,9 @@ def build_t4_recorder(*cfgs: DictConfig) -> T4Recorder | None:
         driver = DriverClientConfig.from_mapping(
             _with_fog_density_scale(_to_dict(driver_cfg), cfg)
         )
-        settings = T4Settings.from_driver(
+        return T4Settings.from_driver(
             driver, _to_dict(t4_cfg) if isinstance(t4_cfg, DictConfig) else t4_cfg
         )
-        return T4Recorder(settings)
     return None
 
 
@@ -926,7 +974,8 @@ def build_t4scene_exporter(*cfgs: DictConfig) -> T4SceneExporter | None:
     ``step_s`` and ``max_distance_m``; ``None`` otherwise.
 
     Raises:
-        ValueError: ``t4scene.step_s`` is not a positive multiple of the tick.
+        ValueError: ``t4scene.step_s`` is not a positive multiple of the tick,
+            or ``t4scene.max_distance_m`` is not positive and finite.
     """
     for cfg in cfgs:
         t4scene_cfg = cfg.get("t4scene") or {}
@@ -934,10 +983,11 @@ def build_t4scene_exporter(*cfgs: DictConfig) -> T4SceneExporter | None:
             continue
         step_s = float(t4scene_cfg.get("step_s", 0.1))
         tick_multiple(step_s, "t4scene.step_s")
-        max_distance = t4scene_cfg.get("max_distance_m", 100.0)
+        # Handed over as read: the exporter refuses a bool, which float()
+        # would turn into 1 m.
         return T4SceneExporter(
             step_s=step_s,
-            max_distance_m=None if max_distance is None else float(max_distance),
+            max_distance_m=t4scene_cfg.get("max_distance_m", 100.0),
         )
     return None
 
@@ -999,6 +1049,59 @@ def apply_metrics(*cfgs: DictConfig) -> bool:
     os.environ[HEAVY_METRICS_DECIDED_ENV] = "1" if heavy else "0"
     configure_commonroad_metrics(heavy_metrics=heavy)
     return heavy
+
+
+def _block_key(cfg: DictConfig, name: str) -> str:
+    """*cfg*'s ``name`` block as a string two equal blocks share."""
+    value = cfg.get(name)
+    if isinstance(value, DictConfig):
+        value = _to_dict(value)
+    return json.dumps(value, sort_keys=True, default=str)
+
+
+def batch_settings_cases(
+    configs: list[DictConfig], *, heavy_metrics: bool
+) -> dict[str, Any]:
+    """Which of a batch's *configs* decide its batch-level settings, by index:
+    what a SLURM batch's manifest records (``batch_settings``), so that every
+    task decides them as a local batch does from all its cases, whichever of
+    them the task runs (slurm/worker.py).
+
+    - ``first_case``: the case whose config the queue is built from
+      (:func:`_batch_queue`: the server, traffic, ``t4``, ``t4scene``, world
+      reset and backend settings), the batch's first;
+    - ``rerun_cases``: a case for each distinct ``rerun`` block, none when no
+      case sets ``rerun.enabled``: :func:`build_rerun_converter` of these is
+      that of every case;
+    - ``canvas_case``: the first case naming a ``canvas.config``, or ``None``
+      (:func:`canvas_config`);
+    - ``heavy_metrics``: what :func:`apply_metrics` decided for the batch.
+
+    A few cases' configs, not every one's: a task composes these and applies
+    the same builders to them, at its node's paths.
+    """
+    rerun_cases: list[int] = []
+    if any(_rerun_settings(cfg)[0] for cfg in configs):
+        seen: set[str] = set()
+        for index, cfg in enumerate(configs):
+            key = _block_key(cfg, "rerun")
+            if key not in seen:
+                seen.add(key)
+                rerun_cases.append(index)
+    canvas_case = next(
+        (
+            index
+            for index, cfg in enumerate(configs)
+            if (cfg.get("canvas") or {}).get("config")
+        ),
+        None,
+    )
+    return {
+        "first_case": 0,
+        "rerun_cases": rerun_cases,
+        "canvas_case": canvas_case,
+        "heavy_metrics": bool(heavy_metrics),
+    }
 
 
 def rerun_errors(
@@ -1266,6 +1369,11 @@ def _log_batch_plan(
 def _make_batch_output_dir() -> Path:
     """Create a Hydra-style timestamped output directory for batch runs.
 
+    The directory is this batch's alone: it is created with ``mkdir``, which
+    fails when it exists, so two batches started in the same second never
+    share one (#1223).  The first gets ``HH-MM-SS``, the next ``HH-MM-SS-1``,
+    then ``HH-MM-SS-2``, and so on.
+
     Returns:
         Absolute path to the created directory
         (e.g. ``outputs/2026-03-13/12-00-00/``).
@@ -1273,9 +1381,18 @@ def _make_batch_output_dir() -> Path:
     from datetime import datetime  # noqa: PLC0415
 
     now = datetime.now()  # noqa: DTZ005
-    output_dir = Path("outputs") / now.strftime("%Y-%m-%d") / now.strftime("%H-%M-%S")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    return output_dir.resolve()
+    day = Path("outputs") / now.strftime("%Y-%m-%d")
+    day.mkdir(parents=True, exist_ok=True)
+    name = now.strftime("%H-%M-%S")
+    suffix = 0
+    while True:
+        output_dir = day / (name if suffix == 0 else f"{name}-{suffix}")
+        try:
+            output_dir.mkdir()
+        except FileExistsError:
+            suffix += 1
+            continue
+        return output_dir.resolve()
 
 
 def _batch_queue(
@@ -1331,7 +1448,7 @@ def _cooldown_max_retries(cfg: DictConfig) -> int:
         ValueError: naming the key, when it is negative: a zero-attempt loop
             would record every scenario as errored without running it.
     """
-    retries = int(cfg.server.get("cooldown_max_retries", 0))
+    retries = int((cfg.get("server") or {}).get("cooldown_max_retries", 0))
     if retries < 0:
         raise ValueError(f"server.cooldown_max_retries must be >= 0, got {retries}")
     return retries
@@ -1345,7 +1462,7 @@ def _check_batch_queue_settings(cfg: DictConfig) -> None:
         ValueError: naming the key, for a server, traffic or Autoware launcher
             setting the queue would refuse.
     """
-    server = cfg.server
+    server = cfg.get("server") or {}
     float(server.get("cooldown_seconds", 0.0))
     _cooldown_max_retries(cfg)
     _optional_float(server.get("max_tick_rate_hz"))
@@ -1355,39 +1472,174 @@ def _check_batch_queue_settings(cfg: DictConfig) -> None:
     build_autoware_launcher(cfg)
 
 
-def _check_slurm_cases(configs: list[DictConfig]) -> None:
-    """Refuse a SLURM batch for what a local batch refuses as it queues its cases.
-
-    A local batch reads each case's ``scenario.timeout_seconds`` and
-    ``odd_case``, and builds its queue from its first config, in this process.
-    Under SLURM each task does that on its node (slurm/worker.py), after the
-    batch was submitted, and from the first case of its own chunk: so every
-    case is checked here, and the whole batch is refused before anything is
-    submitted, naming the key.
+def _check_batch_writer_settings(configs: list[DictConfig]) -> None:
+    """Refuse what :func:`build_rerun_converter`, :func:`build_t4_recorder`
+    and :func:`build_t4scene_exporter` refuse of a batch's *configs*, read as
+    they read them -- ``rerun.lidar_max_points`` of every case asking for
+    recordings, the ``t4`` and ``driver`` settings and the ``t4scene``
+    settings of the first case enabling each -- without the extras those
+    need, which :func:`check_run_extras` asks for.
 
     Raises:
         ValueError: naming the key of the first value refused.
     """
-    queue_settings: set[str] = set()
     for cfg in configs:
-        run_timeout_seconds(cfg)
-        _odd_case(cfg)
-        # Once a distinct setting: a sweep's cases mostly share them.  The
-        # ego's entity too: build_autoware_launcher reads the launcher only
-        # for an ``ego.entity=autoware`` case.
-        settings: dict[str, Any] = {
-            name: _to_dict(cfg[name]) if cfg.get(name) is not None else None
-            for name in ("server", "traffic", "traffic_manager", "autoware")
-        }
-        settings["ego.entity"] = str((cfg.get("ego") or {}).get("entity", "autopilot"))
-        key = json.dumps(
-            settings,
-            sort_keys=True,
-            default=str,
-        )
-        if key not in queue_settings:
-            queue_settings.add(key)
-            _check_batch_queue_settings(cfg)
+        if _rerun_settings(cfg)[0]:
+            _rerun_lidar_max_points(cfg)
+    _t4_settings(*configs)
+    # Holds nothing that starts: built to be checked, and dropped.
+    build_t4scene_exporter(*configs)
+
+
+class RunConfigError(ValueError):
+    """A config value a run refuses before anything starts
+    (:func:`check_batch_configs`): the same message, naming the key, as the
+    ``ValueError`` it was raised as.
+
+    Deterministic, so a case of a sweep refused for it is refused again on a
+    retry, and so is every case after it with the same value.
+    """
+
+
+#: The ``map`` settings that decide which map a run is on: what
+#: :func:`resolve_map_paths` reads (and :func:`_map_source`, the queue's
+#: record of where the map came from).  A batch shares one CARLA world, built
+#: from its first case's map, so its cases must agree on all of them.
+#: ``no_3d_model_lanelet_ids`` is not among them: only a sweep's constraints
+#: read it (``${map.no_3d_model_lanelet_ids}``), each case's own, when the
+#: sweep is expanded.
+_BATCH_MAP_KEYS = (
+    "name",
+    "directory",
+    "source",
+    "lanelet2_path",
+    "xodr_path",
+    "projector_type",
+    "overwrite_xodr",
+)
+
+
+def _map_setting(cfg: DictConfig, key: str) -> str | bool | None:
+    """``map.<key>`` of *cfg* as :func:`resolve_map_paths` reads it: a string
+    stripped, ``None`` when unset or empty; ``overwrite_xodr`` a flag."""
+    map_cfg = cfg.get("map") or {}
+    value = map_cfg.get(key)
+    text = None if value is None else str(value).strip() or None
+    if key == "overwrite_xodr":
+        return text is not None and text.lower() in {"1", "true", "yes", "on"}
+    return text
+
+
+def check_batch_map(configs: list[DictConfig], labels: list[str] | None = None) -> None:
+    """Refuse a batch whose cases would run on different maps.
+
+    The batch's one queue -- and each SLURM task's -- is built on the map its
+    first case resolves to (:func:`_batch_queue`), so a case setting another
+    ``map.source``, ``map.lanelet2_path`` or any other of
+    :data:`_BATCH_MAP_KEYS` would silently run on the first case's map.  The
+    settings are compared as configured: nothing is fetched or read.
+
+    Args:
+        configs: The cases' configs.
+        labels: The cases' names, for the message; ``case <n>`` without them.
+
+    Raises:
+        RunConfigError: naming the first key that differs and the cases
+            setting each of its values.
+    """
+    names = labels if labels is not None else []
+    for key in _BATCH_MAP_KEYS:
+        cases: dict[str | bool | None, list[str]] = {}
+        for i, cfg in enumerate(configs):
+            label = names[i] if i < len(names) else f"case {i + 1}"
+            cases.setdefault(_map_setting(cfg, key), []).append(label)
+        if len(cases) > 1:
+            found = "; ".join(
+                f"{value!r} in {', '.join(labels_)}" for value, labels_ in cases.items()
+            )
+            raise RunConfigError(
+                f"batch scenarios must share the same map, but map.{key} "
+                f"differs: {found}.  Set it on the command line rather than "
+                "in a scenario's config"
+            )
+
+
+def check_batch_configs(
+    configs: list[DictConfig], labels: list[str] | None = None
+) -> None:
+    """Refuse the configs of a batch's cases for the values a run reads of its
+    config before it starts, building nothing that starts (no queue, no CARLA,
+    no Autoware, no Rerun or T4 writer) and needing no map.
+
+    First that the cases share a map (:func:`check_batch_map`, which names
+    them by *labels*).
+
+    The ``rerun``, ``t4``, ``driver`` and ``t4scene`` settings, as the batch
+    reads them (:func:`_check_batch_writer_settings`); each case's timeout and
+    ``odd_case``; and the server, traffic and Autoware launcher settings its
+    queue is built from (:func:`_batch_queue`, :func:`run_scenario`), once for
+    each distinct set of them.  A SLURM batch is refused for these before
+    anything is submitted (each task would only refuse them on its node), and
+    a lanelet sweep before any case is forked (each case would refuse them in
+    turn).
+
+    Raises:
+        RunConfigError: naming the key of the first value refused.
+    """
+    check_batch_map(configs, labels)
+    queue_settings: set[str] = set()
+    try:
+        _check_batch_writer_settings(configs)
+        for cfg in configs:
+            run_timeout_seconds(cfg)
+            _odd_case(cfg)
+            # Once a distinct setting: a sweep's cases mostly share them.  The
+            # ego's entity too: build_autoware_launcher reads the launcher only
+            # for an ``ego.entity=autoware`` case.
+            settings: dict[str, Any] = {
+                name: _to_dict(cfg[name]) if cfg.get(name) is not None else None
+                for name in ("server", "traffic", "traffic_manager", "autoware")
+            }
+            settings["ego.entity"] = str(
+                (cfg.get("ego") or {}).get("entity", "autopilot")
+            )
+            key = json.dumps(
+                settings,
+                sort_keys=True,
+                default=str,
+            )
+            if key not in queue_settings:
+                queue_settings.add(key)
+                _check_batch_queue_settings(cfg)
+    except RunConfigError:
+        raise
+    except ValueError as exc:
+        raise RunConfigError(str(exc)) from exc
+
+
+def check_run_config(cfg: DictConfig) -> None:
+    """:func:`check_batch_configs` of one run's *cfg*.
+
+    Raises:
+        RunConfigError: naming the key of the first value refused.
+    """
+    check_batch_configs([cfg])
+
+
+def check_run_extras(cfg: DictConfig) -> None:
+    """Refuse *cfg* when it asks for Rerun recordings or T4 datasets without
+    the extra that writes them, as a run does before anything starts.  The
+    converter and the recorder are built to be checked and dropped: the
+    converter's thread is ended.
+
+    Raises:
+        RerunUnavailableError: ``rerun.enabled`` without the ``rerun`` extra.
+        T4UnavailableError: ``t4.enabled`` without the ``t4`` extra.
+    """
+    rerun = build_rerun_converter(cfg)
+    if rerun is not None:
+        rerun.close()
+    build_t4_recorder(cfg)
 
 
 def _batch_launcher(configs: list[DictConfig]) -> str:
@@ -1487,12 +1739,12 @@ def run_batch(
                 "s" if len(swept) == 1 else "ve",
             )
 
-    # Validate all configs share the same map (shared CARLA server constraint).
-    map_names = {str(cfg.map.name) for cfg in configs}
-    if len(map_names) > 1:
-        print(  # noqa: T201
-            f"Error: batch scenarios must share the same map, but found: {map_names}"
-        )
+    # Validate all configs share the same map (shared CARLA server constraint):
+    # the queue is built on the first case's (#1241).
+    try:
+        check_batch_map(configs, labels)
+    except RunConfigError as exc:
+        print(f"Error: {exc}")  # noqa: T201
         sys.exit(1)
 
     # One launcher for the whole batch: the queue prepares it (and puts its
@@ -1523,8 +1775,8 @@ def run_batch(
 
     # Before anything is built: a batch asking for Rerun recordings without
     # the extra installed is refused at once (RerunUnavailableError).  Under
-    # SLURM each task converts its own cases (slurm/worker.py), so this only
-    # checks.
+    # SLURM each task converts its own cases (slurm/worker.py), with what
+    # this decides for the batch (batch_settings_cases), so this only checks.
     rerun = build_rerun_converter(*configs)
     # Likewise a batch asking for T4 datasets without the `t4` extra, and
     # T4Scenes at a step that does not fit the tick.
@@ -1538,7 +1790,7 @@ def run_batch(
         canvas_config(*configs)
     else:
         apply_canvas(*configs)
-    apply_metrics(*configs)
+    heavy_metrics = apply_metrics(*configs)
 
     # Log detailed execution plan before building anything.
     _log_batch_plan(
@@ -1569,7 +1821,7 @@ def run_batch(
     if launcher == "slurm":
         # What the local queue refuses below, for every case: a task would
         # only refuse it on its node, once the batch was submitted.
-        _check_slurm_cases(configs)
+        check_batch_configs(configs, labels)
 
     # Batch mode bypasses @hydra.main, so we create the output directory
     # ourselves following Hydra's timestamped convention.
@@ -1596,6 +1848,9 @@ def run_batch(
                 output_dir=output_dir,
                 build_scenario_fn=build_scenario_fn,
                 wait=wait,
+                batch_settings=batch_settings_cases(
+                    configs, heavy_metrics=heavy_metrics
+                ),
             )
         )
 
@@ -1728,7 +1983,16 @@ def add_environment(cfg: DictConfig, scenario: BaseScenario) -> None:
     over the default rules, or ``{default, vehicles}`` for rules that differ
     by vehicle.  The default rules when ``null``; set for every run, so one
     run's do not reach the next.
+
+    Raises:
+        ValueError: An ``environment.<key>`` is not a number, or is one
+            :class:`~autoware_carla_scenario.EnvironmentAction` refuses (not
+            finite, or outside the range its argument takes); the message
+            names the key.
     """
+    from autoware_carla_scenario.actions.environment import (  # noqa: PLC0415
+        _refusal,
+    )
     from autoware_carla_scenario.weather_rules import (  # noqa: PLC0415
         use_weather_rules,
     )
@@ -1736,9 +2000,20 @@ def add_environment(cfg: DictConfig, scenario: BaseScenario) -> None:
     env_cfg = cfg.get("environment")
     raw = {} if env_cfg is None else _to_dict(env_cfg)
     use_weather_rules(_rules_locations(raw.pop("rules", None)))
-    settings: dict[str, Any] = {
-        str(key): float(value) for key, value in raw.items() if value is not None
-    }
+    settings: dict[str, Any] = {}
+    for key, value in raw.items():
+        if value is None:
+            continue
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"environment.{key} must be a number, got {value!r}"
+            ) from None
+        refusal = _refusal(str(key), number)
+        if refusal != "":
+            raise ValueError(f"environment.{key} {refusal}")
+        settings[str(key)] = number
     if not settings:
         return
     from autoware_carla_scenario import EnvironmentAction  # noqa: PLC0415
@@ -1789,7 +2064,9 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
 
     Raises:
         ValueError: If ``source.speed_kmh`` is not a number, not finite, or
-            below 1 km/h (:func:`~autoware_carla_scenario.traffic.base.check_background_speed`).
+            below 1 km/h (:func:`~autoware_carla_scenario.traffic.base.check_background_speed`),
+            or ``source.vehicles_per_minute`` or ``source.min_gap_m`` is not a
+            number, not finite, or negative.
     """
     background = cfg.get("background_traffic")
     if background is None or not background.get("enabled", False):
@@ -1819,6 +2096,26 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
             f"background speed ({exc})"
         ) from exc
 
+    def finite_amount(key: str, default: float) -> float:
+        # Refused here, naming the key: NaN would fail `rate > 0` below and be
+        # dropped without a word, infinity would crash the run (#1321).
+        value = source.get(key, default)
+        try:
+            amount = float(str(value))
+        except ValueError as exc:
+            raise ValueError(
+                f"background_traffic.source.{key}: {value!r} is not a number"
+            ) from exc
+        if not math.isfinite(amount) or amount < 0:
+            raise ValueError(
+                f"background_traffic.source.{key}: {value!r} must be finite "
+                "and not negative"
+            )
+        return amount
+
+    min_gap_m = finite_amount("min_gap_m", 15.0)
+    rate = finite_amount("vehicles_per_minute", 0.0)
+
     def source_action(
         *, initial: int, rate: float, seed: int, label: str
     ) -> TrafficSourceAction:
@@ -1828,7 +2125,7 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
             vehicles_per_minute=rate,
             max_vehicles=None if max_vehicles is None else int(max_vehicles),
             speed_kmh=speed_kmh,
-            min_gap_m=float(source.get("min_gap_m", 15.0)),
+            min_gap_m=min_gap_m,
             blueprint=source.get("blueprint"),
             seed=seed,
             label=label,
@@ -1840,7 +2137,6 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
         )
 
     initial = int(source.get("initial_vehicles", 0))
-    rate = float(source.get("vehicles_per_minute", 0.0))
     if constraints and initial > 0:
         scenario.register_init(
             source_action(
@@ -1892,7 +2188,10 @@ def run_scenario(
     """
     logger.info("Resolved config:\n%s", OmegaConf.to_yaml(cfg))
     warn_if_video_set(cfg)
-    # Before anything is built: refused at once without the extras.
+    # Before anything is built: a config value the run would refuse later
+    # (RunConfigError, which a case the lanelet sweeper forked exits 2 for).
+    check_run_config(cfg)
+    # Refused at once without the extras.
     rerun = build_rerun_converter(cfg)
     build_t4_recorder(cfg)
     build_t4scene_exporter(cfg)
@@ -1939,6 +2238,11 @@ def _run_scenario(
     # Retrieve the Hydra output directory (works regardless of
     # ``hydra.job.chdir`` which defaults to False since Hydra 1.2).
     output_dir = Path(HydraConfig.get().runtime.output_dir)
+    # The stem the run's files are named by, settled here and handed to the
+    # runner, so that the path printed below is the one it wrote: past the
+    # class name once an earlier run in this directory has taken it (a
+    # sweeper's retry in the same job directory, a reused run directory).
+    file_stem = _run_file_stem(output_dir, type(scenario).__name__)
 
     result = run_scenario_with_queue(
         scenario,
@@ -1970,14 +2274,22 @@ def _run_scenario(
         reload_every=reload_every,
         t4scene=build_t4scene_exporter(cfg),
         backends=build_backend_pool(cfg),
+        file_stem=file_stem,
     )
 
     status = "PASSED" if result.passed else "FAILED"
     print(f"{status}: {result.message} ({result.elapsed_seconds:.2f}s)")  # noqa: T201
-    scenario_name = type(scenario).__name__
-    json_path = (output_dir / f"{scenario_name}_result.json").resolve()
-    print(f"Result JSON: {json_path}")  # noqa: T201
+    print(_result_json_line(output_dir, file_stem))  # noqa: T201
     return result
+
+
+def _result_json_line(output_dir: Path, file_stem: str) -> str:
+    """The line naming the result a run named *file_stem* wrote in
+    *output_dir*, or saying it wrote none (writing it failed)."""
+    json_path = (output_dir / f"{file_stem}_result.json").resolve()
+    if json_path.is_file():
+        return f"Result JSON: {json_path}"
+    return f"Result JSON: not written ({json_path})"
 
 
 #: The cases of a ``--multirun`` run in this process (Hydra's basic sweeper)
@@ -2001,6 +2313,20 @@ def _hydra_main(cfg: DictConfig) -> None:
         # would be refused for the same reason.  Hydra lets SystemExit through
         # its basic sweeper, and the lanelet sweeper stops on a case's 2.
         print(exc, file=sys.stderr)  # noqa: T201
+        sys.exit(2)
+    except RunConfigError as exc:
+        # A case the lanelet sweeper forked is refused too: every retry of it
+        # and every case after it would be refused for the same value.  The
+        # sweeper checks its config before forking any (#1233); this catches
+        # a value only a case's own overrides set.  Elsewhere a config error
+        # exits 1, as it always has (docs/usage.md, "Exit Codes").
+        from ..sweeper.isolation import (  # noqa: PLC0415
+            SWEEPER_OWNS_RETRIES_ENV,
+        )
+
+        if not os.environ.get(SWEEPER_OWNS_RETRIES_ENV):
+            raise
+        print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
         sys.exit(2)
     # Only exit for single-run mode. In --multirun, Hydra calls this
     # function repeatedly; sys.exit() would kill the entire sweep.  Hydra

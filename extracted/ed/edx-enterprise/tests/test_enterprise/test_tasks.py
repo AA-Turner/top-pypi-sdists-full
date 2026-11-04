@@ -1,0 +1,1334 @@
+"""
+Tests for the `edx-enterprise` tasks module.
+"""
+
+import copy
+import unittest
+import uuid
+from datetime import datetime, timedelta
+from unittest import mock
+
+import ddt
+from freezegun import freeze_time
+from pytest import mark, raises
+
+from enterprise import constants
+from enterprise.api_client.braze import ENTERPRISE_BRAZE_ALIAS_LABEL
+from enterprise.constants import (
+    BRAZE_ADMIN_INVITE_CAMPAIGN_SETTING,
+    BRAZE_LEARNER_INVITE_CAMPAIGN_SETTING,
+    SSO_BRAZE_CAMPAIGN_ID,
+)
+from enterprise.models import (
+    EnterpriseCourseEnrollment,
+    EnterpriseCustomerAdmin,
+    EnterpriseEnrollmentSource,
+    EnterpriseGroupMembership,
+)
+from enterprise.settings.test import BRAZE_GROUPS_INVITATION_EMAIL_CAMPAIGN_ID, BRAZE_GROUPS_REMOVAL_EMAIL_CAMPAIGN_ID
+from enterprise.tasks import (
+    _get_admin_invite_reminder_config,
+    _get_braze_campaign_id,
+    _get_pending_admin_invite_reminder_campaign_setting,
+    _get_pending_admin_invite_reminder_count,
+    _has_pending_admin_user_activated,
+    _is_pending_admin_invite_due_for_reminder,
+    _is_pending_admin_user_existing_learner,
+    _resolve_anonymous_recipients,
+    _split_identified_and_anonymous_recipients,
+    create_enterprise_enrollment,
+    send_enterprise_admin_invite_email,
+    send_enterprise_admin_invite_reminders,
+    send_enterprise_email_notification,
+    send_group_membership_invitation_notification,
+    send_group_membership_removal_notification,
+    send_sso_configured_email,
+)
+from enterprise.utils import localized_utcnow, serialize_notification_content
+from test_utils.factories import (
+    EnterpriseCustomerFactory,
+    EnterpriseCustomerUserFactory,
+    EnterpriseGroupFactory,
+    EnterpriseGroupMembershipFactory,
+    PendingEnterpriseCustomerAdminUserFactory,
+    PendingEnterpriseCustomerUserFactory,
+    UserFactory,
+)
+
+try:
+    from braze.exceptions import BrazeClientError
+except ImportError:
+    BrazeClientError = Exception
+
+
+@ddt.ddt
+@mark.django_db
+class TestEnterpriseTasks(unittest.TestCase):
+    """
+    Tests tasks associated with Enterprise.
+    """
+    FAKE_COURSE_ID = 'course-v1:edx+Test+2T2019'
+
+    def setUp(self):
+        """
+        Setup for `TestEnterpriseTasks` test.
+        """
+        self.enterprise_customer = EnterpriseCustomerFactory(
+            name='Team Titans',
+        )
+        self.user = UserFactory(email='user@example.com')
+        self.pending_enterprise_customer_user = PendingEnterpriseCustomerUserFactory()
+        self.enterprise_group = EnterpriseGroupFactory(enterprise_customer=self.enterprise_customer)
+        self.enterprise_customer_user = EnterpriseCustomerUserFactory(
+            user_id=self.user.id,
+            enterprise_customer=self.enterprise_customer,
+        )
+        super().setUp()
+
+    @mock.patch('enterprise.tasks.settings')
+    def test_get_braze_campaign_id_success(self, mock_settings):
+        """Helper returns configured campaign id when required settings are present."""
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-01.braze.com'
+        mock_settings.BRAZE_ADMIN_INVITE_CAMPAIGN_ID = 'campaign-id'
+
+        assert _get_braze_campaign_id(BRAZE_ADMIN_INVITE_CAMPAIGN_SETTING) == 'campaign-id'
+
+    @mock.patch('enterprise.tasks.LOGGER')
+    @mock.patch('enterprise.tasks.settings')
+    def test_get_braze_campaign_id_missing_required_settings(self, mock_settings, mock_logger):
+        """Helper raises when api key or api server settings are missing."""
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = None
+        mock_settings.EDX_BRAZE_API_SERVER = None
+
+        with raises(ValueError):
+            _get_braze_campaign_id(BRAZE_ADMIN_INVITE_CAMPAIGN_SETTING)
+
+        mock_logger.error.assert_called_once()
+
+    @mock.patch('enterprise.tasks.LOGGER')
+    @mock.patch('enterprise.tasks.settings')
+    def test_get_braze_campaign_id_missing_campaign_setting(self, mock_settings, mock_logger):
+        """Helper raises when campaign setting is not configured."""
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-01.braze.com'
+        mock_settings.BRAZE_ADMIN_INVITE_CAMPAIGN_ID = None
+
+        with raises(ValueError):
+            _get_braze_campaign_id(BRAZE_ADMIN_INVITE_CAMPAIGN_SETTING)
+
+        mock_logger.error.assert_called_once()
+
+    def test_split_identified_and_anonymous_recipients_for_learner_campaign(self):
+        """Learner campaign includes first_name and separates anonymous emails."""
+        learner = UserFactory(
+            email='learner@example.com',
+            first_name='Learner',
+            username='learner_username',
+        )
+        no_first_name = UserFactory(
+            email='nofirst@example.com',
+            first_name='',
+            username='username_only',
+        )
+        unknown_email = 'anonymous@example.com'
+
+        identified, anonymous = _split_identified_and_anonymous_recipients(
+            [learner.email, no_first_name.email, unknown_email],
+            BRAZE_LEARNER_INVITE_CAMPAIGN_SETTING,
+        )
+
+        assert anonymous == [unknown_email]
+        assert len(identified) == 2
+
+        recipients_by_email = {recipient['attributes']['email']: recipient for recipient in identified}
+        assert recipients_by_email[learner.email]['attributes']['first_name'] == 'Learner'
+        assert recipients_by_email[no_first_name.email]['attributes']['first_name'] == 'username_only'
+
+    def test_split_identified_and_anonymous_recipients_for_admin_campaign(self):
+        """Admin campaign keeps identified recipients without learner first_name personalization."""
+        admin_user = UserFactory(
+            email='admin@example.com',
+            first_name='Admin',
+            username='admin_username',
+        )
+
+        identified, anonymous = _split_identified_and_anonymous_recipients(
+            [admin_user.email],
+            BRAZE_ADMIN_INVITE_CAMPAIGN_SETTING,
+        )
+
+        assert not anonymous
+        assert len(identified) == 1
+        assert identified[0]['attributes']['email'] == admin_user.email
+        assert identified[0]['attributes']['is_enterprise_learner'] is True
+        assert 'first_name' not in identified[0]['attributes']
+
+    def test_split_identified_and_anonymous_recipients_matches_email_case_insensitively(self):
+        """Stored mixed-case user emails are matched by normalized invite email casing."""
+        mixed_case_user = UserFactory(
+            email='Case.User@Example.COM',
+            first_name='Casey',
+            username='casey_user',
+        )
+
+        identified, anonymous = _split_identified_and_anonymous_recipients(
+            ['case.user@example.com'],
+            BRAZE_ADMIN_INVITE_CAMPAIGN_SETTING,
+        )
+
+        assert not anonymous
+        assert len(identified) == 1
+        assert identified[0]['external_user_id'] == mixed_case_user.id
+        assert identified[0]['attributes']['email'] == 'case.user@example.com'
+        assert identified[0]['attributes']['is_enterprise_learner'] is True
+
+    def test_resolve_anonymous_recipients_empty(self):
+        """No anonymous emails returns empty recipients and no fallback usage."""
+        recipients, used_fallback = _resolve_anonymous_recipients(mock.Mock(), [])
+
+        assert recipients == []
+        assert used_fallback is False
+
+    def test_resolve_anonymous_recipients_alias_success(self):
+        """Successful alias creation returns email list and no fallback usage."""
+        braze_client_instance = mock.Mock()
+        anonymous_emails = ['anonymous@example.com']
+
+        recipients, used_fallback = _resolve_anonymous_recipients(
+            braze_client_instance,
+            anonymous_emails,
+        )
+
+        braze_client_instance.create_braze_aliases_without_lookup.assert_called_once_with(
+            anonymous_emails,
+            ENTERPRISE_BRAZE_ALIAS_LABEL,
+        )
+        assert recipients == anonymous_emails
+        assert used_fallback is False
+
+    @mock.patch('enterprise.tasks.LOGGER')
+    def test_resolve_anonymous_recipients_alias_failure_uses_fallback_payload(self, mock_logger):
+        """Alias creation errors return direct-recipient payloads and fallback usage flag."""
+        braze_client_instance = mock.Mock()
+        braze_client_instance.create_braze_aliases_without_lookup.side_effect = BrazeClientError('alias failed')
+        anonymous_emails = ['anonymous@example.com']
+
+        recipients, used_fallback = _resolve_anonymous_recipients(
+            braze_client_instance,
+            anonymous_emails,
+        )
+
+        assert used_fallback is True
+        assert recipients == [{
+            'external_user_id': 'anonymous@example.com',
+            'send_to_existing_only': False,
+            'attributes': {
+                'email': 'anonymous@example.com',
+                'is_enterprise_learner': True,
+            },
+        }]
+        mock_logger.warning.assert_called_once()
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.braze_client_class')
+    @mock.patch('enterprise.tasks.get_enterprise_customer')
+    @mock.patch('enterprise.tasks.LOGGER')
+    def test_send_enterprise_admin_invite_email_success(
+        self, mock_logger, mock_get_customer, mock_braze_client, mock_settings
+    ):
+        """
+        Test send_enterprise_admin_invite_email sends campaign message successfully.
+        """
+        mock_customer = mock.Mock()
+        mock_customer.slug = 'slug'
+        mock_customer.name = 'name'
+        mock_customer.sender_alias = 'alias'
+        mock_customer.contact_email = 'contact@example.com'
+        mock_get_customer.return_value = mock_customer
+        mock_braze_instance = mock.Mock()
+        mock_braze_client.return_value = mock_braze_instance
+        mock_braze_instance.send_campaign_message.return_value = None
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-01.braze.com'
+        mock_settings.BRAZE_ADMIN_INVITE_CAMPAIGN_ID = '78a9d9be-daf8-4ace-ae6c-c0e79548f009'
+
+        send_enterprise_admin_invite_email(  # pylint: disable=no-value-for-parameter
+            str(self.enterprise_customer.uuid),
+            'admin@example.com',
+            BRAZE_ADMIN_INVITE_CAMPAIGN_SETTING
+        )
+        mock_logger.info.assert_called()
+        mock_braze_instance.send_campaign_message.assert_called_once_with(
+            '78a9d9be-daf8-4ace-ae6c-c0e79548f009',
+            recipients=['admin@example.com'],
+            trigger_properties={
+                'customer_slug': 'slug',
+                'enterprise_customer_name': 'name',
+                'enterprise_sender_alias': 'alias',
+            },
+        )
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.braze_client_class')
+    @mock.patch('enterprise.tasks.get_enterprise_customer')
+    @mock.patch('enterprise.tasks.LOGGER')
+    def test_send_enterprise_admin_invite_email_braze_error(
+        self, mock_logger, mock_get_customer, mock_braze_client, mock_settings
+    ):
+        """
+        Test send_enterprise_admin_invite_email logs and raises BrazeClientError.
+        """
+        mock_customer = mock.Mock()
+        mock_customer.slug = 'slug'
+        mock_customer.name = 'name'
+        mock_customer.sender_alias = 'alias'
+        mock_get_customer.return_value = mock_customer
+        mock_braze_instance = mock.Mock()
+        mock_braze_client.return_value = mock_braze_instance
+        mock_braze_instance.send_campaign_message.side_effect = BrazeClientError('fail')
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-01.braze.com'
+        mock_settings.BRAZE_ADMIN_INVITE_CAMPAIGN_ID = '78a9d9be-daf8-4ace-ae6c-c0e79548f009'
+
+        with self.assertRaises(BrazeClientError):
+            send_enterprise_admin_invite_email(  # pylint: disable=no-value-for-parameter
+                'uuid',
+                'admin@example.com',
+                BRAZE_ADMIN_INVITE_CAMPAIGN_SETTING,
+            )
+
+        mock_logger.exception.assert_called_once()
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.braze_client_class')
+    @mock.patch('enterprise.tasks.get_enterprise_customer')
+    @mock.patch('enterprise.tasks.LOGGER')
+    def test_send_enterprise_admin_invite_email_falls_back_when_alias_creation_fails_for_anonymous_only(
+        self, mock_logger, mock_get_customer, mock_braze_client, mock_settings
+    ):
+        """
+        Test anonymous-only invites fall back to direct recipients when alias creation fails.
+        """
+        mock_customer = mock.Mock()
+        mock_customer.slug = 'slug'
+        mock_customer.name = 'name'
+        mock_customer.sender_alias = 'alias'
+        mock_get_customer.return_value = mock_customer
+
+        mock_braze_instance = mock.Mock()
+        mock_braze_client.return_value = mock_braze_instance
+        mock_braze_instance.create_braze_aliases_without_lookup.side_effect = BrazeClientError('fail')
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-01.braze.com'
+        mock_settings.BRAZE_ADMIN_INVITE_CAMPAIGN_ID = '78a9d9be-daf8-4ace-ae6c-c0e79548f009'
+
+        send_enterprise_admin_invite_email(  # pylint: disable=no-value-for-parameter
+            str(self.enterprise_customer.uuid),
+            'new-admin@example.com',
+            BRAZE_ADMIN_INVITE_CAMPAIGN_SETTING,
+        )
+
+        mock_braze_instance.send_campaign_message.assert_called_once_with(
+            '78a9d9be-daf8-4ace-ae6c-c0e79548f009',
+            recipients=[{
+                'external_user_id': 'new-admin@example.com',
+                'send_to_existing_only': False,
+                'attributes': {
+                    'email': 'new-admin@example.com',
+                    'is_enterprise_learner': True,
+                },
+            }],
+            trigger_properties={
+                'customer_slug': 'slug',
+                'enterprise_customer_name': 'name',
+                'enterprise_sender_alias': 'alias',
+            },
+        )
+        mock_logger.warning.assert_called()
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.get_enterprise_customer')
+    @mock.patch('enterprise.tasks.LOGGER')
+    def test_send_enterprise_admin_invite_email_missing_api_key(self, mock_logger, mock_get_customer, mock_settings):
+        """
+        Test send_enterprise_admin_invite_email raises ValueError when ENTERPRISE_BRAZE_API_KEY is missing.
+        """
+        mock_customer = mock.Mock()
+        mock_customer.slug = 'slug'
+        mock_customer.name = 'name'
+        mock_customer.sender_alias = 'alias'
+        mock_get_customer.return_value = mock_customer
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = None
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-01.braze.com'
+
+        with self.assertRaises(ValueError) as context:
+            send_enterprise_admin_invite_email(  # pylint: disable=no-value-for-parameter
+                'uuid',
+                'admin@example.com',
+                BRAZE_ADMIN_INVITE_CAMPAIGN_SETTING
+            )
+
+        self.assertIn('Missing required Braze settings', str(context.exception))
+        mock_logger.error.assert_called_once()
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.get_enterprise_customer')
+    @mock.patch('enterprise.tasks.LOGGER')
+    def test_send_enterprise_admin_invite_email_missing_api_url(self, mock_logger, mock_get_customer, mock_settings):
+        """
+        Test send_enterprise_admin_invite_email raises ValueError when EDX_BRAZE_API_SERVER is missing.
+        """
+        mock_customer = mock.Mock()
+        mock_customer.slug = 'slug'
+        mock_customer.name = 'name'
+        mock_customer.sender_alias = 'alias'
+        mock_get_customer.return_value = mock_customer
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = None
+
+        with self.assertRaises(ValueError) as context:
+            send_enterprise_admin_invite_email(  # pylint: disable=no-value-for-parameter
+                'uuid',
+                'admin@example.com',
+                BRAZE_ADMIN_INVITE_CAMPAIGN_SETTING
+            )
+
+        self.assertIn('Missing required Braze settings', str(context.exception))
+        mock_logger.error.assert_called_once()
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.get_enterprise_customer')
+    @mock.patch('enterprise.tasks.LOGGER')
+    def test_send_enterprise_admin_invite_email_missing_campaign_id(
+        self, mock_logger, mock_get_customer, mock_settings
+    ):
+        """
+        Test send_enterprise_admin_invite_email raises ValueError when campaign ID is missing.
+        """
+        mock_customer = mock.Mock()
+        mock_customer.slug = 'slug'
+        mock_customer.name = 'name'
+        mock_customer.sender_alias = 'alias'
+        mock_get_customer.return_value = mock_customer
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-01.braze.com'
+        mock_settings.BRAZE_ADMIN_INVITE_CAMPAIGN_ID = None
+
+        with self.assertRaises(ValueError) as context:
+            send_enterprise_admin_invite_email(  # pylint: disable=no-value-for-parameter
+                'uuid',
+                'admin@example.com',
+                BRAZE_ADMIN_INVITE_CAMPAIGN_SETTING
+            )
+
+        self.assertIn('Missing BRAZE_ADMIN_INVITE_CAMPAIGN_ID', str(context.exception))
+        mock_logger.error.assert_called_once()
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.braze_client_class')
+    @mock.patch('enterprise.tasks.get_enterprise_customer')
+    @mock.patch('enterprise.tasks.LOGGER')
+    def test_send_enterprise_admin_invite_email_uses_learner_campaign(
+        self, _mock_logger, mock_get_customer, mock_braze_client, mock_settings
+    ):
+        """
+        Test send_enterprise_admin_invite_email uses learner campaign when specified.
+        """
+        mock_customer = mock.Mock()
+        mock_customer.slug = 'slug'
+        mock_customer.name = 'name'
+        mock_customer.sender_alias = 'alias'
+        mock_customer.contact_email = 'contact@example.com'
+        mock_get_customer.return_value = mock_customer
+        mock_braze_instance = mock.Mock()
+        mock_braze_client.return_value = mock_braze_instance
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-01.braze.com'
+        mock_settings.BRAZE_LEARNER_INVITE_CAMPAIGN_ID = 'learner-campaign-id'
+
+        send_enterprise_admin_invite_email(  # pylint: disable=no-value-for-parameter
+            str(self.enterprise_customer.uuid),
+            'learner@example.com',
+            BRAZE_LEARNER_INVITE_CAMPAIGN_SETTING
+        )
+
+        mock_braze_instance.send_campaign_message.assert_called_once_with(
+            'learner-campaign-id',
+            recipients=['learner@example.com'],
+            trigger_properties={
+                'customer_slug': 'slug',
+                'enterprise_customer_name': 'name',
+                'enterprise_sender_alias': 'alias',
+            },
+        )
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.braze_client_class')
+    @mock.patch('enterprise.tasks.get_enterprise_customer')
+    def test_send_enterprise_admin_invite_email_learner_campaign_includes_first_name_attribute(
+        self, mock_get_customer, mock_braze_client, mock_settings
+    ):
+        """
+        Test learner campaign recipients include first_name in Braze attributes.
+        """
+        mock_customer = mock.Mock()
+        mock_customer.slug = 'slug'
+        mock_customer.name = 'name'
+        mock_customer.sender_alias = 'alias'
+        mock_get_customer.return_value = mock_customer
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-01.braze.com'
+        mock_settings.BRAZE_LEARNER_INVITE_CAMPAIGN_ID = 'learner-campaign-id'
+
+        learner = UserFactory(email='learner@example.com', first_name='Learner')
+
+        send_enterprise_admin_invite_email(  # pylint: disable=no-value-for-parameter
+            str(self.enterprise_customer.uuid),
+            learner.email,
+            BRAZE_LEARNER_INVITE_CAMPAIGN_SETTING
+        )
+
+        mock_braze_client.return_value.send_campaign_message.assert_called_once_with(
+            'learner-campaign-id',
+            recipients=[{
+                'external_user_id': learner.id,
+                'send_to_existing_only': False,
+                'attributes': {
+                    'email': learner.email,
+                    'is_enterprise_learner': True,
+                    'first_name': 'Learner',
+                },
+            }],
+            trigger_properties={
+                'customer_slug': 'slug',
+                'enterprise_customer_name': 'name',
+                'enterprise_sender_alias': 'alias',
+            },
+        )
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.braze_client_class')
+    @mock.patch('enterprise.tasks.get_enterprise_customer')
+    def test_send_enterprise_admin_invite_email_learner_campaign_falls_back_to_username(
+        self, mock_get_customer, mock_braze_client, mock_settings
+    ):
+        """
+        Test learner campaign recipients use username when first_name is blank.
+        """
+        mock_customer = mock.Mock()
+        mock_customer.slug = 'slug'
+        mock_customer.name = 'name'
+        mock_customer.sender_alias = 'alias'
+        mock_get_customer.return_value = mock_customer
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-01.braze.com'
+        mock_settings.BRAZE_LEARNER_INVITE_CAMPAIGN_ID = 'learner-campaign-id'
+
+        learner = UserFactory(
+            email='learner.no.name@example.com',
+            first_name='',
+            username='learner_no_name',
+        )
+
+        send_enterprise_admin_invite_email(  # pylint: disable=no-value-for-parameter
+            str(self.enterprise_customer.uuid),
+            learner.email,
+            BRAZE_LEARNER_INVITE_CAMPAIGN_SETTING
+        )
+
+        mock_braze_client.return_value.send_campaign_message.assert_called_once_with(
+            'learner-campaign-id',
+            recipients=[{
+                'external_user_id': learner.id,
+                'send_to_existing_only': False,
+                'attributes': {
+                    'email': learner.email,
+                    'is_enterprise_learner': True,
+                    'first_name': 'learner_no_name',
+                },
+            }],
+            trigger_properties={
+                'customer_slug': 'slug',
+                'enterprise_customer_name': 'name',
+                'enterprise_sender_alias': 'alias',
+            },
+        )
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.braze_client_class')
+    @mock.patch('enterprise.tasks.get_enterprise_customer')
+    @mock.patch('enterprise.tasks.LOGGER')
+    def test_send_enterprise_admin_invite_email_raises_error_when_learner_campaign_missing(
+        self, mock_logger, mock_get_customer, _mock_braze_client, mock_settings
+    ):
+        """
+        Test send_enterprise_admin_invite_email raises ValueError when learner campaign is not configured.
+        """
+        mock_customer = mock.Mock()
+        mock_customer.slug = 'slug'
+        mock_customer.name = 'name'
+        mock_customer.sender_alias = 'alias'
+        mock_customer.contact_email = 'contact@example.com'
+        mock_get_customer.return_value = mock_customer
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-01.braze.com'
+        mock_settings.BRAZE_LEARNER_INVITE_CAMPAIGN_ID = None
+
+        with self.assertRaises(ValueError) as context:
+            send_enterprise_admin_invite_email(  # pylint: disable=no-value-for-parameter
+                str(self.enterprise_customer.uuid),
+                'learner@example.com',
+                BRAZE_LEARNER_INVITE_CAMPAIGN_SETTING
+            )
+
+        self.assertIn('Missing BRAZE_LEARNER_INVITE_CAMPAIGN_ID', str(context.exception))
+        mock_logger.error.assert_called()
+
+    @mock.patch('enterprise.models.EnterpriseCustomer.catalog_contains_course')
+    def test_create_enrollment_task_course_in_catalog(self, mock_contains_course):
+        """
+        Task should create an enterprise enrollment if the course_id handed to
+        the function is part of the EnterpriseCustomer's catalogs
+        """
+        mock_contains_course.return_value = True
+        assert EnterpriseCourseEnrollment.objects.count() == 0
+        create_enterprise_enrollment(
+            self.FAKE_COURSE_ID,
+            self.enterprise_customer_user.id
+        )
+        assert EnterpriseCourseEnrollment.objects.count() == 1
+
+    @mock.patch('enterprise.models.EnterpriseCustomer.catalog_contains_course')
+    def test_create_enrollment_task_source_set(self, mock_contains_course):
+        """
+        Task should create an enterprise enrollment if the course_id handed to
+        the function is part of the EnterpriseCustomer's catalogs
+        """
+        mock_contains_course.return_value = True
+        assert EnterpriseCourseEnrollment.objects.count() == 0
+        create_enterprise_enrollment(
+            self.FAKE_COURSE_ID,
+            self.enterprise_customer_user.id
+        )
+        assert EnterpriseCourseEnrollment.objects.count() == 1
+        assert EnterpriseCourseEnrollment.objects.get(
+            course_id=self.FAKE_COURSE_ID,
+        ).source.slug == EnterpriseEnrollmentSource.ENROLLMENT_TASK
+
+    @mock.patch('enterprise.models.EnterpriseCustomer.catalog_contains_course')
+    def test_create_enrollment_task_course_not_in_catalog(self, mock_contains_course):
+        """
+        Task should NOT create an enterprise enrollment if the course_id handed
+        to the function is NOT part of the EnterpriseCustomer's catalogs
+        """
+        mock_contains_course.return_value = False
+
+        assert EnterpriseCourseEnrollment.objects.count() == 0
+        create_enterprise_enrollment(
+            self.FAKE_COURSE_ID,
+            self.enterprise_customer_user.id
+        )
+        assert EnterpriseCourseEnrollment.objects.count() == 0
+
+    @mock.patch('enterprise.models.EnterpriseCatalogApiClient')
+    def test_create_enrollment_task_no_create_duplicates(self, catalog_api_client_mock):
+        """
+        Task should return without creating a new EnterpriseCourseEnrollment
+        if one with the course_id and enterprise_customer_user specified
+        already exists.
+        """
+        EnterpriseCourseEnrollment.objects.create(
+            course_id=self.FAKE_COURSE_ID,
+            enterprise_customer_user=self.enterprise_customer_user,
+        )
+        catalog_api_client_mock.return_value.contains_content_items.return_value = False
+
+        assert EnterpriseCourseEnrollment.objects.count() == 1
+        create_enterprise_enrollment(
+            self.FAKE_COURSE_ID,
+            self.enterprise_customer_user.id
+        )
+        assert EnterpriseCourseEnrollment.objects.count() == 1
+
+    @mock.patch('enterprise.tasks.mail.get_connection')
+    @mock.patch('enterprise.tasks.send_email_notification_message')
+    def test_enterprise_email_notification_failsafe(self, mock_send_notification, mock_email_conn):
+        """
+        Verify one failure does not interrupt emails for all learners
+        """
+        enterprise_customer = EnterpriseCustomerFactory()
+
+        mock_send_notification.side_effect = Exception("Any thing that happens during email")
+
+        mail_conn = mock.MagicMock()
+        mock_email_conn.return_value.__enter__.return_value = mail_conn
+
+        item1 = {
+            "user": {'username': 'test'},
+            "enrolled_in": {
+                "name": "test_course",
+                "url": "https://test/url",
+                "type": "course",
+                "start": "2021-01-01T00:10:10",
+            },
+            "dashboard_url": "https://test/url",
+            "enterprise_customer_uuid": enterprise_customer.uuid,
+            "admin_enrollment": True,
+        }
+        item2 = copy.copy(item1)
+        item2["user"]["user_email"] = "abc@test.com"
+
+        email_items = [item1, item2]
+
+        # check exception is logged at ERROR level twice, in this case
+        # but causes no failures otherwise
+        with self.assertLogs('enterprise.tasks', level='ERROR') as log_cm:
+            send_enterprise_email_notification(
+                enterprise_customer.uuid,
+                True,
+                email_items,
+            )
+            self.assertEqual(2, len(log_cm.records))
+        mock_email_conn.assert_called_once()
+
+    @mock.patch('enterprise.tasks.mail.get_connection')
+    @mock.patch('enterprise.tasks.send_email_notification_message')
+    def test_send_enterprise_email_notification(self, mock_send_notification, mock_email_conn):
+        enterprise_customer = EnterpriseCustomerFactory()
+        pending_user = PendingEnterpriseCustomerUserFactory()
+        users = [UserFactory(username=f'user{user_id}') for user_id in range(1, 10)]
+        course_details = {'title': 'course_title', 'start': '2021-09-21T00:01:10'}
+        admin_enrollment = True
+
+        mail_conn = mock.MagicMock()
+        mock_email_conn.return_value.__enter__.return_value = mail_conn
+
+        email_items = serialize_notification_content(
+            enterprise_customer,
+            course_details,
+            self.FAKE_COURSE_ID,
+            users + [pending_user],
+            admin_enrollment,
+        )
+        send_enterprise_email_notification(
+            enterprise_customer.uuid,
+            admin_enrollment,
+            email_items,
+        )
+        calls = [mock.call(
+            item['user'],
+            item['enrolled_in'],
+            item['dashboard_url'],
+            enterprise_customer.uuid,
+            email_connection=mail_conn,
+            admin_enrollment=admin_enrollment,
+        ) for item in email_items]
+        mock_send_notification.assert_has_calls(calls)
+
+    @mock.patch('enterprise.tasks.EnterpriseCatalogApiClient', return_value=mock.MagicMock())
+    @mock.patch('enterprise.tasks.BrazeAPIClient', return_value=mock.MagicMock())
+    def test_send_group_membership_invitation_notification(self, mock_braze_api_client, mock_enterprise_catalog_client):
+        """
+        Verify send_group_membership_invitation_notification hits braze client with expected args
+        """
+        EnterpriseGroupMembershipFactory(
+            group=self.enterprise_group,
+            pending_enterprise_customer_user=self.pending_enterprise_customer_user,
+            enterprise_customer_user=None,
+        )
+        EnterpriseGroupMembershipFactory(
+            group=self.enterprise_group,
+            pending_enterprise_customer_user=None,
+            enterprise_customer_user__enterprise_customer=self.enterprise_customer,
+            activated_at=datetime.now()
+        )
+        admin_email = 'edx@example.org'
+        mock_braze_api_client().create_recipients.return_value = {
+            self.user.email: {
+                "external_user_id": self.user.id,
+                "attributes": {
+                    "user_alias": {
+                        "external_id": self.user.id,
+                        "user_alias": self.user.email,
+                    },
+                }
+            }
+        }
+        mock_recipients = [
+            self.pending_enterprise_customer_user.user_email,
+            {
+                "external_user_id": self.user.id,
+                "attributes": {
+                    "user_alias": {
+                        "external_id": self.user.id,
+                        "user_alias": self.user.email,
+                    },
+                }
+            }
+        ]
+        mock_catalog_content_count = 5
+        mock_admin_mailto = f'mailto:{admin_email}'
+        mock_braze_api_client().generate_mailto_link.return_value = mock_admin_mailto
+        mock_braze_api_client().create_recipient_no_external_id.return_value = (
+            self.pending_enterprise_customer_user.user_email)
+        mock_enterprise_catalog_client().get_catalog_content_count.return_value = (
+            mock_catalog_content_count)
+        act_by_date = datetime.today()
+        catalog_uuid = uuid.uuid4()
+        membership_uuids = EnterpriseGroupMembership.objects.values_list('uuid', flat=True)
+        send_group_membership_invitation_notification(
+            self.enterprise_customer.uuid,
+            membership_uuids,
+            act_by_date,
+            catalog_uuid,
+        )
+        calls = [mock.call(
+            BRAZE_GROUPS_INVITATION_EMAIL_CAMPAIGN_ID,
+            recipients=mock_recipients,
+            trigger_properties={
+                'contact_admin_link': mock_admin_mailto,
+                'enterprise_customer_name': self.enterprise_customer.name,
+                'catalog_content_count': mock_catalog_content_count,
+                'act_by_date': act_by_date.strftime('%B %d, %Y'),
+            },
+        )]
+        mock_braze_api_client().send_campaign_message.assert_has_calls(calls)
+        mock_braze_api_client().create_braze_alias.assert_called_once_with(
+            [self.pending_enterprise_customer_user.user_email], ENTERPRISE_BRAZE_ALIAS_LABEL)
+
+    @mock.patch('enterprise.tasks.EnterpriseCatalogApiClient', return_value=mock.MagicMock())
+    @mock.patch('enterprise.tasks.BrazeAPIClient', return_value=mock.MagicMock())
+    def test_fail_send_group_membership_invitation_notification(
+        self,
+        mock_braze_api_client,
+        mock_enterprise_catalog_client,
+    ):
+        """
+        Verify failed send group invitation email
+        """
+        pending_membership = EnterpriseGroupMembershipFactory(
+            group=self.enterprise_group,
+            pending_enterprise_customer_user=self.pending_enterprise_customer_user,
+            enterprise_customer_user=None,
+        )
+        admin_email = 'edx@example.org'
+        mock_braze_api_client().create_recipients.return_value = {
+            self.user.email: {
+                "external_user_id": self.user.id,
+                "attributes": {
+                    "user_alias": {
+                        "external_id": self.user.id,
+                        "user_alias": self.user.email,
+                    },
+                }
+            }
+        }
+
+        mock_catalog_content_count = 5
+        mock_admin_mailto = f'mailto:{admin_email}'
+        mock_braze_api_client().generate_mailto_link.return_value = mock_admin_mailto
+        mock_braze_api_client().create_recipient_no_external_id.return_value = (
+            self.pending_enterprise_customer_user.user_email)
+        mock_enterprise_catalog_client().get_catalog_content_count.return_value = (
+            mock_catalog_content_count)
+        act_by_date = datetime.today()
+        catalog_uuid = uuid.uuid4()
+        membership_uuids = EnterpriseGroupMembership.objects.values_list('uuid', flat=True)
+        mock_braze_api_client().send_campaign_message.side_effect = BrazeClientError(
+            "Any thing that happens during email")
+        errored_at = localized_utcnow()
+        with raises(BrazeClientError):
+            send_group_membership_invitation_notification(
+                self.enterprise_customer.uuid,
+                membership_uuids,
+                act_by_date,
+                catalog_uuid)
+            pending_membership.refresh_from_db()
+            assert pending_membership.status == 'email_error'
+            assert pending_membership.errored_at == errored_at
+            assert pending_membership.recent_action == f"Errored: {errored_at.strftime('%B %d, %Y')}"
+
+    @mock.patch('enterprise.tasks.EnterpriseCatalogApiClient', return_value=mock.MagicMock())
+    @mock.patch('enterprise.tasks.BrazeAPIClient', return_value=mock.MagicMock())
+    def test_send_group_membership_removal_notification(self, mock_braze_api_client, mock_enterprise_catalog_client):
+        """
+        Verify send_group_membership_removal_notification hits braze client with expected args
+        """
+        pecu_membership = EnterpriseGroupMembershipFactory(
+            group=self.enterprise_group,
+            pending_enterprise_customer_user=self.pending_enterprise_customer_user,
+            enterprise_customer_user=None,
+        )
+        ecu_membership = EnterpriseGroupMembershipFactory(
+            group=self.enterprise_group,
+            pending_enterprise_customer_user=None,
+            enterprise_customer_user__enterprise_customer=self.enterprise_customer,
+            activated_at=datetime.now()
+        )
+        pecu_membership.delete()
+        ecu_membership.delete()
+        admin_email = 'edx@example.org'
+        mock_braze_api_client().create_recipients.return_value = {
+            self.user.email: {
+                "external_user_id": self.user.id,
+                "attributes": {
+                    "user_alias": {
+                        "external_id": self.user.id,
+                        "user_alias": self.user.email,
+                    },
+                }
+            }
+        }
+        mock_recipients = [
+            self.pending_enterprise_customer_user.user_email,
+            {
+                "external_user_id": self.user.id,
+                "attributes": {
+                    "user_alias": {
+                        "external_id": self.user.id,
+                        "user_alias": self.user.email,
+                    },
+                }
+            }
+        ]
+        mock_admin_mailto = f'mailto:{admin_email}'
+        mock_braze_api_client().generate_mailto_link.return_value = mock_admin_mailto
+        mock_braze_api_client().create_recipient_no_external_id.return_value = (
+            self.pending_enterprise_customer_user.user_email)
+        mock_catalog_content_count = 5
+        mock_enterprise_catalog_client().get_catalog_content_count.return_value = (
+            mock_catalog_content_count)
+        membership_uuids = EnterpriseGroupMembership.all_objects.values_list('uuid', flat=True)
+        catalog_uuid = uuid.uuid4()
+        send_group_membership_removal_notification(
+            self.enterprise_customer.uuid,
+            membership_uuids,
+            catalog_uuid,
+        )
+        calls = [mock.call(
+            BRAZE_GROUPS_REMOVAL_EMAIL_CAMPAIGN_ID,
+            recipients=mock_recipients,
+            trigger_properties={
+                'contact_admin_link': mock_admin_mailto,
+                'enterprise_customer_name': self.enterprise_customer.name,
+                'catalog_content_count': mock_catalog_content_count,
+            },
+        )]
+
+        mock_braze_api_client().create_braze_alias.assert_called_once_with(
+            [self.pending_enterprise_customer_user.user_email], ENTERPRISE_BRAZE_ALIAS_LABEL)
+        mock_braze_api_client().send_campaign_message.assert_has_calls(calls)
+
+    @mock.patch('enterprise.tasks.EnterpriseCatalogApiClient', return_value=mock.MagicMock())
+    @mock.patch('enterprise.tasks.BrazeAPIClient', return_value=mock.MagicMock())
+    def test_fail_send_group_membership_removal_notification(
+        self,
+        mock_braze_api_client,
+        mock_enterprise_catalog_client,
+    ):
+        """
+        Verify failed send group removal email
+        """
+        pending_membership = EnterpriseGroupMembershipFactory(
+            group=self.enterprise_group,
+            pending_enterprise_customer_user=self.pending_enterprise_customer_user,
+            enterprise_customer_user=None,
+        )
+        admin_email = 'edx@example.org'
+        mock_braze_api_client().create_recipients.return_value = {
+            self.user.email: {
+                "external_user_id": self.user.id,
+                "attributes": {
+                    "user_alias": {
+                        "external_id": self.user.id,
+                        "user_alias": self.user.email,
+                    },
+                }
+            }
+        }
+
+        mock_catalog_content_count = 5
+        mock_admin_mailto = f'mailto:{admin_email}'
+        mock_braze_api_client().generate_mailto_link.return_value = mock_admin_mailto
+        mock_braze_api_client().create_recipient_no_external_id.return_value = (
+            self.pending_enterprise_customer_user.user_email)
+        mock_enterprise_catalog_client().get_catalog_content_count.return_value = (
+            mock_catalog_content_count)
+        catalog_uuid = uuid.uuid4()
+        membership_uuids = EnterpriseGroupMembership.objects.values_list('uuid', flat=True)
+        mock_braze_api_client().send_campaign_message.side_effect = BrazeClientError(
+            "Any thing that happens during email")
+        errored_at = localized_utcnow()
+        with raises(BrazeClientError):
+            send_group_membership_removal_notification(
+                self.enterprise_customer.uuid,
+                membership_uuids,
+                catalog_uuid)
+            pending_membership.refresh_from_db()
+            assert pending_membership.status == 'email_error'
+            assert pending_membership.errored_at == localized_utcnow()
+            assert pending_membership.recent_action == f"Errored: {errored_at.strftime('%B %d, %Y')}"
+
+    @mock.patch('enterprise.tasks.BrazeAPIClient', return_value=mock.MagicMock())
+    def test_sso_configuration_oauth_orchestration_email(self, mock_braze_client):
+        """
+        Assert sso configuration calls Braze API with the correct arguments.
+        """
+        mock_braze_client().create_recipient_no_external_id.return_value = (
+            self.enterprise_customer.contact_email)
+        expected_trigger_properties = {
+            'enterprise_customer_slug': self.enterprise_customer.slug,
+            'enterprise_customer_name': self.enterprise_customer.name,
+            'enterprise_sender_alias': self.enterprise_customer.sender_alias,
+            'enterprise_contact_email': self.enterprise_customer.contact_email,
+        }
+        send_sso_configured_email(self.enterprise_customer.uuid)
+        call = [mock.call(
+            SSO_BRAZE_CAMPAIGN_ID,
+            recipients=[self.enterprise_customer.contact_email],
+            trigger_properties=expected_trigger_properties
+        )]
+        mock_braze_client().send_campaign_message.assert_has_calls(call)
+
+    @mock.patch('enterprise.tasks.LOGGER')
+    @mock.patch('enterprise.tasks.BrazeAPIClient', return_value=mock.MagicMock())
+    def test_sso_configuration_oauth_orchestration_email_handles_attribute_error(
+        self,
+        mock_braze_client,
+        mock_logger,
+    ):
+        """Assert legacy Braze missing-client failure mode is logged and re-raised."""
+        mock_braze_client().create_recipient_no_external_id.return_value = (
+            self.enterprise_customer.contact_email
+        )
+        mock_braze_client().send_campaign_message.side_effect = AttributeError('missing legacy client method')
+
+        with raises(AttributeError):
+            send_sso_configured_email(self.enterprise_customer.uuid)
+
+        assert mock_logger.exception.called
+    # Tests for admin invite reminder functionality
+
+    def test_get_admin_invite_reminder_config(self):
+        """Test that the reminder config returns expected values."""
+        initial_delay, reminder_cadence, max_reminders, batch_size = _get_admin_invite_reminder_config()
+
+        assert initial_delay == timedelta(days=7)
+        assert reminder_cadence == timedelta(days=3)
+        assert max_reminders == 1
+        assert batch_size == 500
+
+    def test_get_pending_admin_invite_reminder_count_zero(self):
+        """Test reminder count is 0 when no reminders have been sent."""
+        pending_admin = PendingEnterpriseCustomerAdminUserFactory()
+        pending_admin.history.all().delete()
+
+        count = _get_pending_admin_invite_reminder_count(pending_admin)
+        assert count == 0
+
+    def test_get_pending_admin_invite_reminder_count_with_reminders(self):
+        """Test reminder count based on distinct reminder_sent_at values in history."""
+        pending_admin = PendingEnterpriseCustomerAdminUserFactory()
+        pending_admin.history.all().delete()
+
+        # Simulate reminders by setting reminder_sent_at and saving
+        pending_admin.reminder_sent_at = localized_utcnow()
+        pending_admin.save(update_fields=['reminder_sent_at', 'modified'])
+        assert _get_pending_admin_invite_reminder_count(pending_admin) == 1
+
+        pending_admin.reminder_sent_at = localized_utcnow()
+        pending_admin.save(update_fields=['reminder_sent_at', 'modified'])
+        assert _get_pending_admin_invite_reminder_count(pending_admin) == 2
+
+    @ddt.data(
+        # (has_ecu, ecu_active, expected_result)
+        (False, None, False),   # no ECU exists
+        (True, True, True),     # active linked learner
+        (True, False, False),   # inactive learner
+    )
+    @ddt.unpack
+    def test_is_pending_admin_user_existing_learner(self, has_ecu, ecu_active, expected_result):
+        """Test existing learner check for various ECU states."""
+        enterprise_customer = EnterpriseCustomerFactory()
+        email = f'learner-{has_ecu}-{ecu_active}@example.com'
+
+        if has_ecu:
+            user = UserFactory(email=email)
+            EnterpriseCustomerUserFactory(
+                enterprise_customer=enterprise_customer,
+                user_id=user.id,
+                active=ecu_active,
+            )
+
+        pending_admin = PendingEnterpriseCustomerAdminUserFactory(
+            enterprise_customer=enterprise_customer,
+            user_email=email,
+        )
+
+        result = _is_pending_admin_user_existing_learner(pending_admin)
+        assert result is expected_result
+
+    @ddt.data(
+        (False, False),
+        (True, True),
+    )
+    @ddt.unpack
+    def test_has_pending_admin_user_activated(self, has_active_admin, expected_result):
+        """Test admin activation check for various states."""
+        enterprise_customer = EnterpriseCustomerFactory()
+        email = f'admin-{has_active_admin}@example.com'
+
+        if has_active_admin:
+            user = UserFactory(email=email)
+            enterprise_customer_user = EnterpriseCustomerUserFactory(
+                enterprise_customer=enterprise_customer,
+                user_id=user.id,
+                active=True,
+            )
+            EnterpriseCustomerAdmin.objects.create(
+                enterprise_customer_user=enterprise_customer_user,
+            )
+
+        pending_admin = PendingEnterpriseCustomerAdminUserFactory(
+            enterprise_customer=enterprise_customer,
+            user_email=email,
+        )
+
+        result = _has_pending_admin_user_activated(pending_admin)
+        assert result is expected_result
+
+    @ddt.data(
+        (True, constants.BRAZE_LEARNER_ADMIN_INVITE_REMINDER_CAMPAIGN_SETTING),
+        (False, constants.BRAZE_ADMIN_INVITE_REMINDER_CAMPAIGN_SETTING),
+    )
+    @ddt.unpack
+    @mock.patch('enterprise.tasks.settings')
+    def test_get_pending_admin_invite_reminder_campaign_setting(self, is_existing_learner, expected_setting,
+                                                                mock_settings):
+        """Test returns correct campaign setting based on learner status."""
+        mock_settings.BRAZE_LEARNER_ADMIN_INVITE_REMINDER_CAMPAIGN_ID = 'learner-campaign-id'
+
+        result = _get_pending_admin_invite_reminder_campaign_setting(is_existing_learner=is_existing_learner)
+        assert result == expected_setting
+
+    @freeze_time('2026-03-20 12:00:00')
+    def test_is_pending_admin_invite_due_for_reminder_not_due_too_recent(self):
+        """Test returns False when invite is too recent (within initial delay window)."""
+
+        pending_admin = PendingEnterpriseCustomerAdminUserFactory()
+        pending_admin.history.all().delete()
+        now = localized_utcnow()
+
+        due, count = _is_pending_admin_invite_due_for_reminder(
+            pending_admin,
+            now,
+            timedelta(days=7),
+            timedelta(days=3),
+            1
+        )
+
+        assert due is False
+        assert count == 0
+
+    @freeze_time('2026-03-27 12:00:00')
+    def test_is_pending_admin_invite_due_for_reminder_due_after_delay(self):
+        """Test returns True when invite is past initial delay window and no reminders sent."""
+
+        # Create invite 8 days ago
+        with freeze_time('2026-03-19 12:00:00'):
+            pending_admin = PendingEnterpriseCustomerAdminUserFactory()
+            pending_admin.history.all().delete()
+
+        now = localized_utcnow()
+        due, count = _is_pending_admin_invite_due_for_reminder(
+            pending_admin,
+            now,
+            timedelta(days=7),
+            timedelta(days=3),
+            1
+        )
+
+        assert due is True
+        assert count == 0
+
+    def test_is_pending_admin_invite_due_for_reminder_max_reached(self):
+        """Test returns False when max reminders already sent."""
+        pending_admin = PendingEnterpriseCustomerAdminUserFactory()
+        pending_admin.history.all().delete()
+
+        # Simulate 1 reminder sent via reminder_sent_at
+        pending_admin.reminder_sent_at = localized_utcnow()
+        pending_admin.save(update_fields=['reminder_sent_at', 'modified'])
+
+        now = localized_utcnow()
+        due, count = _is_pending_admin_invite_due_for_reminder(
+            pending_admin,
+            now,
+            timedelta(days=7),
+            timedelta(days=3),
+            1  # max_reminders = 1
+        )
+
+        assert due is False
+        assert count == 1
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.send_enterprise_admin_invite_email')
+    @freeze_time('2026-03-27 12:00:00')
+    def test_send_enterprise_admin_invite_reminders_success(self, mock_send_email, mock_settings):
+        """Test successfully sending reminders to eligible invites."""
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-06.braze.com'
+        mock_settings.BRAZE_ADMIN_INVITE_REMINDER_CAMPAIGN_ID = 'test-campaign-id'
+
+        enterprise_customer = EnterpriseCustomerFactory()
+
+        # Create invite 8 days ago (past initial delay)
+        with freeze_time('2026-03-19 12:00:00'):
+            pending_admin = PendingEnterpriseCustomerAdminUserFactory(
+                enterprise_customer=enterprise_customer,
+                user_email='eligible@example.com'
+            )
+            pending_admin.history.all().delete()
+
+        result = send_enterprise_admin_invite_reminders()
+
+        # Verify email was sent via .run() (bypasses Celery bind=True self param)
+        assert mock_send_email.run.called
+        assert result['sent'] >= 1
+        assert result['processed'] >= 1
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.send_enterprise_admin_invite_email')
+    @freeze_time('2026-03-27 12:00:00')
+    def test_send_enterprise_admin_invite_reminders_skip_active_admin(self, _mock_send_email, mock_settings):
+        """Test that invites are skipped when user has already become an admin."""
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-06.braze.com'
+        mock_settings.BRAZE_ADMIN_INVITE_REMINDER_CAMPAIGN_ID = 'test-campaign-id'
+
+        enterprise_customer = EnterpriseCustomerFactory()
+
+        # Create user and make them an admin
+        user = UserFactory(email='admin@example.com')
+        enterprise_customer_user = EnterpriseCustomerUserFactory(
+            enterprise_customer=enterprise_customer,
+            user_id=user.id,
+            active=True,
+        )
+        EnterpriseCustomerAdmin.objects.create(
+            enterprise_customer_user=enterprise_customer_user,
+        )
+
+        # Create pending invite for same user 8 days ago
+        with freeze_time('2026-03-19 12:00:00'):
+            pending_admin = PendingEnterpriseCustomerAdminUserFactory(
+                enterprise_customer=enterprise_customer,
+                user_email='admin@example.com'
+            )
+            pending_admin.history.all().delete()
+
+        result = send_enterprise_admin_invite_reminders()
+
+        # Verify result shows skipped active
+        assert result['skipped_active'] >= 1
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.send_enterprise_admin_invite_email')
+    @freeze_time('2026-03-27 12:00:00')
+    def test_send_enterprise_admin_invite_reminders_handles_braze_error(self, mock_send_email, mock_settings):
+        """Test that BrazeClientError is caught and counted as failure."""
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-06.braze.com'
+        mock_settings.BRAZE_ADMIN_INVITE_REMINDER_CAMPAIGN_ID = 'test-campaign-id'
+
+        enterprise_customer = EnterpriseCustomerFactory()
+
+        with freeze_time('2026-03-19 12:00:00'):
+            pending_admin = PendingEnterpriseCustomerAdminUserFactory(
+                enterprise_customer=enterprise_customer,
+                user_email='fail@example.com',
+            )
+            pending_admin.history.all().delete()
+
+        mock_send_email.run.side_effect = BrazeClientError('Braze API error')
+
+        result = send_enterprise_admin_invite_reminders()
+        assert result['sent'] == 0
+        assert result['failures'] == 1
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.send_enterprise_admin_invite_email')
+    @freeze_time('2026-03-27 12:00:00')
+    def test_send_enterprise_admin_invite_reminders_skips_max_reached(self, _mock_send_email, mock_settings):
+        """Test that invites with max reminders already sent are skipped."""
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-06.braze.com'
+        mock_settings.BRAZE_ADMIN_INVITE_REMINDER_CAMPAIGN_ID = 'test-campaign-id'
+
+        enterprise_customer = EnterpriseCustomerFactory()
+
+        with freeze_time('2026-03-19 12:00:00'):
+            pending_admin = PendingEnterpriseCustomerAdminUserFactory(
+                enterprise_customer=enterprise_customer,
+                user_email='maxed@example.com',
+            )
+            pending_admin.history.all().delete()
+
+        # Simulate 1 reminder already sent (creates history entry)
+        with mock.patch('enterprise.tasks._get_pending_admin_invite_reminder_count', return_value=1):
+            result = send_enterprise_admin_invite_reminders()
+
+        assert result['skipped_max'] >= 1
+
+    @mock.patch('enterprise.tasks.settings')
+    def test_send_enterprise_admin_invite_reminders_missing_settings(self, mock_settings):
+        """Test that ValueError is raised when Braze settings are missing."""
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = None
+        mock_settings.EDX_BRAZE_API_SERVER = None
+
+        with raises(ValueError):
+            send_enterprise_admin_invite_reminders()
+
+    @mock.patch('enterprise.tasks.settings')
+    @mock.patch('enterprise.tasks.send_enterprise_admin_invite_email')
+    @freeze_time('2026-03-27 12:00:00')
+    def test_send_enterprise_admin_invite_reminders_deduplication(self, _mock_send_email, mock_settings):
+        """Test that only one reminder is sent per (customer, email) pair in a batch."""
+
+        mock_settings.ENTERPRISE_BRAZE_API_KEY = 'test-api-key'
+        mock_settings.EDX_BRAZE_API_SERVER = 'https://rest.iad-06.braze.com'
+        mock_settings.BRAZE_ADMIN_INVITE_REMINDER_CAMPAIGN_ID = 'test-campaign-id'
+
+        enterprise_customer = EnterpriseCustomerFactory()
+
+        # Create 2 pending invites with same email and customer 8 days ago
+        with freeze_time('2026-03-19 12:00:00'):
+            pending_admin1 = PendingEnterpriseCustomerAdminUserFactory(
+                enterprise_customer=enterprise_customer,
+                user_email='duplicate@example.com'
+            )
+            pending_admin1.history.all().delete()
+
+            pending_admin2 = PendingEnterpriseCustomerAdminUserFactory(
+                enterprise_customer=enterprise_customer,
+                user_email='another@example.com'
+            )
+            pending_admin2.history.all().delete()
+
+        result = send_enterprise_admin_invite_reminders()
+
+        assert result['sent'] == 2

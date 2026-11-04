@@ -143,18 +143,18 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ListPageOrganizationWorkspaceResponse]:
     """ListWorkspaces
 
-    Lists the workspaces under an organization visible to the caller, as a paginated
-    list. Organization owners see every workspace; other members see workspaces they
-    belong to or have access to via the default org-wide workspace role.
+    Lists the workspaces under an organization visible to the caller, as a paginated list,
+    oldest first by default. Organization owners see every workspace; members see the workspaces
+    they belong to or reach through a workspace's default member role; collaborators see only
+    the workspaces they belong to.
 
     Each workspace includes member stats: its owners and the count of active members.
 
     Playground workspaces of other members are not included; the caller only sees their own.
 
-    Archived workspaces are excluded by default; pass include_archived=true to list them.
-    No other route returns them.
+    Archived workspaces are excluded by default; pass `include_archived=true` to list them.
 
-    Requires READ permission on the organization level.
+    Any organization member, including collaborators.
 
     Args:
         organization_id (UUID):
@@ -208,18 +208,18 @@ def sync(
 ) -> ErrorResponse | ListPageOrganizationWorkspaceResponse | None:
     """ListWorkspaces
 
-    Lists the workspaces under an organization visible to the caller, as a paginated
-    list. Organization owners see every workspace; other members see workspaces they
-    belong to or have access to via the default org-wide workspace role.
+    Lists the workspaces under an organization visible to the caller, as a paginated list,
+    oldest first by default. Organization owners see every workspace; members see the workspaces
+    they belong to or reach through a workspace's default member role; collaborators see only
+    the workspaces they belong to.
 
     Each workspace includes member stats: its owners and the count of active members.
 
     Playground workspaces of other members are not included; the caller only sees their own.
 
-    Archived workspaces are excluded by default; pass include_archived=true to list them.
-    No other route returns them.
+    Archived workspaces are excluded by default; pass `include_archived=true` to list them.
 
-    Requires READ permission on the organization level.
+    Any organization member, including collaborators.
 
     Args:
         organization_id (UUID):
@@ -268,18 +268,18 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | ListPageOrganizationWorkspaceResponse]:
     """ListWorkspaces
 
-    Lists the workspaces under an organization visible to the caller, as a paginated
-    list. Organization owners see every workspace; other members see workspaces they
-    belong to or have access to via the default org-wide workspace role.
+    Lists the workspaces under an organization visible to the caller, as a paginated list,
+    oldest first by default. Organization owners see every workspace; members see the workspaces
+    they belong to or reach through a workspace's default member role; collaborators see only
+    the workspaces they belong to.
 
     Each workspace includes member stats: its owners and the count of active members.
 
     Playground workspaces of other members are not included; the caller only sees their own.
 
-    Archived workspaces are excluded by default; pass include_archived=true to list them.
-    No other route returns them.
+    Archived workspaces are excluded by default; pass `include_archived=true` to list them.
 
-    Requires READ permission on the organization level.
+    Any organization member, including collaborators.
 
     Args:
         organization_id (UUID):
@@ -331,18 +331,18 @@ async def asyncio(
 ) -> ErrorResponse | ListPageOrganizationWorkspaceResponse | None:
     """ListWorkspaces
 
-    Lists the workspaces under an organization visible to the caller, as a paginated
-    list. Organization owners see every workspace; other members see workspaces they
-    belong to or have access to via the default org-wide workspace role.
+    Lists the workspaces under an organization visible to the caller, as a paginated list,
+    oldest first by default. Organization owners see every workspace; members see the workspaces
+    they belong to or reach through a workspace's default member role; collaborators see only
+    the workspaces they belong to.
 
     Each workspace includes member stats: its owners and the count of active members.
 
     Playground workspaces of other members are not included; the caller only sees their own.
 
-    Archived workspaces are excluded by default; pass include_archived=true to list them.
-    No other route returns them.
+    Archived workspaces are excluded by default; pass `include_archived=true` to list them.
 
-    Requires READ permission on the organization level.
+    Any organization member, including collaborators.
 
     Args:
         organization_id (UUID):

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# pylint: disable=too-many-lines
 """
 DWARF debug information processing for source file mapping.
 
@@ -11,8 +12,13 @@ import logging
 import bisect
 from typing import Dict, List, Optional, Any, Tuple
 from collections import deque
-from elftools.common.exceptions import ELFError
+from elftools.common.exceptions import ELFError, ELFRelocationError
+from elftools.common.utils import struct_parse
+from elftools.dwarf.structs import DWARFStructs
 from ..core.exceptions import DWARFParsingError, DWARFCUProcessingError, DWARFAttributeError
+from .line_sequences import (
+    CodeLayout, Sequence, is_dead_sequence, line_sequences, rows_by_address,
+    store_live_sequences)
 from .paths import is_abs, to_posix
 
 # Configure logger
@@ -27,6 +33,92 @@ ARM_MACHINES = {
     'EM_ARM',      # ARM 32-bit
     40,            # EM_ARM numeric value
 }
+
+# pyelftools only parses CUs with 4 or 8 byte addresses (AVR uses 2)
+SUPPORTED_ADDRESS_SIZES = (4, 8)
+
+# DWARF expression opcodes, DWARF 5 section 7.7.1
+DW_OP_ADDR = 0x03
+DW_OP_PLUS_UCONST = 0x23
+DW_OP_ADDRX = 0xa1
+DW_OP_GNU_ADDR_INDEX = 0xfb
+
+# unit_length values 0xfffffff0-0xfffffffe are reserved, DWARF 5 section 7.4
+_DWARF_RESERVED_LENGTH = 0xfffffff0
+
+# DIEs whose address is code, which may carry the Thumb bit in the symbol table
+_CODE_TAGS = frozenset({'DW_TAG_subprogram', 'DW_TAG_inlined_subroutine'})
+
+# Scopes whose variables and functions are file-level definitions
+_FILE_SCOPE_TAGS = frozenset({
+    'DW_TAG_compile_unit', 'DW_TAG_partial_unit', 'DW_TAG_namespace'})
+
+
+def _is_file_scope_definition(die, spec_die) -> bool:
+    """A variable or function defined at file (or namespace) scope, not a
+    local, a parameter or a member: a DIE a symbol of its name may be.
+
+    C++ definitions named through DW_AT_specification or DW_AT_abstract_origin
+    (spec_die), or with a linkage name, have a symbol named otherwise.
+    """
+    if die.tag not in ('DW_TAG_variable', 'DW_TAG_subprogram') or spec_die is not None:
+        return False
+    if 'DW_AT_linkage_name' in die.attributes or 'DW_AT_MIPS_linkage_name' in die.attributes:
+        return False
+    parent = die.get_parent()
+    return parent is None or parent.tag in _FILE_SCOPE_TAGS
+
+
+def _read_uleb128(data, pos: int) -> Tuple[Optional[int], int]:
+    """ULEB128 value at data[pos] and the position after it, (None, pos) if truncated."""
+    value = 0
+    for i, byte_val in enumerate(data[pos:]):
+        value |= (byte_val & 0x7F) << (7 * i)
+        if not byte_val & 0x80:
+            return value, pos + i + 1
+    return None, pos
+
+
+def _iter_cu_headers(dwarfinfo):
+    """Yield (offset, header) for every CU header in .debug_info.
+
+    Parsed with pyelftools' own header struct but without building the CU,
+    because pyelftools fails on a CU whose address size it does not support.
+    """
+    section = dwarfinfo.debug_info_sec
+    if section is None:
+        # has_dwarf_info() is also true for a stripped ELF with only .eh_frame
+        return
+    offset = 0
+    while offset + 4 <= section.size:
+        initial_length = struct_parse(
+            dwarfinfo.structs.the_Dwarf_uint32, section.stream, offset)
+        if _DWARF_RESERVED_LENGTH <= initial_length < 0xFFFFFFFF:
+            logger.warning(
+                "Stopping at CU with reserved unit length 0x%x at offset %d",
+                initial_length, offset)
+            return
+        structs = DWARFStructs(
+            little_endian=dwarfinfo.config.little_endian,
+            dwarf_format=64 if initial_length == 0xFFFFFFFF else 32,
+            address_size=4,
+            dwarf_version=2)
+        header = struct_parse(structs.Dwarf_CU_header, section.stream, offset)
+        yield offset, header
+        offset += header['unit_length'] + structs.initial_length_field_size()
+
+
+def _iter_supported_cus(dwarfinfo):
+    """Yield the CUs pyelftools can parse, warning once per skipped address size."""
+    skipped = set()
+    for offset, header in _iter_cu_headers(dwarfinfo):
+        if header['address_size'] in SUPPORTED_ADDRESS_SIZES:
+            yield dwarfinfo.get_CU_at(offset)
+        elif header['address_size'] not in skipped:
+            skipped.add(header['address_size'])
+            logger.warning(
+                "Skipping DWARF source mapping for CUs with unsupported address size %d",
+                header['address_size'])
 
 
 def _file_index_base(line_program) -> int:
@@ -73,6 +165,9 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
         self.symbol_addresses = symbol_addresses
         self.skip_line_program = skip_line_program
         self.machine = machine
+        self.little_endian = getattr(elffile, 'little_endian', True)
+        self._code_layout = None  # see _layout
+        self._candidate_sequences = []  # Sequence, until _store_line_sequences
 
         # Determine if we need address tolerance based on architecture
         # ARM Thumb mode requires ±2 byte tolerance, other architectures use
@@ -96,8 +191,13 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
             'address_to_file': {},
             # address -> line number (from line programs)
             'address_to_line': {},
+            # (start, end, CU offset) of every live line sequence, end exclusive
+            'line_sequences': [],
             # (symbol_name, address) -> filename
             'symbol_to_file': {},
+            # (symbol_name, address) -> (DW_AT_decl_file, DW_AT_decl_line)
+            # of the DIE that names the declaration file
+            'symbol_to_decl': {},
             'address_to_cu_file': {},       # address -> cu_filename
             'processed_cus': set(),         # Cache of processed CUs to avoid duplicates
             # List of (symbol_name, cu_source_file, decl_file) for static vars
@@ -137,7 +237,14 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
             return self.dwarf_data
 
         try:
-            dwarfinfo = self.elffile.get_dwarf_info()
+            try:
+                dwarfinfo = self.elffile.get_dwarf_info()
+            except ELFRelocationError as e:
+                # --emit-relocs leaves .rel.debug_* entries in linked binaries,
+                # some of a type pyelftools rejects (TinyGo R_ARM_NONE). Their
+                # DWARF is already resolved, so read it as stored.
+                logger.debug("Reading DWARF without relocation: %s", e)
+                dwarfinfo = self.elffile.get_dwarf_info(relocate_dwarf_sections=False)
 
             # Build CU address range index
             cu_address_index = self._build_cu_address_index(dwarfinfo)
@@ -166,6 +273,8 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
                         "Failed to process CU at offset %d: %s", cu.cu_offset, e)
                     raise DWARFCUProcessingError(
                         f"Failed to process CU at offset {cu.cu_offset}: {e}") from e
+
+            self._store_line_sequences()
 
         except (IOError, OSError) as e:
             logger.error("Failed to read ELF file for DWARF parsing: %s", e)
@@ -277,7 +386,7 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
         """
         cu_index = []
 
-        for cu in dwarfinfo.iter_CUs():
+        for cu in _iter_supported_cus(dwarfinfo):
             low_pc, high_pc = self._extract_cu_address_range(cu)
             cu_index.append((low_pc, high_pc, cu))
 
@@ -363,6 +472,9 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
 
         cu_name = to_posix(cu_name)
         comp_dir = to_posix(comp_dir)
+        # Placeholder names such as TinyGo "<unknown>" or GCC LTO "<artificial>"
+        if cu_name and cu_name.startswith('<') and cu_name.endswith('>'):
+            cu_name = None
         if cu_name:
             if comp_dir and not is_abs(cu_name):
                 cu_source_file = posixpath.normpath(posixpath.join(comp_dir, cu_name))
@@ -529,9 +641,13 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
 
         return None, spec_die
 
-    def _get_die_decl_file(
-            self, die, spec_die, file_entries: Dict[int, str]) -> Optional[str]:
-        """Extract declaration file from DIE or its specification DIE.
+    def _get_die_decl(
+            self, die, spec_die, file_entries: Dict[int, str]
+    ) -> Tuple[Optional[str], int]:
+        """Declaration file and line from DIE or its specification DIE.
+
+        Both come from the first DIE with a known DW_AT_decl_file, so the
+        line is in that file.
 
         Args:
             die: Primary DIE to check
@@ -539,7 +655,8 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
             file_entries: Mapping of file indices to file paths
 
         Returns:
-            Declaration file path or None
+            (declaration file path, line), (None, 0) if no DIE names a
+            known file; line is 0 when the DIE has no DW_AT_decl_line
         """
         # Check primary DIE first
         for check_die in [die, spec_die]:
@@ -548,61 +665,95 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
                 if decl_file_attr and hasattr(decl_file_attr, 'value'):
                     file_idx = decl_file_attr.value
                     if file_idx in file_entries:
-                        return file_entries[file_idx]
-        return None
+                        line_attr = check_die.attributes.get('DW_AT_decl_line')
+                        line = getattr(line_attr, 'value', 0)
+                        return file_entries[file_idx], line if isinstance(line, int) else 0
+        return None, 0
 
-    def _parse_location_expression(self, location_value) -> Optional[int]:
-        """Parse DWARF location expression to extract address from DW_OP_addr.
+    def _parse_location_expression(
+            self, location_value, address_size: Optional[int] = None,
+            resolve_addr_index=None) -> Optional[int]:
+        """Extract a static address from a DWARF location expression.
 
-        DWARF location expressions are bytecode sequences that describe where
-        a variable is located. For global/static variables, the most common
-        form is DW_OP_addr (opcode 0x03) followed by an address.
+        Handles DW_OP_addr (0x03), DW_OP_addrx (0xa1) and DW_OP_GNU_addr_index
+        (0xfb). Other expressions return None.
 
         Args:
             location_value: DWARF location expression (list or bytes)
+            address_size: CU address size. When given, a trailing
+                DW_OP_plus_uconst (0x23) offset is added, as LLVM emits for
+                variables inside merged globals.
+            resolve_addr_index: Callable mapping a .debug_addr index to an
+                address, needed for DW_OP_addrx and DW_OP_GNU_addr_index.
 
         Returns:
-            Extracted address or None if parsing fails or not a DW_OP_addr expression
-
-        Note:
-            This parser currently handles only DW_OP_addr (0x03) expressions.
-            More complex location expressions (e.g., register-relative, computed)
-            are not supported and will return None.
+            Extracted address or None if the expression is not supported
         """
         try:
             # Handle both list (from ListContainer) and bytes formats
-            if hasattr(location_value, '__iter__'):
-                expr_bytes = list(location_value) if not isinstance(
-                    location_value, list) else location_value
-            else:
+            if not hasattr(location_value, '__iter__'):
                 return None
-
-            # Check if this is a DW_OP_addr (0x03) expression
-            # DW_OP_addr format: [0x03, addr_byte1, addr_byte2, ...]
-            if not expr_bytes or expr_bytes[0] != 0x03:
+            address, rest = self._expression_address(
+                list(location_value), address_size, resolve_addr_index)
+            if address is None:
                 return None
-
-            # Extract address bytes (skip the opcode at index 0)
-            addr_bytes = expr_bytes[1:]
-
-            if not addr_bytes:
-                return None
-
-            # Convert bytes to address (little-endian, typical for most architectures)
-            # For 32-bit: [b0, b1, b2, b3] -> b0 + (b1<<8) + (b2<<16) +
-            # (b3<<24)
-            address = 0
-            for i, byte_val in enumerate(addr_bytes):
-                address |= (byte_val << (i * 8))
-
-            return address
-
-        except (TypeError, AttributeError, IndexError) as e:
-            logger.debug(
-                "Failed to parse location expression: %s", e)
+            offset = self._parse_plus_uconst(rest)
+            return None if offset is None else address + offset
+        except (TypeError, AttributeError, IndexError, ValueError) as e:
+            logger.debug("Failed to parse location expression: %s", e)
             return None
 
-    def _extract_line_program_data(  # pylint: disable=too-many-nested-blocks
+    def _expression_address(self, expr_bytes, address_size, resolve_addr_index):
+        """Address from the leading operation and the operations after it, (None, []) if none."""
+        opcode = expr_bytes[0] if expr_bytes else None
+        if opcode == DW_OP_ADDR:
+            if not address_size:
+                # Unknown address size: the rest of the expression is the address
+                address_size = len(expr_bytes) - 1
+            addr_bytes = expr_bytes[1:1 + address_size]
+            if not addr_bytes or len(addr_bytes) < address_size:
+                return None, []
+            byteorder = 'little' if self.little_endian else 'big'
+            return (int.from_bytes(bytes(addr_bytes), byteorder),
+                    expr_bytes[1 + address_size:])
+        if opcode in (DW_OP_ADDRX, DW_OP_GNU_ADDR_INDEX) and resolve_addr_index:
+            index, pos = _read_uleb128(expr_bytes, 1)
+            if index is not None:
+                return resolve_addr_index(index), expr_bytes[pos:]
+        return None, []
+
+    @staticmethod
+    def _parse_plus_uconst(rest) -> Optional[int]:
+        """Offset of an optional trailing DW_OP_plus_uconst, None if unsupported.
+
+        Operand is ULEB128, see DWARF 5 section 7.6.
+        """
+        if not rest:
+            return 0
+        if rest[0] != DW_OP_PLUS_UCONST:
+            return None
+        value, pos = _read_uleb128(rest, 1)
+        return value if value is not None and pos == len(rest) else None
+
+    @staticmethod
+    def _addr_index_resolver(cu):
+        """Callable mapping a .debug_addr index of this CU to an address, None on failure."""
+        def resolve(index: int) -> Optional[int]:
+            debug_addr = cu.dwarfinfo.debug_addr_sec
+            attrs = cu.get_top_DIE().attributes
+            base = attrs.get('DW_AT_addr_base') or attrs.get('DW_AT_GNU_addr_base')
+            if not debug_addr or not base:
+                return None
+            try:
+                return struct_parse(
+                    cu.structs.the_Dwarf_target_addr, debug_addr.stream,
+                    base.value + index * cu['address_size'])
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.debug("Failed to read .debug_addr index %d: %s", index, e)
+                return None
+        return resolve
+
+    def _extract_line_program_data(
             self, cu, dwarfinfo, file_paths: Dict[int, str]) -> None:
         """Extract line program data to map addresses to source files.
 
@@ -610,49 +761,33 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
         which is particularly useful for function symbols and handling compiler
         optimizations like inlining.
 
+        Rows are taken one sequence at a time (see line_sequences), and
+        sequences of code the linker discarded are dropped as a whole. The
+        rest are stored by _store_line_sequences once every CU is read.
+
         Args:
             cu: Compilation unit containing the line program
             dwarfinfo: DWARF debug information object
             file_paths: The CU's file table from _line_program_file_paths
         """
-        try:  # pylint: disable=too-many-nested-blocks
+        try:
             line_program = dwarfinfo.line_program_for_CU(cu)
             if not line_program:
                 return
             entries = line_program.get_entries()
             if not entries:
                 return
+            try:
+                address_size = cu['address_size']
+            except KeyError:
+                address_size = 4
 
-            for entry in entries:
-                if entry.state is None:
+            layout = self._layout()
+            for start, rows, end in line_sequences(entries, file_paths):
+                if end <= start or is_dead_sequence(start, address_size, layout):
                     continue
-
-                if hasattr(
-                        entry.state,
-                        'address') and hasattr(
-                        entry.state,
-                        'file'):
-                    try:
-                        address = entry.state.address
-                        file_index = entry.state.file
-                        line_number = getattr(entry.state, 'line', 0) or 0
-
-                        if address == 0:
-                            continue
-
-                        # Get file from line program file table
-                        filename = file_paths.get(file_index)
-                        if filename:
-                            # Store in dictionary
-                            self.dwarf_data['address_to_file'][address] = filename
-                            if line_number:
-                                self.dwarf_data['address_to_line'][address] = line_number
-
-                    except (IndexError, AttributeError) as e:
-                        logger.error(
-                            "Failed to process line program entry: %s", e)
-                        raise DWARFAttributeError(
-                            f"Failed to process line program entry: {e}") from e
+                self._candidate_sequences.append(
+                    Sequence(start, end, cu.cu_offset, rows_by_address(rows, end)))
 
         except Exception as e:
             logger.error(
@@ -660,6 +795,17 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
                 cu.cu_offset, e)
             raise DWARFCUProcessingError(
                 f"Failed to extract line program data for CU at offset {cu.cu_offset}: {e}") from e
+
+    def _layout(self) -> CodeLayout:
+        """CodeLayout of this ELF, computed once."""
+        if self._code_layout is None:
+            self._code_layout = CodeLayout.from_elf(self.elffile)
+        return self._code_layout
+
+    def _store_line_sequences(self) -> None:
+        """Store the live sequences of every CU read (see store_live_sequences)."""
+        store_live_sequences(self.dwarf_data, self._candidate_sequences, self._layout())
+        self._candidate_sequences = []
 
     def _extract_die_symbol_data_optimized(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals,too-many-branches,too-many-statements
             self,
@@ -778,7 +924,9 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
             if not die_address:
                 location_attr = attrs.get('DW_AT_location')
                 if location_attr and hasattr(location_attr, 'value'):
-                    die_address = self._parse_location_expression(location_attr.value)
+                    die_address = self._parse_location_expression(
+                        location_attr.value, die.cu['address_size'],
+                        self._addr_index_resolver(die.cu))
 
             # Only process if this address is in our symbol table
             if die_address and not self._is_address_in_symbol_set_with_tolerance(
@@ -786,7 +934,7 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
                 return
 
             # Get declaration file (checks DIE and spec_die)
-            decl_file = self._get_die_decl_file(die, spec_die, file_entries)
+            decl_file, decl_line = self._get_die_decl(die, spec_die, file_entries)
 
             # Determine best source file
             is_declaration = 'DW_AT_declaration' in attrs
@@ -826,12 +974,16 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
                     symbol_key = (die_name, die_address)
                     self.dwarf_data['symbol_to_file'][symbol_key] = best_source_file
                     self.dwarf_data['address_to_cu_file'][die_address] = best_source_file
+                    symbol_to_decl = self.dwarf_data['symbol_to_decl']
+                    if decl_line:
+                        symbol_to_decl[symbol_key] = (decl_file, decl_line)
 
-                    # For ARM architectures, also store with tolerance-adjusted addresses
-                    # ARM Thumb: LSB of function address indicates mode (0=ARM, 1=Thumb)
-                    # DIEs store actual instruction addresses, ELF symbols
-                    # include mode bit
-                    if self.address_tolerance > 0:
+                    # For ARM architectures, also store code with tolerance-adjusted
+                    # addresses. ARM Thumb: LSB of function address indicates mode
+                    # (0=ARM, 1=Thumb); DIEs store actual instruction addresses, ELF
+                    # symbols include mode bit. Data addresses are exact: a
+                    # variable's neighbour is another symbol.
+                    if self.address_tolerance > 0 and die.tag in _CODE_TAGS:
                         symbol_to_file = self.dwarf_data['symbol_to_file']
                         address_to_cu = self.dwarf_data['address_to_cu_file']
                         for offset in range(-self.address_tolerance,
@@ -843,6 +995,9 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
                                 # check + set
                                 symbol_to_file.setdefault(
                                     adjusted_key, best_source_file)
+                                if decl_line:
+                                    symbol_to_decl.setdefault(
+                                        adjusted_key, (decl_file, decl_line))
                                 address_to_cu.setdefault(
                                     adjusted_addr, best_source_file)
 
@@ -857,8 +1012,11 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
                             if die_address + offset in self.symbol_addresses:
                                 self.found_symbols.add(die_address + offset)
                                 break
-                else:
-                    # For symbols without DIE addresses (like static variables)
+                elif not is_declaration and _is_file_scope_definition(die, spec_die):
+                    # Definitions without DIE addresses (such as weak stubs
+                    # described without code). Matched by name only, so
+                    # declarations, locals and parameters, which name other
+                    # symbols' neighbours or nothing at all, are left out.
                     # Store in our static symbol mappings list for special
                     # handling
                     self.dwarf_data['static_symbol_mappings'].append(
@@ -868,6 +1026,11 @@ class DWARFProcessor:  # pylint: disable=too-many-instance-attributes,too-few-pu
                     symbol_key = (die_name, 0)
                     if symbol_key not in self.dwarf_data['symbol_to_file']:
                         self.dwarf_data['symbol_to_file'][symbol_key] = best_source_file
+                    # Function definitions only: a variable without an
+                    # address is not the one in the symbol table
+                    if decl_line and die.tag == 'DW_TAG_subprogram':
+                        self.dwarf_data['symbol_to_decl'].setdefault(
+                            symbol_key, (decl_file, decl_line))
 
         except Exception as e:
             symbol_label = die_name if 'die_name' in locals() else 'unknown'

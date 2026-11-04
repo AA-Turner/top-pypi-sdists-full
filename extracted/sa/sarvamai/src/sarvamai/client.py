@@ -14,6 +14,7 @@ from .environment import SarvamAIEnvironment
 if typing.TYPE_CHECKING:
     from .chat.client import AsyncChatClient, ChatClient
     from .chat_completion.client import AsyncChatCompletionClient, ChatCompletionClient
+    from .decisions.client import AsyncDecisionsClient, DecisionsClient
     from .doc_ai.client import AsyncDocAiClient, DocAiClient
     from .document_intelligence.client import AsyncDocumentIntelligenceClient, DocumentIntelligenceClient
     from .document_translation.client import AsyncDocumentTranslationClient, DocumentTranslationClient
@@ -123,6 +124,7 @@ class SarvamAI:
         self._doc_ai: typing.Optional[DocAiClient] = None
         self._responses: typing.Optional[ResponsesClient] = None
         self._chat_completion: typing.Optional[ChatCompletionClient] = None
+        self._decisions: typing.Optional[DecisionsClient] = None
         self._speech_to_text_streaming: typing.Optional[SpeechToTextStreamingClient] = None
         self._speech_to_text_translate_streaming: typing.Optional[SpeechToTextTranslateStreamingClient] = None
         self._speech_to_text_realtime_streaming: typing.Optional[SpeechToTextRealtimeStreamingClient] = None
@@ -240,6 +242,14 @@ class SarvamAI:
 
             self._chat_completion = ChatCompletionClient(client_wrapper=self._client_wrapper)
         return self._chat_completion
+
+    @property
+    def decisions(self):
+        if self._decisions is None:
+            from .decisions.client import DecisionsClient  # noqa: E402
+
+            self._decisions = DecisionsClient(client_wrapper=self._client_wrapper)
+        return self._decisions
 
     @property
     def speech_to_text_streaming(self):
@@ -370,6 +380,7 @@ class AsyncSarvamAI:
         self._doc_ai: typing.Optional[AsyncDocAiClient] = None
         self._responses: typing.Optional[AsyncResponsesClient] = None
         self._chat_completion: typing.Optional[AsyncChatCompletionClient] = None
+        self._decisions: typing.Optional[AsyncDecisionsClient] = None
         self._speech_to_text_streaming: typing.Optional[AsyncSpeechToTextStreamingClient] = None
         self._speech_to_text_translate_streaming: typing.Optional[AsyncSpeechToTextTranslateStreamingClient] = None
         self._speech_to_text_realtime_streaming: typing.Optional[AsyncSpeechToTextRealtimeStreamingClient] = None
@@ -489,6 +500,14 @@ class AsyncSarvamAI:
 
             self._chat_completion = AsyncChatCompletionClient(client_wrapper=self._client_wrapper)
         return self._chat_completion
+
+    @property
+    def decisions(self):
+        if self._decisions is None:
+            from .decisions.client import AsyncDecisionsClient  # noqa: E402
+
+            self._decisions = AsyncDecisionsClient(client_wrapper=self._client_wrapper)
+        return self._decisions
 
     @property
     def speech_to_text_streaming(self):

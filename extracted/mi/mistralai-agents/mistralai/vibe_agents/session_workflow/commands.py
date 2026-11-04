@@ -392,7 +392,7 @@ class SystemCommand(BaseModel):
 
 
 class SessionCommandVerdictReason(StrEnum):
-    """Why the Session answered a compare-and-set, a Start or a ``send_message`` the way it did.
+    """Why the Session answered a compare-and-set, a Start or a message or callback Update the way it did.
 
     Defined once, on the wire, because the Workflow sets these and the control plane routes
     on them from a separately versioned package. The field itself stays a plain string so an
@@ -421,12 +421,23 @@ class SessionCommandVerdictReason(StrEnum):
     IDEMPOTENCY_CONFLICT = "idempotency_conflict"
     SESSION_BUSY = "session_busy"
     MESSAGE_REJECTED = "message_rejected"
+    # Only on a message Update: the Session took the message but could not publish its history
+    # row. The outcome is unknown: a retry with the same command id replays it and publishes the row.
+    RECEIPT_UNPUBLISHED = "receipt_unpublished"
+    # Only on ``submit_callback_result``: the callback closed without an answer (it timed out or
+    # was withdrawn), so this answer changed nothing.
+    CALLBACK_SETTLED = "callback_settled"
+    # Only on ``submit_callback_result``: the Session holds no callback with this id.
+    CALLBACK_UNKNOWN = "callback_unknown"
+    # Only on ``submit_callback_result``: the answer does not fit the callback, such as an approval
+    # answered with an error. The callback stays open for another answer.
+    CALLBACK_REJECTED = "callback_rejected"
 
 
 class SessionCommandVerdict(BaseModel):
-    """Whether the Session accepted one compare-and-set command or one Start.
+    """Whether the Session accepted one compare-and-set command, one Start, or one callback answer.
 
-    Returned by the Workflow's command Update handler. A command carrying an
+    Returned by the ``submit_command_for_verdict`` and ``submit_callback_result`` Updates. A command carrying an
     ``expected_turn_id`` names the Turn the caller believes is running, and a Start (a message
     naming no Turn) claims that none is; the Session is the only authority on that, so it
     answers here rather than through an event. ``accepted`` is a real boolean: an unaccepted
@@ -436,10 +447,20 @@ class SessionCommandVerdict(BaseModel):
     accepted: bool
     reason: str | None = None
     active_turn_id: str | None = None
+    # Only with ``CALLBACK_REJECTED``: why the answer does not fit the callback, in the Harness's
+    # words, for the caller. None from a worker older than this field.
+    message: str | None = None
 
 
-# Workflow Update that starts a Turn or steers the running one with a ``send_message.SendMessageInput``.
+# Workflow Update that starts a Turn or steers the running one with an ``update_inputs.SendMessageInput``.
 SEND_MESSAGE_UPDATE_NAME: Final = "send_message"
+# Workflow Update that starts a Turn, only while none runs, with an ``update_inputs.StartTurnInput``.
+START_TURN_UPDATE_NAME: Final = "start_turn"
+# Workflow Update that steers the named Turn, only while it is active, with an ``update_inputs.SteerTurnInput``.
+STEER_TURN_UPDATE_NAME: Final = "steer_turn"
+# Workflow Update that answers one callback with a Harness Session ``CallbackResult``, whose
+# ``callback_id`` is the public callback id, and returns a ``SessionCommandVerdict``.
+SUBMIT_CALLBACK_RESULT_UPDATE_NAME: Final = "submit_callback_result"
 # How long the Update holds a message while the Session is busy before answering busy, under the
 # Workflows API's 20 s Update RPC timeout. Startup and queueing behind earlier messages are not
 # bounded: a caller that times out retries the same idempotency key, and its receipt answers.
@@ -451,20 +472,27 @@ SEND_MESSAGE_BUSY_WAIT_SECONDS: Final = 10.0
 class SessionMessageVerdict(BaseModel):
     """Whether the Session accepted one message, and which Turn it joined.
 
-    Returned by the ``send_message`` Update. An accepted message started or steered the Turn
-    named by ``turn_id``, and ``message_entry_id`` names its history entry. A refused message
-    was not applied, except that a stopping Session answers ``session_not_accepting_commands``
-    even for a message it committed during the stop.
-    Such a message may have started its Turn before the stop interrupted it.
+    Returned by the ``send_message``, ``start_turn`` and ``steer_turn`` Updates. An accepted
+    message started or steered the Turn named by ``turn_id``, and ``message_entry_id`` names its
+    history entry. A refused message was not applied, except that a stopping Session answers
+    ``session_not_accepting_commands`` for a message it admitted to start a Turn during the stop.
+    The Runtime may already have started that Turn at admission, but the stopping Session does
+    not run it to its end. A message that
+    joined the running Turn stays accepted while the Session stops.
     ``reason`` carries a ``SessionCommandVerdictReason`` value. ``session_busy`` means the
     same message can be retried later; ``message_rejected`` means the Session refused this
-    message and will refuse it again.
+    message and will refuse it again. A start refused with ``turn_active`` names the running
+    Turn in ``active_turn_id``.
+    ``steered`` is True when an accepted message joined the running Turn and False when it
+    started its Turn. An older Worker leaves it out.
     """
 
     accepted: bool
     message_entry_id: str | None = None
     turn_id: str | None = None
     reason: str | None = None
+    steered: bool | None = Field(default=None, exclude_if=lambda value: value is None)
+    active_turn_id: str | None = None
 
 
 class AgentConfiguration(BaseModel):
@@ -491,6 +519,9 @@ __all__ = [
     "MESSAGE_CONTEXT_MAX_LENGTH",
     "SEND_MESSAGE_BUSY_WAIT_SECONDS",
     "SEND_MESSAGE_UPDATE_NAME",
+    "START_TURN_UPDATE_NAME",
+    "STEER_TURN_UPDATE_NAME",
+    "SUBMIT_CALLBACK_RESULT_UPDATE_NAME",
     "CallbackResultAnswer",
     "CallbackResultCommand",
     "CallbackResultEventPayload",

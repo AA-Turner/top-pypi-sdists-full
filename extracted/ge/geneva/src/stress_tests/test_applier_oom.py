@@ -11,6 +11,10 @@ on cgroup vs allocator timing -- sometimes Python's allocator returns
 kernel cgroup OOM-kills the actor before allocation completes (then
 the bisect path in ``pipeline.py:_handle_fatal_task_failure`` runs).
 The single-cgroup container can't reliably force one or the other.
+It can also kill a driver or Ray service instead of an applier. Drivers do
+not retry after such a death, and that outcome must fail these assertions;
+it is not successful applier recovery. See
+``internal_docs/ray-driver-failures.md`` for the diagnostic-test proposal.
 
 **This is a smoke test, not a strict-path test.** It verifies that
 Geneva *makes forward progress* and produces sensible outcomes when

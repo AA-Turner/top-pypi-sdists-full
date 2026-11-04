@@ -84,6 +84,9 @@ pub(crate) struct ProtobufHydrationSession<'a> {
     // Previous snapshots share parsed values; their original bodies are not
     // retained. Registration validates each incoming reference before reuse.
     previous_values: VerifiedRemoteValues,
+    // The immutable project-wide mmap table can be much larger than a sparse
+    // update. Borrow it and retain only SHAs registered by this response.
+    previous_mmap_values: Option<&'static VerifiedRemoteValues>,
     parsed_values: VerifiedRemoteValues,
     // Keep the download fanout warm while the parser continues reading entity
     // envelopes. Unlike a batch-wide await, a completed request immediately
@@ -169,6 +172,7 @@ pub(super) fn begin_session<'a>(
         references: HashMap::new(),
         verified_bodies: HashMap::new(),
         previous_values: HashMap::new(),
+        previous_mmap_values: None,
         parsed_values: HashMap::new(),
         in_flight_downloads: FuturesUnordered::new(),
         download_queue: VecDeque::new(),
@@ -465,6 +469,10 @@ impl ProtobufHydrationSession<'_> {
             let previous = self
                 .previous_values
                 .get(&sha256)
+                .or_else(|| {
+                    self.previous_mmap_values
+                        .and_then(|values| values.get(&sha256))
+                })
                 .filter(|value| value.matches_metadata(&reference.metadata))
                 .map(Arc::clone);
             match self.references.entry(sha256.clone()) {
@@ -515,6 +523,15 @@ impl ProtobufHydrationSession<'_> {
     /// previous snapshot for every dynamic config.
     pub(crate) fn set_previous_values(&mut self, values: VerifiedRemoteValues) {
         self.previous_values = values;
+    }
+
+    /// Consult this project's immutable mmap table only for incoming SHAs.
+    /// Current-instance candidates keep precedence, including metadata checks.
+    pub(crate) fn set_previous_mmap_values(
+        &mut self,
+        values: Option<&'static VerifiedRemoteValues>,
+    ) {
+        self.previous_mmap_values = values;
     }
 
     /// Atomically accept reused values only when every SHA was registered and
@@ -631,7 +648,6 @@ impl ProtobufHydrationSession<'_> {
         if budgeted_total <= reserved as u64 || self.response_expansion_budget.is_some() {
             return Ok(true);
         }
-
         let additional = budgeted_total - reserved as u64;
         if let Some(permit) = self.hydrator.try_reserve_response_bytes(additional)? {
             reservation.merge(permit);

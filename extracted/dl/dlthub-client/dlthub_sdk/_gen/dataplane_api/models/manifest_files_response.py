@@ -17,8 +17,8 @@ T = TypeVar("T", bound="ManifestFilesResponse")
 class ManifestFilesResponse:
     """
     Attributes:
-        engine_version (int): Manifest engine version.
-        files (list[ManifestFileResponse]): The files in the package.
+        engine_version (int): Version of the manifest format.
+        files (list[ManifestFileResponse]): The files in the package, sorted by `relative_path`.
     """
 
     engine_version: int

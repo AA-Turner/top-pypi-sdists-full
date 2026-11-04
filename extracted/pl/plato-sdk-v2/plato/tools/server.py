@@ -50,6 +50,7 @@ from plato.tools.request_context import (
     get_registered_client_context,
     set_request_context,
 )
+from plato.utils.image_check import check_image_b64
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,12 @@ def _extract_image_content(result: dict) -> list[TextContent | ImageContent]:
     is popped out and returned as an ``ImageContent`` block alongside the
     remaining metadata as ``TextContent``. This keeps images as native content
     blocks instead of bloating the text context window.
+
+    This is the last gate before the model API for every ToolServer. Each
+    image is checked with :func:`check_image_b64` first. A bad image is not
+    sent, because the API rejects it and some harnesses then loop on that
+    error; the text block gets an ``error`` that says why. A good image is
+    sent with the media type found in its bytes, not the declared one.
     """
     image_b64 = None
     media_type = "image/jpeg"
@@ -77,9 +84,17 @@ def _extract_image_content(result: dict) -> list[TextContent | ImageContent]:
     if image_b64 is None:
         return []
 
+    check = check_image_b64(image_b64, media_type)
+    if not check.ok:
+        logger.warning("Tool image not sent: %s (%s); %d base64 chars", check.reason, check.detail, check.b64_size)
+        note = f"image not sent: {check.reason} ({check.detail})"
+        existing = result.get("error")
+        result["error"] = f"{existing}\n{note}" if existing else note
+        return [TextContent(type="text", text=json.dumps(result, default=str))]
+
     return [
         TextContent(type="text", text=json.dumps(result, default=str)),
-        ImageContent(type="image", data=image_b64, mimeType=media_type),
+        ImageContent(type="image", data=image_b64, mimeType=check.media_type or media_type),
     ]
 
 

@@ -14,7 +14,7 @@ class JobResultTraceResponse:
     """
     Attributes:
         job_ref (str): The job that declared the result.
-        type_ (str): The result type: `job.{name}`, or `job.background_agent.{name}` for an agent.
+        type_ (str): The result type, `job.{category}.{name}`; `job.background_agent.{name}` for an agent.
     """
 
     job_ref: str

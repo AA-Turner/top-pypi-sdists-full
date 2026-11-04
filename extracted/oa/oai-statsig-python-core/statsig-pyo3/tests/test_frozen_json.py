@@ -3,13 +3,16 @@ import json
 import operator
 import pickle
 from collections.abc import Callable
+from dataclasses import asdict, dataclass
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from statsig_python_core._frozen_json import (
+    _deep_freeze,
+    _deep_freeze_and_measure,
     _FrozenDict,
     _FrozenList,
-    _deep_freeze_and_measure,
 )
 
 
@@ -49,7 +52,7 @@ def test_frozen_json_copy_operations_reuse_the_immutable_graph():
     assert copy.deepcopy(frozen["items"]) is frozen["items"]
 
 
-def test_frozen_json_rejects_reinitialization():
+def test_frozen_json_reinitialization_preserves_the_value():
     frozen = _frozen_tree()
     items = frozen["items"]
 
@@ -58,10 +61,49 @@ def test_frozen_json_rejects_reinitialization():
     assert frozen["mapping"] == {"key": "value"}
     assert items == [2, 1, {"nested": ["value"]}]
 
+    frozen.__init__({"poisoned": True})
+    items.__init__(["poisoned"])
+    assert frozen["mapping"] == {"key": "value"}
+    assert "poisoned" not in frozen
+    assert items == [2, 1, {"nested": ["value"]}]
+
+
+def test_frozen_constructors_support_dataclass_serialization():
+    @dataclass
+    class Evaluation:
+        value: dict
+
+    source = {"mapping": {"items": [1, {"nested": [2]}]}}
+    frozen = _FrozenDict(source)
+    source["mapping"]["items"].append(3)
+
+    assert asdict(Evaluation(frozen)) == {
+        "value": {"mapping": {"items": [1, {"nested": [2]}]}}
+    }
     with pytest.raises(TypeError, match="immutable"):
-        frozen.__init__({"poisoned": True})
+        frozen["mapping"]["items"][1]["nested"].append(3)
+
+    items = _FrozenList([{"nested": [1]}])
     with pytest.raises(TypeError, match="immutable"):
-        items.__init__(["poisoned"])
+        items[0]["nested"].append(2)
+
+
+def test_deep_freeze_does_not_measure_or_rebuild_frozen_values():
+    source = {"mapping": {"items": [1, {"nested": [2]}]}}
+    with patch(
+        "statsig_python_core._frozen_json.sys.getsizeof", side_effect=AssertionError
+    ):
+        frozen = _deep_freeze(source)
+        assert _deep_freeze(frozen) is frozen
+        assert _deep_freeze(frozen["mapping"]["items"]) is frozen["mapping"]["items"]
+
+    source["mapping"]["items"].append(3)
+    assert frozen == {"mapping": {"items": [1, {"nested": [2]}]}}
+    assert copy.deepcopy(frozen) is frozen
+    assert pickle.loads(pickle.dumps(frozen)) == frozen
+    assert json.loads(json.dumps(frozen)) == frozen
+    with pytest.raises(TypeError, match="immutable"):
+        frozen["mapping"]["items"][1]["nested"].append(3)
 
 
 def test_frozen_json_pickle_round_trip_preserves_frozen_containers():

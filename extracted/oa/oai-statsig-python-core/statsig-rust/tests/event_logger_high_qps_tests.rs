@@ -41,7 +41,7 @@ async fn setup() -> (Arc<Statsig>, StatsigUser, MockScrapi) {
 }
 
 #[tokio::test]
-async fn test_check_gate_overrides() {
+async fn log_event_remains_responsive_while_uploads_fail() {
     let (statsig, user, mock_scrapi) = setup().await;
 
     for _ in 0..10 {
@@ -69,6 +69,5 @@ async fn test_check_gate_overrides() {
 
     let _ = statsig.shutdown().await;
 
-    let count = mock_scrapi.get_logged_event_count();
-    assert_eq!(count, 0);
+    assert!(mock_scrapi.times_called_for_endpoint(Endpoint::LogEvent) > 0);
 }

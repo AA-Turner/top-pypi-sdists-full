@@ -1,24 +1,26 @@
-from typing import Any, Literal, cast
 from abc import ABCMeta, abstractmethod
-from cryptography.x509 import load_pem_x509_certificate
+from typing import Any, Literal, cast
+
 from cryptography.hazmat.primitives.serialization import (
-    load_pem_private_key,
-    load_pem_public_key,
-    load_ssh_public_key,
-    load_ssh_private_key,
-    load_der_private_key,
-    load_der_public_key,
+    BestAvailableEncryption,
     Encoding,
+    KeySerializationEncryption,
+    NoEncryption,
     PrivateFormat,
     PublicFormat,
-    KeySerializationEncryption,
-    BestAvailableEncryption,
-    NoEncryption,
+    load_der_private_key,
+    load_der_public_key,
+    load_pem_private_key,
+    load_pem_public_key,
+    load_ssh_private_key,
+    load_ssh_public_key,
 )
-from .models import NativeKeyBinding, GenericKey
-from .types import DictKey
+from cryptography.x509 import load_pem_x509_certificate
+
 from ..errors import InvalidKeyTypeError
 from ..util import to_bytes
+from .models import GenericKey, NativeKeyBinding
+from .types import DictKey
 
 
 def import_from_ssh_key(raw: bytes) -> Any:
@@ -53,7 +55,7 @@ def dump_pem_key(
     key: Any,
     encoding: Literal["PEM", "DER"] | None = None,
     private: bool | None = False,
-    password: Any | None = None,
+    password: str | bytes | None = None,
 ) -> bytes:
     """Export key into PEM/DER format bytes.
 
@@ -118,7 +120,7 @@ class CryptographyBinding(NativeKeyBinding, metaclass=ABCMeta):
         return cls.import_public_key(value)
 
     @classmethod
-    def import_from_bytes(cls, value: bytes, password: Any | None = None) -> Any:
+    def import_from_bytes(cls, value: bytes, password: str | bytes | None = None) -> Any:
         if cls.check_ssh_type(value):
             return import_from_ssh_key(value)
 

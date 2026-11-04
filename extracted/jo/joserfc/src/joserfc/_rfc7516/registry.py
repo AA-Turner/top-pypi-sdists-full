@@ -1,20 +1,21 @@
 import warnings
-import typing as t
 from collections.abc import Collection
-from .models import JWEAlgModel, JWEEncModel, JWEZipModel
+from typing import Any, ClassVar, TypedDict
+
 from ..errors import (
-    UnsupportedAlgorithmError,
-    SecurityWarning,
     ExceededSizeError,
+    SecurityWarning,
+    UnsupportedAlgorithmError,
 )
 from ..registry import (
+    JWE_HEADER_REGISTRY,
     Header,
     HeaderRegistryDict,
-    JWE_HEADER_REGISTRY,
-    check_supported_header,
-    check_registry_header,
     check_crit_header,
+    check_registry_header,
+    check_supported_header,
 )
+from .models import JWEAlgModel, JWEEncModel, JWEZipModel
 
 __all__ = [
     "JWEAlgorithm",
@@ -24,14 +25,11 @@ __all__ = [
 
 JWEAlgorithm = JWEAlgModel | JWEEncModel | JWEZipModel
 
-AlgorithmsDict = t.TypedDict(
-    "AlgorithmsDict",
-    {
-        "alg": dict[str, JWEAlgModel],
-        "enc": dict[str, JWEEncModel],
-        "zip": dict[str, JWEZipModel],
-    },
-)
+
+class AlgorithmsDict(TypedDict):
+    alg: dict[str, JWEAlgModel]
+    enc: dict[str, JWEEncModel]
+    zip: dict[str, JWEZipModel]
 
 
 class JWERegistry:
@@ -52,7 +50,7 @@ class JWERegistry:
         "enc": {},
         "zip": {},
     }
-    recommended: t.ClassVar[list[str]] = []
+    recommended: ClassVar[list[str]] = []
 
     #: max protected header content's size in bytes
     max_protected_header_length: int = 1024
@@ -149,7 +147,7 @@ class JWERegistry:
         if len(aad) > self.max_aad_length:
             raise ExceededSizeError(f"AAD size exceeds {self.max_aad_length} bytes.")
 
-    def validate_recipient_count(self, recipients: Collection[t.Any]) -> None:
+    def validate_recipient_count(self, recipients: Collection[Any]) -> None:
         if len(recipients) > self.max_recipients:
             raise ExceededSizeError(f"Recipient count exceeds {self.max_recipients}.")
 
@@ -162,7 +160,7 @@ class JWERegistry:
         self._check_algorithm(name, registry)
         alg: JWEAlgModel = registry[name]
         if alg.security_warning:
-            warnings.warn(alg.security_warning, SecurityWarning)
+            warnings.warn(alg.security_warning, SecurityWarning, stacklevel=2)
         return alg
 
     def get_enc(self, name: str) -> JWEEncModel:
@@ -183,7 +181,7 @@ class JWERegistry:
         self._check_algorithm(name, registry)
         return registry[name]
 
-    def _check_algorithm(self, name: str, registry: dict[str, t.Any]) -> None:
+    def _check_algorithm(self, name: str, registry: dict[str, Any]) -> None:
         if name not in registry:
             raise UnsupportedAlgorithmError(f"Algorithm of '{name}' is not supported")
 

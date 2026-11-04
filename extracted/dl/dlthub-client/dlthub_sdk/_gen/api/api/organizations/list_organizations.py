@@ -130,7 +130,7 @@ def sync_detailed(
 
     Lists all organizations the current user is a member of, as a paginated list.
 
-    Requires Authorization Header.
+    Requires any valid credential; no particular role is needed.
 
     Args:
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
@@ -180,7 +180,7 @@ def sync(
 
     Lists all organizations the current user is a member of, as a paginated list.
 
-    Requires Authorization Header.
+    Requires any valid credential; no particular role is needed.
 
     Args:
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
@@ -225,7 +225,7 @@ async def asyncio_detailed(
 
     Lists all organizations the current user is a member of, as a paginated list.
 
-    Requires Authorization Header.
+    Requires any valid credential; no particular role is needed.
 
     Args:
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
@@ -273,7 +273,7 @@ async def asyncio(
 
     Lists all organizations the current user is a member of, as a paginated list.
 
-    Requires Authorization Header.
+    Requires any valid credential; no particular role is needed.
 
     Args:
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.

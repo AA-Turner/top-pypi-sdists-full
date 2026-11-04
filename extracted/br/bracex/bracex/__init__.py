@@ -33,8 +33,11 @@ __version_info__ = __meta__.__version_info__
 _alpha = [chr(x) if x != 0x5c else '' for x in range(ord('A'), ord('z') + 1)]
 _nalpha = list(reversed(_alpha))
 
-RE_INT_ITER = re.compile(r'(-?((?:0(?=\d))*)\d+)\.{2}(-?((?:0(?=\d))*)\d+)(?:\.{2}-?(((?:0(?=\d))*)\d+))?(?=\})')
-RE_CHR_ITER = re.compile(r'([A-Za-z])\.{2}([A-Za-z])(?:\.{2}-?(((?:0(?=\d))*)\d+))?(?=\})')
+RE_INT_ITER = re.compile(
+    r'([-+]?((?:0(?=\d))*)\d+)\.{2}([-+]?((?:0(?=\d))*)\d+)(?:\.{2}[-+]?(((?:0(?=\d))*)\d+))?(?=\})', re.ASCII
+)
+RE_CHR_ITER = re.compile(r'([A-Za-z])\.{2}([A-Za-z])(?:\.{2}[-+]?(((?:0(?=\d))*)\d+))?(?=\})', re.ASCII)
+RE_SEQ_SEP = re.compile(r'\.(?!\})')
 
 DEFAULT_LIMIT = 1000
 
@@ -241,7 +244,7 @@ class ExpandBrace:
         i: StringIter,
         depth: int,
         ignore_end: bool = False
-    ) -> tuple[list[str | Iterator[str]], int]:
+    ) -> tuple[list[str | Iterator[str]], int, bool]:
         """
         Get a string literal.
 
@@ -250,9 +253,12 @@ class ExpandBrace:
         """
 
         result = []  # type: list[str | Iterator[str]]
+        word_start = 0
         is_dollar = False
+        dollar_depth = 0
         count = 1
         literal = ''
+        has_seq = False
 
         try:
             while c:
@@ -266,7 +272,11 @@ class ExpandBrace:
                 elif c == '\\':
                     literal += self.get_escape(c, i)
 
-                elif not ignore_brace and c == '{':
+                elif (ignore_brace and c == '{') or (dollar_depth and c == '}'):
+                    literal += c
+                    dollar_depth += 1 if c == '{' else -1
+
+                elif c == '{':
 
                     if literal:
                         result.append(literal)
@@ -274,7 +284,10 @@ class ExpandBrace:
 
                     # Try and get the group
                     try:
-                        seq, scount = self.get_sequence(next(i), i, depth + 1)
+                        seq, scount, expanded = self.get_sequence(next(i), i, depth + 1, word_start)
+                        if expanded:
+                            # Bash expands each postamble as a new word.
+                            word_start = i.index
                         count *= scount
                         result.append(seq)
                     except StopIteration:
@@ -283,7 +296,7 @@ class ExpandBrace:
                         literal += c
                         raise
 
-                elif self.is_expanding() and (c == ',' or (c == '}' and not ignore_end)):
+                elif self.is_expanding() and not dollar_depth and (c == ',' or (c == '}' and not ignore_end)):
                     # We are Expanding within a group and found a group delimiter
                     # Return what we gathered before the group delimiters.
 
@@ -294,6 +307,14 @@ class ExpandBrace:
 
                     i.rewind(1)
                     break
+
+                elif not dollar_depth and c == '.' and i.match(RE_SEQ_SEP):
+                    # Bash counts `..` like a comma when looking for the `}` that ends a top level group,
+                    # unless `}` follows it, so the next `}` can end the group.
+                    ignore_end = False
+                    has_seq = True
+                    literal += '..'
+
                 else:
                     literal += c
 
@@ -303,9 +324,9 @@ class ExpandBrace:
             if literal:
                 result.append(literal)
 
-        return result, self.account(count)
+        return result, self.account(count), has_seq
 
-    def get_sequence(self, c: str, i: StringIter, depth: int) -> tuple[Iterator[str], int]:
+    def get_sequence(self, c: str, i: StringIter, depth: int, word_start: int) -> tuple[Iterator[str], int, bool]:
         """
         Get the sequence.
 
@@ -316,6 +337,7 @@ class ExpandBrace:
         result = []  # type: list[str | Iterator[str] | Iterable[str | Iterator[str]]]
         release = self.set_expanding()
         has_comma = False  # Used to indicate validity of group (`{1..2}` are an exception).
+        has_seq = False  # Used to indicate a top level `..` that lets the next `}` end the group.
         is_empty = True  # Tracks whether the current slot is empty `{slot,slot,slot}`.
         counts = []
 
@@ -325,15 +347,15 @@ class ExpandBrace:
         i.advance(1)
         if item is not None:
             self.release_expanding(release)
-            return item, self.account(count)
+            return item, self.account(count), True
 
         try:
             while True:
                 # Bash has some special top level logic. if `}` follows `{` but hasn't matched
-                # a group yet, keep going except when the first 2 bytes are `{}` which gets
-                # completely ignored.
-                keep_looking = depth == 1 and not has_comma
-                if (c == '}' and (not keep_looking or i.index == 2)):
+                # a group yet, keep going except when the first 2 bytes of the current
+                # postamble are `{}` which gets completely ignored.
+                keep_looking = depth == 1 and not has_comma and not has_seq
+                if (c == '}' and (not keep_looking or i.index == word_start + 2)):
                     self.release_expanding(release)
 
                     # Handle empty slot
@@ -349,7 +371,7 @@ class ExpandBrace:
                         for r in self.flatten(result):
                             temp = self.squash(temp, [r] if isinstance(r, str) else r)
                         temp = self.squash(temp, ['}'])
-                        return temp, self.account(math.prod(counts, start=1))
+                        return temp, self.account(math.prod(counts, start=1)), False
 
                     # Format return for a sequence
                     fin = iter([])  # type: Iterator[str]
@@ -369,7 +391,7 @@ class ExpandBrace:
                             start = e + 1
                     if start < l:
                         fin = self.chain(fin, result[start:])
-                    return fin, self.account(sum(counts))
+                    return fin, self.account(sum(counts)), True
 
                 elif c == ',':
                     # Must be the first element in the list.
@@ -382,7 +404,7 @@ class ExpandBrace:
 
                 else:
                     # Lower level: Try to find group, but give up if cannot acquire.
-                    value, lcount = self.get_literals(c, i, depth, keep_looking)
+                    value, lcount, has_seq = self.get_literals(c, i, depth, keep_looking)
                     counts.append(lcount)
                     if value is not None:
                         if len(value) > 1:
@@ -408,7 +430,7 @@ class ExpandBrace:
             for r in self.flatten([slot]):
                 member = self.squash(member, [r] if isinstance(r, str) else r)
             temp2 = self.squash(temp2, member)
-        return temp2, self.account(math.prod(counts, start=1))
+        return temp2, self.account(math.prod(counts, start=1)), False
 
     def get_range(self, i: StringIter) -> tuple[Iterator[str] | None, int]:
         """
@@ -461,9 +483,15 @@ class ExpandBrace:
         last = int64(end)
         inc = max(1, int64(increment))
 
+        # Bash's zero-padding rule: padding is only enabled when an operand, as written,
+        # starts with `0` (or `-0`). A unary `+` sign never enables padding, but once
+        # padding is enabled by either operand, the full written width of both operands
+        # (signs included) is honored.
+        arm = bool((spad[1] - spad[0]) and not start.startswith('+'))
+        arm = arm or bool((epad[1] - epad[0]) and not end.startswith('+'))
         spad_len = spad[1] - spad[0]
         epad_len = epad[1] - epad[0]
-        padding = max(spad_len + len(start), epad_len + len(end)) if spad_len or epad_len else 0
+        padding = max(spad_len + len(start), epad_len + len(end)) if arm else 0
 
         if first < last:
             span = abs(last - first + 1)
@@ -513,7 +541,7 @@ class ExpandBrace:
         """Expand the string."""
 
         i = StringIter(string)
-        values, _ = self.get_literals(next(i), i, 0)
+        values, _, _ = self.get_literals(next(i), i, 0)
 
         # Squash the nested list by calculating the combinations
         results = iter([EMPTY])  # type: Iterator[str]

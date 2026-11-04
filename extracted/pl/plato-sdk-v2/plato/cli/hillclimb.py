@@ -78,7 +78,7 @@ so you build a knowledge base across iterations.
 def hillclimb(
     ctx: typer.Context,
     experiment_file_id: str = typer.Argument(..., help="Chronos experiment file public ID"),
-    target_world: str = typer.Argument(..., help="Target world path (e.g. 'worlds/webclone')"),
+    target_world: str = typer.Argument(..., help="Target world path (e.g. 'worlds/workflow')"),
     name: str = typer.Option(
         None,
         "--name",
@@ -104,9 +104,9 @@ def hillclimb(
 
     Example:
 
-        plato hillclimb abc123-def4-5678 worlds/webclone
+        plato hillclimb abc123-def4-5678 worlds/workflow
 
-        plato hillclimb abc123-def4-5678 worlds/webclone -n webclone-perf
+        plato hillclimb abc123-def4-5678 worlds/workflow -n workflow-perf
     """
     # Verify we're in a git repo
     result = subprocess.run(

@@ -236,6 +236,12 @@ def fmt_dt(value: object) -> str:
     return value.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
+def fmt_duration(seconds: float) -> str:
+    hours, remainder = divmod(max(0, int(seconds)), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:d}:{minutes:02d}:{seconds:02d}"
+
+
 def elapsed(job_record: object) -> str:
     start = getattr(job_record, "launched_at", None)
     if not isinstance(start, datetime):
@@ -243,10 +249,44 @@ def elapsed(job_record: object) -> str:
     end = getattr(job_record, "completed_at", None)
     if not isinstance(end, datetime):
         end = datetime.now(timezone.utc)
-    seconds = max(0, int((end - start).total_seconds()))
-    hours, remainder = divmod(seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    return f"{hours:d}:{minutes:02d}:{seconds:02d}"
+    return fmt_duration((end - start).total_seconds())
+
+
+def driver_heartbeat(conn: object, job_record: object) -> tuple[str, Any]:
+    """Liveness and latest heartbeat of an unfinished job's driver.
+
+    Liveness is "-" for finished jobs and for Geneva versions without driver
+    heartbeats.
+    """
+    if job_status(job_record) in TERMINAL_STATUSES:
+        return "-", None
+    get_heartbeat = getattr(getattr(conn, "_history", None), "get_heartbeat", None)
+    if get_heartbeat is None:
+        return "-", None
+    try:
+        heartbeat = get_heartbeat(getattr(job_record, "job_id", None))
+    except Exception as exc:
+        logger.warning("reading the driver heartbeat failed: %s", exc)
+        return "?", None
+    if heartbeat is None:
+        return "UNKNOWN", None
+    return heartbeat.liveness().value, heartbeat
+
+
+def driver_detail(conn: object, job_record: object) -> str:
+    liveness, heartbeat = driver_heartbeat(conn, job_record)
+    if heartbeat is None:
+        return liveness
+    age = fmt_duration(
+        (datetime.now(timezone.utc) - heartbeat.written_at).total_seconds()
+    )
+    parts = [
+        f"{liveness}, last heartbeat {age} ago (lease {heartbeat.lease_s:.0f}s)",
+        f"host {heartbeat.host or '-'} pid {heartbeat.pid or '-'}",
+    ]
+    if heartbeat.phase:
+        parts.append(f"phase {heartbeat.phase}")
+    return "; ".join(parts)
 
 
 def metrics_line(job_record: object) -> str:
@@ -273,7 +313,9 @@ def fmt_config(value: object) -> str:
         return str(value)
 
 
-def print_detail(job_record: object, events_limit: int | None = 10) -> None:
+def print_detail(
+    job_record: object, events_limit: int | None = 10, driver: str | None = None
+) -> None:
     print(f"job_id:     {getattr(job_record, 'job_id', '-')}")
     print(f"status:     {job_status(job_record)}")
     print(f"type:       {getattr(job_record, 'job_type', '-')}")
@@ -287,6 +329,8 @@ def print_detail(job_record: object, events_limit: int | None = 10) -> None:
         f"by {getattr(job_record, 'launched_by', None) or '-'}"
     )
     print(f"updated:    {fmt_dt(getattr(job_record, 'updated_at', None))}")
+    if driver is not None:
+        print(f"driver:     {driver}")
     print(f"completed:  {fmt_dt(getattr(job_record, 'completed_at', None))}")
     print(f"elapsed:    {elapsed(job_record)}")
 
@@ -335,7 +379,11 @@ def command_list(args: argparse.Namespace) -> int:
         except ValueError:
             print(f"job {args.job_id} not found on {config.db_uri}", file=sys.stderr)
             return 1
-        print_detail(job_record, events_limit=None if args.full_events else 10)
+        print_detail(
+            job_record,
+            events_limit=None if args.full_events else 10,
+            driver=driver_detail(conn, job_record),
+        )
         return 0
 
     if args.status:
@@ -365,7 +413,7 @@ def command_list(args: argparse.Namespace) -> int:
         return 0
 
     header = (
-        f"{'STATUS':<9} {'TYPE':<10} {'ELAPSED':>9}  "
+        f"{'STATUS':<9} {'DRIVER':<7} {'TYPE':<10} {'ELAPSED':>9}  "
         f"{'LAUNCHED (UTC)':<19}  TARGET / JOB"
     )
     print(header)
@@ -373,8 +421,10 @@ def command_list(args: argparse.Namespace) -> int:
 
     for job_record in records[: args.limit]:
         target = f"{getattr(job_record, 'table_name', '-')}.{getattr(job_record, 'column_name', '-')}"
+        liveness, _ = driver_heartbeat(conn, job_record)
         print(
             f"{job_status(job_record):<9} "
+            f"{liveness:<7} "
             f"{getattr(job_record, 'job_type', '-'):<10} "
             f"{elapsed(job_record):>9}  "
             f"{fmt_dt(getattr(job_record, 'launched_at', None)):<19}  "
@@ -391,7 +441,11 @@ def command_show(args: argparse.Namespace) -> int:
         print(f"job {args.job_id} not found on {config.db_uri}", file=sys.stderr)
         return 1
 
-    print_detail(job_record, events_limit=None if args.full_events else 10)
+    print_detail(
+        job_record,
+        events_limit=None if args.full_events else 10,
+        driver=driver_detail(conn, job_record),
+    )
     return 0
 
 
@@ -416,9 +470,10 @@ def command_kill(args: argparse.Namespace) -> int:
     # NOTE: this only flips the job row to CANCELLED in the _geneva_jobs table.
     # There is no public cancel API and no runner polls for an externally-set
     # CANCELLED status, so the driver, Ray actors, and workers keep running
-    # until they finish on their own (and may overwrite the row with DONE/
-    # FAILED). Be explicit so the user is not misled into thinking the
-    # workload was terminated.
+    # until they finish on their own. Drivers on current Geneva keep the row
+    # CANCELLED and record their own outcome as an event; older drivers may
+    # overwrite it with DONE/FAILED. Be explicit so the user is not misled
+    # into thinking the workload was terminated.
     if not args.yes:
         answer = input(
             f"Mark {status} job {args.job_id} ({target}) as CANCELLED? "

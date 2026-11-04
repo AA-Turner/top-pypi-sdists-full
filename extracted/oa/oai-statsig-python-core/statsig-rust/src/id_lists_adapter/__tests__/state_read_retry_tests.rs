@@ -100,7 +100,7 @@ async fn files_count_once_per_refresh_and_manifest_success_does_not_reset_them()
     for refresh in 1..=10 {
         provider.calls.lock().clear();
         assert_eq!(
-            adapter.sync_id_lists_with_trigger(true).await.is_ok(),
+            adapter.refresh(RefreshTrigger::Background).await.is_ok(),
             refresh % 5 == 0
         );
         let calls = provider.calls.lock();
@@ -122,27 +122,27 @@ async fn files_count_once_per_refresh_and_manifest_success_does_not_reset_them()
     }
     // Foreground success does not change the background streak; skipped files do not either.
     for _ in 0..4 {
-        assert!(adapter.sync_id_lists_with_trigger(true).await.is_err());
+        assert!(adapter.refresh(RefreshTrigger::Background).await.is_err());
     }
     assert!(adapter.sync_id_lists().await.is_ok());
     provider.skip_files.store(true, Ordering::SeqCst);
-    assert!(adapter.sync_id_lists_with_trigger(true).await.is_ok());
+    assert!(adapter.refresh(RefreshTrigger::Background).await.is_ok());
     provider.skip_files.store(false, Ordering::SeqCst);
-    assert!(adapter.sync_id_lists_with_trigger(true).await.is_ok());
+    assert!(adapter.refresh(RefreshTrigger::Background).await.is_ok());
     // A terminal file failure breaks the eligible streak and never contacts the CDN.
     for _ in 0..4 {
-        assert!(adapter.sync_id_lists_with_trigger(true).await.is_err());
+        assert!(adapter.refresh(RefreshTrigger::Background).await.is_err());
     }
     provider.file_status.store(401, Ordering::SeqCst);
     provider.calls.lock().clear();
-    assert!(adapter.sync_id_lists_with_trigger(true).await.is_err());
+    assert!(adapter.refresh(RefreshTrigger::Background).await.is_err());
     assert_eq!(provider.calls.lock().len(), 13);
     provider.file_status.store(503, Ordering::SeqCst);
-    assert!(adapter.sync_id_lists_with_trigger(true).await.is_err());
+    assert!(adapter.refresh(RefreshTrigger::Background).await.is_err());
     provider.file_status.store(200, Ordering::SeqCst);
-    assert!(adapter.sync_id_lists_with_trigger(true).await.is_ok());
+    assert!(adapter.refresh(RefreshTrigger::Background).await.is_ok());
     provider.file_status.store(503, Ordering::SeqCst);
-    assert!(adapter.sync_id_lists_with_trigger(true).await.is_err());
+    assert!(adapter.refresh(RefreshTrigger::Background).await.is_err());
 }
 
 #[tokio::test(start_paused = true)]
@@ -224,7 +224,7 @@ async fn configured_primary_budget_controls_manifests_and_each_file() {
             .set_network_provider_for_test(Arc::downgrade(&network_provider));
         adapter.set_listener(Arc::new(Listener::default()));
         let mut events = adapter.ops_stats.subscribe_for_test();
-        assert!(adapter.sync_id_lists_with_trigger(false).await.is_err());
+        assert!(adapter.refresh(RefreshTrigger::Initialize).await.is_err());
         assert_eq!(provider.calls.lock().len(), manifests);
         let mut manifest_indices = Vec::new();
         while let Ok(event) = events.try_recv() {
@@ -244,7 +244,7 @@ async fn configured_primary_budget_controls_manifests_and_each_file() {
         provider.calls.lock().clear();
         provider.requests.lock().clear();
         provider.manifest_status.store(200, Ordering::SeqCst);
-        assert!(adapter.sync_id_lists_with_trigger(false).await.is_err());
+        assert!(adapter.refresh(RefreshTrigger::Initialize).await.is_err());
         let calls = provider.calls.lock();
         for file in 0..12 {
             assert_eq!(

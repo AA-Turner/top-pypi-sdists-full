@@ -1,9 +1,13 @@
-"""DrainSendersMixin: the client each op goes out with (one per credential and route per pass), and sending an op, a batch or an upload window."""
+"""DrainSendersMixin: the client each op goes out with (one per credential and route, kept for the
+worker's life by `SenderClients`), and sending an op, a batch or an upload window."""
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from contextlib import nullcontext
+import os
 from pathlib import Path
+import threading
 from typing import Any
 
 from probe.sdk import errors
@@ -20,6 +24,72 @@ UPLOAD_WINDOW_FACTOR = 4
 UPLOAD_WINDOW_SCAN_FACTOR = 4
 
 
+class SenderClients:
+    """The clients drain passes send with, one per pinned context, credential and route, kept
+    across passes (I13): the worker's next pass reuses an open keep-alive connection instead of a
+    TLS handshake per pass (~2,800/s at 10k runs). A client whose credential or base URL changed
+    is replaced; a forked child starts empty (the sockets are its parent's, never closed here)."""
+
+    #: Clients kept across passes at most; the least recently used is closed first.
+    MAX_CLIENTS = 32
+
+    def __init__(self) -> None:
+        self._clients: OrderedDict[tuple, Any] = OrderedDict()
+        self._pid = os.getpid()
+        self._lock = threading.Lock()
+
+    def take_client(self, key: tuple, settings: Any, client_class: Any) -> Any:
+        """The client for ``key``: the kept one while its class and ``settings`` (token, base URL,
+        workspace) are unchanged, else a new one."""
+        with self._lock:
+            if self._pid != os.getpid():
+                self._clients = OrderedDict()
+                self._pid = os.getpid()
+            kept = self._clients.pop(key, None)
+            if kept is not None and type(kept) is client_class and getattr(kept, "settings", None) == settings:
+                self._clients[key] = kept
+                return kept
+            if kept is not None:
+                _close_quietly(kept)
+            # async_writes=False because THIS is the drainer: an async client mints a
+            # producer record (`sdk:{host}:{pid}:{uuid4}`) per construction, and a long
+            # outage would litter producers/ with single-use entries in the registry that makes
+            # capture loss visible. NOT because replay would re-journal: replay never goes
+            # through `Client.write`, it uses `transport.request` and `upload_fingerprinted`
+            # directly; write mode does not govern the drain path.
+            client = client_class(settings=settings, async_writes=False)
+            self._clients[key] = client
+            return client
+
+    def start_pass(self) -> None:
+        """Before a pass (none holds a client then): keep the `MAX_CLIENTS` most recently used,
+        and have each re-ask what the server supports, as a client built per pass did, so a
+        deploy that adds or rolls back a route is seen by the next pass."""
+        with self._lock:
+            while len(self._clients) > self.MAX_CLIENTS:
+                _close_quietly(self._clients.popitem(last=False)[1])
+            for client in self._clients.values():
+                forget = getattr(client, "_forget_server_features", None)
+                if callable(forget):
+                    forget()
+
+    def close(self) -> None:
+        """Close every kept client (the worker is exiting, or a pass that built its own ended)."""
+        with self._lock:
+            clients, self._clients = list(self._clients.values()), OrderedDict()
+            if self._pid != os.getpid():
+                return  # a forked child's copies: the parent's sockets
+        for client in clients:
+            _close_quietly(client)
+
+
+def _close_quietly(client: Any) -> None:
+    try:
+        client.close()
+    except Exception:  # noqa: BLE001 -- a close never stops delivery
+        pass
+
+
 class DrainSendersMixin:
     """Part of DrainPass: its methods run with `self` the DrainPass; fold_parts() copies them into DrainPass."""
 
@@ -27,8 +97,14 @@ class DrainSendersMixin:
         """The client class and the credential state every send of this pass shares."""
         self.client_class = delivery_client()  # loaded here, not at import: enqueue paths must not import httpx
 
+        # Per pass: what each key resolved to (a client, or a `CredentialNotHere` asked once).
         self.clients: dict[tuple, Any] = {}
-        self.constructed: list[Any] = []  # only clients WE built get closed
+        # The worker's clients outlive the pass (I13); any other drain's are closed at its end.
+        shared = self.options.senders
+        self.should_close_senders = shared is None
+        self.sender_clients = SenderClients() if shared is None else shared
+        if shared is not None:
+            shared.start_pass()
 
         # Credentials the API refused (#2041 review): fingerprint -> when. Earlier passes' come
         # from status.json, so a refused credential is re-tried once per cooldown, not per pass;
@@ -171,16 +247,7 @@ class DrainSendersMixin:
             raise errors.AuthError(
                 f"no credentials for context {key[0] or '<default>'} ({WIZARD_HINT})"
             )
-        # async_writes=False because THIS is the drainer: an async client mints a
-        # producer record (`sdk:{host}:{pid}:{uuid4}`) per construction, the detached
-        # worker builds one per pass, and a long outage would litter producers/ with
-        # thousands of single-use entries in the registry that makes capture loss
-        # visible. NOT because replay would re-journal: replay never goes through
-        # `Client.write`, it uses `transport.request` and `upload_fingerprinted`
-        # directly; write mode does not govern the drain path.
-        client = self.client_class(settings=settings, async_writes=False)
-        self.constructed.append(client)
-        self.clients[key] = client
+        self.clients[key] = self.sender_clients.take_client(key, settings, self.client_class)
 
     def _send_upload_window(self, position: int) -> bool:
         """Send the uploads in the window ahead of ``position`` in parallel. False ends the pass."""

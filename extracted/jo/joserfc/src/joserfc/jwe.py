@@ -1,31 +1,32 @@
-from typing import cast, overload
 from collections.abc import Collection
-from ._rfc7516.types import (
-    GeneralJSONSerialization,
-    FlattenedJSONSerialization,
+from typing import cast, overload
+
+from ._rfc7516.compact import extract_compact, represent_compact
+from ._rfc7516.json import (
+    extract_flattened_json,
+    extract_general_json,
+    represent_flattened_json,
+    represent_general_json,
 )
+from ._rfc7516.message import perform_decrypt, perform_encrypt
 from ._rfc7516.models import (
-    Recipient,
     CompactEncryption,
-    GeneralJSONEncryption,
     FlattenedJSONEncryption,
+    GeneralJSONEncryption,
+    Recipient,
 )
 from ._rfc7516.registry import (
     JWERegistry,
     default_registry,
 )
-from ._rfc7516.message import perform_encrypt, perform_decrypt
-from ._rfc7516.compact import represent_compact, extract_compact
-from ._rfc7516.json import (
-    represent_general_json,
-    represent_flattened_json,
-    extract_general_json,
-    extract_flattened_json,
+from ._rfc7516.types import (
+    FlattenedJSONSerialization,
+    GeneralJSONSerialization,
 )
 from .jwa import setup_jwe_algorithms
-from .jwk import Key, KeySet, ECKey, OKPKey, KeyFlexible, guess_key
-from .util import to_bytes
+from .jwk import ECKey, Key, KeyFlexible, KeySet, OKPKey, guess_key
 from .registry import Header, reject_unprotected_crit_header
+from .util import to_bytes
 
 __all__ = [
     # types
@@ -240,7 +241,7 @@ def decrypt_json(
         perform_decrypt(general_obj, registry)
         return general_obj
     else:
-        flattened_obj = extract_flattened_json(cast(FlattenedJSONSerialization, data), registry)
+        flattened_obj = extract_flattened_json(data, registry)
         _attach_recipient_keys(flattened_obj.recipients, private_key, sender_key)
         perform_decrypt(flattened_obj, registry)
         return flattened_obj

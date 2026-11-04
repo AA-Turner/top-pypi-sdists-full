@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+import builtins
 
 from httpx import AsyncClient, Headers
 from yarl import URL
@@ -44,20 +44,21 @@ class AsyncVectorBucketScope:
         dimension: int,
         distance_metric: DistanceMetric,
         data_type: str,
-        metadata: Optional[MetadataConfiguration] = None,
+        metadata: MetadataConfiguration | None = None,
     ) -> None:
+        metadata_configuration = (
+            metadata.model_dump(by_alias=True, exclude_none=True) if metadata else None
+        )
         body = self.with_metadata(
             indexName=index_name,
             dimension=dimension,
             distanceMetric=distance_metric,
             dataType=data_type,
-            metadataConfiguration=metadata.model_dump(by_alias=True)
-            if metadata
-            else None,
+            metadataConfiguration=metadata_configuration or None,
         )
         await self._request.send(http_method="POST", path=["CreateIndex"], body=body)
 
-    async def get_index(self, index_name: str) -> Optional[GetVectorIndexResponse]:
+    async def get_index(self, index_name: str) -> GetVectorIndexResponse | None:
         body = self.with_metadata(indexName=index_name)
         try:
             data = await self._request.send(
@@ -69,9 +70,9 @@ class AsyncVectorBucketScope:
 
     async def list_indexes(
         self,
-        next_token: Optional[str] = None,
-        max_results: Optional[int] = None,
-        prefix: Optional[str] = None,
+        next_token: str | None = None,
+        max_results: int | None = None,
+        prefix: str | None = None,
     ) -> ListVectorIndexesResponse:
         body = self.with_metadata(
             nextToken=next_token, maxResults=max_results, prefix=prefix
@@ -104,7 +105,7 @@ class AsyncVectorIndexScope:
             **data,
         )
 
-    async def put(self, vectors: List[VectorObject]) -> None:
+    async def put(self, vectors: builtins.list[VectorObject]) -> None:
         body = self.with_metadata(
             vectors=[v.model_dump(exclude_none=True) for v in vectors]
         )
@@ -123,12 +124,12 @@ class AsyncVectorIndexScope:
 
     async def list(
         self,
-        max_results: Optional[int] = None,
-        next_token: Optional[str] = None,
+        max_results: int | None = None,
+        next_token: str | None = None,
         return_data: bool = True,
         return_metadata: bool = True,
-        segment_count: Optional[int] = None,
-        segment_index: Optional[int] = None,
+        segment_count: int | None = None,
+        segment_index: int | None = None,
     ) -> ListVectorsResponse:
         body = self.with_metadata(
             maxResults=max_results,
@@ -146,8 +147,8 @@ class AsyncVectorIndexScope:
     async def query(
         self,
         query_vector: VectorData,
-        topK: Optional[int] = None,
-        filter: Optional[VectorFilter] = None,
+        topK: int,
+        filter: VectorFilter | None = None,
         return_distance: bool = True,
         return_metadata: bool = True,
     ) -> QueryVectorsResponse:
@@ -163,7 +164,7 @@ class AsyncVectorIndexScope:
         )
         return QueryVectorsResponse.model_validate_json(data.content)
 
-    async def delete(self, keys: List[str]) -> None:
+    async def delete(self, keys: builtins.list[str]) -> None:
         if len(keys) < 1 or len(keys) > 500:
             raise VectorBucketException("Keys batch size must be between 1 and 500.")
         body = self.with_metadata(keys=keys)
@@ -183,7 +184,7 @@ class AsyncStorageVectorsClient:
             http_method="POST", path=["CreateVectorBucket"], body=body
         )
 
-    async def get_bucket(self, bucket_name: str) -> Optional[GetVectorBucketResponse]:
+    async def get_bucket(self, bucket_name: str) -> GetVectorBucketResponse | None:
         body = {"vectorBucketName": bucket_name}
         try:
             data = await self._request.send(
@@ -195,9 +196,9 @@ class AsyncStorageVectorsClient:
 
     async def list_buckets(
         self,
-        prefix: Optional[str] = None,
-        max_results: Optional[int] = None,
-        next_token: Optional[str] = None,
+        prefix: str | None = None,
+        max_results: int | None = None,
+        next_token: str | None = None,
     ) -> ListVectorBucketsResponse:
         body = remove_none(prefix=prefix, maxResults=max_results, nextToken=next_token)
         data = await self._request.send(

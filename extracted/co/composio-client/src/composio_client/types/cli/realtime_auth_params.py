@@ -1,15 +1,18 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# Manufactured by packages/codegen (`pnpm generate:python`) — edit the generator, not this file.
+"""Compatibility types for composio_client.types.cli.realtime_auth_params."""
 
 from __future__ import annotations
 
 from typing_extensions import Required, TypedDict
 
-__all__ = ["RealtimeAuthParams"]
-
 
 class RealtimeAuthParams(TypedDict, total=False):
     channel_name: Required[str]
-    """The channel name to authenticate for"""
-
+    "The channel name to authenticate for"
     socket_id: Required[str]
-    """The socket ID for Pusher authentication"""
+    "The socket ID for Pusher authentication"
+
+
+__all__ = [
+    "RealtimeAuthParams",
+]

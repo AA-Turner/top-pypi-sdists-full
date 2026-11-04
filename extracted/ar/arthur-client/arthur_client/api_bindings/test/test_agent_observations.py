@@ -36,6 +36,12 @@ class TestAgentObservations(unittest.TestCase):
         if include_optional:
             return AgentObservations(
                 install_path = '',
+                occurrences = [
+                    arthur_client.api_bindings.models.agent_occurrence.AgentOccurrence(
+                        kind = '', 
+                        path = '', 
+                        version = '', )
+                    ],
                 version = '',
                 previous_version = '',
                 host_name = '',

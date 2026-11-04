@@ -1,6 +1,6 @@
-"""Booting a composed computer: one build of it in a container, on a sandbox provider that runs its arch natively, with
-its settings in the environment the base and the driver read them from, until its driver says it's ready. A deploy and
-gate 3 boot computers this way."""
+"""Booting a composed computer: one build of it, its container in a container or its disk in a VM, on a sandbox provider
+that runs its arch natively, with its settings in the environment the base and the driver read them from (a disk's in
+its NoCloud seed), until its driver says it's ready. A deploy and gate 3 boot computers this way."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import asyncio
 import contextlib
 import json
 import secrets
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -17,8 +18,10 @@ from agentenv_protocol.computer import APP_SETTINGS_ENV, COMPUTER_READY, SETTING
 from agentenv_protocol.computer.apps import ANSWER_TIMEOUT_S
 
 from agent_env.config import get_config
+from agent_env.env.envs.computer.utils.composed import REPOSITORY
 from agent_env.providers.env_providers.env_provider import _size_kwargs
 from agent_env.providers.sandbox_providers.local_docker.provider import remove_local_work_dir
+from agent_env.store.image_store.oci_registry_credentials import is_loopback_host, registry_host_from_ref
 
 if TYPE_CHECKING:
     from agent_env.artifact.artifacts.computer import ComputerArtifact
@@ -36,8 +39,14 @@ _STATUS_TIMEOUT_S = int(ANSWER_TIMEOUT_S) + 15
 _POLL_S = 0.5
 #: How a setting a record keeps shows a secret's or a generated one's value, which it never holds.
 WITHHELD = "<withheld>"
+
+
+class ComputerFailed(RuntimeError):
+    """The computer's ``computer-ready`` status says it failed for good, a check that can't pass again."""
 #: How many random bytes a computer's control token carries: 256 bits, past guessing.
 CONTROL_TOKEN_BYTES = 32
+#: The size of a disk's VM when a deploy sets none: what the desktop was measured booting and passing the probe in.
+DISK_CPU, DISK_MEMORY_MB = 2.0, 4096
 
 
 @dataclass
@@ -47,9 +56,27 @@ class Booted:
     card: dict
 
 
-def native_links(sandbox_provider: SandboxProvider, arch: str) -> list[SandboxProvider]:
-    """The providers a boot of ``arch`` may run on, in the order a chain tries them: those that run it natively."""
-    return [link for link in sandbox_provider.links if f"linux/{arch}" in link.native_platforms()]
+def native_links(sandbox_provider: SandboxProvider, arch: str, form: str, store_id: str) -> list[SandboxProvider]:
+    """The providers a boot of ``form`` for ``arch`` of the env stored as ``store_id`` may run on, in the order a chain
+    tries them: those that boot its disk natively, which they carry themselves, or run its container natively and pull
+    it from the env's image store."""
+    if form == "disk":
+        return [link for link in sandbox_provider.links if f"linux/{arch}" in link.disk_image_platforms()]
+    return [link for link in sandbox_provider.links if f"linux/{arch}" in link.native_platforms()
+            and pulls_containers(link, store_id)]
+
+
+def first_native(link: SandboxProvider, pairs: Iterable[tuple[str, str]], store_id: str) -> tuple[str, str] | None:
+    """The first of ``pairs``, forms and arches in the base's order, that ``link`` boots natively: the one a deploy on it
+    boots, and so the one a run composes for it."""
+    return next(((form, arch) for form, arch in pairs if native_links(link, arch, form, store_id)), None)
+
+
+def pulls_containers(link: SandboxProvider, store_id: str) -> bool:
+    """Whether ``link`` pulls the containers the env stored as ``store_id`` composes: from a registry on this machine's
+    loopback, only a link on this machine does."""
+    ref = get_config().get_image_store_for(store_id).image_ref(REPOSITORY, "key")
+    return link.ON_THIS_MACHINE or not is_loopback_host(registry_host_from_ref(ref))
 
 
 def settings_environment(computer: ComputerArtifact, values: dict[str, Any], *, environment_name: str,
@@ -114,13 +141,20 @@ def control_environment(token: Optional[str]) -> dict[str, str]:
 async def boot(sandbox_provider: SandboxProvider, *, image: str, port: int, environment: dict[str, str], token: str,
                network_policy: Optional[NetworkPolicy], timeout: int, attribution: Optional[Attribution],
                disk_size_gb: float = 10, cpu: Optional[float] = None, memory_mb: Optional[int] = None,
-               ready_s: float = READY_TIMEOUT_S) -> Booted:
-    """``image`` booted with ``environment`` and its control ``token`` on ``sandbox_provider``, which the caller chose
-    to run its arch natively, its driver's ``port`` reached on the sandbox, once the driver, asked with that token, says
-    the computer is ready; a boot that fails is torn down."""
-    sandbox = await sandbox_provider.create_container(
-        image_name=image, port=port, env={**environment, **control_environment(token)}, network_policy=network_policy,
-        disk_size_gb=disk_size_gb, timeout=timeout, attribution=dict(attribution or {}), **_size_kwargs(cpu, memory_mb))
+               ready_s: float = READY_TIMEOUT_S, form: str = "container") -> Booted:
+    """``image``, of ``form``, booted with ``environment`` and its control ``token`` on ``sandbox_provider``, which the
+    caller chose to run its arch natively, its driver's ``port`` reached on the sandbox, once the driver, asked with that
+    token, says the computer is ready; a boot that fails is torn down."""
+    environment = {**environment, **control_environment(token)}
+    if form == "disk":
+        sandbox = await sandbox_provider.create_vm(
+            image=image, env=environment, exposed_ports=[port], network_policy=network_policy,
+            disk_size_gb=disk_size_gb, timeout=timeout, attribution=dict(attribution or {}),
+            cpu=cpu or DISK_CPU, memory=memory_mb or DISK_MEMORY_MB)
+    else:
+        sandbox = await sandbox_provider.create_container(
+            image_name=image, port=port, env=environment, network_policy=network_policy, disk_size_gb=disk_size_gb,
+            timeout=timeout, attribution=dict(attribution or {}), **_size_kwargs(cpu, memory_mb))
     try:
         url = sandbox.tunnel_urls[port]
         return Booted(sandbox, url, await ready(url, ready_s, token))
@@ -150,12 +184,13 @@ def ready_timeout(apps: list[ComputerAppEnv], os_type: str) -> float:
 
 async def ready(url: str, timeout: float, token: Optional[str] = None) -> dict:
     """The card of the driver at ``url``, read once its ``computer-ready`` status, asked with its control ``token``,
-    says it's ready, so each app it fronts is on it as the app's own server serves it; raises TimeoutError, naming
-    what it last saw, when it isn't within ``timeout`` seconds."""
-    last = "nothing answered"
+    says it's ready, so each app it fronts is on it as the app's own server serves it; raises ComputerFailed as soon
+    as the status says it failed, and TimeoutError, naming what it last saw, when it isn't ready within ``timeout``
+    seconds."""
+    last, failed = "nothing answered", None
     try:
         async with asyncio.timeout(timeout):
-            while True:
+            while failed is None:
                 try:
                     card = await protocol_v1.get_card(url, timeout=5)
                     status = await protocol_v1.invoke_extension(url, card, COMPUTER_READY, None, _STATUS_TIMEOUT_S,
@@ -163,10 +198,13 @@ async def ready(url: str, timeout: float, token: Optional[str] = None) -> dict:
                                                                 headers=protocol_v1.control_headers(token))
                     if status.get("ready"):
                         return await protocol_v1.get_card(url, timeout=5)
+                    failed = status.get("failed")
                     last = "not ready: " + "; ".join(f"{check['name']}: {check.get('detail')}"
                                                      for check in status.get("checks", []) if not check.get("ok"))
                 except Exception as e:
                     last = f"{type(e).__name__}: {e}"
-                await asyncio.sleep(_POLL_S)
+                if failed is None:
+                    await asyncio.sleep(_POLL_S)
     except TimeoutError:
         raise TimeoutError(f"the computer at {url} wasn't ready within {timeout:.0f} s ({last})") from None
+    raise ComputerFailed(f"the computer at {url} failed: {failed}")

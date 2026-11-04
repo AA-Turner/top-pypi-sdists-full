@@ -85,8 +85,10 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ManifestFilesResponse]:
     """GetConfigurationFilesManifest
 
-     Return the files manifest for a configuration. Auth: ``DataplaneUserJwt`` with a ``ws:read`` grant
-    on the URL ``workspace_id``.
+     Lists every file in an uploaded configuration: path, size and SHA3-256 digest. Any workspace member
+    can call it. Answers 404 when the workspace has no configuration with this id. To get the latest
+    configuration's id, call `GET
+    https://api.dlthub.com/api/v1/workspaces/{workspace_id}/configurations/latest`.
 
     Args:
         workspace_id (UUID):
@@ -119,8 +121,10 @@ def sync(
 ) -> ErrorResponse | ManifestFilesResponse | None:
     """GetConfigurationFilesManifest
 
-     Return the files manifest for a configuration. Auth: ``DataplaneUserJwt`` with a ``ws:read`` grant
-    on the URL ``workspace_id``.
+     Lists every file in an uploaded configuration: path, size and SHA3-256 digest. Any workspace member
+    can call it. Answers 404 when the workspace has no configuration with this id. To get the latest
+    configuration's id, call `GET
+    https://api.dlthub.com/api/v1/workspaces/{workspace_id}/configurations/latest`.
 
     Args:
         workspace_id (UUID):
@@ -148,8 +152,10 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | ManifestFilesResponse]:
     """GetConfigurationFilesManifest
 
-     Return the files manifest for a configuration. Auth: ``DataplaneUserJwt`` with a ``ws:read`` grant
-    on the URL ``workspace_id``.
+     Lists every file in an uploaded configuration: path, size and SHA3-256 digest. Any workspace member
+    can call it. Answers 404 when the workspace has no configuration with this id. To get the latest
+    configuration's id, call `GET
+    https://api.dlthub.com/api/v1/workspaces/{workspace_id}/configurations/latest`.
 
     Args:
         workspace_id (UUID):
@@ -180,8 +186,10 @@ async def asyncio(
 ) -> ErrorResponse | ManifestFilesResponse | None:
     """GetConfigurationFilesManifest
 
-     Return the files manifest for a configuration. Auth: ``DataplaneUserJwt`` with a ``ws:read`` grant
-    on the URL ``workspace_id``.
+     Lists every file in an uploaded configuration: path, size and SHA3-256 digest. Any workspace member
+    can call it. Answers 404 when the workspace has no configuration with this id. To get the latest
+    configuration's id, call `GET
+    https://api.dlthub.com/api/v1/workspaces/{workspace_id}/configurations/latest`.
 
     Args:
         workspace_id (UUID):

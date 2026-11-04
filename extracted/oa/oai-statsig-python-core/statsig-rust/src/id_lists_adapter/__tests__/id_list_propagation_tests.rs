@@ -801,14 +801,39 @@ async fn id_list_propagation_rejected_older_generation_does_not_emit() {
     let (old, new) = source_times();
     fixture.set("users", "A", 2, 0, "+a\n", Some(old));
     fixture.adapter.sync_id_lists().await.unwrap();
+    let before = fixture.store.load_data();
     fixture.set("users", "B", 1, 0, "+p\n", Some(new));
     fixture.adapter.sync_id_lists().await.unwrap();
+    let after = fixture.store.load_data();
+    assert_eq!(*after.id_lists["users"].ids, *before.id_lists["users"].ids);
+    assert_eq!(
+        after.id_lists["users"].metadata.size,
+        before.id_lists["users"].metadata.size
+    );
     assert!(fixture.metrics().is_empty());
     assert_eq!(
-        fixture.store.load_data().id_lists["users"]
-            .metadata
-            .file_id
-            .as_deref(),
+        after.id_lists["users"].metadata.file_id.as_deref(),
         Some("A")
     );
+
+    // Preserve a valid append's pending checkpoint across rejected observations.
+    fixture.set("users", "A", 2, 3, "+b\n", None);
+    fixture.adapter.sync_id_lists().await.unwrap();
+    let before = fixture.store.load_data();
+    fixture.set("users", "A", 1, 6, "+p\n", Some(new));
+    fixture.adapter.sync_id_lists().await.unwrap();
+    let after = fixture.store.load_data();
+    assert_eq!(*after.id_lists["users"].ids, *before.id_lists["users"].ids);
+    assert_eq!(after.id_lists["users"].metadata.size, 6);
+    assert!(fixture.metrics().is_empty());
+
+    // Stale metadata must not consume the pending checkpoint for installed bytes.
+    fixture.set("users", "A", 1, 6, "", Some(new));
+    fixture.adapter.sync_id_lists().await.unwrap();
+    assert!(fixture.metrics().is_empty());
+
+    // A valid checkpoint still refers to the previously installed append.
+    fixture.set("users", "A", 2, 6, "", Some(new));
+    fixture.adapter.sync_id_lists().await.unwrap();
+    assert_eq!(fixture.metrics().len(), 1);
 }

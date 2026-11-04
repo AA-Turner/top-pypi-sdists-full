@@ -1,5 +1,6 @@
 """Test defined selectors."""
 from .. import util
+import soupsieve as sv
 
 
 class TestDefined(util.TestCase):
@@ -29,7 +30,53 @@ class TestDefined(util.TestCase):
             flags=util.HTML
         )
 
-    @util.skip_no_lxml
+    def test_defined_customized_builtin(self):
+        """Test that HTML elements with an `is` attribute are not defined."""
+
+        markup = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        </head>
+        <body>
+        <button id="0"></button>
+        <button id="1" is="fancy-button"></button>
+        <button id="2" is=""></button>
+        <p id="3" IS="fancy-paragraph"></p>
+        </body>
+        </html>
+        """
+
+        self.assert_selector(
+            markup,
+            'body :defined',
+            ['0'],
+            flags=util.HTML
+        )
+
+    def test_defined_is_attribute_foreign(self):
+        """Test that an `is` attribute does not affect elements outside the HTML namespace."""
+
+        markup = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        </head>
+        <body>
+        <svg id="0" is="fancy-svg"></svg>
+        <math id="1" is="fancy-math"></math>
+        </body>
+        </html>
+        """
+
+        self.assert_selector(
+            markup,
+            'body :defined',
+            ['0', '1'],
+            flags=util.HTML5
+        )
+
+    @util.requires_lxml
     def test_defined_xhtml(self):
         """Test defined XHTML."""
 
@@ -89,4 +136,57 @@ class TestDefined(util.TestCase):
             'body :defined',
             [],
             flags=util.XML
+        )
+
+    def test_defined_xml_only_applies_to_compound(self):
+        """Test that `:defined` not matching in XML only affects the selector it is part of."""
+
+        markup = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <root>
+        <a id="1"/>
+        <b id="2"/>
+        </root>
+        """
+
+        self.assert_selector(
+            markup,
+            "a:defined, b",
+            ['2'],
+            flags=util.XML
+        )
+
+        self.assert_selector(
+            markup,
+            "[id]:not(:defined)",
+            ['1', '2'],
+            flags=util.XML
+        )
+
+    def test_defined_iframe_combinators(self):
+        """Test that `:defined` does not stop combinators from crossing an `iframe`."""
+
+        soup = self.soup('<div><iframe></iframe></div>', 'html.parser')
+        soup.iframe.append(soup.new_tag('p', attrs={'id': 'inner'}))
+
+        self.assertEqual([el['id'] for el in sv.select('iframe > p:defined', soup)], ['inner'])
+
+    def test_defined_namespaces(self):
+        """Test that `:defined` does not stop the other selectors from using the specified namespaces."""
+
+        markup = """
+        <html>
+        <body>
+        <svg id="1"><a id="2"></a></svg>
+        <a id="3"></a>
+        </body>
+        </html>
+        """
+
+        self.assert_selector(
+            markup,
+            "svg|a:defined",
+            ['2'],
+            namespaces={'svg': 'http://www.w3.org/2000/svg'},
+            flags=util.HTML5
         )

@@ -6,8 +6,8 @@ is rate-capped per API token — so one-tunnel-per-rollout caps how wide a remot
 server) can fan out. Each shared `InterceptionServer` multiplexes rollouts behind one
 tunnel; the harness is unchanged, authenticating with a per-rollout secret the server routes
 by. Two shapes: `ElasticInterceptionPool` warms one server, then grows on demand (`multiplex`
-rollouts each, always prime tunnels — the only kind the framework can mint) and fits both the
-bounded eval runner and the env server's unbounded request load; `StaticInterceptionPool` is a
+rollouts each, always prime tunnels — the only kind the framework can mint) and fits both a
+bounded eval runner and an unbounded request load; `StaticInterceptionPool` is a
 fixed set of servers (each with its own tunnel choice, e.g. bring-your-own endpoints), balanced
 least-loaded.
 """
@@ -17,29 +17,20 @@ import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Literal
 
-from pydantic import Field
-
-from verifiers.v1.interception.base import BaseInterceptionConfig, Interception, Slot
-from verifiers.v1.interception.server import (
-    InterceptionServer,
+from verifiers.v1.configs.interception import (
+    ElasticInterceptionPoolConfig,
     InterceptionServerConfig,
+    PrimeTunnelConfig,
+    StaticInterceptionPoolConfig,
 )
-from verifiers.v1.interception.tunnel import PrimeTunnelConfig
+from verifiers.v1.errors import TunnelError
+from verifiers.v1.interception.base import Interception, Slot
+from verifiers.v1.interception.server import InterceptionServer
 from verifiers.v1.session import RolloutSession
+from verifiers.v1.utils.aio import run_shielded
 
 logger = logging.getLogger(__name__)
-
-
-class StaticInterceptionPoolConfig(BaseInterceptionConfig):
-    """A fixed set of interception servers, each configured like a `server` type; rollouts
-    land on the least-loaded one. The shape for multiple bring-your-own endpoints (one
-    `custom` tunnel per server)."""
-
-    type: Literal["static"] = "static"
-    servers: list[InterceptionServerConfig] = Field(min_length=1)
-    """One entry per server, each with its own `tunnel` choice."""
 
 
 class StaticInterceptionPool(Interception):
@@ -68,20 +59,14 @@ class StaticInterceptionPool(Interception):
     async def acquire(self, session: RolloutSession) -> AsyncIterator[Slot]:
         # server.acquire registers before its first yield, so concurrent acquires see the
         # updated load before choosing their own least-loaded server.
-        server = min(self.servers, key=lambda s: s.load)
+        healthy = [server for server in self.servers if server.healthy]
+        if not healthy:
+            raise TunnelError(
+                "no interception servers left: all their tunnels are gone"
+            )
+        server = min(healthy, key=lambda s: s.load)
         async with server.acquire(session) as slot:
             yield slot
-
-
-class ElasticInterceptionPoolConfig(BaseInterceptionConfig):
-    """An eagerly warmed interception server, then more grown on demand: `multiplex`
-    rollouts share one server (and, behind a remote consumer, one prime tunnel). The default."""
-
-    type: Literal["elastic"] = "elastic"
-    multiplex: int = Field(32, ge=1)
-    """Rollouts that share one interception server (and tunnel). N concurrent rollouts use
-    ~N/multiplex servers + tunnels instead of one each — key past the per-token tunnel cap.
-    1 = a server (+ tunnel) per rollout."""
 
 
 class ElasticInterceptionPool(Interception):
@@ -113,12 +98,26 @@ class ElasticInterceptionPool(Interception):
                 await self._warm_task
         await super().stop()
 
+    async def _free_retired(self) -> None:
+        """Stop retired servers whose rollouts have left. A rollout still on one is using
+        its client, so that server waits for a later call. Shielded: an acquire cancelled
+        mid-stop would leave the listener open, with nothing left to close it."""
+        for server in [s for s in self.servers if not s.healthy and s.load == 0]:
+            self.servers.remove(server)
+            try:
+                await run_shielded(server.stop())
+            except Exception:
+                logger.warning(
+                    "interception pool: retired server cleanup failed", exc_info=True
+                )
+
     async def _server(self) -> InterceptionServer:
         """A server with spare capacity — reuse one under `multiplex`, else bring up a new
         one (its own tunnel, on `stack`, torn down with the pool). Acquires hold `_lock`;
         the warm task runs before they reach this path."""
+        await self._free_retired()
         for server in self.servers:
-            if server.load < self.config.multiplex:
+            if server.healthy and server.load < self.config.multiplex:
                 return server
         # Pin prime explicitly — the only tunnel kind that can be minted on demand.
         server = InterceptionServer(

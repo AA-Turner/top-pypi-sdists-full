@@ -1255,3 +1255,20 @@ async fn test_autotune() {
         })
     );
 }
+
+#[tokio::test]
+async fn missing_replay_target_does_not_inherit_a_passing_gate() {
+    let mut specs: Value = serde_json::from_str(include_str!("data/eval_proj_dcs.json")).unwrap();
+    let public_gate = specs["feature_gates"]["test_public"].clone();
+    specs["feature_gates"] = json!({"test_public": public_gate});
+    specs["dynamic_configs"] = json!({});
+    specs["layer_configs"] = json!({});
+    specs["cmab_configs"] = Value::Null;
+    specs["param_stores"] = Value::Null;
+    specs["session_replay_info"] = json!({"targeting_gate": "deleted_gate"});
+
+    let response = setup_with_specs_data(specs.to_string(), HashAlgorithm::None).await;
+    assert_eq!(response["feature_gates"]["test_public"]["value"], true);
+    assert_eq!(response["passes_session_recording_targeting"], false);
+    assert_eq!(response["can_record_session"], false);
+}

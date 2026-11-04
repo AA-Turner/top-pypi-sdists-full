@@ -17,7 +17,7 @@ from mistralai.client.errors import SDKError
 from mistralai.client.utils import BackoffStrategy, RetryConfig
 from mistralai.vibe_agents.agents_client import AgentResponse, AgentsClient
 from mistralai.vibe_agents.agents_client.api_models import AgentConfigurationRequest, SessionInputSchemas
-from mistralai.vibe_agents.sdk.app import config, deployment, entrypoint
+from mistralai.vibe_agents.sdk.app import code_version, config, deployment, entrypoint
 from mistralai.vibe_agents.sdk.app.deploy import PublishedConfig, published_config
 from mistralai.vibe_agents.sdk.app.loader import AgentApp, declared_session_input_schemas, declared_subagent_policy
 from mistralai.vibe_agents.sdk.app.worker import runner, usage_telemetry
@@ -45,7 +45,11 @@ _ANNOUNCE_WITH_CONFIGURATION_TIMEOUT_SECONDS = 30.0
 _REGISTER_POLL_INTERVAL_SECONDS = 0.5
 _REGISTER_POLL_TIMEOUT_SECONDS = 60.0
 # What an older control plane refuses as unknown when a registration sends its configuration.
-_CONFIGURATION_FIELDS = frozenset(AgentConfigurationRequest.model_fields) | {"makes_own_sandbox"}
+_CONFIGURATION_FIELDS = frozenset(AgentConfigurationRequest.model_fields) | {
+    "makes_own_sandbox",
+    "code_version",
+    "code_version_source",
+}
 
 
 class RegistrationError(Exception):
@@ -73,7 +77,7 @@ async def serve(
     name: str | None = None,
     *,
     on_ready: Callable[[ServeReady], None] | None = None,
-    send_config: bool = False,
+    send_config: bool = True,
 ) -> None:
     """Run the agent as a self-hosted worker and register it, until cancelled.
 
@@ -93,6 +97,8 @@ async def serve(
         declared_session_input_schemas(app.agent, app.harness),
         default_subagent_policy=declared_subagent_policy(app.agent),
         configuration=published_config(app) if send_config else None,
+        # Hashing the project reads its files, so it runs off the event loop.
+        code=await asyncio.to_thread(code_version.code_identity, app) if send_config else None,
     )
     if registered is not None:
         deployment_name = registered.deployment_name
@@ -191,10 +197,11 @@ async def _await_ready(task: asyncio.Task[None], workflow_name: str, deployment_
 
 async def _bind_agent(
     agent_name: str,
-    required_session_inputs: SessionInputSchemas,
+    session_input_schemas: SessionInputSchemas,
     *,
     default_subagent_policy: SubagentPolicy | None = None,
     configuration: PublishedConfig | None = None,
+    code: code_version.CodeIdentity | None = None,
 ) -> AgentResponse | None:
     if _is_managed_worker():
         # `agents deploy` already bound the agent. Images built before `run-worker` existed still start
@@ -206,9 +213,10 @@ async def _bind_agent(
         return None
     return await _announce_agent(
         agent_name,
-        required_session_inputs,
+        session_input_schemas,
         default_subagent_policy=default_subagent_policy,
         configuration=configuration,
+        code=code,
     )
 
 
@@ -219,10 +227,11 @@ def _is_managed_worker() -> bool:
 
 async def _announce_agent(
     agent_name: str,
-    required_session_inputs: SessionInputSchemas,
+    session_input_schemas: SessionInputSchemas,
     *,
     default_subagent_policy: SubagentPolicy | None = None,
     configuration: PublishedConfig | None = None,
+    code: code_version.CodeIdentity | None = None,
 ) -> AgentResponse:
     # Self-register with the control plane so the agent becomes routable. Registration is what binds
     # a task queue to the agent name, so a worker that cannot register receives no Session, ever.
@@ -238,24 +247,28 @@ async def _announce_agent(
                 _ANNOUNCE_TIMEOUT_SECONDS if configuration is None else _ANNOUNCE_WITH_CONFIGURATION_TIMEOUT_SECONDS
             ),
         ) as client:
-            # Each start that sends the configuration stores a new snapshot of it. Once an agent stores
-            # one, the control plane refuses a start without it until the agent is shut down.
+            # A start that sends the configuration stores a new snapshot of it, unless it declares the
+            # same configuration and code version as the agent it joins. Once an agent stores one, the
+            # control plane refuses a start without it until the agent is shut down.
             async def register(sent: PublishedConfig | dict[str, object]) -> AgentResponse:
                 return await client.register_agent(
                     agent_name=agent_name,
                     workflow_name=agent_name,
                     deployment_name=explicit_deployment_name,
-                    required_session_inputs=required_session_inputs,
+                    session_input_schemas=session_input_schemas,
                     default_subagent_policy=default_subagent_policy,
                     **sent,
                 )
 
             if configuration is None:
                 return await register({})
+            # The worker runs the configuration from its code, sandbox included, so it says so with the
+            # configuration it sends. A control plane that predates the code version ignores it.
+            declared: dict[str, object] = {**configuration, "makes_own_sandbox": True}
+            if code is not None:
+                declared |= {"code_version": code.version, "code_version_source": code.source}
             try:
-                # The worker runs the configuration from its code, sandbox included, so it says so
-                # with the configuration it sends.
-                return await register({**configuration, "makes_own_sandbox": True})
+                return await register(declared)
             except httpx.HTTPStatusError as exc:
                 # The configuration is shown with the agent, but the agent runs without it: a control
                 # plane that refuses it must not keep the worker from serving. Any other failure

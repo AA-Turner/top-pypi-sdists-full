@@ -1,6 +1,6 @@
 [project]
 name = "myorb"
-version = "0.77.0"
+version = "0.80.1"
 description = "Personal AI-powered daily briefing dashboard that summarizes your email, calendar, tasks, finances and more."
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -66,6 +66,7 @@ packages = ["src/myorb"]
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "pytest-timeout>=2.4.0",
     "ruff>=0.17.1",
 ]
 
@@ -77,3 +78,5 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# A test that hangs fails after this long, with where it hung, rather than holding CI for hours.
+timeout = 60

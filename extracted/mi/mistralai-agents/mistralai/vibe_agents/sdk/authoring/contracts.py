@@ -71,9 +71,11 @@ from . import connector_selection, hooks, session_input, stateful
 from . import tool as tool_authoring
 from . import types as authoring_types
 from .errors import SdkError
+from .keep_open import KeepCallbackOpen
 from .sandbox_policy import (
     GitHubBinding,
     HeaderBinding,
+    MistralApiBinding,
     Network,
     NetworkMode,
     SandboxHeaderBinding,
@@ -573,11 +575,12 @@ def _same_attribute(authored: object, rebuilt: object) -> bool:
 
 
 class Hook(stateful.StatefulModel):
-    """Unified Harness Hook. Override the points you need; returning ``None`` continues unchanged.
+    """Code that runs at points of the agent loop: before and after each turn, model call and tool call.
 
-    A Hook is a Pydantic model. Its fields are its state: the Session keeps their values and every
-    call starts from the values the last successful call left. Anything else the Hook holds, such
-    as a client, is a ``PrivateAttr``, which is never saved.
+    Override the points you need; returning ``None`` continues unchanged. A Hook is a Pydantic
+    model. Its fields are its state: the Session keeps their values and every call starts from the
+    values the last successful call left. Anything else the Hook holds, such as a client, is a
+    ``PrivateAttr``, which is never saved.
     """
 
     _tools: tuple[HarnessTool, ...] = PrivateAttr(default=())
@@ -632,6 +635,11 @@ class Hook(stateful.StatefulModel):
         ctx: HookCallbackContext,
         request: PreAgentTurnHookInvocation,
     ) -> PreAgentTurnHookContinue | PreAgentTurnHookSkip | hooks.HookDecision | None:
+        """Runs before each turn, with its user content in ``request.user_content``.
+
+        Return ``hook.PreAgentTurnHookContinue`` to send other content, its blocks given as dicts such as
+        ``{"type": "text", "text": "..."}``, or ``agents.skip`` or ``hook.PreAgentTurnHookSkip`` to skip the turn.
+        """
         return PreAgentTurnHookContinue(user_content=request.user_content)
 
     async def post_agent_turn(
@@ -639,6 +647,11 @@ class Hook(stateful.StatefulModel):
         ctx: HookCallbackContext,
         result: PostAgentTurnHookInvocation,
     ) -> PostAgentTurnHookAccept | None:
+        """Runs after each turn, with the model's final answer in ``result.candidate``.
+
+        Return ``hook.PostAgentTurnHookAccept()`` to keep the answer, or replace its content with
+        ``acceptance={"type": "replace_assistant_content", "content": [{"type": "text", "text": "..."}]}``.
+        """
         return PostAgentTurnHookAccept()
 
     async def pre_llm_call(
@@ -646,6 +659,7 @@ class Hook(stateful.StatefulModel):
         ctx: HookCallbackContext,
         invocation: PreLlmCallHookInvocation,
     ) -> PreLlmCallHookContinue | PreLlmCallHookSkip | hooks.HookDecision | None:
+        """Runs before each model call. Return ``agents.skip`` or ``hook.PreLlmCallHookSkip`` to skip the call."""
         return PreLlmCallHookContinue()
 
     async def post_llm_call(
@@ -653,6 +667,12 @@ class Hook(stateful.StatefulModel):
         ctx: HookCallbackContext,
         invocation: PostLlmCallHookInvocation,
     ) -> PostLlmCallHookAccept | PostLlmCallHookRetry | PostLlmCallHookReject | hooks.HookDecision | None:
+        """Runs after each model call, with its response in ``invocation.candidate``.
+
+        Return ``hook.PostLlmCallHookAccept`` to keep the response or replace its content, as
+        ``hook.PostAgentTurnHookAccept`` does, ``agents.retry`` to call the model again with feedback, or
+        ``agents.reject`` to end the turn.
+        """
         return PostLlmCallHookAccept()
 
     async def pre_tool_call(
@@ -660,6 +680,11 @@ class Hook(stateful.StatefulModel):
         ctx: HookCallbackContext,
         call: hooks.PreToolCall,
     ) -> PreToolCallHookContinue | PreToolCallHookSkip | hooks.HookDecision | None:
+        """Runs before each tool call, with the call in ``call``.
+
+        Return ``hook.PreToolCallHookContinue`` to run the tool with other ``effective_arguments``, or
+        ``agents.skip`` or ``hook.PreToolCallHookSkip`` to skip the call: the model sees the reason instead.
+        """
         return PreToolCallHookContinue(effective_arguments=call.tool_call.call.arguments)
 
     async def post_tool_call(
@@ -667,6 +692,11 @@ class Hook(stateful.StatefulModel):
         ctx: HookCallbackContext,
         result: hooks.PostToolCall,
     ) -> PostToolCallHookContinue | None:
+        """Runs after each tool call, with the call and its result in ``result``.
+
+        Return ``hook.PostToolCallHookContinue`` with another ``tool_result`` to change what the model gets,
+        given as a dict such as ``{"type": "success", "content": [{"type": "text", "text": "..."}]}``.
+        """
         return PostToolCallHookContinue(tool_result=result.tool_result)
 
 
@@ -1060,7 +1090,7 @@ class MistralSandbox(Sandbox):
     """
 
     supported_network = ("none", "all")
-    supported_header_bindings = (GitHubBinding, WorkspaceHeaderBindings)
+    supported_header_bindings = (GitHubBinding, MistralApiBinding, WorkspaceHeaderBindings)
 
     def __init__(
         self,
@@ -1270,10 +1300,16 @@ class MistralSandbox(Sandbox):
 class LocalDockerSandbox(Sandbox):
     """Local Docker sandbox configuration for Unified Harness development.
 
-    The container gets Docker's default network, so ``network`` must be ``Network.all()``.
+    ``network`` defaults to ``Network.none()``: the container has no network but loopback, and
+    neither has the setup script. ``Network.all()`` gives it Docker's default network.
+
+    ``default_exec_timeout_seconds`` (600 by default) stops a command sent without a timeout of
+    its own, such as a sandbox hook's ``ctx.sandbox.execute(...)``: the command and its children
+    get SIGTERM, then SIGKILL 5 seconds later, and it ends with exit code 124. The image needs a
+    ``setsid`` command (util-linux or BusyBox).
     """
 
-    supported_network = ("all",)
+    supported_network = ("none", "all")
 
     def __init__(
         self,
@@ -1336,7 +1372,8 @@ class DangerousLocalSandbox(Sandbox):
     DANGER: no container, no isolation — model-generated commands run on the host as
     the worker user. Dev/CI only; never enable in production.
 
-    Commands reach every network the host reaches, so ``network`` must be ``Network.all()``.
+    Commands reach every network the host reaches, so the sandbox's ``network`` is always
+    ``Network.all()``. Leave out the ``network`` argument: it warns.
 
     ``workspace`` is the host folder where commands run and the agent reads and writes files.
     Without it, the sandbox creates a new folder under
@@ -1372,7 +1409,25 @@ class DangerousLocalSandbox(Sandbox):
                 f"DangerousLocalSandbox runs on the host, so it refuses {', '.join(refused)}: "
                 "it would change the host user's own configuration"
             )
-        super().__init__(network=network, header_bindings=header_bindings, hooks=hooks, access=access)
+        if network is not None:
+            if network.mode != "all":
+                raise ValueError(
+                    "DangerousLocalSandbox runs on the host, so it always has the host's network and "
+                    "cannot enforce another policy: remove the network argument"
+                )
+            warnings.warn(
+                "DangerousLocalSandbox(network=...) is deprecated: the sandbox always has the host's "
+                "network, Network.all(). Leave the argument out.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        # The host's network cannot be restricted, so it is the only policy this sandbox has.
+        super().__init__(
+            network=Network.all() if network is None else network,
+            header_bindings=header_bindings,
+            hooks=hooks,
+            access=access,
+        )
         warnings.warn(
             "DangerousLocalSandbox runs model-generated commands directly on the host with "
             "no isolation. Use for local development and CI only.",
@@ -1465,7 +1520,9 @@ _FILE_METHODS = ("write_files", "read_file")
 
 
 class CustomSandbox(Sandbox):
-    """Implement an SDK-owned sandbox with Vibe workflow request and result models.
+    """A sandbox you implement, for a provider the SDK does not ship.
+
+    Override ``create()`` and ``execute()``, and ``delete()`` when the sandbox needs cleaning up.
 
     Declare in ``supported_network`` and ``supported_header_bindings`` what the sandbox enforces, and
     read ``self.network`` and ``self.header_bindings`` in ``create()``. The SDK refuses any other
@@ -1485,21 +1542,29 @@ class CustomSandbox(Sandbox):
         return self.is_executable and overrides
 
     async def create(self) -> str:
+        """Create the sandbox and return its workspace: the folder the agent works in, such as ``/workspace``."""
         raise NotImplementedError(f"{type(self).__name__}.create() is not implemented")
 
     async def delete(self) -> None:
+        """Delete the sandbox. The default does nothing."""
         return None
 
     async def execute(
         self,
         request: WorkflowSandboxExecuteRequest,
     ) -> WorkflowSandboxExecuteResult:
+        """Run ``request.command`` in ``request.cwd``, with ``request.env`` and within
+        ``request.timeout_seconds``, and return its result.
+
+        It runs in Workflow code: do the I/O in your own activity.
+        """
         raise NotImplementedError(f"{type(self).__name__}.execute() is not implemented")
 
     async def read_file(
         self,
         request: WorkflowSandboxReadFileRequest,
     ) -> WorkflowSandboxReadFileResult:
+        """Return the file that ``request`` names. Optional, as ``write_files()`` is."""
         raise NotImplementedError(f"{type(self).__name__}.read_file() is not implemented")
 
     async def write_files(self, request: WorkflowSandboxWriteFilesRequest) -> WorkflowSandboxWriteFilesResult:
@@ -1515,9 +1580,11 @@ class CustomSandbox(Sandbox):
         raise NotImplementedError(f"{type(self).__name__} cannot receive files from the SDK: implement write_files()")
 
     async def on_session_start(self) -> None:
+        """Called when a session that uses the sandbox starts. The default does nothing."""
         return None
 
     async def on_session_end(self) -> None:
+        """Called when a session that uses the sandbox ends. The default does nothing."""
         return None
 
 
@@ -1682,8 +1749,8 @@ def requires_on_behalf_of(harness: Harness, subagents: Sequence[Subagent] | None
       uses the session user's identity, including when ``auto_auth=False``.
     - ``all_registry_skills()`` reads the Registry catalog and skill contents with the
       session user's identity.
-    - a sandbox with a GitHub binding or the Sandbox Proxy admin config gets short-lived
-      credentials for the session user; without it the sandbox would run with the
+    - a sandbox with a GitHub or Mistral API binding, or the Sandbox Proxy admin config, gets
+      short-lived credentials for the session user; without it the sandbox would run with the
       deployment's identity.
 
     Every child Session in the tree runs as the user who started its root, so a
@@ -1699,7 +1766,8 @@ def requires_on_behalf_of(harness: Harness, subagents: Sequence[Subagent] | None
             return True
         pending.extend(layer.subagents or ())
     return any(
-        isinstance(binding, GitHubBinding | WorkspaceHeaderBindings) for binding in harness.sandbox.header_bindings
+        isinstance(binding, GitHubBinding | MistralApiBinding | WorkspaceHeaderBindings)
+        for binding in harness.sandbox.header_bindings
     )
 
 
@@ -1864,6 +1932,7 @@ __all__ = [
     "BashkitSandbox",
     "CallbackContext",
     "CallbackSession",
+    "KeepCallbackOpen",
     "HookCallbackContext",
     "CustomSandbox",
     "DangerousLocalSandbox",

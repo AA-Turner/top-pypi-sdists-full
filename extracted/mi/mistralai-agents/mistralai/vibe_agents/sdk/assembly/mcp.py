@@ -13,8 +13,7 @@ whitespace-only value or one holding a newline fails here too instead of passing
 refused, unseen, at call time.
 """
 
-from collections.abc import Iterator, Mapping, Sequence
-from typing import Any
+from collections.abc import Iterator, Mapping
 
 from mistralai.vibe.harness.app_server.session import (
     AgentConfig,
@@ -23,9 +22,7 @@ from mistralai.vibe.harness.app_server.session import (
     SubagentConfig,
 )
 from mistralai.vibe.harness.app_server.session.models.configuration import is_environment_variable_name
-from mistralai.vibe.harness.runtime.capabilities.identifiers import normalize_core_tool_identifier
 from mistralai.vibe.harness.runtime.capabilities.mcp_credentials import HeaderCredentialProblem, read_header_credential
-from mistralai.vibe_agents.sdk.authoring import tool as tool_authoring
 from mistralai.vibe_agents.sdk.authoring.errors import SdkError
 
 
@@ -36,29 +33,6 @@ class RemoteMcpCredentialError(SdkError, RuntimeError):
     `RuntimeError` because a missing environment variable is a runtime condition, not a bad
     argument -- the same mixin the legacy `AIStudioMCP` hook uses for the same reason.
     """
-
-
-def refuse_tool_namespaces(
-    tools: Sequence[tool_authoring.PythonTool[..., Any] | tool_authoring.ClientToolDefinition[Any]],
-    mcps: Mapping[str, McpSourceConfiguration],
-    *,
-    subagent: tuple[str, ...] = (),
-) -> None:
-    """Raise ``SdkError`` for one of an agent's ``tools`` in the namespace of one of its ``mcps``.
-
-    The Harness puts an MCP source's tools in its ``namespace``, else its key, spelled as a core
-    identifier, and refuses another tool there only once a Session starts.
-    """
-
-    sources = {normalize_core_tool_identifier(source.namespace or key): key for key, source in mcps.items()}
-    where = f" in subagent {'/'.join(subagent)!r}" if subagent else ""
-    for tool in tools:
-        source = sources.get(tool.namespace)
-        if source is not None:
-            raise SdkError(
-                f"Tool {tool_authoring.tool_name(tool)!r}{where}: namespace {tool.namespace!r} holds the tools of "
-                f"MCP source {source!r}; give the tool another namespace= or the source another name"
-            )
 
 
 def verify_credentials(mcps: Mapping[str, McpSourceConfiguration]) -> None:

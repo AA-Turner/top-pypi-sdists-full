@@ -51,6 +51,12 @@ class TestAgentCreationSource(unittest.TestCase):
                     query = '', ),
                 observations = arthur_client.api_bindings.models.agent_observations.AgentObservations(
                     install_path = '', 
+                    occurrences = [
+                        arthur_client.api_bindings.models.agent_occurrence.AgentOccurrence(
+                            kind = '', 
+                            path = '', 
+                            version = '', )
+                        ], 
                     version = '', 
                     previous_version = '', 
                     host_name = '', 

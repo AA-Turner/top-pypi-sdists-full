@@ -64,6 +64,7 @@ def per_test_cluster(
             .image(img)
             .node_selector(worker_node_selector)
             .service_account(geneva_k8s_service_account)
+            .min_replicas(1)  # Keep a worker through Ray connection/runtime-env setup
             .build()
         )
         .build()

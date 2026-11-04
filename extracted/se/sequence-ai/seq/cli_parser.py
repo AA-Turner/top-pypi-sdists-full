@@ -143,13 +143,13 @@ the core flow:
   eval run <policy> --benchmark <name> [--adapter <name>@vN]
                             evaluate a deployed policy on a registered benchmark
 
-policy      ls status logs doctor versions source upgrade rollback stop start rename rm
+policy      ls status logs doctor shell versions source upgrade rollback stop start rename rm
             set settings fork data
 robot       add set list status revoke                    (each robot's own key to a policy, a robot now)
 planner     ls status key add list revoke                 (the planners' tree, one planner, its members' keys)
 prod        promote                                       (a dev policy made a production one)
 key         list add set revoke                           (your dev and production keys: you, signed in)
-benchmark   ls tasks versions source logs status upgrade cancel rm
+benchmark   ls tasks versions source logs shell status upgrade cancel rm
 adapter     ls versions source rm check
 eval        run status cancel rm report episodes replay ls logs
 storage     storage · volume put|ls|show|files|get|rm · secret set|ls|rm
@@ -376,6 +376,17 @@ def build_parser() -> argparse.ArgumentParser:
                                      "field data.")
     p = psub.add_parser("ls", help="your deployed policies, newest first, a page at a time")
     _page_args(p)
+    p = psub.add_parser("shell", help="run one command in a container of the deployment's worker serving now - "
+                                      "what is installed, where its files are, what its card says - its output "
+                                      "printed, its exit code this command's")
+    p.add_argument("name", help="deployment name")
+    p.add_argument("--worker", default=None, metavar="WORKER",
+                   help="the worker to run it on, as seq policy status names them (default: one serving now)")
+    p.add_argument("--timeout", type=float, default=30.0, metavar="SECONDS",
+                   help="its time limit, up to 120 s (default 30)")
+    p.add_argument("command", nargs="*",
+                   help="after --: the command, e.g. -- pip list, or -- \"nvidia-smi | head -15\" (its options after "
+                        "the --, so they are its own)")
     p = psub.add_parser("status", help="a deployment's state (building / ready / failed, and why), its workers — "
                                        "copies, seats, sessions, why one died — and the robots waiting for a slot")
     p.add_argument("name", help="deployment name")
@@ -419,7 +430,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="where to write it: a new or empty folder (default: ./<name>-v<N>)")
     p = psub.add_parser("upgrade", help="move a deployment made from a template to the template's newer version: built "
                                         "beside the one serving, what you set differently (weights, resources, "
-                                        "concurrency, timeouts) and its scaling kept; one whose code you changed is "
+                                        "concurrency) and its scaling kept; one whose code you changed is "
                                         "refused - deploy the new code")
     _upgrade_args(p, "deployment")
     p = psub.add_parser("rollback", help="serve a kept earlier version again: it serves from now on, nothing rebuilt; "
@@ -461,7 +472,7 @@ def build_parser() -> argparse.ArgumentParser:
                                     "same code: KEY=VALUE ...; KEY= puts one back to what the code says (`seq policy "
                                     "settings` lists them)")
     p.add_argument("name", help="deployment name")
-    p.add_argument("pairs", nargs="+", metavar="KEY=VALUE", help="e.g. min_workers=1 timeouts.request=60")
+    p.add_argument("pairs", nargs="+", metavar="KEY=VALUE", help="e.g. min_workers=1 max_wait_for_batch=1.7")
     psub.add_parser("settings", help="a deployment's every setting: its value, where it comes from, how far its last "
                                      "change has reached").add_argument("name", help="deployment name")
     p = psub.add_parser("fork", help="copy a policy to a new one of its own - code, settings and weights; nothing of "
@@ -594,6 +605,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("name", metavar="NAME[@vN]",
                    help="the benchmark, or NAME@vN for that version: the latest, or the latest that passed its check - "
                         "the two whose tasks are kept (default: the current one)")
+    p = bsub.add_parser("shell", help="run one command on a machine of a version of the benchmark - in its image, on "
+                                      "the card it declares: one its last check left warm, else one opened for it - "
+                                      "its output printed, its exit code this command's")
+    p.add_argument("name", metavar="NAME[@vN]", help="the benchmark name; NAME@vN: that version (default: its newest)")
+    p.add_argument("--timeout", type=float, default=30.0, metavar="SECONDS",
+                   help="its time limit, up to 120 s (default 30)")
+    p.add_argument("--stop", action="store_true",
+                   help="end its machine now (else it ends 10 minutes after its last command)")
+    p.add_argument("command", nargs="*",
+                   help="after --: the command, e.g. -- nvidia-smi, or -- \"ls /isaac-sim/exts | head\" (its options "
+                        "after the --, so they are its own)")
     p = bsub.add_parser("status", help="a benchmark's build status (building / ready / failed), the template it comes "
                                        "from, and the driver its card runs with when it names one")
     p.add_argument("name", help="the benchmark name")

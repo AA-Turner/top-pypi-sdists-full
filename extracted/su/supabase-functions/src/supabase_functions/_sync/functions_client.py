@@ -1,9 +1,9 @@
 import platform
-import sys
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any, Literal
 from warnings import warn
 
-from httpx import Client, Headers, HTTPError, QueryParams, Response
+from httpx import URL as HttpxURL
+from httpx import Client, Headers, HTTPError, QueryParams, Request, Response
 from yarl import URL
 
 from ..errors import FunctionsHttpError, FunctionsRelayError, _error_message_from
@@ -17,15 +17,51 @@ from ..version import __version__
 HTTPMethod = Literal["GET", "OPTIONS", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
 
 
+def _port_or_default(url: HttpxURL) -> int | None:
+    if url.port is not None:
+        return url.port
+    return {"http": 80, "https": 443}.get(url.scheme)
+
+
+def _keeps_credentials(source: HttpxURL, target: HttpxURL) -> bool:
+    if source.host != target.host:
+        return False
+    if source.scheme == target.scheme:
+        return _port_or_default(source) == _port_or_default(target)
+    return (
+        source.scheme == "http"
+        and _port_or_default(source) == 80
+        and target.scheme == "https"
+        and _port_or_default(target) == 443
+    )
+
+
+class _RedirectGuardClient(Client):
+    """Drops the ``apiKey`` header on redirects that leave the origin.
+
+    httpx only strips ``Authorization`` on such redirects, so the project key
+    (the ``service_role`` key in server side usage) would otherwise be sent to
+    whatever host an invoked edge function redirects to.
+    """
+
+    def _redirect_headers(
+        self, request: Request, url: HttpxURL, method: str
+    ) -> Headers:
+        headers = super()._redirect_headers(request, url, method)
+        if not _keeps_credentials(request.url, url):
+            headers.pop("apiKey", None)
+        return headers
+
+
 class SyncFunctionsClient:
     def __init__(
         self,
         url: str,
-        headers: Dict,
-        timeout: Optional[int] = None,
-        verify: Optional[bool] = None,
-        proxy: Optional[str] = None,
-        http_client: Optional[Client] = None,
+        headers: dict,
+        timeout: int | None = None,
+        verify: bool | None = None,
+        proxy: str | None = None,
+        http_client: Client | None = None,
     ) -> None:
         if not is_http_url(url):
             raise ValueError("url must be a valid HTTP URL string")
@@ -42,13 +78,6 @@ class SyncFunctionsClient:
             }
         )
         self.headers.update(headers)
-
-        if sys.version_info < (3, 10):
-            warn(
-                "Python versions below 3.10 are deprecated and will not be supported in future versions. Please upgrade to Python 3.10 or newer.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
         if timeout is not None:
             warn(
@@ -71,7 +100,7 @@ class SyncFunctionsClient:
 
         self.verify = bool(verify) if verify is not None else True
         self.timeout = int(abs(timeout)) if timeout is not None else 60
-        self._client = http_client or Client(
+        self._client = http_client or _RedirectGuardClient(
             verify=self.verify,
             timeout=self.timeout,
             proxy=proxy,
@@ -84,8 +113,8 @@ class SyncFunctionsClient:
         method: HTTPMethod,
         path: list[str],
         headers: Headers,
-        json: Optional[Union[Dict[Any, Any], str, bytes]] = None,
-        params: Optional[QueryParams] = None,
+        json: dict[Any, Any] | str | bytes | None = None,
+        params: QueryParams | None = None,
     ) -> Response:
         url = self.url.joinpath(*path)
         response = (
@@ -127,13 +156,14 @@ class SyncFunctionsClient:
         self.headers["Authorization"] = f"Bearer {token}"
 
     def invoke(
-        self, function_name: str, invoke_options: Optional[Dict] = None
-    ) -> Union[Dict, bytes]:
+        self, function_name: str, invoke_options: dict | None = None
+    ) -> dict | bytes:
         """Invokes a function
 
         Parameters
         ----------
-        function_name : the name of the function to invoke
+        function_name : the name of the function to invoke. It may carry a query
+            string, as in `hello?name=bob`. A `#fragment` is dropped.
         invoke_options : object with the following properties
             `headers`: object representing the headers to send with the request
             `body`: the body of the request
@@ -142,8 +172,13 @@ class SyncFunctionsClient:
         """
         if not is_valid_str_arg(function_name):
             raise ValueError("function_name must a valid string value.")
+        # Like a URL, a name such as "hello?name=bob" carries query params and
+        # the fragment is never sent.
+        path, _, query = function_name.split("#", 1)[0].partition("?")
+        if not is_valid_str_arg(path):
+            raise ValueError("function_name must a valid string value.")
         headers = Headers(self.headers)
-        params = QueryParams()
+        params = QueryParams(query)
         body = None
         method: HTTPMethod = "POST"
         response_type = "text/plain"
@@ -174,7 +209,7 @@ class SyncFunctionsClient:
                     headers["Content-Type"] = "application/octet-stream"
 
         response = self._request(
-            method, [function_name], headers=headers, json=body, params=params
+            method, [path], headers=headers, json=body, params=params
         )
         if response_type == "json":
             data = response.json()

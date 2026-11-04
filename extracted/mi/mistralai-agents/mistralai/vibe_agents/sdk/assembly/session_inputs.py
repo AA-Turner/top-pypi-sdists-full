@@ -128,10 +128,29 @@ def serialize_session_inputs(
     return serialized
 
 
+def with_omitted_optional_inputs(
+    input_classes: Mapping[str, type[session_input.SessionInput]],
+    supplied: Mapping[str, JsonValue],
+) -> dict[str, JsonValue]:
+    """Return ``supplied`` plus an empty value for each omitted input whose fields all have defaults.
+
+    A caller may omit such an input, as the control plane accepts: its consumers then
+    receive the class's defaults.
+    """
+
+    omitted: dict[str, JsonValue] = {
+        input_id: {}
+        for input_id, input_class in input_classes.items()
+        if input_id not in supplied and not any(field.is_required() for field in input_class.model_fields.values())
+    }
+    return {**omitted, **supplied}
+
+
 __all__ = [
     "bind_session_inputs",
     "collect_input_classes",
     "hook_declarations",
     "rebuild_hook_session_inputs",
     "serialize_session_inputs",
+    "with_omitted_optional_inputs",
 ]

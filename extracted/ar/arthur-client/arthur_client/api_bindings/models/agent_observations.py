@@ -19,6 +19,8 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
+from arthur_client.api_bindings.models.agent_occurrence import AgentOccurrence
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,6 +29,7 @@ class AgentObservations(BaseModel):
     What a source could see about an agent. Shared across categories, all optional.  An absent field means the source cannot see it, not that collection failed. That promise is kept by each source declaring ``observable_fields()``, which is also what lets visibility be computed without a per-vendor branch in consumers.
     """ # noqa: E501
     install_path: Optional[StrictStr] = None
+    occurrences: Optional[Annotated[List[AgentOccurrence], Field(max_length=100)]] = Field(default=None, description="Every place on the host the source found the agent, each with its kind, path and version: every running version of a CLI, every browser profile an extension is in. `install_path` and `version` are the one occurrence that speaks for the record. Empty where the source sees no more than that one. Each place appears once: two users' copies of one path collapse into one occurrence once their home directories are written as '~'.")
     version: Optional[StrictStr] = None
     previous_version: Optional[StrictStr] = None
     host_name: Optional[StrictStr] = None
@@ -36,7 +39,7 @@ class AgentObservations(BaseModel):
     permissions: Optional[List[StrictStr]] = Field(default=None, description="Capabilities the agent declared for itself, e.g. a browser extension's manifest permissions ('tabs', 'nativeMessaging', '<all_urls>'). A cloud agent's action groups or service-account scopes answer the same question, which is why this is shared rather than endpoint-only.")
     service_names: Optional[List[StrictStr]] = Field(default=None, description="Service names this agent emits telemetry under. What links a discovered agent to traces already arriving.")
     classification: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["install_path", "version", "previous_version", "host_name", "host_group", "os_version", "assigned_user", "permissions", "service_names", "classification"]
+    __properties: ClassVar[List[str]] = ["install_path", "occurrences", "version", "previous_version", "host_name", "host_group", "os_version", "assigned_user", "permissions", "service_names", "classification"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -77,6 +80,13 @@ class AgentObservations(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in occurrences (list)
+        _items = []
+        if self.occurrences:
+            for _item_occurrences in self.occurrences:
+                if _item_occurrences:
+                    _items.append(_item_occurrences.to_dict())
+            _dict['occurrences'] = _items
         # set to None if install_path (nullable) is None
         # and model_fields_set contains the field
         if self.install_path is None and "install_path" in self.model_fields_set:
@@ -130,6 +140,7 @@ class AgentObservations(BaseModel):
 
         _obj = cls.model_validate({
             "install_path": obj.get("install_path"),
+            "occurrences": [AgentOccurrence.from_dict(_item) for _item in obj["occurrences"]] if obj.get("occurrences") is not None else None,
             "version": obj.get("version"),
             "previous_version": obj.get("previous_version"),
             "host_name": obj.get("host_name"),

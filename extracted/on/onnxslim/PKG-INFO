@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnxslim
-Version: 0.1.98
+Version: 0.1.99
 Summary: OnnxSlim: A Toolkit to Help Optimize Onnx Model
 Project-URL: homepage, https://github.com/inisis/OnnxSlim
 Project-URL: issues, https://github.com/inisis/OnnxSlim/issues
@@ -16,7 +16,7 @@ Requires-Dist: colorama
 Requires-Dist: ml-dtypes
 Requires-Dist: onnx
 Requires-Dist: packaging
-Requires-Dist: sympy>=1.13.1
+Requires-Dist: sympy>=1.13.3
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -188,6 +188,13 @@ For more usage, see onnxslim -h or refer to our [examples](./examples)
       <img src="https://avatars.githubusercontent.com/u/48153283?s=48&v=4" width="22" height="22" style="vertical-align:middle; margin-right:8px;"/>
       <a href="https://github.com/sunsmarterjie/yolov12" target="_blank">sunsmarterjie/yolov12</a>
     </td>
+  </tr>
+  <tr>
+    <td style="vertical-align:middle;">
+      <img src="https://github.com/unslothai.png" width="22" height="22" style="vertical-align:middle; margin-right:8px;"/>
+      <a href="https://github.com/unslothai/unsloth" target="_blank">unslothai/unsloth</a>
+    </td>
+    <td></td>
   </tr>
   <tr>
     <td style="vertical-align:middle;">

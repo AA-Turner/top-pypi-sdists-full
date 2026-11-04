@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from plato.cli.chronos.registry import parse_package_string
 from plato.runtimes.config import VMRuntimeConfig
 
 # Import world-specific config models
@@ -51,6 +52,29 @@ class WorldConfig(BaseModel):
     image: str = ""  # Direct image URL override — skips registry lookup when set
     runtime: VMRuntimeConfig = Field(default_factory=VMRuntimeConfig)
     config: dict[str, Any] = Field(default_factory=dict)
+
+    def to_session_payload(self) -> dict[str, Any]:
+        """The ``world_config`` a Chronos session row should carry.
+
+        Chronos stores this dict verbatim and renders it through a model whose
+        own fields are ``package``, ``version``, ``runtime`` and ``config`` —
+        the shape a real launch (``POST /jobs``) writes. ``dev`` and ``test``
+        used to send the bare inner ``config`` instead, so every one of those
+        fields came back null and the session page showed no config at all;
+        the inner ``agent`` key landing on the response model's top-level
+        ``agent`` field was the only reason anything showed up.
+        """
+        package, version = parse_package_string(self.package)
+        payload: dict[str, Any] = {
+            "package": package,
+            "config": self.config or {},
+            "runtime": self.runtime.model_dump(mode="json"),
+        }
+        if version:
+            payload["version"] = version
+        if self.world_name:
+            payload["world_name"] = self.world_name
+        return payload
 
 
 class Config(BaseModel):

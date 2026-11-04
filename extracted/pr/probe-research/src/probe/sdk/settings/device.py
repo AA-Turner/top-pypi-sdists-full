@@ -4,15 +4,14 @@ The wizard's sign-in starts a short-lived request, opens the dashboard so a
 signed-in human approves the exact scopes/team, then polls for the minted
 ``probe_pat``. Mirrors Probe Research ``/auth/device/*`` with mandatory S256 PKCE:
 the browser never sees the token, and the PKCE verifier binds the exchange to
-this CLI process. A one-time website install code pre-approves the same flow via
-``/auth/device/install-token``; its resulting credentials use the same PKCE exchange.
+this CLI process. Every sign-in asks in the browser: the website's one-time install
+codes are retired (install redesign R1).
 """
 
 from __future__ import annotations
 
 import base64
 import hashlib
-import re
 import secrets
 import socket
 import subprocess
@@ -30,7 +29,6 @@ import httpx
 from ...foundation.tls.tls import ssl_context
 
 _START_PATH = "/auth/device/code"
-_INSTALL_PATH = "/auth/device/install-token"
 _TOKEN_PATH = "/auth/device/token"
 _SLOW_DOWN_BACKOFF = 5
 
@@ -170,9 +168,9 @@ def device_authorize(
     token_name: str | None = None,
     device_instance_id: str | None = None,
     bind_device: bool = True,
-    install_code: str | None = None,
     open_browser: bool = True,
     on_prompt: Callable[[DevicePrompt], None] | None = None,
+    before_exchange: Callable[[], None] | None = None,
     client: httpx.Client | None = None,
     sleep: Callable[[float], None] = time.sleep,
     monotonic: Callable[[], float] = time.monotonic,
@@ -193,18 +191,15 @@ def device_authorize(
     role. ``on_prompt`` receives the verification URI/code to print; ``open_browser`` also
     launches it. ``token_name`` defaults to a hostname-labelled name.
 
-    ``install_code`` redeems the website's 10-character code instead of another browser
-    approval; grants stay explicit and secrets return only via the PKCE exchange.
+    ``before_exchange`` runs once the browser is open and before the first poll, inside the
+    approval wait: the poll that succeeds IS the exchange, so work that must precede it runs
+    while the person approves instead of delaying the browser (a sign-in's queued writes).
 
     ``bind_device=False`` sends no ``device_instance_id``: the token is for elsewhere
     (`probe token create` for a pod) and must not take THIS machine's slot. The exchange
     releases a device's credentials when the request names one, so naming this laptop
     revoked its own login (a customer's Mac, 2026-10-23).
     """
-    if install_code is not None and not re.fullmatch(r"[A-Z0-9]{10}", install_code):
-        raise DeviceLoginError(
-            "the sign-in code must contain exactly 10 uppercase letters or digits"
-        )
     if token_name is None:
         token_name = f"Probe Research CLI · {hostname()}"
     verifier, challenge = _pkce_pair()
@@ -241,13 +236,8 @@ def device_authorize(
                 device_instance_id = None
         if device_instance_id is not None:
             body["device_instance_id"] = device_instance_id
-        if install_code is not None:
-            body["code"] = install_code
-            start = http.post(_INSTALL_PATH, json=body)
-        else:
-            start = http.post(_START_PATH, json=body)
-        accepted = (200, 201) if install_code is not None else (201,)
-        if start.status_code not in accepted:
+        start = http.post(_START_PATH, json=body)
+        if start.status_code != 201:
             raise _login_error(start, f"could not start device login ({start.status_code})")
         data = start.json()
 
@@ -258,11 +248,11 @@ def device_authorize(
             verification_uri_complete=data["verification_uri_complete"],
             expires_in=expires_in,
         )
-        if install_code is None and _prompt_observer is not None:
+        if _prompt_observer is not None:
             _prompt_observer(prompt)
-        if install_code is None and on_prompt is not None:
+        if on_prompt is not None:
             on_prompt(prompt)
-        if install_code is None and open_browser:
+        if open_browser:
             try:
                 webbrowser.open(prompt.verification_uri_complete)
             except webbrowser.Error:
@@ -273,6 +263,8 @@ def device_authorize(
         deadline = monotonic() + expires_in
 
         with _approval_wait():
+            if before_exchange is not None:
+                before_exchange()
             while monotonic() < deadline:
                 resp = http.post(
                     _TOKEN_PATH,

@@ -29,8 +29,44 @@ from omnibase_spi.contracts.services.contract_source_control_types import (
     ModelMergeResult,
     ModelPullRequest,
 )
+from omnibase_spi.contracts.services.model_host_call_types import (
+    ModelHostCallAnswer,
+    ModelHostCallRequest,
+)
+from omnibase_spi.contracts.services.model_lane_host_pool_types import (
+    ModelLaneHostPoolReading,
+    ModelLaneHostPoolRequest,
+    ModelLaneHostPoolSnapshot,
+)
+from omnibase_spi.contracts.services.model_lane_host_transport_types import (
+    ModelLaneHostRef,
+    ModelLanePrepareWorktreeRequest,
+    ModelLanePrepareWorktreeResult,
+    ModelLaneReadEngineExitRequest,
+    ModelLaneReadEngineExitResult,
+    ModelLaneReadLogTailRequest,
+    ModelLaneReadLogTailResult,
+    ModelLaneStartEngineRequest,
+    ModelLaneStartEngineResult,
+    ModelLaneStopEngineRequest,
+    ModelLaneStopEngineResult,
+)
 
 __all__ = [
+    "ModelLaneHostRef",
+    "ModelLanePrepareWorktreeRequest",
+    "ModelLanePrepareWorktreeResult",
+    "ModelLaneReadEngineExitRequest",
+    "ModelLaneReadEngineExitResult",
+    "ModelLaneReadLogTailRequest",
+    "ModelLaneReadLogTailResult",
+    "ModelLaneStartEngineRequest",
+    "ModelLaneStartEngineResult",
+    "ModelLaneStopEngineRequest",
+    "ModelLaneStopEngineResult",
+    "ModelLaneHostPoolReading",
+    "ModelLaneHostPoolRequest",
+    "ModelLaneHostPoolSnapshot",
     "ModelBranch",
     "ModelCheckRun",
     "ModelCIStatus",
@@ -38,6 +74,8 @@ __all__ = [
     "ModelDatabaseHealth",
     "ModelDiff",
     "ModelExecuteResult",
+    "ModelHostCallAnswer",
+    "ModelHostCallRequest",
     "ModelIssue",
     "ModelMergeResult",
     "ModelMigrationStatus",

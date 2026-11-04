@@ -66,12 +66,15 @@ Requirements:
 
 import argparse
 import asyncio
+import codecs
 import contextvars
+import locale
 import logging
 import logging.config
 import os
 import re
 import secrets
+import subprocess
 import sys
 import tempfile
 import threading
@@ -818,6 +821,276 @@ def _get_loop_setting() -> str:
     if sys.platform == "win32":
         return "asyncio"
     return "auto"
+
+
+def _is_utf8_encoding_name(encoding_name):
+    """True if `encoding_name` names a UTF-8 codec, including aliases.
+
+    A naive ``encoding_name.lower() == "utf-8"`` string comparison misses
+    aliases such as ``cp65001`` - the name Windows' ANSI codepage API
+    reports when the system codepage is set to 65001/UTF-8 (e.g. via the
+    "Beta: Use Unicode UTF-8" system setting, a common fix for the mojibake
+    class of issue #673). ``codecs.lookup(...).name`` canonicalizes aliases
+    to their real codec name, so ``cp65001`` correctly resolves to ``utf-8``.
+    """
+    try:
+        return codecs.lookup(encoding_name).name == "utf-8"
+    except LookupError:
+        return False
+
+
+def _wait_for_utf8_child(child):
+    """Wait for the UTF-8-mode child on Windows and return its exit status.
+
+    Windows has no exec. ``os.execv`` there starts a new process and ends this
+    one, which detaches the server from its console and from any supervisor
+    waiting on this process. ``os.execv`` also joins ``argv`` without quoting,
+    so an argument with spaces is split. The child keeps the caller waiting for
+    the real server, and ``subprocess`` quotes each argument.
+
+    Ctrl+C also reaches the child on the shared console, so it shuts down; this
+    waits for it. A second Ctrl+C means the user wants out now, so the child is
+    killed and this process does not exit while the server still runs.
+    """
+    try:
+        code = child.wait()
+    except KeyboardInterrupt:
+        try:
+            code = child.wait()
+        except KeyboardInterrupt:
+            child.kill()
+            code = child.wait()
+    # Windows reports a crash as an unsigned 32-bit status, such as 0xC0000005.
+    # sys.exit takes a C int, so pass the same bits as a signed value.
+    return code - 2**32 if code >= 2**31 else code
+
+
+# Windows ends the process it is told to end and leaves that process's children
+# running, so a UTF-8 child started with Popen outlives this process when only
+# this process is ended (terminate(), Task Manager, taskkill /PID without /T).
+JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+_utf8_child_job = None
+
+
+class _WindowsJobApi:
+    _PROCESS_TERMINATE = 0x0001
+    _PROCESS_SET_QUOTA = 0x0100
+    _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
+
+    def __init__(self):
+        import ctypes
+
+        class _BasicLimitInformation(ctypes.Structure):
+            _fields_ = [
+                ("PerProcessUserTimeLimit", ctypes.c_int64),
+                ("PerJobUserTimeLimit", ctypes.c_int64),
+                ("LimitFlags", ctypes.c_uint32),
+                ("MinimumWorkingSetSize", ctypes.c_size_t),
+                ("MaximumWorkingSetSize", ctypes.c_size_t),
+                ("ActiveProcessLimit", ctypes.c_uint32),
+                ("Affinity", ctypes.c_size_t),
+                ("PriorityClass", ctypes.c_uint32),
+                ("SchedulingClass", ctypes.c_uint32),
+            ]
+
+        class _IoCounters(ctypes.Structure):
+            _fields_ = [
+                ("ReadOperationCount", ctypes.c_uint64),
+                ("WriteOperationCount", ctypes.c_uint64),
+                ("OtherOperationCount", ctypes.c_uint64),
+                ("ReadTransferCount", ctypes.c_uint64),
+                ("WriteTransferCount", ctypes.c_uint64),
+                ("OtherTransferCount", ctypes.c_uint64),
+            ]
+
+        class _ExtendedLimitInformation(ctypes.Structure):
+            _fields_ = [
+                ("BasicLimitInformation", _BasicLimitInformation),
+                ("IoInfo", _IoCounters),
+                ("ProcessMemoryLimit", ctypes.c_size_t),
+                ("JobMemoryLimit", ctypes.c_size_t),
+                ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                ("PeakJobMemoryUsed", ctypes.c_size_t),
+            ]
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        self._ctypes = ctypes
+        self._info_struct = _ExtendedLimitInformation
+        # Handles are pointer-sized: declare them, or ctypes truncates them to int.
+        self._create = kernel32.CreateJobObjectW
+        self._create.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p]
+        self._create.restype = ctypes.c_void_p
+        self._set_information = kernel32.SetInformationJobObject
+        self._set_information.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+        ]
+        self._set_information.restype = ctypes.c_int
+        self._open = kernel32.OpenProcess
+        self._open.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+        self._open.restype = ctypes.c_void_p
+        self._assign = kernel32.AssignProcessToJobObject
+        self._assign.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        self._assign.restype = ctypes.c_int
+        self._close = kernel32.CloseHandle
+        self._close.argtypes = [ctypes.c_void_p]
+        self._close.restype = ctypes.c_int
+
+    def _error(self, call):
+        code = self._ctypes.get_last_error()
+        return OSError(code, f"{call} failed with Windows error {code}")
+
+    def create_job(self):
+        handle = self._create(None, None)
+        if not handle:
+            raise self._error("CreateJobObjectW")
+        return handle
+
+    def set_limit_flags(self, job, flags):
+        info = self._info_struct()
+        info.BasicLimitInformation.LimitFlags = flags
+        ok = self._set_information(
+            job,
+            self._JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+            self._ctypes.byref(info),
+            self._ctypes.sizeof(info),
+        )
+        if not ok:
+            raise self._error("SetInformationJobObject")
+
+    def open_process(self, pid):
+        handle = self._open(self._PROCESS_SET_QUOTA | self._PROCESS_TERMINATE, False, pid)
+        if not handle:
+            raise self._error("OpenProcess")
+        return handle
+
+    def assign(self, job, process):
+        if not self._assign(job, process):
+            raise self._error("AssignProcessToJobObject")
+
+    def close(self, handle):
+        self._close(handle)
+
+
+def _assign_to_kill_on_close_job(child, api):
+    """Return a kill-on-close job holding `child`, or None when a step fails before assignment.
+
+    Popen cannot start the child suspended, so there is a short window between the
+    child's start and its assignment to the job. A parent that is ended inside that
+    window leaves the child running. Closing the window would need CREATE_SUSPENDED
+    and ResumeThread, which Popen does not expose.
+    """
+    job = None
+    assigned = False
+    step = "create_job"
+    try:
+        job = api.create_job()
+        step = "set_limit_flags"
+        api.set_limit_flags(job, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)
+        step = "open_process"
+        process = api.open_process(child.pid)
+        try:
+            step = "assign"
+            api.assign(job, process)
+            assigned = True
+        finally:
+            api.close(process)
+    except Exception as error:
+        if assigned:
+            # The child is already bound, so the job must stay open: closing it would end the child.
+            logger.warning(
+                f"Could not close a process handle after binding the UTF-8 child: {error}"
+            )
+            return job
+        if job is not None:
+            api.close(job)
+        _warn_job_not_bound(step, error)
+        return None
+    return job
+
+
+def _warn_job_not_bound(step, error):
+    hint = (
+        " The parent may already be in a job that does not allow nested jobs."
+        if step == "assign"
+        else ""
+    )
+    logger.warning(
+        f"Could not bind the UTF-8 child to a kill-on-close Job Object at step {step}: "
+        f"{error}. The child runs unbound, so if this process is ended without it "
+        f"(terminate(), Task Manager, taskkill /PID without /T), the child keeps "
+        f"running.{hint}"
+    )
+
+
+def _bind_child_to_kill_on_close_job(child):
+    global _utf8_child_job
+    try:
+        api = _WindowsJobApi()
+    except Exception as error:
+        _warn_job_not_bound("load_api", error)
+        return
+    _utf8_child_job = _assign_to_kill_on_close_job(child, api)
+
+
+def _log_reexec_failure(error):
+    logger.error(
+        f"Failed to re-exec into UTF-8 mode: {error}. Continuing without it - "
+        "on a non-UTF-8-locale system, docling model loading may still fail (#673)."
+    )
+
+
+def _reexec_with_utf8_if_needed():
+    """Re-launch this process in Python UTF-8 mode (PEP 540) if it isn't already.
+
+    docling opens its bundled model config files without an explicit
+    ``encoding=``, so on a non-UTF-8-locale platform (e.g. cp949 on Korean
+    Windows) that read falls back to the OS codepage and raises
+    ``UnicodeDecodeError`` while loading the layout model (#673). UTF-8 mode
+    changes the *default* text encoding for every ``open()`` call that
+    doesn't pass one explicitly, closing this for docling too - but it can
+    only be enabled at interpreter startup, so an already-running process
+    must re-exec itself with ``-X utf8`` rather than just setting
+    ``os.environ["PYTHONUTF8"]``, which the running interpreter would ignore.
+
+    Must run before ``docling`` (or anything else) is imported. Re-execs by
+    file path (``__file__``), not ``-m opendataloader_pdf.hybrid_server`` -
+    ``-m`` requires the package to already be import-resolvable, which breaks
+    running this file directly (e.g. ``python hybrid_server.py``) from an
+    uninstalled checkout. Re-running the same file path has no such
+    requirement and preserves that invocation shape exactly.
+
+    On POSIX the process is replaced with ``os.execv``. On Windows, where
+    ``os.execv`` does not replace the process, the child runs as a subprocess
+    and this process exits with the child's exit code (see
+    ``_wait_for_utf8_child``).
+
+    Skips the re-exec when the locale's preferred encoding is already UTF-8
+    (true on most Linux/macOS deployments, and on Windows systems with the
+    "Beta: Use Unicode UTF-8" setting enabled), even though
+    ``sys.flags.utf8_mode`` itself is 0 there - open() already defaults to
+    UTF-8 via the locale, so re-execing would only add an unnecessary
+    process restart on every startup.
+    """
+    if sys.flags.utf8_mode:
+        return
+    if _is_utf8_encoding_name(locale.getpreferredencoding(False)):
+        return
+    argv = [sys.executable, "-X", "utf8", __file__] + sys.argv[1:]
+    if os.name == "nt":
+        try:
+            child = subprocess.Popen(argv)
+        except OSError as e:
+            _log_reexec_failure(e)
+            return
+        _bind_child_to_kill_on_close_job(child)
+        sys.exit(_wait_for_utf8_child(child))
+    try:
+        os.execv(sys.executable, argv)
+    except OSError as e:
+        _log_reexec_failure(e)
 
 
 def _check_dependencies():
@@ -1598,6 +1871,7 @@ def create_app(
 
 def main():
     """Run the server."""
+    _reexec_with_utf8_if_needed()
     _check_dependencies()
     import uvicorn
 

@@ -10,6 +10,7 @@ from typing import Annotated
 from cyclopts import Parameter
 
 from airbyte_ops_mcp.cli._base import App
+from airbyte_ops_mcp.regression_tests.ci_output import new_stream_verdict_label
 from airbyte_ops_mcp.regression_tests.eu_runner.job_spec import build_batch_job
 from airbyte_ops_mcp.regression_tests.eu_runner.verdict import (
     build_verdict,
@@ -94,20 +95,18 @@ def render_summary(
     if safe_verdict is None:
         lines.extend(["", "verdict missing or invalid"])
     else:
-        not_exercised_only = safe_verdict["not_exercised"] and not (
-            safe_verdict["incomplete"]
-            or safe_verdict["regression_detected"]
-            or safe_verdict["both_failed"]
+        result = new_stream_verdict_label(
+            stopped=safe_verdict["incomplete"],
+            setup_error=safe_verdict["setup_error"],
+            strict_failed=safe_verdict["strict_failed"],
+            regression=safe_verdict["regression_detected"],
+            both_failed=safe_verdict["both_failed"],
+            comparison_errored=safe_verdict["comparison_errored"],
+            could_not_test=safe_verdict["could_not_test"],
+            not_exercised=safe_verdict["not_exercised"],
         )
-        result = (
-            "INCOMPLETE"
-            if safe_verdict["incomplete"]
-            else "NOT EXERCISED"
-            if not_exercised_only
-            else "passed"
-            if safe_verdict["success"]
-            else "failed"
-        )
+        if result is None:
+            result = "passed" if safe_verdict["success"] else "failed"
         lines.extend(
             [
                 "",
@@ -115,6 +114,8 @@ def render_summary(
                 f"- **Both failed:** {safe_verdict['both_failed']}",
                 f"- **Incomplete:** {safe_verdict['incomplete']}",
                 f"- **Not exercised:** {safe_verdict['not_exercised']}",
+                f"- **Setup error:** {safe_verdict['setup_error']}",
+                f"- **Could not test:** {safe_verdict['could_not_test']}",
                 "",
                 "| Command | Control exit | Target exit | Passed |",
                 "|---|---:|---:|:---:|",

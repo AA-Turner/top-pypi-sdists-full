@@ -123,12 +123,22 @@ TILDE_SYM = (
     b'~'
 )
 
+RE_PATTERN_END = re.compile(r'\\?\Z')
 RE_ANCHOR = re.compile(r'^/+')
 RE_WIN_ANCHOR = re.compile(r'^(?:\\\\|/)+')
 RE_POSIX = re.compile(r'\[:(alnum|alpha|ascii|blank|cntrl|digit|graph|lower|print|punct|space|upper|word|xdigit):\]')
 RE_NUM_RANGE = re.compile(r'([0-9]*-[0-9]*)>')
 RE_EMPTY_EXT_SLOTS = re.compile(r'[|]+')
+# Stars that are only followed by the end of an extended group's pattern, or by groups that can match nothing
+RE_ALT_END = re.compile(r'\**(?:[?*]\([^()]*\))*[|)]')
 RE_EXT_GROUP = re.compile(r'[@*+?!]\(')
+# Marks the spot in an inverse group's lookahead where the text following its enclosing group goes. It is a regular
+# expression comment, and `re.escape()` always escapes `(`, `?`, and `#`, so it can never be confused with pattern
+# content. Should one ever be left behind, it does nothing.
+RE_TAIL = re.compile(r'\(\?#tail[0-9]+\)')
+
+# The most regular expression a table of lengths may hold, past this we stop tracking the lengths of a group
+MAX_LENGTH_TABLE = 4000
 
 SET_OPERATORS = frozenset(('&', '~', '|'))
 NEGATIVE_SYM = frozenset((b'!', '!'))
@@ -214,20 +224,31 @@ _STAR = r'.*?'
 _PATH_TRAIL = r'{}*?'
 # Disallow . and .. (usually applied right after path separator when needed)
 _NO_DIR = r'(?!(?:(?<=[{sep}])|(?<=^))(?:\.{{1,2}})(?:$|[{sep}]))'
+# Disallow . and .. when it is known we are at the start of a name
+_NO_DIR_START = r'(?!\.{{1,2}}(?:$|[{sep}]))'
 # Star for `PATHNAME`
 _PATH_STAR = r'[^{sep}]*?'
+# There must be a next character and it cannot be a dot
+_NEED_NO_DOT = r'(?=[^.])'
+_NEED_NO_DOT_PATH = r'(?=[^{sep}.])'
+# Extended pattern start that will not capture dots or path separators.
+_EXT_PATH_NO_DOT_STAR = r'(?:(?!(?:(?<=[{sep}])|(?<=^))\.)[^{sep}]*?|)'
 # Star when at start of filename during `DOTMATCH`
 # (allow dot, but don't allow directory match /./ or /../)
 _PATH_STAR_DOTMATCH = _NO_DIR + _PATH_STAR
+# Same, but not in an extended group, where a group that repeats can start the star in the middle of a name
+_PATH_STAR_DOTMATCH_START = _NO_DIR_START + _PATH_STAR
 # Star for `PATHNAME` when `DOTMATCH` is disabled and start is at start of file.
-# Disallow . and .. and don't allow match to start with a dot.
-_PATH_STAR_NO_DOTMATCH = _NO_DIR + fr'(?:(?!\.){_PATH_STAR})?'
+# Needs a character that is not a dot, which also disallows . and ..
+_PATH_STAR_NO_DOTMATCH = _NEED_NO_DOT_PATH + _PATH_STAR
 # `GLOBSTAR` during `DOTMATCH`. Avoid directory match /./ or /../
-_PATH_GSTAR_DOTMATCH = r'(?:(?!(?:[{sep}]|^)(?:\.{{1,2}})($|[{sep}])).)*?'
+_PATH_GSTAR_DOTMATCH = r'(?:(?!(?:[{sep}]|^)(?:\.{{1,2}})(?:$|[{sep}])).)*?'
 # `GLOBSTAR` with `DOTMATCH` disabled. Don't allow a dot to follow /
 _PATH_GSTAR_NO_DOTMATCH = r'(?:(?!(?:[{sep}]|^)\.).)*?'
 # Next char cannot be a dot
 _NO_DOT = r'(?![.])'
+# Extended pattern start that will not capture dots.
+_EXT_NO_DOT_STAR = r'(?:(?!(?<=^)\.).*?|)'
 # Restrict dot in an extended group
 _GROUP_NO_DOT = r'(?!(?<=^)\.)'
 # Restrict dot in an extended path group
@@ -243,23 +264,28 @@ _EOP = r'$'
 _PATH_EOP = r'(?:$|[{sep}])'
 # Divider between `globstar`. Can match start or end of pattern
 # in addition to slashes.
-_GLOBSTAR_DIV = r'(?:^|$|{})+'
+_GLOBSTAR_DIV = r'(?:^|$|[{sep}]+)'
 # Lookahead to see there is one character.
 _NEED_CHAR_PATH = r'(?=[^{sep}])'
 _NEED_CHAR = r'(?=.)'
-_NEED_SEP = r'(?={})'
+_NEED_SEP = r'(?=[{sep}])'
+_NEED_DIR = r'(?<=[{sep}])'
 # Group that matches one or none
 _QMARK_GROUP = r'(?:{})?'
+_QMARK_GUARD_GROUP = r'(?:{}(?:{}))?'
 _QMARK_CAPTURE_GROUP = r'((?#)(?:{})?)'
+_QMARK_GUARD_CAPTURE_GROUP = r'((?#)(?:{}(?:{}))?)'
 # Group that matches Zero or more
 _STAR_GROUP = r'(?:{})*'
+_STAR_GUARD_GROUP = r'(?:{}(?:{}))*'
 _STAR_CAPTURE_GROUP = r'((?#)(?:{})*)'
+_STAR_GUARD_CAPTURE_GROUP = r'((?#)(?:{}(?:{}))*)'
 # Group that matches one or more
-_PLUS_GROUP = r'(?:{})+'
-_PLUS_CAPTURE_GROUP = r'((?#)(?:{})+)'
+_PLUS_GROUP = r'{}(?:{})+'
+_PLUS_CAPTURE_GROUP = r'((?#){}(?:{})+)'
 # Group that matches exactly one
-_GROUP = r'(?:{})'
-_CAPTURE_GROUP = r'((?#){})'
+_GROUP = r'{}(?:{})'
+_CAPTURE_GROUP = r'{}((?#){})'
 # Inverse group that matches none
 # This is the start. Since Python can't
 # do variable look behinds, we have stuff
@@ -309,22 +335,6 @@ EXT_PROMOTE = {
 }
 
 
-class ExtPromote(str):
-    """Promote extended group object."""
-
-
-class InvPlaceholder(str):
-    """Placeholder for inverse pattern `!(...)`."""
-
-
-class AtomicStar(str):
-    """Track `*` as needing to be an atomic `*`."""
-
-
-class ExtGroup(str):
-    """Track a top level extended glob group."""
-
-
 class PathNameException(Exception):
     """Path name exception."""
 
@@ -335,6 +345,118 @@ class DotException(Exception):
 
 class PatternLimitException(Exception):
     """Pattern limit exception."""
+
+
+class ExtPromote(str):
+    """Promote extended group object."""
+
+
+class InvPlaceholder(str):
+    """Placeholder for inverse pattern `!(...)`, and the tail token of the group its contents are in."""
+
+    token: str
+    shortcut: bool
+
+    def __new__(cls, value: str, token: str = '', shortcut: bool = False) -> InvPlaceholder:
+        """Create the placeholder."""
+
+        placeholder = super().__new__(cls, value)
+        placeholder.token = token
+        placeholder.shortcut = shortcut
+        return placeholder
+
+
+class AtomicStar(str):
+    """Track `*` as needing to be an atomic `*`."""
+
+
+class Lengths(dict[int, str]):
+    """
+    The lengths of text that a piece can match, with a regular expression for text of each length.
+
+    Most pieces have a longest text they can match, and `open_from` is `None`. An inverse group does not: it matches
+    any text past the longest text its own patterns match. Then `open_from` is the length from which it matches any
+    text, only the lengths below it are listed, and a length below it that is not listed matches nothing.
+    """
+
+    open_from: int | None = None
+
+    @property
+    def empty_only(self) -> bool:
+        """Check if the lengths are just the empty string."""
+
+        return self.open_from is None and self == {0: ''}
+
+
+class ExtGroup(str):
+    """Track a top level extended glob group, and the lengths of text it can match when they are known."""
+
+    lens: Lengths | None = None
+    # The group always matches at least a character, as far as we can tell. This is only set for `+` and `@` groups.
+    non_empty = False
+    # The group can match nothing, such as `?(...)` and `*(...)`
+    optional = False
+
+
+class Sized(str):
+    """A piece of pattern that matches exactly one character."""
+
+    lens: Lengths
+
+    def __new__(cls, value: str) -> Sized:
+        """Create the piece, its lengths are a single length of one that maps to itself."""
+
+        sized = super().__new__(cls, value)
+        sized.lens = Lengths({1: str(value)})
+        return sized
+
+
+def join_lengths(table: dict[int, list[str]], open_from: int | None = None) -> Lengths | None:
+    """Turn the ways of matching each length into one regular expression, or give up if there are too many."""
+
+    result = Lengths()
+    result.open_from = open_from
+    size = 0
+    for length, ways in table.items():
+        unique = list(dict.fromkeys(ways))
+        result[length] = unique[0] if len(unique) == 1 else f'(?:{"|".join(unique)})'
+        size += len(result[length])
+    return result if size <= MAX_LENGTH_TABLE else None
+
+
+def concat_lengths(first: Lengths, second: Lengths) -> Lengths | None:
+    """
+    Get the lengths that can be matched by `first` followed by `second`.
+
+    If either side matches any text from some length on, the other side must only match empty text, as we cannot track
+    any other result.
+    """
+
+    if first.open_from is not None or second.open_from is not None:
+        if first.empty_only:
+            return second
+        if second.empty_only:
+            return first
+        return None
+
+    table = {}  # type: dict[int, list[str]]
+    for length1, regex1 in first.items():
+        for length2, regex2 in second.items():
+            table.setdefault(length1 + length2, []).append(regex1 + regex2)
+    return join_lengths(table)
+
+
+def union_lengths(first: Lengths, second: Lengths) -> Lengths | None:
+    """Get the lengths that can be matched by `first` or `second`."""
+
+    starts = [lens.open_from for lens in (first, second) if lens.open_from is not None]
+    open_from = min(starts) if starts else None
+    table = {}  # type: dict[int, list[str]]
+    for lengths in (first, second):
+        for length, regex in lengths.items():
+            if open_from is None or length < open_from:
+                table.setdefault(length, []).append(regex)
+    return join_lengths(table, open_from)
 
 
 def iter_patterns(patterns: AnyStr | Sequence[AnyStr]) -> Iterable[AnyStr]:
@@ -432,7 +554,8 @@ def _get_win_drive(
                     break
             if count == complete:
                 if not regex:
-                    drive = '\\\\{}{}'.format('\\'.join(part), '\\' if slash else '')
+                    bslash = "\\"
+                    drive = f'\\\\{bslash.join(part)}{bslash if slash else ""}'
                 else:
                     drive = r'[\\/]{2}' + r'[\\/]'.join([escape_drive(p, case_sensitive) for p in part])
     elif pattern.startswith(('\\\\', '/')):
@@ -632,6 +755,42 @@ def no_negate_flags(flags: int) -> int:
     return flags
 
 
+def expand_patterns(
+    patterns: AnyStr | Sequence[AnyStr],
+    flags: int,
+    limit: int,
+    exclude: AnyStr | Sequence[AnyStr] | None = None,
+    exclude_flags: int = 0
+) -> Iterator[tuple[bool, AnyStr]]:
+    """
+    Expand exclusion and then regular patterns, returning unique expansions along with whether they are exclusions.
+
+    Every expansion, duplicates included, counts towards a single limit shared by the exclusions and patterns.
+    """
+
+    total = 0
+    sources = [(False, patterns, flags)]  # type: list[tuple[bool, AnyStr | Sequence[AnyStr], int]]
+    if exclude is not None:
+        sources.insert(0, (True, exclude, exclude_flags))
+
+    try:
+        for is_exclude, source, source_flags in sources:
+            seen = set()
+            is_unix = is_unix_style(source_flags)
+            for pattern in iter_patterns(source):
+                pattern = util.norm_pattern(pattern, not is_unix, bool(source_flags & RAWCHARS))
+                current_limit = max(1, limit - total) if limit > 0 else limit
+                for expanded in expand(pattern, source_flags, current_limit):
+                    total += 1
+                    if 0 < limit < total:
+                        raise PatternLimitException(f"Pattern limit exceeded the limit of {limit:d}")
+                    if expanded not in seen:
+                        seen.add(expanded)
+                        yield is_exclude, expanded
+    except bracex.ExpansionLimitException as e:
+        raise PatternLimitException(f"Pattern limit exceeded the limit of {limit:d}") from e
+
+
 def translate(
     patterns: AnyStr | Sequence[AnyStr],
     flags: int,
@@ -645,39 +804,17 @@ def translate(
 
     if exclude is not None:
         flags = no_negate_flags(flags)
-        negative = translate(
-            exclude,
-            flags=flags | DOTMATCH | _NO_GLOBSTAR_CAPTURE,
-            limit=limit
-        )[0]
-
+    exclude_flags = (flags | DOTMATCH | _NO_GLOBSTAR_CAPTURE | _TRANSLATE) & FLAG_MASK
     flags = (flags | _TRANSLATE) & FLAG_MASK
     is_unix = is_unix_style(flags)
-    seen = set()
 
-    try:
-        total = len(negative)
-        current_limit = max(1, limit - total) if limit > 0 else limit
-        for pattern in iter_patterns(patterns):
-            pattern = util.norm_pattern(pattern, not is_unix, bool(flags & RAWCHARS))
-            count = 0
-            for expanded in expand(pattern, flags, current_limit):
-                count += 1
-                total += 1
-                if 0 < limit < total:
-                    raise PatternLimitException(f"Pattern limit exceeded the limit of {limit:d}")
-                if expanded not in seen:
-                    seen.add(expanded)
-                    if is_negative(expanded, flags):
-                        negative.append(WcParse(expanded[1:], flags | _NO_GLOBSTAR_CAPTURE | DOTMATCH).parse())
-                    else:
-                        positive.append(WcParse(expanded, flags).parse())
-            if limit > 0:
-                current_limit -= count
-                if current_limit < 1:
-                    current_limit = 1
-    except bracex.ExpansionLimitException as e:
-        raise PatternLimitException(f"Pattern limit exceeded the limit of {limit:d}") from e
+    for is_exclude, expanded in expand_patterns(patterns, flags, limit, exclude, exclude_flags):
+        if is_exclude:
+            negative.append(WcParse(expanded, exclude_flags).parse())
+        elif is_negative(expanded, flags):
+            negative.append(WcParse(expanded[1:], flags | _NO_GLOBSTAR_CAPTURE | DOTMATCH).parse())
+        else:
+            positive.append(WcParse(expanded, flags).parse())
 
     if negative and not positive:
         if flags & NEGATEALL:
@@ -713,34 +850,16 @@ def compile_pattern(
 
     if exclude is not None:
         flags = no_negate_flags(flags)
-        negative = compile_pattern(exclude, flags=flags | DOTMATCH | _NO_GLOBSTAR_CAPTURE, limit=limit)[0]
-
+    exclude_flags = flags | DOTMATCH | _NO_GLOBSTAR_CAPTURE
     is_unix = is_unix_style(flags)
-    seen = set()
 
-    try:
-        total = len(negative)
-        current_limit = max(1, limit - total) if limit > 0 else limit
-        for pattern in iter_patterns(patterns):
-            pattern = util.norm_pattern(pattern, not is_unix, bool(flags & RAWCHARS))
-            count = 0
-            for expanded in expand(pattern, flags, current_limit):
-                count += 1
-                total += 1
-                if 0 < limit < total:
-                    raise PatternLimitException(f"Pattern limit exceeded the limit of {limit:d}")
-                if expanded not in seen:
-                    seen.add(expanded)
-                    if is_negative(expanded, flags):
-                        negative.append(_compile(expanded[1:], flags | _NO_GLOBSTAR_CAPTURE | DOTMATCH))
-                    else:
-                        positive.append(_compile(expanded, flags))
-            if limit > 0:
-                current_limit -= count
-                if current_limit < 1:
-                    current_limit = 1
-    except bracex.ExpansionLimitException as e:
-        raise PatternLimitException(f"Pattern limit exceeded the limit of {limit:d}") from e
+    for is_exclude, expanded in expand_patterns(patterns, flags, limit, exclude, exclude_flags):
+        if is_exclude:
+            negative.append(_compile(expanded, exclude_flags))
+        elif is_negative(expanded, flags):
+            negative.append(_compile(expanded[1:], flags | _NO_GLOBSTAR_CAPTURE | DOTMATCH))
+        else:
+            positive.append(_compile(expanded, flags))
 
     if negative and not positive:
         if flags & NEGATEALL:
@@ -948,9 +1067,12 @@ class WcParse(Generic[AnyStr]):
         self.case_sensitive = get_case(flags)
         self.in_list = False
         self.emitted_star = -1
-        self.inv_nest = False
         self.flags = flags
         self.inv_ext = 0
+        self.tail_id = 0
+        self.tails_open = False
+        self.in_inv = 0
+        self.group_has_dot = False
         self.unix = is_unix_style(self.flags)
         self.bad_sequence = -1
         self.ext_empty = False
@@ -964,6 +1086,10 @@ class WcParse(Generic[AnyStr]):
             self.char_avoid = (ord('/'), ord('.'))
             self.bslash_abort = False
             sep = {"sep": re.escape('/')}
+
+        self.globstar_div = _GLOBSTAR_DIV.format(**sep)
+        self.need_sep = _NEED_SEP.format(**sep)
+        self.need_dir = _NEED_DIR.format(**sep)
         self.bare_sep = sep['sep']
         self.sep = f'[{self.bare_sep}]'
         self.path_eop = _PATH_EOP.format(**sep)
@@ -972,14 +1098,18 @@ class WcParse(Generic[AnyStr]):
         self.seq_path_dot = _PATH_NO_SLASH_DOT.format(**sep)
         self.seq_path_group_dot = _PATH_GROUP_NO_DOT.format(**sep)
         self.path_star = _PATH_STAR.format(**sep)
+        self.path_ext_star = _EXT_PATH_NO_DOT_STAR.format(**sep)
         self.path_star_dot1 = _PATH_STAR_DOTMATCH.format(**sep)
+        self.path_star_dot1_start = _PATH_STAR_DOTMATCH_START.format(**sep)
         self.path_star_dot2 = _PATH_STAR_NO_DOTMATCH.format(**sep)
         self.path_gstar_dot1 = _PATH_GSTAR_DOTMATCH.format(**sep)
         self.path_gstar_dot2 = _PATH_GSTAR_NO_DOTMATCH.format(**sep)
         if self.pathname:
             self.need_char = _NEED_CHAR_PATH.format(**sep)
+            self.need_no_dot = _NEED_NO_DOT_PATH.format(**sep)
         else:
             self.need_char = _NEED_CHAR
+            self.need_no_dot = _NEED_NO_DOT
 
     def set_after_start(self) -> None:
         """Set tracker for character after the start of a directory."""
@@ -1013,28 +1143,221 @@ class WcParse(Generic[AnyStr]):
         elif not self.dir_start and self.after_start:
             self.reset_dir_track()
 
+    def _resolve_tails(self, items: list[str], tail: str, skip: str = '') -> None:
+        """
+        Fill in the tail of inverse groups that sit inside groups.
+
+        An inverse group inside a group is closed once its slot ends, but the text that follows the enclosing group
+        is not known yet, so a tail token was left in its place. For every group in `items` that has such a token,
+        the token becomes the rest of the slot after that group followed by `tail`. Tokens that match `skip` belong
+        to the group that owns `items` and are resolved by the group's parent.
+        """
+
+        if not self.tails_open:
+            return
+
+        for k in range(len(items) - 1, -1, -1):
+            item = items[k]
+            if '(?#tail' not in item:
+                continue
+            end = k + 1
+            while end < len(items) and items[end] != '|':
+                end += 1
+            rest = ''.join(items[k + 1:end]) + tail
+            if self.capture:
+                # The tail only goes inside a lookahead, which must not capture
+                rest = rest.replace('(?#)', '?:')
+            items[k] = type(item)(self._fill_tail(item, rest, skip))
+
+    @staticmethod
+    def _fill_tail(item: str, rest: str, skip: str) -> str:
+        """Replace every tail token in `item` with `rest`, except for the one that matches `skip`."""
+
+        def replace(m: re.Match[str]) -> str:
+            return m.group(0) if m.group(0) == skip else rest
+
+        return RE_TAIL.sub(replace, item)
+
+    @staticmethod
+    def _retoken(items: list[str], token: str, new_token: str) -> None:
+        """Replace one tail token with another, as the group that owned `token` has been merged into its parent."""
+
+        for k, item in enumerate(items):
+            if token in item:
+                items[k] = type(item)(item.replace(token, new_token))
+
+    def _finish_group(self, extended: list[str], token: str) -> None:
+        """Close the inverse groups that sit directly in the slots of a group that is now complete."""
+
+        self.clean_up_inverse(extended, token)
+        self._resolve_tails(extended, token, token)
+
+    def _close_root(self, current: list[str]) -> None:
+        """Close the inverse groups at the end of a path segment or pattern."""
+
+        self.clean_up_inverse(current)
+        self._resolve_tails(current, _EOP if not self.pathname else self.path_eop)
+        self.tails_open = False
+
+    @staticmethod
+    def _maybe_empty(extended: list[str]) -> bool:
+        """
+        Check if the patterns of a group may match nothing.
+
+        A pattern can only be shown to match something if one of its pieces always matches a character.
+        """
+
+        non_empty = False
+        for item in [*extended, '|']:
+            if item == '|':
+                if not non_empty:
+                    return True
+                non_empty = False
+                continue
+            lens = getattr(item, 'lens', None)
+            if getattr(item, 'non_empty', False) or (lens is not None and 0 not in lens):
+                non_empty = True
+        return False
+
+    @staticmethod
+    def _group_lengths(extended: list[str]) -> Lengths | None:
+        """
+        Get the lengths of text that the patterns of a group can match, with a regular expression for each length.
+
+        The result is `None` if the lengths of any piece in any pattern are not known, or if tracking them would take
+        too much space.
+        """
+
+        result = None  # type: Lengths | None
+        slot = Lengths({0: ''})
+        for item in [*extended, '|']:
+            if item == '|':
+                result = slot if result is None else union_lengths(result, slot)
+                if result is None:
+                    return None
+                slot = Lengths({0: ''})
+                continue
+            lens = getattr(item, 'lens', None)
+            if lens is None:
+                return None
+            new_slot = concat_lengths(slot, lens)
+            if new_slot is None:
+                return None
+            slot = new_slot
+        return result
+
+    def _exact_inverse(
+        self,
+        lens: Lengths | None,
+        star: str,
+        extended: list[str]
+    ) -> tuple[str, Lengths] | None:
+        """
+        Build an inverse group that does not depend on what follows it, or return `None` if that is not possible.
+
+        This needs the lengths of text that the group's patterns can match. The patterns either have a longest text
+        they can match, or they match any text from some length on, as an inverse group does. The group is decided one
+        length at a time, shortest first:
+
+        - If the patterns cannot match text of a length, the group matches any text of that length.
+        - If they can, the group matches text of that length only if the patterns' regular expression for that length
+          does not match it.
+        - For text longer than any length listed, the group matches any text if the patterns have a longest text they
+          can match, and no text if they match any text from some length on.
+
+        The lengths that the group itself can match are returned with its regular expression, so an inverse group
+        around this one can use them. If the patterns have a longest text they can match, this group matches any text
+        from some length on. If they match any text from some length on, this group has a longest text it can match.
+        """
+
+        base = self.path_star if self.pathname else _STAR
+        if lens is None or not star.endswith(base):
+            return None
+
+        char = self.path_star[:-2] if self.pathname else '.'
+        # The length from which the patterns match all text, if they do
+        all_from = lens.open_from
+        limit = max(lens) + 1 if all_from is None else all_from
+        pieces = []
+        table = {}  # type: dict[int, list[str]]
+        run = None  # type: list[int] | None
+        for length in range(limit):
+            exact = self._length_range(char, length, length)
+            if length not in lens:
+                # Any text of this length, and adjacent lengths like it can share one piece
+                table[length] = [exact]
+                if run is None:
+                    run = [length, length]
+                run[1] = length
+                continue
+            if run is not None:
+                pieces.append(self._length_range(char, run[0], run[1]))
+                run = None
+            # If the patterns can match nothing, the group cannot, and there is no piece to add for a length of zero
+            if length:
+                regex = lens[length].replace('(?#)', '?:') if self.capture else lens[length]
+                pieces.append(f'(?!(?:{regex})){exact}')
+                table[length] = [f'(?!(?:{lens[length]})){exact}']
+        if run is not None:
+            pieces.append(self._length_range(char, run[0], run[1]))
+        if all_from is None:
+            pieces.append(f'{char}{{{limit},}}?')
+        elif not pieces:
+            # The patterns match all text, so the group can match nothing
+            pieces.append('(?!)')
+
+        # If the patterns have a longest text they can match, the group matches all text longer than that
+        group_lens = join_lengths(table, limit if all_from is None else None)
+        if group_lens is None:
+            return None
+
+        body = star[:-len(base)] + f'(?:{"|".join(pieces)})'
+        if not self.capture:
+            return f'(?:{body})', group_lens
+
+        # With `CAPTURE`, every extended group must still be a capturing group, in the order of the pattern. The
+        # patterns above were copied as non-capturing groups, so keep the originals in a branch that can never match.
+        original = ''.join(extended)
+        unused = f'(?:(?!)(?:{original})|)' if '(?#)' in original else ''
+        return f'((?#){unused}{body})', group_lens
+
+    @staticmethod
+    def _length_range(char: str, low: int, high: int) -> str:
+        """Match from `low` to `high` characters."""
+
+        if low == high:
+            return '' if not low else char if low == 1 else f'{char}{{{low}}}'
+        return f'{char}{{{low},{high}}}?'
+
     def _restrict_extended_slash(self) -> str:
         """Restrict extended slash."""
 
         return self.seq_path if self.pathname else ''
 
+    def _need_char(self, star: str) -> str:
+        """Require a character at the start of a name, unless the star already requires a non-dot one."""
+
+        return star if star.startswith(self.need_no_dot) else self.need_char + star
+
     def _restrict_sequence(self, current: list[str]) -> str:
         """Restrict sequence."""
 
         # An extended group may consume nothing, leaving the wildcard at the start of a name.
+        # Group slots do not know what came before the group, so they check the position at match time.
         after_ext = bool(current and isinstance(current[-1], ExtGroup))
+        check_start = (after_ext or self.in_list) and not self.dot
         if self.pathname:
             if self.after_start and not self.dot:
-                value = self.seq_path_dot if not self.in_list else self.seq_path_group_dot
-            elif after_ext and not self.dot:
+                value = self.seq_path_dot if not self.in_list else self.seq_path_group_dot + self.seq_path
+            elif check_start:
                 value = self.seq_path_group_dot + self.seq_path
             else:
                 value = self.seq_path
-            if self.after_start and not after_ext:
+            if self.after_start and not after_ext and self.dot:
                 value = self.no_dir + value
         else:
             value = (_NO_DOT if not self.in_list else _GROUP_NO_DOT) if self.after_start and not self.dot else ""
-            if after_ext and not self.dot and not self.after_start:
+            if check_start and not self.after_start:
                 value = _GROUP_NO_DOT
 
         self.reset_dir_track()
@@ -1320,7 +1643,7 @@ class WcParse(Generic[AnyStr]):
             else:
                 result = [value]
 
-        if self.pathname or self.after_start or (current and isinstance(current[-1], ExtGroup)):
+        if self.pathname or self.after_start or self.in_list or (current and isinstance(current[-1], ExtGroup)):
             return self._restrict_sequence(current) + ''.join(result)
 
         return ''.join(result)
@@ -1416,29 +1739,67 @@ class WcParse(Generic[AnyStr]):
         else:
             current.append(re.escape('.'))
 
+    def _group_start(self, in_list: bool, has_dot: bool) -> str:
+        """
+        Get what keeps a group from starting on a leading dot.
+
+        A group that has an alternative that starts with a dot can start on one.
+        """
+
+        if in_list or has_dot or self.dot:
+            return ''
+        return self.seq_path_group_dot if self.pathname else _GROUP_NO_DOT
+
+    @staticmethod
+    def _alt_start(extended: list[str]) -> bool:
+        """Check if only groups that can match nothing come before this point in the alternative."""
+
+        for item in reversed(extended):
+            if item == '|':
+                break
+            if not (isinstance(item, ExtGroup) and item.optional):
+                return False
+        return True
+
     def _handle_star(self, i: util.StringIter, current: list[str]) -> None:
         """Handle star."""
 
+        directory = False
         after_ext = bool(current and isinstance(current[-1], ExtGroup))
+        check_start = (after_ext or self.in_list) and not self.dot
+        # A star that ends its pattern in an extended group can match nothing at the start of a name
+        alt_end = self.in_list and i.match_next(RE_ALT_END, False) is not None
         if self.pathname:
             if self.after_start and not self.dot:
-                star = self.path_star_dot2
+                if self.in_list:
+                    star = self.no_dir + self.path_ext_star if alt_end else self.seq_path_group_dot + self.path_star
+                else:
+                    star = self.path_star_dot2
                 globstar = self.path_gstar_dot2
             elif self.after_start:
-                star = self.path_star_dot1
+                star = self.path_star_dot1 if self.in_list else self.path_star_dot1_start
                 globstar = self.path_gstar_dot1
             else:
                 star = self.path_star
-                if after_ext and not self.dot:
-                    current.append(self.seq_path_group_dot)
+                if check_start:
+                    if alt_end and self.in_list:
+                        star = self.path_ext_star
+                    else:
+                        current.append(self.seq_path_group_dot)
                 globstar = self.path_gstar_dot1
             capture = self.globstar_capture
         else:
             if self.after_start and not self.dot:
-                star = _NO_DOT + _STAR
-            elif after_ext and not self.dot:
-                current.append(_GROUP_NO_DOT)
-                star = _STAR
+                if not self.in_list:
+                    star = _NEED_NO_DOT + _STAR
+                else:
+                    star = _EXT_NO_DOT_STAR if alt_end else _GROUP_NO_DOT + _STAR
+            elif check_start:
+                if alt_end and self.in_list:
+                    star = _EXT_NO_DOT_STAR
+                else:
+                    current.append(_GROUP_NO_DOT)
+                    star = _STAR
             else:
                 star = _STAR
             globstar = ''
@@ -1484,12 +1845,14 @@ class WcParse(Generic[AnyStr]):
                             # Looks like escape was a valid slash
                             # Store pattern accordingly
                             value = globstar
+                            directory = True
                             self.matchbase = False
                         except StopIteration:
                             # Escapes nothing, ignore and assume double star
                             value = globstar
                     elif c == '/':
                         value = globstar
+                        directory = True
                         self.matchbase = False
 
                     if value != globstar:
@@ -1501,7 +1864,7 @@ class WcParse(Generic[AnyStr]):
 
         if value != globstar:
             if self.after_start:
-                value = self.need_char + value
+                value = self._need_char(value)
 
             # Consume duplicate starts, but leave a star that opens an extended group
             try:
@@ -1514,19 +1877,22 @@ class WcParse(Generic[AnyStr]):
 
         self.reset_dir_track()
         if value == globstar:
-            sep = _GLOBSTAR_DIV.format(self.sep)
             # Check if the last entry was a `globstar`
             # If so, don't bother adding another.
-            if current[-1] != sep:
+            if current[-1] != self.globstar_div:
                 if current[-1] == '':
                     # At the beginning of the pattern
                     current[-1] = value
                 else:
                     # Replace the last path separator
-                    current[-1] = _NEED_SEP.format(self.sep)
+                    current[-1] = self.need_sep
                     current.append(value)
                 self.consume_path_sep(i)
-                current.append(sep)
+                current.append(self.globstar_div)
+            else:
+                self.consume_path_sep(i)
+            if directory and i.match_next(RE_PATTERN_END):
+                current.append(self.need_dir)
             self.set_start_dir()
         else:
             if not self.in_list:
@@ -1535,7 +1901,7 @@ class WcParse(Generic[AnyStr]):
                 value = AtomicStar(value)
             current.append(value)
 
-    def clean_up_inverse(self, current: list[str], nested: bool = False) -> None:
+    def clean_up_inverse(self, current: list[str], token: str | None = None) -> None:
         """
         Clean up current.
 
@@ -1544,10 +1910,15 @@ class WcParse(Generic[AnyStr]):
         So we use the pattern `(?:(?!(?:stuff|to|exclude)<x>))[^/]*?)` where <x> is everything
         that comes after the negative group. `!(this|that)other` --> `(?:(?!(?:this|that)other))[^/]*?)`.
 
-        We have to update the list before | in nested cases: *(!(...)|stuff). Before we close a parent
+        We have to update the list before | for groups in groups: *(!(...)|stuff). Before we close a parent
         `extmatch`: `*(!(...))`. And of course on path separators (when path mode is on): `!(...)/stuff`.
         Lastly we make sure all is accounted for when finishing the pattern at the end.  If there is nothing
         to store, we store `$`: `(?:(?!(?:this|that)$))[^/]*?)`.
+
+        When the inverse group is inside another group, what comes after the enclosing group is not known yet.
+        A token is stored in its place, and replaced once it is. Groups inside the inverse group's own patterns
+        are followed by the same thing as the inverse group itself, so they use the same token, which is replaced
+        with the text of the lookahead.
         """
 
         if not self.inv_ext:
@@ -1555,16 +1926,41 @@ class WcParse(Generic[AnyStr]):
 
         index = len(current) - 1
         while index >= 0:
-            if isinstance(current[index], InvPlaceholder):
+            holder = current[index]
+            if isinstance(holder, InvPlaceholder):
                 content = current[index + 1:]
-                if not nested:
-                    content.append(_EOP if not self.pathname else self.path_eop)
-                current[index] = (
-                    (''.join(content).replace('(?#)', '?:') if self.capture else ''.join(content)) +
-                    (_EXCLA_GROUP_CLOSE.format(str(current[index])))
-                )
+                if token is not None:
+                    # Tail is not known yet, it is filled in when the text after the enclosing group is known
+                    tail = token
+                    self.tails_open = True
+                else:
+                    tail = _EOP if not self.pathname else self.path_eop
+                # Groups after this one are copied into the lookahead, so they must know what follows them first
+                self._resolve_tails(content, tail, token or '')
+                content.append(tail)
+                value = ''.join(content)
+                if self.capture:
+                    value = value.replace('(?#)', '?:')
+                if index and holder.token and holder.token in current[index - 1]:
+                    # Groups in the inverse group's own patterns are followed by the same thing
+                    current[index - 1] = type(current[index - 1])(current[index - 1].replace(holder.token, value))
+                if holder.shortcut:
+                    # The patterns cannot match nothing, so the group matches nothing if the rest of the pattern
+                    # matches. Matching nothing has the same restrictions as matching anything, like a leading dot.
+                    base = self.path_star if self.pathname else _STAR
+                    opening = current[index - 1]
+                    size = len('((?#)') if opening.startswith('((?#)') else len('(?:')
+                    current[index - 1] = type(opening)(
+                        opening[:size] + str(holder)[:-len(base)] + '(?=' + value + ')|' + opening[size:]
+                    )
+                current[index] = value + _EXCLA_GROUP_CLOSE.format(str(holder))
                 self.inv_ext -= 1
             index -= 1
+
+    def _sized(self, value: str) -> str:
+        """Track that a piece matches a single character, which is only needed in the patterns of an inverse group."""
+
+        return Sized(value) if self.in_inv else value
 
     def parse_extend(
         self,
@@ -1572,7 +1968,8 @@ class WcParse(Generic[AnyStr]):
         i: util.StringIter,
         current: list[str],
         reset_dot: bool = False,
-        parent: str = ''
+        parent: str = '',
+        parent_token: str = ''
     ) -> bool:
         """Parse extended pattern lists."""
 
@@ -1583,6 +1980,9 @@ class WcParse(Generic[AnyStr]):
             i.rewind(i.index - index)
             return False
 
+        gtoken = '(?#tail%d)' % self.tail_id
+        self.tail_id += 1
+
         # Save state
         temp_ext_empty = self.ext_empty
         bad_sequence = self.bad_sequence
@@ -1590,10 +1990,14 @@ class WcParse(Generic[AnyStr]):
         temp_after_start = self.after_start
         temp_in_list = self.in_list
         temp_inv_ext = self.inv_ext
-        temp_inv_nest = self.inv_nest
+        temp_in_inv = self.in_inv
         self.ext_empty = False
         self.in_list = True
-        self.inv_nest = list_type == '!'
+        if list_type == '!':
+            self.in_inv += 1
+
+        # Whether an alternative of this group starts with a dot, directly or through a nested group that starts it
+        has_dot = False
 
         if reset_dot:
             self.match_dot_dir = False
@@ -1611,23 +2015,32 @@ class WcParse(Generic[AnyStr]):
 
                 # See if we should parse a nested extended pattern.
                 if c in EXT_TYPES:
-                    if self.parse_extend(c, i, extended, parent=list_type):
+                    alt_start = self._alt_start(extended)
+                    if self.parse_extend(c, i, extended, parent=list_type, parent_token=gtoken):
+                        if alt_start and self.group_has_dot:
+                            has_dot = True
                         continue
 
                 if c == '*':
                     self._handle_star(i, extended)
                 elif c == '.':
+                    if self._alt_start(extended):
+                        has_dot = True
+                    size = len(extended)
                     self._handle_dot(i, extended)
+                    if len(extended) == size + 1:
+                        extended[-1] = self._sized(extended[-1])
                     if self.after_start:
                         self.match_dot_dir = self.dot and not self.nodotdir
                         self.reset_dir_track()
                 elif c == '?':
-                    extended.append(self._restrict_sequence(extended) + _QMARK)
+                    extended.append(self._sized(self._restrict_sequence(extended) + _QMARK))
                 elif c == '/':
                     if self.pathname:
                         extended.append(self._restrict_extended_slash())
                     extended.append(self.sep)
                 elif c == '|':
+                    self.clean_up_inverse(extended, gtoken)
                     # Add a new slot, but avoid adding more empty slots if we have a known one
                     if not extended or extended[-1] == '|':
                         if not self.ext_empty:
@@ -1645,7 +2058,9 @@ class WcParse(Generic[AnyStr]):
                     extended.append(self._handle_numrange(i))
                 elif c == '\\':
                     try:
-                        extended.append(self._references(i))
+                        value = self._references(i)
+                        # Escaped path separators are not a character
+                        extended.append(value if i.previous() in ('\\', '/') else self._sized(value))
                     except DotException:
                         continue
                     except StopIteration:
@@ -1655,13 +2070,13 @@ class WcParse(Generic[AnyStr]):
                 elif c == '[' and (self.bad_sequence == -1 or i.index > self.bad_sequence):
                     subindex = i.index
                     try:
-                        extended.append(self._sequence(i, extended))
+                        extended.append(self._sized(self._sequence(i, extended)))
                     except StopIteration:
                         self.bad_sequence = i.index
                         i.rewind(i.index - subindex)
-                        extended.append(r'\[')
+                        extended.append(self._sized(r'\['))
                 elif c != ')':
-                    extended.append(re.escape(c))
+                    extended.append(self._sized(re.escape(c)))
 
                 self.update_dir_state()
 
@@ -1685,23 +2100,35 @@ class WcParse(Generic[AnyStr]):
                 pass
             empty_slot = slot_start and slot_end
             only_child = parent and group_start and group_end
-            ext_reduce = EXT_REDUCE[list_type]
             promote_ext = EXT_PROMOTE.get(parent, {})
 
             # Promote the group type to a different type before final processing.
             # Child content has already been reduced into this parent.
             if not self.capture and extended and isinstance(extended[-1], ExtPromote):
                 t = str(extended.pop(-1))
-                list_type = t
-                self.inv_nest = t == '!'
+                # A group that cannot start on a leading dot cannot be skipped there, which `?` and `*` groups can do.
+                # Keep it a group that must match, and let it match nothing with an empty slot.
+                if list_type in ('@', '+') and t in ('?', '*') and self._group_start(temp_in_list, has_dot):
+                    list_type = '+' if list_type == '+' or t == '*' else '@'
+                    if not extended or extended[-1] != '|':
+                        self.clean_up_inverse(extended, gtoken)
+                        extended.append('|')
+                else:
+                    list_type = t
+
+            ext_reduce = EXT_REDUCE[list_type]
 
             # Extended groups cannot match `.` or `..` ever.
-            if not temp_in_list and temp_after_start:
+            # A group that must match something and cannot start on a dot already guarantees it.
+            if not temp_in_list and temp_after_start and not (
+                list_type in ('@', '+') and self._group_start(temp_in_list, has_dot)
+            ):
                 current.append(self.no_dir)
 
             # Reduce child group into the parent and notify the parent type should change.
             # Groups must be compatible. e.g. `!(!(a|b))` -> `@(a|b)`.
             if not self.capture and only_child and list_type in promote_ext:
+                self._retoken(extended, gtoken, parent_token)
                 current.extend(extended)
                 t = promote_ext[list_type]
                 current.append(ExtPromote(t))
@@ -1713,6 +2140,7 @@ class WcParse(Generic[AnyStr]):
             # slot. e.g. `+(a|@(b|c)|d)` not `+(a|test@(b|c)|d)`.
             # Certain groups cannot be reduced without adding a blank entry.
             elif not self.capture and parent in ext_reduce['parent'] and empty_slot:
+                self._retoken(extended, gtoken, parent_token)
                 current.extend(extended)
                 if parent in ext_reduce['empty'] and not temp_ext_empty:
                     current.append('|')
@@ -1723,47 +2151,91 @@ class WcParse(Generic[AnyStr]):
             # Finalize groups of varying types.
             # Groups at the top level are tracked so atomic `*` segments can avoid them.
             elif list_type == '?':
-                current.append(
-                    ExtGroup((_QMARK_CAPTURE_GROUP if self.capture else _QMARK_GROUP).format(''.join(extended)))
-                )
+                self._finish_group(extended, gtoken)
+                prefix = self._group_start(temp_in_list, has_dot)
+                if prefix:
+                    template = _QMARK_GUARD_CAPTURE_GROUP if self.capture else _QMARK_GUARD_GROUP
+                    group = ExtGroup(template.format(prefix, ''.join(extended)))
+                else:
+                    group = ExtGroup((_QMARK_CAPTURE_GROUP if self.capture else _QMARK_GROUP).format(''.join(extended)))
+                # The lengths and whether a group can be empty are only used by an inverse group around the group
+                if self.in_inv:
+                    lens = self._group_lengths(extended)
+                    group.lens = None if lens is None else union_lengths(lens, Lengths({0: ''}))
+                group.optional = True
+                current.append(group)
             elif list_type == '*':
-                current.append(
-                    ExtGroup((_STAR_CAPTURE_GROUP if self.capture else _STAR_GROUP).format(''.join(extended)))
-                )
+                self._finish_group(extended, gtoken)
+                prefix = self._group_start(temp_in_list, has_dot)
+                if prefix:
+                    template = _STAR_GUARD_CAPTURE_GROUP if self.capture else _STAR_GUARD_GROUP
+                    group = ExtGroup(template.format(prefix, ''.join(extended)))
+                else:
+                    group = ExtGroup((_STAR_CAPTURE_GROUP if self.capture else _STAR_GROUP).format(''.join(extended)))
+                group.optional = True
+                current.append(group)
             elif list_type == '+':
-                current.append(
-                    ExtGroup((_PLUS_CAPTURE_GROUP if self.capture else _PLUS_GROUP).format(''.join(extended)))
-                )
+                self._finish_group(extended, gtoken)
+                prefix = self._group_start(temp_in_list, has_dot)
+                template = _PLUS_CAPTURE_GROUP if self.capture else _PLUS_GROUP
+                group = ExtGroup(template.format(prefix, ''.join(extended)))
+                if self.in_inv:
+                    group.non_empty = not self._maybe_empty(extended)
+                current.append(group)
             elif list_type == '@':
-                current.append(ExtGroup((_CAPTURE_GROUP if self.capture else _GROUP).format(''.join(extended))))
+                self._finish_group(extended, gtoken)
+                prefix = self._group_start(temp_in_list, has_dot)
+                group = ExtGroup((_CAPTURE_GROUP if self.capture else _GROUP).format(prefix, ''.join(extended)))
+                if self.in_inv:
+                    group.lens = self._group_lengths(extended)
+                    group.non_empty = not self._maybe_empty(extended)
+                current.append(group)
             elif list_type == '!':
-                self.inv_ext += 1
-                # If pattern is at the end, anchor the match to the end.
-                current.append(
-                    ExtGroup((_EXCLA_CAPTURE_GROUP if self.capture else _EXCLA_GROUP).format(''.join(extended)))
-                )
+                # The star may land at the start of a name when it is in a group slot or follows a group.
+                check_start = (temp_in_list or bool(current and isinstance(current[-1], ExtGroup))) and not self.dot
                 if self.pathname:
                     if not temp_after_start or self.match_dot_dir:
-                        star = self.path_star
+                        star = (self.seq_path_group_dot if check_start else '') + self.path_star
                     elif temp_after_start and not self.dot:
-                        star = self.path_star_dot2
+                        if temp_in_list:
+                            star = self.seq_path_group_dot + self.path_star
+                        else:
+                            star = self.path_star_dot2
                     else:
-                        star = self.path_star_dot1
+                        star = self.path_star_dot1 if temp_in_list else self.path_star_dot1_start
                 else:
-                    if not temp_after_start or self.dot:
+                    if self.dot:
                         star = _STAR
+                    elif not temp_after_start:
+                        star = (_GROUP_NO_DOT if check_start else '') + _STAR
                     else:
-                        star = _NO_DOT + _STAR
+                        star = (_NEED_NO_DOT if not temp_in_list else _GROUP_NO_DOT) + _STAR
 
                 if temp_after_start:
-                    star = self.need_char + star
-                # Place holder for closing, but store the proper star
-                # so we know which one to use
-                current.append(InvPlaceholder(star))
+                    star = self._need_char(star)
 
-            # Clean up nested inverse group placeholders and finalize the inverse lookaheads.
-            if temp_in_list:
-                self.clean_up_inverse(current, temp_inv_nest and self.inv_nest)
+                # If the text that the patterns can match is of known lengths, what the group matches does not depend on
+                # what follows it.
+                exact = self._exact_inverse(self._group_lengths(extended), star, extended)
+                if exact is not None:
+                    group = ExtGroup(exact[0])
+                    if temp_in_inv:
+                        group.lens = exact[1]
+                    current.append(group)
+                else:
+                    self._finish_group(extended, gtoken)
+                    self.inv_ext += 1
+                    # If pattern is at the end, anchor the match to the end.
+                    current.append(
+                        ExtGroup((_EXCLA_CAPTURE_GROUP if self.capture else _EXCLA_GROUP).format(''.join(extended)))
+                    )
+                    # Place holder for closing, but store the proper star
+                    # so we know which one to use
+                    shortcut = (
+                        not temp_in_inv and star.endswith(self.path_star if self.pathname else _STAR) and
+                        not self._maybe_empty(extended)
+                    )
+                    current.append(InvPlaceholder(star, gtoken, shortcut))
 
         except StopIteration:
             success = False
@@ -1775,9 +2247,10 @@ class WcParse(Generic[AnyStr]):
             self.after_start = temp_after_start
 
         self.in_list = temp_in_list
-        self.inv_nest = temp_inv_nest
+        self.in_inv = temp_in_inv
         self.ext_empty = temp_ext_empty
 
+        self.group_has_dot = has_dot
         if success:
             self.reset_dir_track()
 
@@ -1901,7 +2374,7 @@ class WcParse(Generic[AnyStr]):
                 if self.pathname:
                     self.set_start_dir()
                     self.atomic_stars(current)
-                    self.clean_up_inverse(current)
+                    self._close_root(current)
                     current.append(self.sep + _ONE_OR_MORE)
                     self.consume_path_sep(i)
                     self.matchbase = False
@@ -1915,7 +2388,7 @@ class WcParse(Generic[AnyStr]):
                     value = self._references(i)
                     if self.dir_start:
                         self.atomic_stars(current)
-                        self.clean_up_inverse(current)
+                        self._close_root(current)
                         self.consume_path_sep(i)
                         self.matchbase = False
                     current.append(value)
@@ -1938,9 +2411,10 @@ class WcParse(Generic[AnyStr]):
             self.update_dir_state()
 
         self.atomic_stars(current)
-        self.clean_up_inverse(current)
+        self._close_root(current)
 
-        if self.pathname:
+        # A trailing `globstar` divider or path separator already matches any trailing separators
+        if self.pathname and current[-1] not in (self.globstar_div, self.sep + _ONE_OR_MORE):
             current.append(_PATH_TRAIL.format(self.sep))
 
     def _parse(self, p: str) -> str:

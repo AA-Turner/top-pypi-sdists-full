@@ -32,8 +32,8 @@ async def emit_session_started(params: wire.SessionWorkflowStartInput) -> None:
     if params.session_protocol == "session_v1":
         # v1 has no state entry kind, so the initialized row is dropped. The idle status still has to
         # go out: an idle start runs no turn, so this is the only event telling a client the session
-        # is up and waiting. Its readers are the vibe_agents projection and code-server; this SDK's
-        # own remote transport reads the legacy rows below, never these.
+        # is up and waiting. Its readers are the vibe_agents projection, code-server and this SDK's
+        # remote transport.
         if starts_idle:
             await _emit_v1_waiting_status(str(params.session_id))
         return
@@ -91,6 +91,7 @@ async def _emit_v1_command_receipt(
         return
     await emit_v1_message_receipt(
         entry_id,
+        task_id=entry_id,
         turn_id=turn_id or command.expected_turn_id or _message_turn_id(command),
         content=_v1_message_content(command),
         annotations=dict(message_context.annotations_for_context(command.context))
@@ -103,12 +104,19 @@ async def _emit_v1_command_receipt(
 async def emit_v1_message_receipt(
     entry_id: str,
     *,
+    task_id: str,
     turn_id: str | None,
     content: list[session_v1_wire.ContentBlock],
     annotations: dict[str, JsonValue],
     session_id: str,
 ) -> None:
-    """Publish the Session v1 row of one user message, from either message path."""
+    """Publish the Session v1 row of one user message, from either message path.
+
+    ``entry_id`` is the public history entry id. ``task_id`` is the id of the command that sent the
+    message: a caller can name the entry, so only the task id binds the row to its command. A
+    ``/commands`` message sent without a command id has no command to name, so its row uses
+    ``{turn_id}:user`` as both ids.
+    """
 
     now = _now_ms()
     entry = session_v1_wire.WorkflowMessageHistoryEntry(
@@ -126,7 +134,7 @@ async def emit_v1_message_receipt(
         exclude_none=True,
     )
     await workflow_events.emit_workflow_task_lifecycle(
-        task_id=entry_id,
+        task_id=task_id,
         task_type=wire.SESSION_V1_EVENT_TASK_TYPE,
         initial_state=state,
         completed_state=state,

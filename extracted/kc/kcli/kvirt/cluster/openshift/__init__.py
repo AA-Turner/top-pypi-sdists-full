@@ -675,6 +675,8 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
     data = safe_load(open(f'{plandir}/kcli_default.yml'))
     data.update(overrides)
     fix_typos(data)
+    if data['customfeatureset'] and data['featureset'] is None:
+        data['featureset'] = 'CustomNoUpgrade'
     esx = config.type == 'vsphere' and k.esx
     data['esx'] = esx
     ctlplanes = data['ctlplanes']
@@ -1585,7 +1587,7 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
                 return {'result': 'failure', 'reason': msg}
         else:
             c = f"{clusterdir}/auth/kubeconfig"
-            kubepassword = open(f"{clusterdir}/auth/kubeadmin-password").read()
+            kubepassword = open(f"{clusterdir}/auth/kubeadmin-password").read().strip()
             console = f"https://console-openshift-console.apps.{cluster}.{domain}"
             info2(f"To access the cluster as the system:admin user when running 'oc', run export KUBECONFIG={c}")
             info2(f"Access the Openshift web-console here: {console}")
@@ -1780,7 +1782,7 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
                 return result
     if async_install:
         kubeconf = f"{clusterdir}/auth/kubeconfig"
-        kubepassword = open(f"{clusterdir}/auth/kubeadmin-password").read()
+        kubepassword = open(f"{clusterdir}/auth/kubeadmin-password").read().strip()
         if async_install:
             success("Async Cluster created")
             info2("You will need to wait before it is fully available")

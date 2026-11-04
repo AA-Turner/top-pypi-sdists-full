@@ -3,6 +3,10 @@
 Vision encoder of the Qwen3-VL / Qwen3.5 / Qwen3.8 multimodal models from Alibaba Qwen team, and of the
 driving-domain Qwen-Drive-1.0 built on that same tower.
 
+Papers:
+* `Qwen3-VL Technical Report` - https://arxiv.org/abs/2511.21631
+* `Qwen-Drive-1.0: An Initial Step towards a Vision-Language Foundation Model for Autonomous Driving` - https://arxiv.org/abs/2609.00111
+
 A plain pre-norm ViT (SigLIP-2 style widths, GELU-tanh MLP, fused QKV with bias) with two position encodings
 applied together: a learned absolute grid (48x48 for the released models, bilinearly resampled to the input grid
 with align_corners=True) and axial 2D RoPE (theta 10000, per-axis frequency blocks, 'half' rotation layout).
@@ -169,8 +173,9 @@ class Qwen3VitEncoder(nn.Module):
         """
         super().__init__()
         dd = {'device': device, 'dtype': dtype}
-        assert global_pool in ('', 'avg', 'merge')
+        assert global_pool in ('', 'avg', 'merge'), 'Only avg or merge pooling (or none) is supported.'
         assert embed_dim % num_heads == 0
+        self.in_chans = in_chans
         self.num_classes = 0
         self.global_pool = global_pool
         self.num_features = self.head_hidden_size = self.embed_dim = embed_dim
@@ -241,6 +246,9 @@ class Qwen3VitEncoder(nn.Module):
             if global_pool == 'merge'
             else None
         )
+        if self.merger is not None:
+            # forward() returns the projector tokens, head_hidden_size is their width (num_features is the trunk's)
+            self.head_hidden_size = self.merger.out_features
 
         self.init_weights(needs_reset=False)
 
@@ -354,6 +362,7 @@ class Qwen3VitEncoder(nn.Module):
             self.merger = None
             self.global_pool = ''
             self.out_features = 0
+            self.head_hidden_size = self.num_features
         return take_indices
 
     def forward_features(self, x: torch.Tensor) -> torch.Tensor:
@@ -417,8 +426,9 @@ class Qwen3VitClassifier(nn.Module):
     ) -> None:
         super().__init__()
         dd = {'device': device, 'dtype': dtype}
-        assert global_pool in ('', 'avg')
+        assert global_pool in ('', 'avg'), 'Only avg pooling (or none) is supported.'
         assert encoder_pool in ('', 'merge')
+        self.in_chans = in_chans
         self.num_classes = num_classes
         self.global_pool = global_pool
         self.encoder_pool = encoder_pool
@@ -483,7 +493,7 @@ class Qwen3VitClassifier(nn.Module):
     def reset_classifier(self, num_classes: int, global_pool: Optional[str] = None) -> None:
         self.num_classes = num_classes
         if global_pool is not None:
-            assert global_pool in ('', 'avg')
+            assert global_pool in ('', 'avg'), 'Only avg pooling (or none) is supported.'
             self.global_pool = global_pool
         dd = get_device_dtype(self)
         self.head = nn.Linear(self.num_features, num_classes, **dd) if num_classes > 0 else nn.Identity()

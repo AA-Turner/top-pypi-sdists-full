@@ -333,7 +333,12 @@ def _send_steps(client, items) -> None:
         if fence in head["body"]:
             body[fence] = head["body"][fence]
     try:
-        client.transport.request("POST", routes.batch_path(WriteOp.STEPS, head["path"]), json_body=body)
+        client.transport.request(
+            "POST",
+            routes.batch_path(WriteOp.STEPS, head["path"]),
+            json_body=body,
+            **build_async_ack_kwargs(client),
+        )
     except errors.NotFoundError as exc:
         if getattr(exc, "detail", None) == "Not Found":  # FastAPI's: no such route
             _forget_steps_batch(client)
@@ -353,8 +358,9 @@ def _send_merged(client, items) -> None:
         points.extend(op["body"]["points"])
     head = items[0][1]
     body = {**head["body"], "points": points}
-    client.transport.request("POST", head["path"], json_body=body)
+    client.transport.request("POST", head["path"], json_body=body, **build_async_ack_kwargs(client))
 from probe.sdk.delivery.ops.classify import classify  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.ops.ingest_queue import build_async_ack_kwargs  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.op_handler import _execute  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.op_handler import _delivery_scope  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.ops import _attempts, _is_uuid, _queued_bucket  # noqa: E402 -- pieces need each other; the front door loads this one first

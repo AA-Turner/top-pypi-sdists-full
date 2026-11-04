@@ -48,9 +48,10 @@ def _round_robin(queued: list[tuple[Path, dict]]) -> list[tuple[Path, dict]]:
 
 class LaneBackoff:
     """Per-run waits for a loop that drains the whole queue (plan 1.6). A stalled run waits
-    out its own backoff (`durable.backoff_delays`, at least the server's ``Retry-After``)
-    while every other run keeps delivering; a run that progresses starts over. The detached
-    worker and in-process exporter each keep one, passing `skip()` as ``skip_runs``.
+    out its own backoff (`durable.backoff_delays`, each wait jittered over its step, at least
+    the server's ``Retry-After``) while every other run keeps delivering; a run that progresses
+    starts over. The detached worker and in-process exporter each keep one, passing `skip()` as
+    ``skip_runs``.
     """
 
     def __init__(self, *, ceiling: float) -> None:
@@ -60,7 +61,8 @@ class LaneBackoff:
         self._ceiling = ceiling
         self._delays: dict[Any, Any] = {}
         self._until: dict[Any, float] = {}
-        self._last_wait: dict[Any, float] = {}
+        #: Each lane's last ladder step, unjittered: what `at_ceiling` reads.
+        self._last_step: dict[Any, float] = {}
 
     def skip(self, now: float | None = None) -> set:
         now = time.monotonic() if now is None else now
@@ -82,24 +84,34 @@ class LaneBackoff:
                     self._forget(lane)
         for lane, stall in report.stalled_runs.items():
             delays = self._delays.setdefault(lane, self._durable.backoff_delays(None))
+            step = next(delays)
+            # Full jitter (I14): 10k runs failing in one second retry spread over the step.
             wait = self._durable.honor_retry_after(
-                next(delays), stall.retry_after, ceiling=self._ceiling
+                self._durable.pick_jittered_wait(step), stall.retry_after, ceiling=self._ceiling
             )
             if stall.wake_by is not None:
                 # A hold ending at a known time is looked at again then, not a grown backoff later
                 # (#2041 round 5: a close held to its cap landed 216 s after it, past the reaper).
                 wait = min(wait, max(float(stall.wake_by), 0.05))
             self._until[lane] = now + wait
-            self._last_wait[lane] = wait
+            self._last_step[lane] = step
 
-    def forget(self, lane: Any) -> None:
-        """Try ``lane`` again on the next pass (its stuck head was set aside)."""
-        self._forget(lane)
+    def forget_all(self) -> None:
+        """Start every lane over (a sign-in: runs held for a credential are tried now)."""
+        self._delays.clear()
+        self._until.clear()
+        self._last_step.clear()
+
+    def retry_now(self, lane: Any) -> None:
+        """Try ``lane`` on the next pass, KEEPING its ladder: its stuck head was set aside. If the
+        next write fails too (a 503 storm, not one bad write), it waits the next step, not 2 s
+        again (I14: forgetting restarted every lane's ladder each stall window)."""
+        self._until.pop(lane, None)
 
     def _forget(self, lane: Any) -> None:
         self._delays.pop(lane, None)
         self._until.pop(lane, None)
-        self._last_wait.pop(lane, None)
+        self._last_step.pop(lane, None)
 
     def next_wake(self, now: float | None = None) -> float | None:
         """Seconds until the soonest run STILL waiting may be tried again, or None: an entry
@@ -111,8 +123,8 @@ class LaneBackoff:
         return min(waiting) - now
 
     def at_ceiling(self) -> bool:
-        """Whether some run has backed off all the way to the ceiling."""
-        return any(wait >= self._ceiling for wait in self._last_wait.values())
+        """Whether some run's ladder has reached the ceiling (its step, not its jittered wait)."""
+        return any(step >= self._ceiling for step in self._last_step.values())
 
 
 class DrainLanesMixin:

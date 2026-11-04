@@ -19,10 +19,25 @@ import sqlite3
 import threading
 import time
 
-WRAPPER_DB = os.environ.get("HUGPY_CATALOG_WRAPPER_DB", "/var/lib/hugpy-wrapper/fitevict.sqlite3")
+from hugpy_resources.imports.functions.application_paths import resolve_paths
+
+def wrapper_path():
+    explicit = os.environ.get('HUGPY_CATALOG_WRAPPER_DB')
+    if explicit:
+        return explicit
+    roots = resolve_paths()
+    endpoint = os.path.join(roots['config'], 'wrapper.endpoint.json')
+    try:
+        with open(endpoint) as source:
+            state = json.load(source).get('store')
+    except FileNotFoundError:
+        state = None
+    return os.path.join(state or os.path.join(roots['data'], 'wrapper'), 'fitevict.sqlite3')
+
+
+WRAPPER_DB = wrapper_path()
 DISCOVERY_DB = os.environ.get("HUGPY_CATALOG_DISCOVERY_DB", "")
-DISCOVERY_DIR = os.environ.get("HUGPY_CATALOG_DISCOVERY_DIR",
-                               "/srv/hugpy/app/staging/hugpy-wrapper/docs/discovery-probe/database")
+DISCOVERY_DIR = os.environ.get("HUGPY_CATALOG_DISCOVERY_DIR", "")
 
 WEIGHT_EXT = (".gguf", ".safetensors", ".bin", ".pth", ".pt", ".ckpt", ".onnx", ".msgpack", ".h5", ".npz")
 SHARD = re.compile(r"-(\d{5})-of-(\d{5})(?=\.[A-Za-z0-9]+$)")
@@ -41,8 +56,11 @@ class CatalogUnavailable(RuntimeError):
 def discovery_path():
     if DISCOVERY_DB:
         return DISCOVERY_DB
-    found = glob.glob(os.path.join(DISCOVERY_DIR, "discovery-*.sqlite3"))
-    return max(found, key=os.path.getmtime) if found else None
+    if DISCOVERY_DIR:
+        found = glob.glob(os.path.join(DISCOVERY_DIR, "discovery-*.sqlite3"))
+        return max(found, key=os.path.getmtime) if found else None
+    from hugpy_settings.local_settings import values
+    return values(('discovery',))['discovery_database'] or None
 
 
 def _signature(paths):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: river-client
-Version: 0.18.1
+Version: 0.18.4
 Summary: Python client for River ML training API
 Project-URL: Homepage, https://river.ai
 Author-email: River AI <api@river.ai>
@@ -145,7 +145,7 @@ with client.session() as session:
         completion=rl.GroupCompletion(mode="wait"),
         loss=rl.CISPO(normalize="token"),
         groups_per_step=2, group_size=8,  # Two prompts, eight rollouts each.
-        max_staleness=0,  # Synchronous; >0 allows bounded sampling ahead.
+        admission=rl.Admission(max_staleness=0),  # Synchronous; >0 allows sampling ahead.
     )
     rl.run(trainer, dataset, steps=10, on_step=lambda step: print(step.n, step.metrics))
 ```

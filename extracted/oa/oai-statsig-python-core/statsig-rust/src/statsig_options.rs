@@ -35,12 +35,23 @@ pub struct StatsigOptions {
     pub disable_all_logging: Option<bool>,
     pub disable_country_lookup: Option<bool>,
     pub disable_network: Option<bool>, // Disable all out-going network including get configs, log_events...
+    /// Controls connection reuse for the built-in HTTP event logging adapter. Explicit `true`
+    /// reuses process-local clients across event upload URLs when their Tokio runtime and
+    /// transport settings match. `false` disables event connection reuse. Unset preserves legacy
+    /// URL-based reuse. The setting is captured when the SDK instance is created and does not
+    /// affect custom providers.
     pub log_event_connection_reuse: Option<bool>,
     /// Prefer HTTP/2 for shared HTTP requests while permitting HTTP/1.1. Disabled by default.
     /// Set true to opt in; otherwise retain the existing transport, including HTTPS ALPN negotiation.
     pub prefer_http2: Option<bool>,
 
     pub enable_id_lists: Option<bool>,
+    /// Makes the built-in HTTP adapter fetch only the ID-list manifest during initialization.
+    pub lazy_load_id_lists: Option<bool>,
+    /// Selects Elias–Fano for this instance’s private ID lists and shared ID-list files.
+    /// Unset or false selects the hash format for both.
+    /// Selecting a format does not enable ID-list downloads.
+    pub enable_id_list_elias_fano: Option<bool>,
     pub enable_dcs_deltas: Option<bool>,
     pub environment: Option<String>,
     pub config_compression_mode: Option<ConfigCompressionMode>,
@@ -73,6 +84,9 @@ pub struct StatsigOptions {
     pub id_lists_adapter: Option<Arc<dyn IdListsAdapter>>,
     pub id_lists_sync_interval_ms: Option<u32>,
     pub id_lists_url: Option<String>,
+    /// Opt into local shared ID-list snapshots and one elected HTTP downloader.
+    /// Unset keeps process-private ID lists. A custom `id_lists_adapter` takes precedence.
+    pub shared_id_lists_dir: Option<String>,
     /// Preferred base URL for individual ID-list files; preserves the manifest's path and query.
     /// Set `fallback_to_statsig_api` to true to allow retryable failures to use the original URL
     /// when it belongs to the trusted HTTPS OpenAI CDN origin.
@@ -292,6 +306,18 @@ impl StatsigOptionsBuilder {
     }
 
     #[must_use]
+    pub fn lazy_load_id_lists(mut self, lazy_load_id_lists: Option<bool>) -> Self {
+        self.inner.lazy_load_id_lists = lazy_load_id_lists;
+        self
+    }
+
+    #[must_use]
+    pub fn enable_id_list_elias_fano(mut self, enable_id_list_elias_fano: Option<bool>) -> Self {
+        self.inner.enable_id_list_elias_fano = enable_id_list_elias_fano;
+        self
+    }
+
+    #[must_use]
     pub fn enable_dcs_deltas(mut self, enable_dcs_deltas: Option<bool>) -> Self {
         self.inner.enable_dcs_deltas = enable_dcs_deltas;
         self
@@ -300,6 +326,12 @@ impl StatsigOptionsBuilder {
     #[must_use]
     pub fn id_lists_url(mut self, id_lists_url: Option<String>) -> Self {
         self.inner.id_lists_url = id_lists_url;
+        self
+    }
+
+    #[must_use]
+    pub fn shared_id_lists_dir(mut self, shared_id_lists_dir: Option<String>) -> Self {
+        self.inner.shared_id_lists_dir = shared_id_lists_dir;
         self
     }
 
@@ -506,7 +538,7 @@ impl Serialize for StatsigOptions {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("StatsigOptions", 26)?;
+        let mut state = serializer.serialize_struct("StatsigOptions", 27)?;
         serialize_if_not_none!(state, "spec_url", &self.specs_url);
         serialize_if_not_none!(
             state,
@@ -543,12 +575,19 @@ impl Serialize for StatsigOptions {
         serialize_if_not_none!(state, "disable_network", &self.disable_network);
 
         serialize_if_not_none!(state, "id_lists_url", &self.id_lists_url);
+        serialize_if_not_none!(state, "shared_id_lists_dir", &self.shared_id_lists_dir);
         serialize_if_not_none!(
             state,
             "download_id_list_file_api",
             &self.download_id_list_file_api
         );
         serialize_if_not_none!(state, "enable_id_lists", &self.enable_id_lists);
+        serialize_if_not_none!(state, "lazy_load_id_lists", &self.lazy_load_id_lists);
+        serialize_if_not_none!(
+            state,
+            "enable_id_list_elias_fano",
+            &self.enable_id_list_elias_fano
+        );
         serialize_if_not_none!(state, "enable_dcs_deltas", &self.enable_dcs_deltas);
         serialize_if_not_none!(
             state,

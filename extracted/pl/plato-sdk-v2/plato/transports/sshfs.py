@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import shlex
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from plato.transports.base import Transport, build_auditctl_commands
+from plato.transports.base import Transport
 from plato.utils.subprocess import run_local, run_ssh
 
 if TYPE_CHECKING:
@@ -118,11 +117,6 @@ class SSHFSTransport(Transport):
             f"echo \"SSHFS_MOUNT_INFO=$(mount | grep '{remote}')\"",
         ]
 
-        audit_key = mount.audit_key
-        tracked = mount.tracked
-        if tracked and audit_key:
-            parts.extend(build_auditctl_commands(remote, audit_key))
-
         combined_cmd = " && ".join(parts)
         logger.info("Mounting SSHFS on agent VM %s: %s -> %s", hostname, self.world_vm_ip, remote)
         exit_code, stdout, stderr = await run_ssh(
@@ -138,30 +132,6 @@ class SSHFSTransport(Transport):
             if line.startswith("SSHFS_MOUNT_INFO="):
                 logger.info("SSHFS mounted on %s: %s", hostname, line[17:])
                 break
-
-        if tracked and audit_key:
-            logger.info("Filesystem audit enabled on agent VM for %s (key=%s)", remote, audit_key)
-
-    async def collect_audit_log(
-        self,
-        hostname: str,
-        audit_key: str | None = None,
-    ) -> str | None:
-        """Collect filesystem audit log from agent VM."""
-        try:
-            key = audit_key or "plato_workspace"
-            exit_code, stdout, _ = await run_ssh(
-                self.ssh_key_path,
-                hostname,
-                f"ausearch -if /var/log/audit/audit.log --format raw -k {shlex.quote(key)} 2>/dev/null || true",
-                timeout=30,
-            )
-            if exit_code != 0 or not stdout.strip():
-                return None
-            return stdout
-        except Exception:
-            logger.warning("Failed to collect audit log from agent VM", exc_info=True)
-            return None
 
     async def sync_back(
         self,

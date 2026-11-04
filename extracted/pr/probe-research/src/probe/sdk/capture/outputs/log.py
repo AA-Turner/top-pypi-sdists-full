@@ -9,6 +9,7 @@ from pathlib import Path
 from ....foundation.durable import homedir
 from ..logs import stream as _logstream
 from ....foundation.safe_warn import safe_warn as _diagnostics
+from ....foundation.process_rank import read_process_rank, read_world_size
 from ... import secret_gate
 from ..logs.logs import live_dir
 # scanning disabled: from .secret_gate import FIELD_NAME_RULE, CredentialBlocked, _findings, prepare_upload
@@ -157,14 +158,11 @@ def _distributed_log_name() -> str | None:
     None. From the environment, not from the registry: the registry is per
     host, and the first rank on every host would otherwise keep the plain
     name -- one artifact, overwritten version by version."""
-    world = next((v for v in (os.environ.get(n) for n in ("WORLD_SIZE", "SLURM_NTASKS")) if v), "")
-    if not (world.strip().isdigit() and int(world) > 1):
+    world = read_world_size(os.environ)
+    launched = read_process_rank(os.environ)
+    if world is None or world <= 1 or launched is None:
         return None
-    for name in ("RANK", "SLURM_PROCID"):
-        value = (os.environ.get(name) or "").strip()
-        if value.isdigit():
-            return f"probe/run.rank{value}.log"
-    return None
+    return f"probe/run.rank{launched.rank}.log"
 
 
 def _head_is_clean(path: str, limit: int) -> bool:

@@ -3,7 +3,7 @@
 Every path into a computation checks its input and says the same words about
 what is wrong with it: the python-level ``aggregate()``, the pure python one
 and the compiled kernels of the numba backend share the messages below and the
-checks that go with them.  The checks that need numpy live in ``utils_np``,
+checks that go with them.  The checks that need numpy live in ``nptools``,
 the ones that have to run inside compiled code are written where they are
 compiled - but they speak the words of this module.
 
@@ -21,7 +21,7 @@ from numpy_groupies.registry import complex_real_result, fill_value_key, fixed_r
 if TYPE_CHECKING:
     import numpy.typing as npt
 
-    from numpy_groupies.utils_np import AFillValue, AScalar
+    from numpy_groupies.typing import AFillValue, AScalar
 
 # ---------------------------------------------------------------------------
 # the words of the complaints - one spelling for every path of the package
@@ -43,6 +43,7 @@ LENGTH_MISMATCH_OR_SCALAR = f"{LENGTH_MISMATCH}, or a can be scalar"
 # the fill value of a call
 FILL_NOT_BOOLEAN = "Value not boolean"
 FILL_NOT_CONVERTIBLE = "fill_value must be convertible into {dtype}"
+MOMENTS_NOT_FOR_COMPLEX = "the skewness and the kurtosis are not defined for complex values"
 FILL_NOT_INTEGER = "fill_value must be convertible into an integer"
 FILL_NONE_NOT_HELD = (
     "fill_value=None fills an object result, which is what func='array' returns and no other function does "
@@ -186,7 +187,7 @@ def check_filling_with_none(key: str) -> None:
 def check_fill_value_for_type(fill_value: AFillValue, target: type) -> None:
     """Refuse a ``fill_value`` that the result type of a function cannot hold.
 
-    This is the rule ``utils_np.check_fill_value`` tells against a numpy
+    This is the rule ``nptools.check_fill_value`` tells against a numpy
     dtype, told without one: a boolean answer is filled with 0 or 1 - a nan
     would pass for ``bool``, which is why the two values are asked for
     themselves - and a count or a position with whatever turns into an integer,
@@ -262,12 +263,13 @@ def variance_span_overflow_message(low_text: str, high: int) -> str:
 
 
 def check_integer_mean_overflow(count: int, bound: int) -> None:
-    """Refuse integer means that float64 cannot compute exactly.
+    """Refuse integer moments float64 cannot compute exactly.
 
-    The mean of ``count`` integers of magnitude up to ``bound`` is exact in
-    float64 only while their sums stay inside the window float64 represents
-    exactly.  Every implementation applies this rule, so the backends never
-    disagree silently on inexact integer means.
+    The sums behind the third and the fourth central moment of ``count``
+    integers of magnitude up to ``bound`` are exact in float64 only while
+    they stay inside the window float64 represents exactly - the moments
+    have no exact integer fallback, so the inputs are refused.  The mean is
+    not among them any more: it is computed exactly instead.
     """
     if count * bound > EXACT_FLOAT64_INTEGER_LIMIT:
         raise OverflowError(mean_overflow_message(count, bound))

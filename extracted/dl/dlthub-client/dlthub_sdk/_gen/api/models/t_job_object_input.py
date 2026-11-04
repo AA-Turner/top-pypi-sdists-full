@@ -1,12 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import (
-    Any,
-    Literal,
-    TypeVar,
-    cast,
-)
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -22,16 +17,16 @@ T = TypeVar("T", bound="TJobObjectInput")
 class TJobObjectInput:
     """
     Attributes:
-        entity_type (Literal['job-run'] | TJobObjectInputEntityTypeType0):
+        entity_type (str | TJobObjectInputEntityTypeType0):
         input_ (str):
     """
 
-    entity_type: Literal["job-run"] | TJobObjectInputEntityTypeType0
+    entity_type: str | TJobObjectInputEntityTypeType0
     input_: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        entity_type: Literal["job-run"] | str
+        entity_type: str
         if isinstance(self.entity_type, TJobObjectInputEntityTypeType0):
             entity_type = self.entity_type.value
         else:
@@ -54,9 +49,7 @@ class TJobObjectInput:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
 
-        def _parse_entity_type(
-            data: object,
-        ) -> Literal["job-run"] | TJobObjectInputEntityTypeType0:
+        def _parse_entity_type(data: object) -> str | TJobObjectInputEntityTypeType0:
             try:
                 if not isinstance(data, str):
                     raise TypeError()
@@ -65,12 +58,7 @@ class TJobObjectInput:
                 return entity_type_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            entity_type_type_1 = cast(Literal["job-run"], data)
-            if entity_type_type_1 != "job-run":
-                raise ValueError(
-                    f"entity_type_type_1 must match const 'job-run', got '{entity_type_type_1}'"
-                )
-            return entity_type_type_1
+            return cast(str | TJobObjectInputEntityTypeType0, data)
 
         entity_type = _parse_entity_type(d.pop("entity_type"))
 

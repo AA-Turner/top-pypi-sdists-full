@@ -1,15 +1,20 @@
 #[cfg(test)]
 use std::path::Path;
-use std::{cell::Cell, fs::File, sync::OnceLock};
+use std::{
+    cell::Cell,
+    fs::File,
+    sync::{Arc, OnceLock},
+};
 
 use ahash::AHashMap;
 use fancy_regex::Regex as FancyRegex;
 use memmap2::Mmap;
 use ouroboros::self_referencing;
 use rkyv::{collections::swiss_table::ArchivedHashMap, string::ArchivedString};
+use sha2::{Digest, Sha256};
 
 use crate::{
-    StatsigErr,
+    DynamicReturnable, StatsigErr,
     evaluation::{
         dynamic_returnable::archived_returnable_stable_hash, rkyv_value::ArchivedRkyvValue,
     },
@@ -17,13 +22,19 @@ use crate::{
         ArchivedMmapDataV2, ArchivedMmapEvaluatorValue, ArchivedMmapReturnable, ArchivedMmapSpec,
         MmapDataV2,
     },
+    specs_adapter::remote_config_value_hydrator::{VerifiedRemoteValue, VerifiedRemoteValues},
     specs_response::explicit_params::ExplicitParameters,
 };
 
+use super::mmap_manifest::MmapBlobProvenance;
 use super::{MmapPreloadOptions, MmapProjectId};
 
 mod materialize;
 mod memory;
+
+#[cfg(test)]
+#[path = "mmap_blob_reader_tests.rs"]
+mod blob_provenance_tests;
 
 pub use memory::MmapReaderMemorySnapshot;
 
@@ -40,6 +51,7 @@ struct LoadedMmapProject {
     id: MmapProjectId,
     archive: LoadedMmapArchiveV2,
     regexes: AHashMap<u64, FancyRegex>,
+    verified_remote_values: OnceLock<VerifiedRemoteValues>,
 }
 
 struct LoadedMmapRegistry {
@@ -64,16 +76,28 @@ thread_local! {
 
 pub(super) struct MmapRegistryBuilder {
     projects: Vec<LoadedMmapProject>,
+    pending_remote_values: Vec<(usize, MmapBlobProvenance)>,
 }
 
 impl MmapRegistryBuilder {
     pub(super) fn new() -> Self {
         Self {
             projects: Vec::new(),
+            pending_remote_values: Vec::new(),
         }
     }
 
+    #[cfg(test)]
     pub(super) fn add_file(&mut self, id: MmapProjectId, file: File) -> Result<(), StatsigErr> {
+        self.add_file_with_remote_values(id, file, None)
+    }
+
+    pub(super) fn add_file_with_remote_values(
+        &mut self,
+        id: MmapProjectId,
+        file: File,
+        provenance: Option<MmapBlobProvenance>,
+    ) -> Result<(), StatsigErr> {
         if self
             .projects
             .iter()
@@ -86,7 +110,15 @@ impl MmapRegistryBuilder {
         }
 
         let project = load_v2_file(id, file)?;
+        let provenance = match provenance {
+            Some(provenance) => validate_remote_values(&project, provenance)?,
+            None => None,
+        };
         validate_global_leaf_conflicts(&self.projects, &project)?;
+        if let Some(provenance) = provenance {
+            self.pending_remote_values
+                .push((self.projects.len(), provenance));
+        }
         self.projects.push(project);
         Ok(())
     }
@@ -98,19 +130,102 @@ impl MmapRegistryBuilder {
             ));
         }
 
+        let Self {
+            projects,
+            pending_remote_values,
+        } = self;
         let returnable_stable_hashes = options
             .precompute_returnable_stable_hashes
-            .then(|| precompute_returnable_stable_hashes(&self.projects));
+            .then(|| precompute_returnable_stable_hashes(&projects));
         MMAP_DATA
             .set(LoadedMmapRegistry {
-                projects: self.projects.into_boxed_slice(),
+                projects: projects.into_boxed_slice(),
                 returnable_stable_hashes,
                 explicit_parameters: OnceLock::new(),
             })
             .map_err(|_| StatsigErr::LockFailure("Failed to set MMAP_DATA".to_string()))?;
+        // Archived returnables can become static references only after their
+        // mappings are installed. Consume the proofs before preload returns,
+        // so pre-fork parents retain one ready lookup map instead of a proof
+        // vector plus a map built privately by each worker.
+        let registry = MMAP_DATA.get().expect("mmap registry was just installed");
+        for (index, provenance) in pending_remote_values {
+            initialize_verified_remote_values(&registry.projects[index], provenance);
+        }
         materialize::initialize_explicit_parameters();
         Ok(())
     }
+}
+
+fn validate_remote_values(
+    project: &LoadedMmapProject,
+    provenance: MmapBlobProvenance,
+) -> Result<Option<MmapBlobProvenance>, StatsigErr> {
+    if provenance.version != 1
+        || provenance.sdk_key_hash != project.id.sdk_key_hash
+        || !provenance.has_valid_checksum()
+    {
+        return Ok(None);
+    }
+    // Publication identity detects mixed generations; the digest additionally
+    // binds the proofs to the exact bytes that this reader actually mapped.
+    let digest = Sha256::digest(project.archive.borrow_mmap());
+    let digest = digest
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    if digest != provenance.artifact_sha256 {
+        // Do not install known-corrupt returnables: even a later verified HTTP
+        // body could otherwise intern back into that same damaged mapping.
+        return Err(StatsigErr::SerializationError(
+            "Interned mmap blob provenance artifact digest mismatch".to_owned(),
+        ));
+    }
+    let mut seen = ahash::AHashSet::new();
+    let data = project.archive.borrow_archived();
+    let valid = provenance.values.iter().all(|proof| {
+        proof.is_valid()
+            && seen.insert(proof.sha256.as_str())
+            && data
+                .returnables
+                .contains_key(&rkyv::primitive::ArchivedU64::from_native(
+                    proof.returnable_hash,
+                ))
+    });
+    Ok(valid.then_some(provenance))
+}
+
+fn initialize_verified_remote_values(
+    project: &'static LoadedMmapProject,
+    provenance: MmapBlobProvenance,
+) {
+    project.verified_remote_values.get_or_init(|| {
+        let data = project.archive.borrow_archived();
+        provenance
+            .values
+            .into_iter()
+            .filter_map(|proof| {
+                let value = data
+                    .returnables
+                    .get(&rkyv::primitive::ArchivedU64::from_native(
+                        proof.returnable_hash,
+                    ))?;
+                let value = DynamicReturnable::from_archived(proof.returnable_hash, value);
+                let verified = VerifiedRemoteValue::from_verified_mmap(&proof, value)?;
+                Some((proof.sha256, Arc::new(verified)))
+            })
+            .collect()
+    });
+}
+
+pub(super) fn verified_remote_values(id: MmapProjectId) -> Option<&'static VerifiedRemoteValues> {
+    MMAP_DATA
+        .get()?
+        .projects
+        .iter()
+        .find(|project| project.id == id)?
+        .verified_remote_values
+        .get()
 }
 
 struct MmapProjectScopeGuard {
@@ -195,6 +310,7 @@ fn load_v2_file(id: MmapProjectId, file: File) -> Result<LoadedMmapProject, Stat
         id,
         archive,
         regexes,
+        verified_remote_values: OnceLock::new(),
     })
 }
 

@@ -23,7 +23,7 @@ async fn unsupported_limited_blob_request_does_not_record_network_latency() {
 
     let network_provider: Arc<dyn NetworkProvider> = Arc::new(SendOnlyProvider);
     let mut client = NetworkClient::new("secret-test", None, None);
-    client.net_provider = Arc::downgrade(&network_provider);
+    client.set_network_provider_for_test(Arc::downgrade(&network_provider));
     client.ops_stats = Arc::new(OpsStatsForInstance::new());
     let mut metrics = client.ops_stats.subscribe_for_test();
 
@@ -87,7 +87,7 @@ async fn blob_request_latency_includes_complete_response_body() {
         .await;
     let network_provider: Arc<dyn NetworkProvider> = Arc::new(NetworkProviderReqwest::new());
     let mut client = NetworkClient::new("secret-test", None, None);
-    client.net_provider = Arc::downgrade(&network_provider);
+    client.set_network_provider_for_test(Arc::downgrade(&network_provider));
     client.ops_stats = Arc::new(OpsStatsForInstance::new());
     let mut metrics = client.ops_stats.subscribe_for_test();
 

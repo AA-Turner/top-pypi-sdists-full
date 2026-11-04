@@ -16,6 +16,7 @@ from amqp import ChannelError, RecoverableConnectionError
 from .entity import Exchange, Queue
 from .log import get_logger
 from .serialization import registry as serializers
+from .utils.compat import get_gevent_concurrent_error
 from .utils.uuid import uuid
 
 __all__ = ('Broadcast', 'maybe_declare', 'uuid',
@@ -73,7 +74,7 @@ class Broadcast(Queue):
             queue name here.
         unique (bool): Always create a unique queue
             even if a queue name is supplied.
-        **kwargs (Any): See :class:`~kombu.Queue` for a list
+        ``**kwargs`` (Any): See :class:`~kombu.Queue` for a list
             of additional keyword arguments supported.
     """
 
@@ -163,6 +164,12 @@ def _maybe_declare(entity, channel):
 def _imaybe_declare(entity, channel, **retry_policy):
     entity = _ensure_channel_is_bound(entity, channel)
 
+    if not entity.channel.connection and getattr(channel, 'connection', None):
+        # The entity is still bound to a channel that was closed, e.g. when
+        # a Producer.publish() retry passes the exchange it declared before
+        # the reconnect: declare it on the channel we were given instead.
+        entity.revive(channel)
+
     if not entity.channel.connection:
         raise RecoverableConnectionError('channel disconnected')
 
@@ -249,7 +256,7 @@ def send_reply(exchange, req, msg,
         retry (bool): If true must retry according to
             the ``reply_policy`` argument.
         retry_policy (Dict): Retry settings.
-        **props (Any): Extra properties.
+        ``**props`` (Any): Extra properties.
     """
     return producer.publish(
         msg, exchange=exchange,
@@ -288,7 +295,9 @@ def _ensure_errback(exc, interval):
 def _ignore_errors(conn):
     try:
         yield
-    except conn.connection_errors + conn.channel_errors:
+    except conn.connection_errors + conn.channel_errors + (
+        (conc_err,) if (conc_err := get_gevent_concurrent_error()) is not None else ()
+    ):
         pass
 
 

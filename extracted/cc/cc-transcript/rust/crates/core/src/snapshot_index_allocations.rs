@@ -4,8 +4,9 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
 use crate::snapshot_ledger::{
-    arc_bytes, LedgerEvent, LedgerHook, ReleaseQueue, MUTEX_STORAGE_BYTES,
+    arc_bytes, hashbrown_tier, LedgerEvent, LedgerHook, ReleaseQueue, MUTEX_STORAGE_BYTES,
 };
+use crate::snapshot_persistent::SLOTS_PER_ENTRY;
 
 #[derive(Debug)]
 struct RegistryOwner {
@@ -119,7 +120,8 @@ impl AllocationOwner {
 
 impl Drop for AllocationOwner {
     fn drop(&mut self) {
-        if self.pending.swap(false, Ordering::AcqRel) {
+        let pending = self.pending.swap(false, Ordering::AcqRel);
+        if pending {
             self.registry
                 .pending_bytes
                 .fetch_sub(self.bytes, Ordering::AcqRel);
@@ -132,6 +134,11 @@ impl Drop for AllocationOwner {
         {
             state.unqueue(self.id);
             state.owners.remove(&self.id);
+        }
+        if pending {
+            self.registry
+                .hook
+                .notify(LedgerEvent::IndexRegistryChanged(self.registry_id()));
         }
     }
 }
@@ -168,7 +175,7 @@ impl AllocationSet {
         let membership = if count == 0 {
             0
         } else {
-            (count.saturating_mul(8) + 64)
+            (count.saturating_mul(SLOTS_PER_ENTRY) + 64)
                 .saturating_mul(width)
                 .saturating_add((count.ilog2() as usize + 4).saturating_mul(64 * width))
         };
@@ -217,7 +224,10 @@ impl AllocationSet {
                         pending: Some(pending),
                     },
                 );
-                state.owners_capacity = state.owners_capacity.max(state.owners.capacity());
+                state.owners_capacity = state.owners_capacity.max(hashbrown_tier(
+                    state.owners.len(),
+                    size_of::<(usize, RegistryOwner)>(),
+                ));
                 state.queue.push((id, Arc::downgrade(&owner)));
                 self.registry
                     .pending_bytes
@@ -253,7 +263,7 @@ impl AllocationSet {
         let nodes = if self.entries.is_empty() {
             0
         } else {
-            (self.len().saturating_mul(8) + 64).saturating_mul(width)
+            (self.len().saturating_mul(SLOTS_PER_ENTRY) + 64).saturating_mul(width)
         };
         (
             Arc::as_ptr(&self.metadata) as usize,
@@ -296,9 +306,9 @@ impl AllocationSet {
         let state = self.registry.state.lock().expect("allocation registry");
         let count = self.len().saturating_add(inserts);
         let width = size_of::<usize>() + size_of::<Arc<AllocationOwner>>() + 4 * size_of::<usize>();
-        let bound = (count.saturating_mul(8) + 64).saturating_mul(width);
+        let bound = (count.saturating_mul(SLOTS_PER_ENTRY) + 64).saturating_mul(width);
         let nodes = bound
-            .saturating_sub((self.len().saturating_mul(8) + 64).saturating_mul(width))
+            .saturating_sub((self.len().saturating_mul(SLOTS_PER_ENTRY) + 64).saturating_mul(width))
             .saturating_add(
                 inserts
                     .saturating_mul(count.max(1).ilog2() as usize + 4)
@@ -314,7 +324,7 @@ impl AllocationSet {
         } else {
             0
         };
-        let table = if state.owners.len().saturating_add(inserts) > state.owners.capacity() {
+        let table = if state.owners.len().saturating_add(inserts) > state.owners_capacity {
             state
                 .owners_capacity
                 .saturating_add(inserts)
@@ -478,6 +488,31 @@ mod tests {
         assert_eq!(set.registry.state.lock().unwrap().owners_capacity, capacity);
         assert_eq!(set.pending_count(), 0);
         assert_eq!(set.pending_bytes(), 0);
+    }
+
+    #[test]
+    fn registry_charge_is_identical_across_hash_seeds_under_churn() {
+        let churned = || {
+            let mut set = AllocationSet::default();
+            let (mut next, mut first) = (0, 0);
+            for (inserts, removes) in [(20, 12), (10, 9), (12, 10), (9, 7), (10, 9), (11, 8)] {
+                for _ in 0..inserts {
+                    set.insert(next, 16);
+                    next += 1;
+                    let state = set.registry.state.lock().unwrap();
+                    assert!(state.owners.capacity() <= 2 * state.owners_capacity);
+                }
+                for _ in 0..removes {
+                    set.remove(first);
+                    first += 1;
+                }
+            }
+            set.registry_metadata_allocation().1
+        };
+        let charge = churned();
+        for _ in 0..256 {
+            assert_eq!(churned(), charge);
+        }
     }
 
     #[test]

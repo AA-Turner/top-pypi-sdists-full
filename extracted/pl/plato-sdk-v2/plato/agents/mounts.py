@@ -9,16 +9,16 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel
 
 from plato.transports import NFSTransport, RsyncTransport, SSHFSTransport, Transport
+from plato.transports.fuse import FuseDirectTransport
 from plato.transports.git import GitTransport
-from plato.utils.tool_execution import tool_execution_spool_path
 
 if TYPE_CHECKING:
     from plato.v2.async_.environment import Environment
     from plato.worlds.workspace import Workspace
 
 
-TransportKind = Literal["git", "nfs", "sshfs", "rsync"]
-GitSyncMode = Literal["merge_to_main", "push_branch", "publish_ref"]
+TransportKind = Literal["git", "nfs", "sshfs", "rsync", "fuse"]
+GitSyncMode = Literal["merge_to_main", "push_branch", "publish_ref", "none"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +43,10 @@ class GitSyncPolicy:
     # leak the *unapproved* branch's code (schema/migrations/components) onto
     # shared main. Their artifacts are routed to the right branch separately.
     integrate_to_main: bool = True
+    # Only meaningful for mode="none". True installs a pre-commit hook that
+    # rejects commits (they would never sync back). False leaves the clone
+    # writable for an agent that pushes its own commits to the bare repo.
+    readonly: bool = True
 
     @classmethod
     def merge_to_main(cls) -> GitSyncPolicy:
@@ -55,6 +59,23 @@ class GitSyncPolicy:
     @classmethod
     def publish_ref(cls, ref: str, *, exact: bool = False, integrate_to_main: bool = True) -> GitSyncPolicy:
         return cls(mode="publish_ref", target=ref, exact=exact, integrate_to_main=integrate_to_main)
+
+    @classmethod
+    def none(cls, *, readonly: bool = True) -> GitSyncPolicy:
+        """Mount with no end-of-run sync-back.
+
+        ``readonly=True``: the clone exists for INSPECTION only — and to keep
+        that loud rather than silent, setup installs a pre-commit hook in the
+        clone that rejects commits with a message pointing at the delegation
+        path (writes go through agents whose sync modes carry the review
+        gates).
+
+        ``readonly=False``: a normal clone the agent commits to and pushes
+        itself (``git push origin HEAD:main``). Use for long-lived agents like
+        a serve-mode orchestrator, where end-of-run sync-back semantics would
+        be meaningless anyway.
+        """
+        return cls(mode="none", readonly=readonly)
 
 
 class AgentWorkspaceMountGitPayload(BaseModel):
@@ -109,8 +130,14 @@ class AgentWorkspaceMount:
     git_checkout: GitCheckoutPolicy | None = None
     git_sync: GitSyncPolicy | None = None
     git_raise_on_conflict: bool = False
-    audit_run_id: str | None = None
-    audit_key: str | None = None
+    # Mount this on the agent VM even under ``sandbox_tools_only``, which
+    # otherwise puts every workspace on the sandbox. For state the agent *CLI
+    # process* writes itself rather than through its file tools — transcripts,
+    # compaction summaries — because that process runs on the agent VM no
+    # matter where its tools act. A workspace the agent is meant to edit must
+    # never set this: it would leave the file tools looking at the sandbox
+    # while the mount sits elsewhere.
+    on_agent_vm: bool = False
 
     @classmethod
     def from_workspace(cls, workspace: Workspace) -> AgentWorkspaceMount:
@@ -128,6 +155,7 @@ class AgentWorkspaceMount:
             transport_kind=transport_kind,
             transport=transport,
             git_sync=git_sync,
+            on_agent_vm=workspace.pin_to_agent_vm,
         )
 
     @property
@@ -144,6 +172,13 @@ class AgentWorkspaceMount:
 
     def with_agent_path(self, agent_path: str) -> AgentWorkspaceMount:
         return replace(self, agent_path=agent_path)
+
+    def pinned_to_agent_vm(self) -> AgentWorkspaceMount:
+        """Keep this mount on the agent VM even under ``sandbox_tools_only``.
+
+        See :attr:`on_agent_vm`.
+        """
+        return replace(self, on_agent_vm=True)
 
     def with_git_options(
         self,
@@ -196,43 +231,6 @@ class AgentWorkspaceMount:
         )
 
 
-@dataclass(slots=True)
-class AuditedMount:
-    """Per-run audit metadata derived from a mounted workspace."""
-
-    mount: AgentWorkspaceMount
-    audit_run_id: str
-    audit_key: str
-
-    @property
-    def workspace_name(self) -> str:
-        return self.mount.workspace_name
-
-    @property
-    def root_path(self) -> Path:
-        return self.mount.world_root_path
-
-    @property
-    def mount_path(self) -> str:
-        return self.mount.agent_path
-
-    @property
-    def transport(self) -> Transport:
-        return self.mount.transport
-
-    @property
-    def spool_path(self) -> Path:
-        return self.root_path / ".plato" / "audit" / self.workspace_name / f"{self.audit_run_id}.jsonl"
-
-    @property
-    def tool_spool_path(self) -> Path:
-        return tool_execution_spool_path(
-            self.root_path / ".plato",
-            workspace_name=self.workspace_name,
-            audit_run_id=self.audit_run_id,
-        )
-
-
 def _transport_kind(transport: Transport) -> TransportKind:
     if isinstance(transport, GitTransport):
         return "git"
@@ -242,4 +240,6 @@ def _transport_kind(transport: Transport) -> TransportKind:
         return "sshfs"
     if isinstance(transport, RsyncTransport):
         return "rsync"
+    if isinstance(transport, FuseDirectTransport):
+        return "fuse"
     raise TypeError(f"Unsupported transport type: {type(transport).__name__}")

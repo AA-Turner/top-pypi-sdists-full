@@ -38,6 +38,7 @@ class PreviewParity(object):
         'examples': 'list[ParityExample]',
         'unconverted_rows': 'int',
         'explained': 'int',
+        'auto_add_explained': 'int',
         'people_unchanged': 'int',
         'people_changed': 'int',
         'service_accounts_unchanged': 'int',
@@ -50,13 +51,14 @@ class PreviewParity(object):
         'examples': 'examples',
         'unconverted_rows': 'unconverted_rows',
         'explained': 'explained',
+        'auto_add_explained': 'auto_add_explained',
         'people_unchanged': 'people_unchanged',
         'people_changed': 'people_changed',
         'service_accounts_unchanged': 'service_accounts_unchanged',
         'service_accounts_changed': 'service_accounts_changed'
     }
 
-    def __init__(self, gained=None, lost=None, examples=None, unconverted_rows=None, explained=0, people_unchanged=None, people_changed=None, service_accounts_unchanged=None, service_accounts_changed=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, gained=None, lost=None, examples=None, unconverted_rows=None, explained=0, auto_add_explained=0, people_unchanged=None, people_changed=None, service_accounts_unchanged=None, service_accounts_changed=None, local_vars_configuration=None):  # noqa: E501
         """PreviewParity - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -67,6 +69,7 @@ class PreviewParity(object):
         self._examples = None
         self._unconverted_rows = None
         self._explained = None
+        self._auto_add_explained = None
         self._people_unchanged = None
         self._people_changed = None
         self._service_accounts_unchanged = None
@@ -79,6 +82,8 @@ class PreviewParity(object):
         self.unconverted_rows = unconverted_rows
         if explained is not None:
             self.explained = explained
+        if auto_add_explained is not None:
+            self.auto_add_explained = auto_add_explained
         self.people_unchanged = people_unchanged
         self.people_changed = people_changed
         self.service_accounts_unchanged = service_accounts_unchanged
@@ -206,6 +211,29 @@ class PreviewParity(object):
         """
 
         self._explained = explained
+
+    @property
+    def auto_add_explained(self):
+        """Gets the auto_add_explained of this PreviewParity.  # noqa: E501
+
+        How many of the users whose access changes gain only roles the All users group holds on an auto-add cloud, so converting can accept them.  # noqa: E501
+
+        :return: The auto_add_explained of this PreviewParity.  # noqa: E501
+        :rtype: int
+        """
+        return self._auto_add_explained
+
+    @auto_add_explained.setter
+    def auto_add_explained(self, auto_add_explained):
+        """Sets the auto_add_explained of this PreviewParity.
+
+        How many of the users whose access changes gain only roles the All users group holds on an auto-add cloud, so converting can accept them.  # noqa: E501
+
+        :param auto_add_explained: The auto_add_explained of this PreviewParity.  # noqa: E501
+        :type: int
+        """
+
+        self._auto_add_explained = auto_add_explained
 
     @property
     def people_unchanged(self):

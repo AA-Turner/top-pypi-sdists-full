@@ -41,8 +41,7 @@ class DebugMemoryTracker(MemoryTrackerBase):
             return  # Don't start monitoring if we can't read memory
 
         print_library_log(
-            f"enforcing a {self.memory_limit_bytes // (1024 ** 3)} GB memory limit for local testing. "
-            "Connectors may be subject to memory limits in production as well",
+            f"enforcing {self.memory_limit_bytes // (1024 ** 3)} GB memory limit",
             Logging.Level.INFO
         )
 

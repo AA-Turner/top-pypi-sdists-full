@@ -8,6 +8,7 @@ cached at import time.
 
 from __future__ import annotations
 
+import importlib.metadata
 import logging
 import os
 
@@ -27,6 +28,8 @@ DISABLED_TOOLS_ENV = "LEAN_MCP_DISABLED_TOOLS"
 TOOL_DESCRIPTIONS_ENV = "LEAN_MCP_TOOL_DESCRIPTIONS"
 INSTRUCTIONS_ENV = "LEAN_MCP_INSTRUCTIONS"
 LOOGLE_LOCAL_ENV = "LEAN_LOOGLE_LOCAL"
+LOOGLE_MODULE_ENV = "LEAN_LOOGLE_MODULE"
+LOOGLE_LOCAL_ONLY_ENV = "LEAN_LOOGLE_LOCAL_ONLY"
 LOOGLE_CACHE_DIR_ENV = "LEAN_LOOGLE_CACHE_DIR"
 LOOGLE_URL_ENV = "LOOGLE_URL"
 LOOGLE_HEADERS_ENV = "LOOGLE_HEADERS"
@@ -134,6 +137,19 @@ def loogle_local_enabled() -> bool:
     return os.environ.get(LOOGLE_LOCAL_ENV, "").lower() in _TRUTHY
 
 
+def loogle_module() -> str:
+    return os.environ.get(LOOGLE_MODULE_ENV, "Mathlib")
+
+
+def loogle_local_only() -> bool:
+    value = os.environ.get(LOOGLE_LOCAL_ONLY_ENV, "").strip().lower()
+    if value in _TRUTHY:
+        return True
+    if value in ("", "false", "0", "no"):
+        return False
+    raise ValueError("LEAN_LOOGLE_LOCAL_ONLY must be true/false, yes/no, or 1/0")
+
+
 def loogle_cache_dir() -> str | None:
     return os.environ.get(LOOGLE_CACHE_DIR_ENV)
 
@@ -235,3 +251,12 @@ def max_output_chars() -> int:
         )
         return 6000
     return max(value, 0)
+
+
+def user_agent() -> str:
+    """User-Agent for outgoing search requests, with the installed version."""
+    try:
+        version = importlib.metadata.version("lean-lsp-mcp")
+    except importlib.metadata.PackageNotFoundError:
+        version = "dev"
+    return f"lean-lsp-mcp/{version}"

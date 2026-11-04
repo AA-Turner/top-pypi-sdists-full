@@ -1,31 +1,32 @@
 import secrets
 from typing import Any
 
-from .models import (
-    CompactEncryption,
-    BaseJSONEncryption,
-    GeneralJSONEncryption,
-    FlattenedJSONEncryption,
-    Recipient,
-    JWEAlgModel,
-    JWEEncModel,
-    JWEKeyAgreement,
-    JWEDirectEncryption,
-    JWEKeyEncryption,
-    JWEKeyWrapping,
-)
-from .registry import JWERegistry
 from ..errors import (
-    JoseError,
+    ConflictAlgorithmError,
     DecodeError,
     InvalidEncryptedKeyError,
     InvalidExchangeKeyError,
-    ConflictAlgorithmError,
+    JoseError,
 )
+from ..registry import reject_unprotected_crit_header
 from ..util import (
     json_b64encode,
     urlsafe_b64encode,
 )
+from .models import (
+    BaseJSONEncryption,
+    CompactEncryption,
+    FlattenedJSONEncryption,
+    GeneralJSONEncryption,
+    JWEAlgModel,
+    JWEDirectEncryption,
+    JWEEncModel,
+    JWEKeyAgreement,
+    JWEKeyEncryption,
+    JWEKeyWrapping,
+    Recipient,
+)
+from .registry import JWERegistry
 
 __all__ = [
     "EncryptionData",
@@ -37,6 +38,17 @@ EncryptionData = CompactEncryption | GeneralJSONEncryption | FlattenedJSONEncryp
 
 
 def perform_encrypt(obj: EncryptionData, registry: JWERegistry) -> None:
+    try:
+        _perform_encrypt(obj, registry)
+    finally:
+        for recipient in obj.recipients:
+            recipient.ephemeral_key = None
+
+
+def _perform_encrypt(obj: EncryptionData, registry: JWERegistry) -> None:
+    for recipient in obj.recipients:
+        _check_recipient_header_protection(obj, recipient)
+
     enc = registry.get_enc(obj.protected["enc"])
     cek, delayed_tasks = pre_encrypt_recipients(enc, obj.recipients, registry)
 
@@ -87,8 +99,8 @@ def perform_encrypt(obj: EncryptionData, registry: JWERegistry) -> None:
 def perform_decrypt(obj: EncryptionData, registry: JWERegistry) -> None:
     try:
         _perform_decrypt(obj, registry)
-    except InvalidExchangeKeyError as error:
-        raise DecodeError(error.description)
+    except InvalidExchangeKeyError as err:
+        raise DecodeError(err.description) from err
 
 
 def _perform_decrypt(obj: EncryptionData, registry: JWERegistry) -> None:
@@ -102,6 +114,7 @@ def _perform_decrypt(obj: EncryptionData, registry: JWERegistry) -> None:
 
     cek_set = set()
     for recipient in obj.recipients:
+        _check_recipient_header_protection(obj, recipient)
         try:
             headers = recipient.headers()
             registry.check_header(headers, True)
@@ -185,6 +198,12 @@ def __prepare_recipient_algorithm(recipient: Recipient[Any], registry: JWERegist
     if isinstance(alg, JWEKeyAgreement):
         alg.prepare_ephemeral_key(recipient)
     return alg
+
+
+def _check_recipient_header_protection(obj: EncryptionData, recipient: Recipient[Any]) -> None:
+    if isinstance(obj, BaseJSONEncryption):
+        reject_unprotected_crit_header(obj.unprotected, obj.protected)
+    reject_unprotected_crit_header(recipient.header, obj.protected)
 
 
 def __pre_encrypt_direct_mode(alg: JWEAlgModel, enc: JWEEncModel, recipient: Recipient[Any]) -> bytes:

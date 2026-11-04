@@ -16,6 +16,24 @@ logger = logging.getLogger("hugpy_core.models.census")
 
 def observe_worker(worker: dict, conn=None) -> None:
     """Replace this worker's copy reports, using the caller's transaction when given."""
+    catalog = worker.get('catalog')
+    if isinstance(catalog, list):
+        if conn is None:
+            import psycopg
+            with psycopg.connect(_F.core_dsn(), connect_timeout=3) as owned_conn:
+                observe_worker(worker, conn=owned_conn)
+            return
+        for item in sorted(catalog, key=lambda row: str(row.get('id', ''))):
+            key = item.get('id')
+            if not key or is_staging(key, item):
+                continue
+            # A published catalog establishes identity, never a physical copy.
+            conn.execute(
+                "INSERT INTO model_census(model_key,hub_id,framework,primary_task,metadata) "
+                "VALUES (%s,%s,%s,%s,%s::jsonb) ON CONFLICT(model_key) DO UPDATE SET "
+                "framework=coalesce(EXCLUDED.framework,model_census.framework), "
+                "primary_task=coalesce(EXCLUDED.primary_task,model_census.primary_task),updated_at=now()",
+                (key, item.get('hub_id'), item.get('framework'), item.get('primary_task'), json.dumps(item)))
     discovered = worker.get("models_discovered")
     if not isinstance(discovered, dict):
         return  # Older beats supply no complete snapshot; unknown is not absent.

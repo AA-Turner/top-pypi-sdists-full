@@ -16,16 +16,18 @@ T = TypeVar("T", bound="ConfigurationResponse")
 class ConfigurationResponse:
     """
     Attributes:
-        content_hash (str): The hash of the file of the uploaded tarball
-        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        created_by (UUID): The ID of the identity who created the entity
-        file_count (int): The number of files in the uploaded tarball
-        id (UUID): The unique ID of the entity
-        profiles (list[str]): The profiles found in the configuration files
-        size_bytes (int): The size of the uploaded tarball in bytes
-        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        version (int): The version of the deployment. Will increment for each new version of the entity
-        workspace_id (UUID): The ID of the workspace the entity belongs to
+        content_hash (str): Hash of the package contents: base64 SHA3-256 over each file's path and digest, as dlt
+            computes when building the package; identical file sets give identical hashes.
+        created_at (datetime.datetime): When it was created.
+        created_by (UUID): The `organization_membership_id` of the member who uploaded it.
+        file_count (int): Number of files in the package.
+        id (UUID): Unique ID (a UUID).
+        profiles (list[str]): Profile names found in `<profile>.config.toml` / `<profile>.secrets.toml` file names,
+            sorted.
+        size_bytes (int): Size of the uploaded package in bytes.
+        updated_at (datetime.datetime): When it was last changed.
+        version (int): Version number within the workspace, starting at 1 and incremented by each upload.
+        workspace_id (UUID): The ID of the workspace it belongs to.
     """
 
     content_hash: str

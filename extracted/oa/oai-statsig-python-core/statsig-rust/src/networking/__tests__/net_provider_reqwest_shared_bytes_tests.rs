@@ -4,6 +4,7 @@ use flate2::{Compression, write::GzEncoder};
 use serde::Deserialize;
 use serde_json::value::RawValue;
 use std::io::Write;
+use std::sync::OnceLock;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -44,7 +45,7 @@ async fn unlimited_memory_shares_bytes_for_both_selection_paths() {
     let server = serve(BODY.to_vec(), false).await;
     for (file_access, disable_streaming) in [(true, Some(true)), (false, None)] {
         let mut provider = NetworkProviderReqwest::new();
-        provider.has_file_write_access = file_access;
+        provider.transport.has_file_write_access = OnceLock::from(file_access);
         let response = provider
             .send(&HttpMethod::GET, &args(&server, disable_streaming))
             .await;
@@ -96,7 +97,7 @@ async fn spooled_responses_remain_non_shared_before_and_after_rollover() {
         let body = vec![b'a'; size];
         let server = serve(body.clone(), false).await;
         let mut provider = NetworkProviderReqwest::new();
-        provider.has_file_write_access = true;
+        provider.transport.has_file_write_access = OnceLock::from(true);
         let response = provider.send(&HttpMethod::GET, &args(&server, None)).await;
         assert!(response.error.is_none(), "{:?}", response.error);
         let mut data = response.data.unwrap();
@@ -110,7 +111,7 @@ async fn bounded_responses_keep_non_shared_storage() {
     let server = serve(BODY.to_vec(), false).await;
     for disable_streaming in [None, Some(true)] {
         let mut provider = NetworkProviderReqwest::new();
-        provider.has_file_write_access = true;
+        provider.transport.has_file_write_access = OnceLock::from(true);
         let result = provider
             .send_with_response_limit(
                 &HttpMethod::GET,

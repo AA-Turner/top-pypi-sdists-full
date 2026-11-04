@@ -51,7 +51,10 @@ from ._engine import (
 from ._exports import BLP_MODULE_EXPORTS
 from ._request_options import OverrideSpec as OverrideSpec, ovr as ovr
 from ._streaming import (
+    DeliveryStream as DeliveryStream,
     Subscription as Subscription,
+    SubscriptionDelivery as SubscriptionDelivery,
+    SubscriptionGap as SubscriptionGap,
     Tick as Tick,
     TickValue as TickValue,
     achains as achains,
@@ -383,6 +386,7 @@ if TYPE_CHECKING:
         flush_threshold: int | None = None,
         stream_capacity: int | None = None,
         overflow_policy: str | None = None,
+        delivery: str = "deltas",
         output: str | None = None,
         aliases: Mapping[str, str] | None = None,
         on_delayed: str = "warn",
@@ -402,6 +406,7 @@ if TYPE_CHECKING:
         raw: bool = False,
         all_fields: bool = True,
         backend: Backend | str | None = None,
+        delivery: str = "deltas",
     ) -> Subscription:
         """Sync VWAP subscription creation. See ``avwap`` for details."""
         ...
@@ -415,6 +420,7 @@ if TYPE_CHECKING:
         raw: bool = False,
         all_fields: bool = True,
         backend: Backend | str | None = None,
+        delivery: str = "deltas",
     ) -> Subscription:
         """Sync market-bar subscription creation. See ``amktbar`` for details."""
         ...
@@ -425,6 +431,7 @@ if TYPE_CHECKING:
         raw: bool = False,
         all_fields: bool = False,
         backend: Backend | str | None = None,
+        delivery: str = "deltas",
     ) -> Subscription:
         """Sync market-depth subscription creation. See ``adepth`` for details."""
         ...
@@ -436,6 +443,7 @@ if TYPE_CHECKING:
         raw: bool = False,
         all_fields: bool = False,
         backend: Backend | str | None = None,
+        delivery: str = "deltas",
     ) -> Subscription:
         """Sync chain subscription creation. See ``achains`` for details."""
         ...
@@ -475,7 +483,7 @@ async def aseat_type() -> str:
     otherwise the Desktop terminal OS-logon user is used.  First use may take a
     moment and timeout failures are retryable.
     """
-    return await _engine._get_engine().seat_type()
+    return await (await _engine._aget_engine()).seat_type()
 
 
 async def acheck_entitlements(
@@ -488,7 +496,7 @@ async def acheck_entitlements(
     otherwise the Desktop terminal OS-logon user is used.  First use may take a
     moment and timeout failures are retryable.
     """
-    return await _engine._get_engine().check_entitlements(service, list(eids))
+    return await (await _engine._aget_engine()).check_entitlements(service, list(eids))
 
 
 async def adelay_status(
@@ -515,7 +523,8 @@ async def adelay_status(
         backend: DataFrame backend to return. If None, uses global default.
 
     Returns:
-        One row per ticker with columns ``ticker``, ``delayed`` (null when
+        One row per ticker with columns ``ticker`` (or ``security`` with
+        ``key_column="security"``), ``delayed`` (null when
         Bloomberg did not say), ``delay_minutes`` (null when real-time or
         unparseable), ``exchange_delay`` (raw ``EXCHANGE_DELAY`` text),
         ``exch_code``, ``realtime_eid1``-``realtime_eid4`` and ``delayed_eid``
@@ -530,13 +539,14 @@ async def adelay_status(
     from . import _core
 
     try:
-        engine = _engine._get_engine()
+        engine = await _engine._aget_engine()
         batch = await _core.recipe_delay_status(engine, _request_options._normalize_tickers(tickers), check_identity)
     except Exception as exc:
         mapped = _engine._normalize_engine_exception(exc)
         if mapped is exc:
             raise
         raise mapped from exc
+    _engine._warn_ticker_key_column(batch)
     return _backend._convert_result_backend(batch, backend)
 
 
@@ -547,7 +557,7 @@ async def aidentity_is_authorized(service: str = Service.REFDATA.value) -> bool:
     otherwise the Desktop terminal OS-logon user is used.  First use may take a
     moment and timeout failures are retryable.
     """
-    return await _engine._get_engine().identity_is_authorized(service)
+    return await (await _engine._aget_engine()).identity_is_authorized(service)
 
 
 def _coerce_server_snapshot(value: Any) -> tuple[tuple[str, int], ...]:
@@ -606,8 +616,19 @@ def _request_environment_from_config(config: Any, source: str) -> RequestEnviron
     )
 
 
+async def _resolve_deferred_field_types(engine: Any, context: RequestContext) -> None:
+    """Resolve a typed endpoint's field types against the engine; caller overrides win."""
+    params = context.params
+    resolved = dict(await engine.resolve_field_types(list(params.fields or []), None, context.field_type_default))
+    resolved.update(params.field_types or {})
+    params.field_types = resolved
+    context.field_type_default = None
+
+
 async def _execute_request_terminal(context: RequestContext) -> DataFrameResult:
-    engine = _engine._get_engine()
+    engine = await _engine._aget_engine()
+    if context.field_type_default is not None:
+        await _resolve_deferred_field_types(engine, context)
     started = time.perf_counter()
 
     try:
@@ -637,6 +658,7 @@ async def _execute_request_terminal(context: RequestContext) -> DataFrameResult:
     context.table = ensure_arrow_table(batch)
     if context.params.on_delayed == "warn":
         _warn_delayed_data(context.table)
+    _engine._warn_ticker_key_column(context.table)
     context.frame = context.table
     return context.table
 
@@ -687,6 +709,7 @@ async def arequest(
     request_tz: str | None = None,
     output_tz: str | None = None,
     _raw: bool = False,
+    _field_type_default: str | None = None,
 ):
     """Async generic Bloomberg request.
 
@@ -892,6 +915,7 @@ async def arequest(
         securities=list(securities_list or []),
         fields=list(fields_list or []),
         environment=_snapshot_request_environment(),
+        field_type_default=_field_type_default,
     )
 
     try:
@@ -943,7 +967,7 @@ async def _execute_generated_endpoint(
     )
 
     if plan.postprocess is not None:
-        return plan.postprocess(raw)
+        return await plan.postprocess(raw)
 
     return _backend._convert_result_backend(raw, plan.backend)
 

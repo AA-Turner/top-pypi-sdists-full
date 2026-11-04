@@ -45,19 +45,16 @@ if TYPE_CHECKING:
 
 
 class JobType(StrEnum):
-    """How a job executes.
-
-    Attributes:
-        BATCH: Runs to completion and exits.
-        INTERACTIVE: Serves an interactive session.
-        STREAM: Runs continuously.
-        UNKNOWN: A type this SDK version does not know.
-    """
+    """How a job executes."""
 
     BATCH = "batch"
+    """Runs to completion and exits."""
     INTERACTIVE = "interactive"
+    """Serves an interactive session."""
     STREAM = "stream"
+    """Runs continuously."""
     UNKNOWN = "unknown"
+    """A type this SDK version does not know."""
 
 
 #: A manual trigger, in the canonical form dlt's ``manual()`` produces. Every job
@@ -66,35 +63,36 @@ MANUAL_TRIGGER = "manual:"
 
 
 class TriggerStatus(StrEnum):
-    """What became of a request to run a job.
-
-    Attributes:
-        TRIGGERED: A run was created.
-        SKIPPED_PAUSED: The job's schedule is suspended.
-        SKIPPED_FRESH: Its data is already current.
-        SKIPPED_ALREADY_COVERED: Another run already covers this interval.
-        SKIPPED_OUT_OF_INTERVAL: Outside the job's configured window.
-        SKIPPED_UPSTREAM_PENDING: A job it depends on has not finished.
-        SKIPPED_CONCURRENCY_LIMIT: The workspace is at its run limit.
-        SKIPPED_ORG_CONCURRENCY_LIMIT: The organization is at its run limit.
-        SKIPPED_MINUTES_LIMIT: The plan's compute minutes are exhausted.
-        SKIPPED_TRIAL_EXPIRED: The trial has ended.
-        SKIPPED_WORKSPACE_ARCHIVED: The workspace is archived.
-        UNKNOWN: A status this SDK version does not know.
-    """
+    """What became of a request to run a job."""
 
     TRIGGERED = "triggered"
+    """A run was created."""
     SKIPPED_PAUSED = "skipped_paused"
+    """The job's schedule is suspended."""
     SKIPPED_FRESH = "skipped_fresh"
+    """A job its freshness constraints depend on is not fresh yet; ``reasons`` names
+    which.
+    """
     SKIPPED_ALREADY_COVERED = "skipped_already_covered"
+    """A completed run already covers this period."""
     SKIPPED_OUT_OF_INTERVAL = "skipped_out_of_interval"
+    """Outside the job's configured window."""
     SKIPPED_UPSTREAM_PENDING = "skipped_upstream_pending"
+    """A job it depends on is triggered in the same request; this job runs once that one
+    completes.
+    """
     SKIPPED_CONCURRENCY_LIMIT = "skipped_concurrency_limit"
+    """The job already has as many active runs as its concurrency limit allows."""
     SKIPPED_ORG_CONCURRENCY_LIMIT = "skipped_org_concurrency_limit"
+    """The organization is at its run limit."""
     SKIPPED_MINUTES_LIMIT = "skipped_minutes_limit"
+    """The plan's compute minutes are exhausted."""
     SKIPPED_TRIAL_EXPIRED = "skipped_trial_expired"
+    """The trial has ended."""
     SKIPPED_WORKSPACE_ARCHIVED = "skipped_workspace_archived"
+    """The workspace is archived."""
     UNKNOWN = "unknown"
+    """A status this SDK version does not know."""
 
 
 @dataclass(frozen=True)
@@ -103,31 +101,37 @@ class TriggerResult:
 
     Asking does not guarantee a run: the platform skips a trigger it cannot
     honour and says why, so check :attr:`started` before expecting ``job_run_id``.
-
-    Attributes:
-        job_ref: The job that was asked to run.
-        job_id: That job's uuid.
-        status: Whether a run started, or why it did not.
-        reasons: The platform's explanation of a skip, when it gave one.
-        trigger: The single trigger the platform picked for this request.
-        job_run_id: The run that started, or ``None`` when none did.
-        job_run_number: That run's number within the workspace, which is how humans
-            refer to it. ``None`` for a dry run, which creates no run.
-        matched_triggers: Triggers in the job definition that the request matched.
+    A dry run creates no run, so ``job_run_id`` is ``None`` there too.
     """
 
     job_ref: str
+    """The job reference of the matched job."""
     job_id: str
+    """The ID of the matched job."""
+    # doc: sdk
     status: TriggerStatus
+    """Whether a run started, or why it did not."""
     reasons: tuple[str, ...]
+    """Human-readable reasons for a skip, e.g. which upstream jobs are not fresh; `None`
+    when the job was triggered or no reasons were recorded.
+    """
     trigger: str
+    """The trigger the job fires with."""
     job_run_id: str | None
+    """The ID of the created run; `None` in dry-run mode or when skipped."""
     job_run_number: int | None
+    """Number of the run within its job, counting up from 1; numbers repeat across jobs.
+    """
     matched_triggers: tuple[str, ...]
+    """Every trigger that selected this job: its default trigger when named in
+    `job_ids`, plus any selector matches.
+    """
 
     @property
     def started(self) -> bool:
-        """Whether a run actually started.
+        """Whether the platform started a run, or would in a dry run.
+
+        A dry run creates no run, so ``job_run_id`` is ``None`` there too.
 
         Returns:
             True only for :attr:`TriggerStatus.TRIGGERED`.
@@ -181,36 +185,30 @@ class DeployManifest(TypedDict):
 
     Read-only and a subset, so dlt's own manifest type satisfies it structurally
     and the SDK needs no dependency on dlt to say what it accepts.
-
-    Attributes:
-        engine_version: Manifest engine version the definitions were written for.
-        jobs: Job definitions, exactly as the manifest carries them.
     """
 
     engine_version: ReadOnly[int]
+    """Manifest engine version the definitions were written for."""
     jobs: ReadOnly[Sequence[Mapping[str, Any]]]
+    """Job definitions, exactly as the manifest carries them."""
 
 
 @dataclass(frozen=True)
 class DeployReport(Generic[M]):
-    """What a manifest deploy did to a workspace's jobs.
-
-    Attributes:
-        added: Jobs the manifest introduced.
-        updated: Jobs it changed, at their new version.
-        unchanged: Jobs it left alone.
-        archived: Jobs it removed, which happens only for a module deploy.
-        warnings: What the platform validated but did not reject.
-        module: The deployment module this deploy claimed, or ``None`` for an
-            ad-hoc one.
-    """
+    """What a manifest deploy did to a workspace's jobs."""
 
     added: tuple[Job[M], ...]
+    """Jobs the manifest introduced."""
     updated: tuple[Job[M], ...]
+    """Jobs it changed, at their new version."""
     unchanged: tuple[Job[M], ...]
+    """Jobs it left alone."""
     archived: tuple[Job[M], ...]
+    """Jobs it removed, which happens only for a module deploy."""
     warnings: tuple[str, ...]
-    module: str | None
+    """Always empty at present."""
+    deployment_module: str | None
+    """The deployment module the deploy was scoped to."""
 
     @staticmethod
     def _from_payload(
@@ -230,7 +228,7 @@ class DeployReport(Generic[M]):
             unchanged=jobs([s.job for s in payload.job_receipt.skipped]),
             archived=done("archived"),
             warnings=tuple(payload.warnings),
-            module=(
+            deployment_module=(
                 payload.deployment_module
                 if isinstance(payload.deployment_module, str)
                 else None
@@ -240,46 +238,55 @@ class DeployReport(Generic[M]):
 
 @dataclass(frozen=True, repr=False)
 class Job(Entity[M]):
-    """A deployed job in a workspace.
-
-    Attributes:
-        job_ref: Stable reference the platform and CLI address the job by.
-        id: The job's uuid.
-        name: Display name, when the job definition sets one.
-        job_type: How the job executes.
-        is_paused: Whether the schedule is currently suspended.
-        is_archived: Whether a module deploy has retired the job. An archived job
-            keeps its runs but the manifest no longer lists it.
-        version: Version of the job definition this reflects.
-        public_url: Public trigger URL, when publishing is enabled.
-        job_url: Where an interactive job's session is reachable, when it
-            is one.
-        default_trigger: The trigger the platform fires when a caller names none.
-            Computed by the platform from the definition.
-        triggers: Every trigger this job answers to, as the platform computed
-            them from the definition. What a selector matches against.
-        next_scheduled_run_at: When the schedule fires next, or ``None`` when nothing is
-            scheduled. The platform keeps advancing this while a job is paused.
-        job_definition: The job definition, exactly as the manifest carries it. Left
-            opaque: it is dlt's own nested structure, and the SDK models none of
-            it — as with the definitions ``Jobs.deploy_manifest`` accepts.
-        created_at: When the job was first deployed.
-    """
+    """A deployed job in a workspace."""
 
     job_ref: str
+    """Canonical job reference, unique per workspace."""
     id: str
+    """Unique ID (a UUID)."""
     name: str | None
+    """Display name for the job."""
     job_type: JobType
+    """The type of the job: batch, interactive, or stream."""
     is_paused: bool
+    """Whether the job's scheduled runs are paused. The scheduler does not start it,
+    including a scheduled run that was waiting for its upstream jobs; manual runs,
+    runs started by a trigger request, and runs started by another job's success or
+    failure still run. Only a job with `next_scheduled_run_at` can be paused, and a
+    deploy that removes the schedule clears the pause.
+    """
     is_archived: bool
+    """Whether the job is archived. Archived jobs cannot be run and their public URL
+    stops working.
+    """
     version: int
+    """Version number, starting at 1 and incremented by each update to the job: a job's
+    current version, or a job version's own number.
+    """
     public_url: str | None
+    """The public URL where the job can be accessed without authentication; `None` when
+    the job is not published. It does not work while the job is archived.
+    """
     job_url: str | None
+    """The URL of the job in the web app for an interactive job; `None` otherwise."""
     default_trigger: str | None
+    """The trigger fired when a run is started without naming one, computed from the job
+    definition.
+    """
     triggers: tuple[str, ...]
+    """Every trigger the job answers to, computed from its definition; selectors match
+    against these.
+    """
     next_scheduled_run_at: datetime | None
+    """When the job is next scheduled to run; `None` if it has no schedule."""
+    # doc: sdk
     job_definition: Mapping[str, Any]
+    """The job definition from the manifest, migrated to the platform's current format.
+    Left opaque: it is dlt's own nested structure, and the SDK models none of it — as
+    with the definitions ``Jobs.deploy_manifest`` accepts.
+    """
     created_at: datetime
+    """When it was created."""
 
     _identity = ("job_ref", "id")
     _kind = EntityKind.JOB
@@ -293,11 +300,16 @@ class Job(Entity[M]):
     def pause(self) -> Job[Any] | Awaitable[Job[Any]]:
         """Suspend the job's schedule.
 
+        Pausing a paused job changes nothing.
+
         Returns:
             A fresh snapshot with ``is_paused`` set; awaitable in async mode.
 
         Raises:
-            Conflict: The job has no schedule to suspend, or is already paused.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
             NotFound: The job no longer exists.
         """
         workspace_id = self._ctx.require_workspace()
@@ -316,11 +328,14 @@ class Job(Entity[M]):
     def resume(self) -> Job[Any] | Awaitable[Job[Any]]:
         """Resume the job's schedule.
 
+        Resuming a job that is not paused changes nothing.
+
         Returns:
             A fresh snapshot with ``is_paused`` cleared; awaitable in async mode.
 
         Raises:
-            Conflict: The job has no schedule to resume, or is already running.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
             NotFound: The job no longer exists.
         """
         workspace_id = self._ctx.require_workspace()
@@ -339,11 +354,14 @@ class Job(Entity[M]):
     def publish(self) -> Job[Any] | Awaitable[Job[Any]]:
         """Expose the job on a public trigger URL.
 
+        Calling it again issues a new URL and invalidates the previous one.
+
         Returns:
             A fresh snapshot carrying ``public_url``; awaitable in async mode.
 
         Raises:
-            Conflict: The job cannot be published.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
             NotFound: The job no longer exists.
         """
         workspace_id = self._ctx.require_workspace()
@@ -362,11 +380,14 @@ class Job(Entity[M]):
     def unpublish(self) -> Job[Any] | Awaitable[Job[Any]]:
         """Withdraw the job's public trigger URL.
 
+        Unpublishing a job that is not published changes nothing.
+
         Returns:
             A fresh snapshot with ``public_url`` cleared; awaitable in async mode.
 
         Raises:
-            Conflict: The job is not published.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
             NotFound: The job no longer exists.
         """
         workspace_id = self._ctx.require_workspace()
@@ -383,14 +404,17 @@ class Job(Entity[M]):
     def archive(self: Job[Async]) -> Awaitable[Job[Async]]: ...
 
     def archive(self) -> Job[Any] | Awaitable[Job[Any]]:
-        """Retire the job: it leaves default listings and no longer runs.
+        """Retire the job so it can no longer run, manually or on schedule.
 
-        Archiving an archived job changes nothing.
+        Its schedule, default trigger and pause are cleared. List it with
+        ``archived=True``. Archiving an archived job changes nothing.
 
         Returns:
             A fresh snapshot with ``is_archived`` set; awaitable in async mode.
 
         Raises:
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
             NotFound: The job no longer exists.
         """
         workspace_id = self._ctx.require_workspace()
@@ -407,14 +431,17 @@ class Job(Entity[M]):
     def unarchive(self: Job[Async]) -> Awaitable[Job[Async]]: ...
 
     def unarchive(self) -> Job[Any] | Awaitable[Job[Any]]:
-        """Bring an archived job back into listings and let it run again.
+        """Let an archived job run again.
 
-        Unarchiving a live job changes nothing.
+        Its schedule and default trigger are restored from its definition; a
+        pause is not. Unarchiving a live job changes nothing.
 
         Returns:
             A fresh snapshot with ``is_archived`` cleared; awaitable in async mode.
 
         Raises:
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
             NotFound: The job no longer exists.
         """
         workspace_id = self._ctx.require_workspace()
@@ -462,17 +489,26 @@ class Job(Entity[M]):
                 ``"manual:"``. Only the form is validated, so a trigger
                 the job definition does not declare is still honoured.
             profile: Profile to run under. Omit for the job's default.
-            refresh: Reload the pipeline's schema and state before running.
-            skip_freshness: Run even if the data is already current.
+            refresh: Start as a refresh: the job's progress goes back to its
+                interval start and the run receives ``refresh=True`` in its run
+                context; what to reload is up to the job's code. Downstream jobs
+                that depend on its freshness are reset too. Ignored when the job's
+                ``refresh_propagation`` is ``"block"``.
+            skip_freshness: Start even when the upstream jobs this job's
+                freshness constraints name are not fresh.
 
         Returns:
             The run that started; awaitable in async mode.
 
         Raises:
-            BadRequest: The trigger is not in canonical form.
-            Conflict: The platform declined to start a run, e.g. the data is
-                current or a concurrency limit is reached.
-            NotAuthorized: The trial has ended or compute minutes are exhausted.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            Conflict: The platform declined to start a run, e.g. an upstream is
+                not fresh, the job is outside its interval, or a concurrency
+                limit is reached; ``code`` says which. Also raised when the
+                workspace is archived.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             NotFound: No such job in this workspace.
             ScopeMissing: Reached without a workspace in scope.
         """
@@ -493,6 +529,8 @@ class Job(Entity[M]):
     @property
     def runs(self) -> JobRuns[M]:
         """This job's runs.
+
+        Listing, counting and :meth:`JobRuns.latest` default to this job.
 
         Returns:
             A collection scoped to this job, so its methods need no ``job_id``.
@@ -588,26 +626,38 @@ class Jobs(Collection[M]):
     ) -> tuple[TriggerResult, ...] | Awaitable[tuple[TriggerResult, ...]]:
         """Ask several jobs to run, by ref or by selector.
 
-        Unlike :meth:`Job.start_run`, each job fires its own
-        ``default_trigger`` — falling back to a manual trigger — so this does
-        not take a trigger of its own.
+        Unlike :meth:`Job.start_run`, this does not take a trigger of its own.
+        A job named in ``refs`` fires its ``default_trigger`` (or a manual
+        trigger when it has none); a job matched by ``selectors`` fires the
+        trigger it matched, preferring its ``default_trigger`` when that matched
+        too.
 
         Args:
             refs: Job refs to trigger. Each resolves to exactly one job.
             selectors: Trigger patterns to match, ``fnmatch``-style — for
                 example ``"tag:backfill"``, ``"schedule:*"``, ``"manual:jobs.mod.*"``.
             profile: Profile for every run started. Omit for each job's default.
-            refresh: Reload schema and state for the jobs that do start.
+            refresh: Start the jobs that do start as a refresh, as for
+                :meth:`Job.start_run`. Downstream jobs that depend on their
+                freshness are reset too. Ignored for a job whose
+                ``refresh_propagation`` is ``"block"``.
             dry_run: Report what would be triggered without starting anything.
 
         Returns:
-            One result per matched job, in the platform's order; awaitable in
-            async mode. A job the platform declined is present too, with its
-            reason — see :class:`TriggerResult`.
+            One result per matched job; awaitable in async mode. Started jobs
+            come first, then skipped ones, each in the platform's dependency
+            order. A job the platform declined is present too, with its reason
+            — see :class:`TriggerResult`.
 
         Raises:
-            ValueError: Neither ``refs`` nor ``selectors`` was given.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
+            NotFound: A ref names no job in this workspace, or only an archived
+                one.
             ScopeMissing: Reached without a workspace in scope.
+            ValueError: Neither ``refs`` nor ``selectors`` was given.
         """
         if not refs and not selectors:
             raise ValueError("pass refs, selectors, or both — one must be non-empty")
@@ -634,7 +684,7 @@ class Jobs(Collection[M]):
         manifest: DeployManifest,
         *,
         manifest_hash: str,
-        module: str | None = None,
+        deployment_module: str | None = None,
         description: str | None | Keep = KEEP,
         dry_run: bool = False,
     ) -> DeployReport[Sync]: ...
@@ -645,7 +695,7 @@ class Jobs(Collection[M]):
         manifest: DeployManifest,
         *,
         manifest_hash: str,
-        module: str | None = None,
+        deployment_module: str | None = None,
         description: str | None | Keep = KEEP,
         dry_run: bool = False,
     ) -> Awaitable[DeployReport[Async]]: ...
@@ -655,7 +705,7 @@ class Jobs(Collection[M]):
         manifest: DeployManifest,
         *,
         manifest_hash: str,
-        module: str | None = None,
+        deployment_module: str | None = None,
         description: str | None | Keep = KEEP,
         dry_run: bool = False,
     ) -> DeployReport[Any] | Awaitable[DeployReport[Any]]:
@@ -670,24 +720,28 @@ class Jobs(Collection[M]):
                 engine version travel together, so the two cannot be crossed.
             manifest_hash: Content hash of that manifest, from dlt's
                 ``generate_manifest_hash``.
-            module: The deployment module this deploy claims. ``None``, the
+            deployment_module: The deployment module this deploy claims. ``None``, the
                 default, is an ad-hoc deploy: jobs are added and updated but
                 never archived. Naming one lets the platform archive the jobs
                 that module owns and the manifest no longer lists.
-            description: Workspace description, applied only for a module
-                deploy. Omit to leave it as it is; ``None`` clears it.
-            dry_run: Report the plan without persisting it.
+            description: Workspace description, applied only when ``deployment_module``
+                is ``"__deployment__"``. Omit, or pass ``None``, to leave it as
+                it is.
+            dry_run: Report the plan without persisting it. Jobs in a dry-run
+                report that are not yet deployed carry a placeholder ``id`` and
+                cannot be acted on.
 
         Returns:
             What was added, updated, left alone and archived; awaitable in
             async mode.
 
         Raises:
-            BadRequest: The manifest was rejected — a malformed definition, or
-                a profile the workspace has no configuration for.
-            Conflict: Another deploy is in flight for this workspace.
-            NotAuthorized: The caller may not deploy here, or may not deploy a
-                job at the profile it asks for.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
+            Conflict: The current state does not allow the call, e.g. the workspace is
+                archived; `code` and `message` say why.
+            NotAuthorized: The caller lacks the access this call needs; `message` says
+                why.
             ScopeMissing: Reached without a workspace in scope.
             ValueError: The manifest lists no jobs.
         """
@@ -702,7 +756,7 @@ class Jobs(Collection[M]):
                 jobs=definitions,
                 manifest_hash=manifest_hash,
                 engine_version=engine_version,
-                module=module,
+                deployment_module=deployment_module,
                 description=description,
                 dry_run=dry_run,
             ),
@@ -726,7 +780,8 @@ class Jobs(Collection[M]):
             The job; awaitable in async mode.
 
         Raises:
-            BadRequest: ``id`` is not a uuid.
+            BadRequest: The request was rejected as invalid; `message`, `code` and
+                `fields` say why.
             NotFound: No such job in this workspace.
             ScopeMissing: Reached without a workspace in scope.
         """
@@ -816,6 +871,8 @@ class Jobs(Collection[M]):
         offset: int = 0,
     ) -> Iterable[Job[Any]] | AsyncIterable[Job[Any]]:
         """Yield the jobs in the workspace, paging lazily.
+
+        Platform errors are raised when iteration begins, not by this call.
 
         Args:
             archived: Keep only archived jobs, or only live ones. Omit for both,

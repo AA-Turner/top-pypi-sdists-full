@@ -621,10 +621,12 @@ async def _create_snapshot_via_stub(
     auth_metadata: tuple[tuple[str, str], ...],
     timeout: float,
     scratch_volume_name: str | None = None,
-) -> str:
-    """Call CreateFileSystemSnapshot on ``stub``; return the new snapshot ID.
+) -> FileSystemSnapshot:
+    """Call CreateFileSystemSnapshot on ``stub``; return the new snapshot record.
 
-    When ``wait_for_ready`` is True, poll GetFileSystemSnapshot until READY/FAILED.
+    When ``wait_for_ready`` is False, return the record from the create response
+    (likely still CREATING). When True, poll GetFileSystemSnapshot until
+    READY/FAILED and return the READY record.
     """
     request = sandbox_pb2.CreateFileSystemSnapshotRequest(sandbox_id=sandbox_id)
     if request_id:
@@ -639,17 +641,16 @@ async def _create_snapshot_via_stub(
         raise _translate_rpc_error(
             e, sandbox_id=sandbox_id, operation="Create file-system snapshot"
         ) from e
-    snapshot_id = str(response.file_system_snapshot_id)
+    created = _snapshot_from_proto(response)
     if not wait_for_ready:
-        return snapshot_id
+        return created
 
-    await _wait_for_snapshot_via_stub(
+    return await _wait_for_snapshot_via_stub(
         stub,
-        snapshot_id,
+        created.file_system_snapshot_id,
         auth_metadata=auth_metadata,
         timeout=timeout,
     )
-    return snapshot_id
 
 
 async def _wait_for_snapshot_via_stub(
@@ -658,8 +659,8 @@ async def _wait_for_snapshot_via_stub(
     *,
     auth_metadata: tuple[tuple[str, str], ...],
     timeout: float,
-) -> None:
-    """Poll an existing snapshot until READY or FAILED."""
+) -> FileSystemSnapshot:
+    """Poll an existing snapshot until READY or FAILED; return the READY record."""
     deadline = time.monotonic() + max(0.0, timeout)
     interval = DEFAULT_POLL_INTERVAL_SECONDS
     while True:
@@ -685,7 +686,7 @@ async def _wait_for_snapshot_via_stub(
             operation="Wait for file-system snapshot",
         )
         if snap.status == FileSystemSnapshotStatus.READY:
-            return
+            return snap
         if snap.status == FileSystemSnapshotStatus.FAILED:
             raise SandboxSnapshotError(
                 f"Snapshot {snapshot_id} failed: {snap.status_reason or 'unknown error'}",
@@ -715,6 +716,14 @@ async def _get_snapshot_via_stub(
             file_system_snapshot_id=file_system_snapshot_id,
         ) from e
     return _snapshot_from_proto(proto)
+
+
+def _validate_snapshot_retry_budget(retry_budget_seconds: float | None) -> None:
+    """Reject a non-finite or negative snapshot retry budget before any RPC."""
+    if retry_budget_seconds is not None and (
+        not math.isfinite(retry_budget_seconds) or retry_budget_seconds < 0
+    ):
+        raise ValueError("retry_budget_seconds must be finite and nonnegative")
 
 
 def _validate_cwd(cwd: str | None) -> None:
@@ -1929,6 +1938,21 @@ def _lifecycle_state_from_info(
     return _Starting(sandbox_id=sandbox_id, status=status)
 
 
+@dataclass(frozen=True, kw_only=True)
+class SandboxPage:
+    """One page of sandboxes from ``Sandbox.list_page()``.
+
+    Attributes:
+        sandboxes: Sandbox handles on this page, in server order. May be
+            empty even when ``next_page_token`` is set.
+        next_page_token: Pass as ``page_token`` to fetch the next page, or
+            ``None`` when this is the last page.
+    """
+
+    sandboxes: list[Sandbox]
+    next_page_token: str | None = None
+
+
 class Sandbox:
     """CWSandbox client with sync/async hybrid API.
 
@@ -3057,6 +3081,9 @@ class Sandbox:
         A terminal status filter (e.g. ``status="completed"``) also widens
         the search automatically.
 
+        Follows every page before resolving. Use ``list_page()`` to fetch one
+        page at a time.
+
         Args:
             tags: Filter by tags (sandboxes must have ALL specified tags)
             status: Filter by status ("running", "completed", "failed", etc.)
@@ -3120,6 +3147,91 @@ class Sandbox:
         return OperationRef(future)
 
     @classmethod
+    def list_page(
+        cls,
+        *,
+        page_size: int | None = None,
+        page_token: str | None = None,
+        tags: builtins.list[str] | None = None,
+        status: str | None = None,
+        runner_ids: builtins.list[str] | None = None,
+        show_terminated: bool = False,
+        base_url: str | None = None,
+        auth: AuthConfig | None = None,
+        timeout_seconds: float | None = None,
+        poll_retry_budget_seconds: float | None = None,
+        poll_rpc_timeout_seconds: float | None = None,
+        data_plane_mode: DataPlaneMode | str = DataPlaneMode.AUTO,
+        volume_ids: builtins.list[str] | tuple[str, ...] | None = None,
+    ) -> OperationRef[SandboxPage]:
+        """Fetch one page of existing sandboxes.
+
+        Makes a single ListSandboxes call, unlike ``list()``, which follows
+        every page. Use it to walk large result sets without holding them in
+        memory. Filters match ``list()`` and are all applied by the server.
+        Keep the same filters for every page of one walk.
+
+        Args:
+            page_size: Maximum sandboxes on the page. ``None`` uses the
+                server default. The server may return fewer.
+            page_token: ``next_page_token`` from the previous page. ``None``
+                or ``""`` fetches the first page.
+            tags: Filter by tags (sandboxes must have ALL specified tags)
+            status: Filter by status ("running", "completed", "failed", etc.)
+            runner_ids: Filter by runner IDs
+            volume_ids: Filter to sandboxes attached to these registered Volume IDs
+            show_terminated: If True, include terminal sandboxes (completed,
+                failed, terminated). Defaults to False.
+            base_url: Override API URL (default: CWSANDBOX_BASE_URL env or default)
+            auth: Authentication strategy, resolved headers, or provider for this request.
+            timeout_seconds: Request timeout (default: 300s)
+            poll_retry_budget_seconds: Applied to returned Sandbox instances,
+                as in ``list()``.
+            poll_rpc_timeout_seconds: Applied to returned Sandbox instances,
+                as in ``list()``.
+            data_plane_mode: Transport policy applied to returned sandboxes.
+
+        Returns:
+            OperationRef[SandboxPage]: Resolves to the page's sandboxes and
+            the token for the next page (``None`` on the last page).
+
+        Raises:
+            ValueError: If ``page_size`` is not a positive integer.
+
+        Examples:
+            ```python
+            token = None
+            while True:
+                page = Sandbox.list_page(
+                    tags=["my-batch-job"], page_size=100, page_token=token
+                ).result()
+                for sb in page.sandboxes:
+                    print(sb.sandbox_id)
+                token = page.next_page_token
+                if token is None:
+                    break
+            ```
+        """
+        future = _LoopManager.get().run_async(
+            cls._list_page_async(
+                page_size=page_size,
+                page_token=page_token,
+                tags=tags,
+                status=status,
+                runner_ids=runner_ids,
+                show_terminated=show_terminated,
+                base_url=base_url,
+                auth=auth,
+                timeout_seconds=timeout_seconds,
+                poll_retry_budget_seconds=poll_retry_budget_seconds,
+                poll_rpc_timeout_seconds=poll_rpc_timeout_seconds,
+                data_plane_mode=data_plane_mode,
+                volume_ids=volume_ids,
+            )
+        )
+        return OperationRef(future)
+
+    @classmethod
     async def _list_async(
         cls,
         *,
@@ -3138,6 +3250,86 @@ class Sandbox:
         volume_ids: builtins.list[str] | tuple[str, ...] | None = None,
     ) -> builtins.list[Sandbox]:
         """Internal async: List existing sandboxes with optional filters."""
+        page = await cls._list_sandboxes_rpc(
+            all_pages=True,
+            tags=tags,
+            status=status,
+            profile_ids=profile_ids,
+            profile_names=profile_names,
+            runner_ids=runner_ids,
+            show_terminated=show_terminated,
+            base_url=base_url,
+            auth=auth,
+            timeout_seconds=timeout_seconds,
+            poll_retry_budget_seconds=poll_retry_budget_seconds,
+            poll_rpc_timeout_seconds=poll_rpc_timeout_seconds,
+            data_plane_mode=data_plane_mode,
+            volume_ids=volume_ids,
+        )
+        return page.sandboxes
+
+    @classmethod
+    async def _list_page_async(
+        cls,
+        *,
+        page_size: int | None = None,
+        page_token: str | None = None,
+        tags: builtins.list[str] | None = None,
+        status: str | None = None,
+        runner_ids: builtins.list[str] | None = None,
+        show_terminated: bool = False,
+        base_url: str | None = None,
+        auth: AuthConfig | None = None,
+        timeout_seconds: float | None = None,
+        poll_retry_budget_seconds: float | None = None,
+        poll_rpc_timeout_seconds: float | None = None,
+        data_plane_mode: DataPlaneMode | str = DataPlaneMode.AUTO,
+        volume_ids: builtins.list[str] | tuple[str, ...] | None = None,
+    ) -> SandboxPage:
+        """Internal async: Fetch one page of sandboxes."""
+        if page_size is not None and (
+            not isinstance(page_size, int) or isinstance(page_size, bool) or page_size < 1
+        ):
+            raise ValueError(f"page_size must be a positive integer, got {page_size!r}")
+        return await cls._list_sandboxes_rpc(
+            all_pages=False,
+            page_size=page_size,
+            page_token=page_token,
+            tags=tags,
+            status=status,
+            runner_ids=runner_ids,
+            show_terminated=show_terminated,
+            base_url=base_url,
+            auth=auth,
+            timeout_seconds=timeout_seconds,
+            poll_retry_budget_seconds=poll_retry_budget_seconds,
+            poll_rpc_timeout_seconds=poll_rpc_timeout_seconds,
+            data_plane_mode=data_plane_mode,
+            volume_ids=volume_ids,
+        )
+
+    @classmethod
+    async def _list_sandboxes_rpc(
+        cls,
+        *,
+        all_pages: bool,
+        page_size: int | None = None,
+        page_token: str | None = None,
+        tags: builtins.list[str] | None = None,
+        status: str | None = None,
+        profile_ids: builtins.list[str] | None = None,
+        profile_names: builtins.list[str] | None = None,
+        runner_ids: builtins.list[str] | None = None,
+        show_terminated: bool = False,
+        base_url: str | None = None,
+        auth: AuthConfig | None = None,
+        timeout_seconds: float | None = None,
+        poll_retry_budget_seconds: float | None = None,
+        poll_rpc_timeout_seconds: float | None = None,
+        data_plane_mode: DataPlaneMode | str = DataPlaneMode.AUTO,
+        volume_ids: builtins.list[str] | tuple[str, ...] | None = None,
+    ) -> SandboxPage:
+        """Run ListSandboxes once, or across every page when ``all_pages``."""
         normalized_tags = _normalize_tags(tags)
         effective_base_url = (
             base_url or os.environ.get("CWSANDBOX_BASE_URL") or DEFAULT_BASE_URL
@@ -3182,20 +3374,32 @@ class Sandbox:
 
             if show_terminated:
                 request_kwargs["show_terminated"] = True
+            if page_size is not None:
+                request_kwargs["page_size"] = page_size
+            if page_token:
+                request_kwargs["page_token"] = page_token
             request = sandbox_pb2.ListSandboxesRequest(**request_kwargs)
+            next_page_token: str | None = None
             try:
-                sandbox_infos = await paginate_async(
-                    stub.ListSandboxes,
-                    request,
-                    "sandboxes",
-                    auth_metadata,
-                    timeout,
-                    operation="List sandboxes",
-                )
+                if all_pages:
+                    sandbox_infos = await paginate_async(
+                        stub.ListSandboxes,
+                        request,
+                        "sandboxes",
+                        auth_metadata,
+                        timeout,
+                        operation="List sandboxes",
+                    )
+                else:
+                    response = await stub.ListSandboxes(
+                        request, metadata=auth_metadata, timeout=timeout
+                    )
+                    sandbox_infos = list(response.sandboxes)
+                    next_page_token = response.next_page_token or None
             except grpc.RpcError as e:
                 raise _translate_rpc_error(e, operation="List sandboxes") from e
 
-            return [
+            sandboxes = [
                 cls._from_sandbox_info(
                     _as_sandbox_view(sb),
                     base_url=effective_base_url,
@@ -3208,6 +3412,7 @@ class Sandbox:
                 )
                 for sb in sandbox_infos
             ]
+            return SandboxPage(sandboxes=sandboxes, next_page_token=next_page_token)
         finally:
             await channel.close(grace=None)
 
@@ -6881,8 +7086,8 @@ class Sandbox:
         wait_for_ready: bool,
         request_id: str | None,
         retry_budget_seconds: float | None = None,
-    ) -> str:
-        """Internal async: create a mid-life snapshot and return its ID."""
+    ) -> FileSystemSnapshot:
+        """Internal async: create a mid-life snapshot and return its record."""
         await self._ensure_started_async()
         # Snapshotting requires a running sandbox (the backend archives the live
         # mount), so wait for RUNNING like exec/read_file/write_file do; calling
@@ -6959,6 +7164,9 @@ class Sandbox:
         Requires the sandbox to have been started with a ``file_system_snapshot``
         mount and the organization to be enabled for FSS.
 
+        Prefer ``create_snapshot()`` in new code: it takes the same arguments
+        and returns the full ``FileSystemSnapshot`` record instead of the ID.
+
         Args:
             wait_for_ready: Block until the snapshot reaches READY (or FAILED)
                 before returning. When False, returns once the snapshot is
@@ -6972,8 +7180,8 @@ class Sandbox:
 
         Returns:
             OperationRef[str]: Use .result() to block (or await) for the new
-            snapshot's ID. Call ``Sandbox.get_snapshot(id)`` for the full record
-            (status, size, timestamps).
+            snapshot's ID. Use ``create_snapshot()`` to get the full record
+            (status, size, timestamps) from the same call.
 
         Raises:
             SandboxSnapshotError: If the snapshot fails (see subclasses for
@@ -6986,14 +7194,71 @@ class Sandbox:
             ) as sb:
                 sb.exec(["sh", "-c", "echo hi > /workspace/note.txt"]).result()
                 snapshot_id = sb.snapshot().result()
-                # Inspect the full record if needed:
-                snap = Sandbox.get_snapshot(snapshot_id).result()
             ```
         """
-        if retry_budget_seconds is not None and (
-            not math.isfinite(retry_budget_seconds) or retry_budget_seconds < 0
-        ):
-            raise ValueError("retry_budget_seconds must be finite and nonnegative")
+        _validate_snapshot_retry_budget(retry_budget_seconds)
+
+        async def _snapshot_id() -> str:
+            snap = await self._snapshot_async(
+                wait_for_ready=wait_for_ready,
+                request_id=request_id,
+                retry_budget_seconds=retry_budget_seconds,
+            )
+            return snap.file_system_snapshot_id
+
+        return OperationRef(self._loop_manager.run_async(_snapshot_id()))
+
+    def create_snapshot(
+        self,
+        *,
+        wait_for_ready: bool = True,
+        request_id: str | None = None,
+        retry_budget_seconds: float | None = None,
+    ) -> OperationRef[FileSystemSnapshot]:
+        """Capture a file-system snapshot (FSS) and return its record.
+
+        Snapshots the configured scratch volume (``volumes=`` or
+        ``file_system_snapshot``) on the running sandbox, without stopping it.
+        Starts the sandbox first if it has not been started. Restore the
+        snapshot into a new sandbox via
+        ``Sandbox.run(file_system_snapshot=FileSystemSnapshotOptions(...,
+        file_system_snapshot_id=<id>))``.
+
+        Requires the sandbox to have been started with a single scratch volume
+        and the organization to be enabled for FSS.
+
+        Args:
+            wait_for_ready: Block until the snapshot reaches READY (or FAILED)
+                before returning. When True, returns the READY record. When
+                False, returns the record from the create call (likely still
+                CREATING); poll ``Sandbox.get_snapshot(id)`` for later status.
+            request_id: Optional client-supplied key to deduplicate the
+                request on retries. Reuse it when retrying an ambiguous failure.
+            retry_budget_seconds: Budget for retrying transient RPC failures,
+                in seconds. Defaults to 30; zero disables retries. Must be
+                finite and nonnegative. This is separate from the archive
+                timeout: an in-flight snapshot can outlive the retry budget.
+
+        Returns:
+            OperationRef[FileSystemSnapshot]: Use .result() to block (or await)
+            for the snapshot record (ID, status, size, source sandbox,
+            timestamps).
+
+        Raises:
+            SandboxSnapshotError: If the snapshot fails (see subclasses for
+                ``NOT_SUPPORTED`` when the org is not enabled, quota/size, etc.).
+
+        Examples:
+            ```python
+            with Sandbox.run(
+                file_system_snapshot=FileSystemSnapshotOptions(mount_path="/workspace"),
+            ) as sb:
+                sb.exec(["sh", "-c", "echo hi > /workspace/note.txt"]).result()
+                snap = sb.create_snapshot().result()
+                print(snap.file_system_snapshot_id, snap.status, snap.size_bytes)
+            ```
+        """
+        _validate_snapshot_retry_budget(retry_budget_seconds)
         future = self._loop_manager.run_async(
             self._snapshot_async(
                 wait_for_ready=wait_for_ready,

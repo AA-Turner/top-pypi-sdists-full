@@ -1,16 +1,18 @@
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, OnceLock, atomic::AtomicBool};
 use std::time::{Duration, Instant};
 
 use dashmap::DashMap;
 use tokio::time::timeout;
 
 use crate::StatsigErr;
+use crate::interned_values::interned_store::MmapProjectId;
 use crate::networking::{NetworkClient, ResponseData};
 use crate::observability::ops_stats::OpsStatsForInstance;
 use crate::specs_adapter::SpecsSyncTrigger;
 use crate::specs_adapter::response_format::{
     SpecsResponseFormat, get_specs_response_format, is_legacy_json_no_update_under_protobuf_headers,
 };
+use crate::specs_response::proto_specs::VerifiedRemoteConfigValues;
 
 mod download;
 mod errors;
@@ -28,7 +30,7 @@ use errors::HydrationTimeoutStep;
 use telemetry::{HydrationOutcome, HydrationResult};
 
 pub(crate) use download::DOWNLOAD_CONCURRENCY;
-pub(crate) use json::{HydratedJsonStoreUpdate, JsonStoreHydrationContext};
+pub(crate) use json::HydratedJsonStoreUpdate;
 pub(crate) use protobuf::{
     ProtobufHydrationSession,
     protobuf_spec_has_remote_metadata as protobuf_spec_bytes_have_remote_metadata,
@@ -37,10 +39,48 @@ pub(crate) use protobuf::{
     rewrite_top_level_envelope,
 };
 pub(crate) use telemetry::HydrationPhase;
-pub(crate) use verified_values::VerifiedRemoteValues;
+pub(crate) use verified_values::{MmapRemoteValueProof, VerifiedRemoteValue, VerifiedRemoteValues};
 
 const TAG: &str = "RemoteConfigValueHydrator";
 const HYDRATION_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Shared settings for hydrating a store update. Source URL and project scope
+/// are required; telemetry tagging and additional output are opt-in.
+#[derive(Clone, Copy)]
+pub(crate) struct StoreHydrationOptions<'a> {
+    pub(crate) source_url: &'a str,
+    pub(crate) mmap_project_id: MmapProjectId,
+    pub(crate) sync_trigger: Option<SpecsSyncTrigger>,
+    pub(crate) preserve_session_update_mode: bool,
+    pub(crate) capture_data_store_bytes: bool,
+}
+
+impl<'a> StoreHydrationOptions<'a> {
+    pub(crate) fn new(source_url: &'a str, mmap_project_id: MmapProjectId) -> Self {
+        Self {
+            source_url,
+            mmap_project_id,
+            sync_trigger: None,
+            preserve_session_update_mode: false,
+            capture_data_store_bytes: false,
+        }
+    }
+
+    pub(crate) fn with_sync_trigger(mut self, sync_trigger: Option<SpecsSyncTrigger>) -> Self {
+        self.sync_trigger = sync_trigger;
+        self
+    }
+
+    pub(crate) fn with_session_update_mode(mut self, preserve: bool) -> Self {
+        self.preserve_session_update_mode = preserve;
+        self
+    }
+
+    pub(crate) fn with_data_store_capture(mut self, capture: bool) -> Self {
+        self.capture_data_store_bytes = capture;
+        self
+    }
+}
 
 /// Hydrates blob-backed dynamic config values in a DCS response before the
 /// response is parsed or published.
@@ -90,17 +130,21 @@ impl RemoteConfigValueHydrator {
     pub(crate) async fn prepare_json_store_update(
         &self,
         data: &mut ResponseData,
-        context: JsonStoreHydrationContext<'_>,
+        options: StoreHydrationOptions<'_>,
+        current_verified_values: &VerifiedRemoteConfigValues,
+        response_has_updates: Option<&AtomicBool>,
     ) -> Result<Option<HydratedJsonStoreUpdate>, StatsigErr> {
         let started_at = Instant::now();
-        let mut hydration_result = HydrationResult::new_with_trigger(self, context.sync_trigger);
-        let result = timeout(
-            HYDRATION_TIMEOUT,
-            json::hydrate_response_for_store(self, data, context, &mut hydration_result),
+        let mut hydration_result = HydrationResult::new_with_trigger(self, options.sync_trigger);
+        let result = json::hydrate_response_for_store(
+            self,
+            data,
+            options,
+            current_verified_values,
+            response_has_updates,
+            &mut hydration_result,
         )
-        .await
-        .map_err(|_| self.total_timeout_error(started_at, HydrationTimeoutStep::Response))
-        .and_then(|result| result);
+        .await;
         hydration_result.finish(result.as_ref().map(|_| ()));
         match &result {
             Ok(Some(_)) => {
@@ -188,3 +232,7 @@ use protobuf::{
 #[cfg(test)]
 #[path = "../__tests__/remote_config_value_hydrator_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "__tests__/mmap_writer_hydration_order_tests.rs"]
+mod mmap_writer_hydration_order_tests;

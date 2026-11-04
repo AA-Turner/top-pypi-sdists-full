@@ -3,6 +3,9 @@
 from mistralai.vibe.harness.session_v1_wire import (
     AnsweredCallbackOutcome,
     AudioContentBlock,
+    AuthCallback,
+    AuthRequest,
+    AuthResult,
     CallbackOutcome,
     CancelledCallbackOutcome,
     ClientToolCallback,
@@ -55,6 +58,9 @@ from mistralai.vibe.harness.session_v1_wire import (
 __all__ = [
     "AnsweredCallbackOutcome",
     "AudioContentBlock",
+    "AuthCallback",
+    "AuthRequest",
+    "AuthResult",
     "CallbackOutcome",
     "CancelledCallbackOutcome",
     "ClientToolCallback",

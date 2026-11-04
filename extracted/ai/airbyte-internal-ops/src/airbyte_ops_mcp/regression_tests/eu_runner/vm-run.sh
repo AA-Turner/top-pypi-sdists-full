@@ -328,6 +328,8 @@ commands = []
 both_failed = False
 incomplete = False
 not_exercised = False
+setup_error = False
+could_not_test = False
 for exit_path in sorted(work_dir.glob("*.exit-code")):
     command = exit_path.stem.removesuffix(".exit-code")
     command_exit = int(exit_path.read_text())
@@ -346,6 +348,10 @@ for exit_path in sorted(work_dir.glob("*.exit-code")):
                 incomplete = incomplete or value.lower() == "true"
             if separator and key == "not_exercised":
                 not_exercised = not_exercised or value.lower() == "true"
+            if separator and key == "setup_error":
+                setup_error = setup_error or value.lower() == "true"
+            if separator and key == "could_not_test":
+                could_not_test = could_not_test or value.lower() == "true"
     commands.append(
         {
             "command": command,
@@ -359,6 +365,8 @@ summary = {
     "both_failed": both_failed,
     "incomplete": incomplete,
     "not_exercised": not_exercised,
+    "setup_error": setup_error,
+    "could_not_test": could_not_test,
     "commands": commands,
 }
 (output_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")

@@ -39,7 +39,8 @@ import logging
 import math
 from typing import TYPE_CHECKING, Callable, Optional, Sequence, Union
 
-from ..conditions.base import BaseCondition, find_actor_by_role_name
+from ..conditions.base import BaseCondition
+from ..conditions.entity_existence import ReferencePoses
 from ..constants import EGO_ROLE_NAME
 from ..coordinate.map_manager import run_carla_map
 from ..coordinate.poses import CarlaWorldPose, Lanelet2Pose, OpenDrivePose
@@ -53,9 +54,10 @@ from ..trajectory.model import (
     RouteOppositePose,
     RouteRoadsidePose,
     TrajectoryVertex,
+    placed_against_entity,
 )
 from ..route.active import lane_place
-from ..trajectory.resolve import resolve_position, road_height
+from ..trajectory.resolve import resolve_along_lane, resolve_position, road_height
 from .base import BaseAction, TickTiming
 
 if TYPE_CHECKING:
@@ -93,6 +95,14 @@ _ENTRY_GAP_M = 2.0
 _ENTERED: dict[int, tuple[int, float]] = {}
 #: How deep (m) under the map a hidden entity is parked (``HIDDEN_DEPTH_M``).
 _PARKED_DEPTH_M: float = 500.0
+#: Where an entity was brought in, by ``(world id, role name)``: the frame and
+#: the CARLA pose it was put at.  A client sees an actor's new transform only
+#: from the next tick on, so a place written against it on the same frame
+#: (another spawn of the same phase) is placed against this
+#: (:class:`_BroughtInReferences`).  Put again on that frame (a ``POSITION``
+#: trajectory), it is replaced (:func:`note_brought_in`); hidden or despawned
+#: again, it is forgotten (:func:`forget_brought_in`).
+_BROUGHT_IN: dict[tuple[int, str], tuple[int, CarlaWorldPose]] = {}
 
 #: The props standing now, by name.
 _STANDING: dict[str, "carla.Actor"] = {}
@@ -121,24 +131,74 @@ def clear_props() -> None:
     the next starts: a batch runs several scenarios against one world."""
     for name in list(_STANDING.keys()):
         remove_prop(name)
+    _BROUGHT_IN.clear()
 
 
-class _ReferencePose:
-    """Where an entity a relative position is written against is, in *world*."""
+def note_brought_in(world: "carla.World", role: str, pose: CarlaWorldPose) -> None:
+    """Record that *role* was put at the CARLA *pose* on this frame: a place
+    written against it on the same frame reads it there
+    (:class:`_BroughtInReferences`), the world showing the new pose only from
+    the next tick on.  Called by every path that teleports an entity into the
+    scene (a SpawnAction, a ``POSITION``-mode trajectory); nothing is
+    recorded where the frame cannot be read."""
+    frame = _frame(world)
+    if frame >= 0:
+        _BROUGHT_IN[(_world_id(world), role)] = (frame, pose)
 
-    _world: "carla.World"
+
+def forget_brought_in(world: "carla.World", role: str) -> None:
+    """Forget where a SpawnAction brought *role* in on this frame (if it did):
+    hidden again or despawned since, it is no longer there, so a place written
+    against it reads it as the world shows it (absent).  Called by every path
+    that hides or despawns an entity."""
+    key = (_world_id(world), role)
+    # Looked up first: Codon's dict.pop takes no default.
+    if key in _BROUGHT_IN:
+        _BROUGHT_IN.pop(key)
+
+
+def _frame(world: "carla.World") -> int:
+    """The world's frame now, or ``-1`` where it cannot be read."""
+    try:
+        return int(world.get_snapshot().frame)
+    except (AttributeError, RuntimeError):
+        return -1
+
+
+def _world_id(world: "carla.World") -> int:
+    """The world's id, or ``-1`` where it has none (a test double)."""
+    try:
+        return int(world.id)
+    except AttributeError:
+        return -1
+
+
+class _BroughtInReferences:
+    """The reference poses a spawn's place is resolved against: an entity
+    brought in on this very frame where it was put (:data:`_BROUGHT_IN`; the
+    world still shows it parked under the map), any other where it is now if
+    it is in the scene (:class:`~..conditions.entity_existence.ReferencePoses`
+    with ``present_only``)."""
+
+    # Declared for the static check (docs/typecheck.md).
+    _world_id: int
+    _frame: int
+    _present: ReferencePoses
 
     def __init__(self, world: "carla.World") -> None:
-        self._world = world
+        self._world_id = _world_id(world)
+        self._frame = _frame(world)
+        self._present = ReferencePoses(world, present_only=True)
 
     def pose(self, entity_ref: Optional[Union[EntityRole, str]]) -> CarlaWorldPose:
-        if entity_ref is None:
-            raise ValueError("a place relative to no entity")
-        actor = find_actor_by_role_name(self._world, str(entity_ref))
-        if actor is None:
-            raise ValueError(f"'{entity_ref}' is not in the world")
-        found: "carla.Actor" = actor
-        return CarlaWorldPose.from_carla_transform(found.get_transform())
+        """Where *entity_ref* is now (:meth:`ReferencePoses.pose`)."""
+        if entity_ref is not None and self._frame >= 0:
+            key = (self._world_id, str(entity_ref))
+            if key in _BROUGHT_IN:
+                frame, put = _BROUGHT_IN[key]
+                if frame == self._frame:
+                    return put
+        return self._present.pose(entity_ref)
 
 
 class SpawnAction(BaseAction):
@@ -153,8 +213,19 @@ class SpawnAction(BaseAction):
         label: Human-readable identifier.
         once: Whether it fires at most once (the default).
         position: Its place, in any frame a trajectory vertex takes; its
-            heading is the position's (0 where it has none; a Lanelet2 pose's
-            is along its lane turned by its ``heading``).  An entity's
+            heading is the position's (a Lanelet2 pose's is along its lane
+            turned by its ``heading``; one with none faces along the lane it
+            is on -- a :class:`~..trajectory.model.RelativeLanePose` or a
+            route pose -- and 0 where it is on none).  A place written
+            against an entity (a ``RelativeLanePose``'s ``entity_ref``; the
+            ego, for a route pose without an ``anchor``) is placed against
+            where that entity stands when the action fires -- or, brought in
+            by a SpawnAction on that very frame (which the world shows only
+            from the next tick on), where it was put; while it is not in the
+            scene (not spawned yet, gone, or spawned hidden and parked under
+            the map, and not brought in on this frame) the place cannot be
+            resolved (said): an entity is brought in where it was declared,
+            a prop is not added.  An entity's
             ``None`` (or a Lanelet2 pose on lanelet 0 or less, what a card
             leaves empty): where it was declared to spawn, which it waits
             under.  A prop needs one.
@@ -181,7 +252,8 @@ class SpawnAction(BaseAction):
     Raises:
         ValueError: For the ego; for neither or both of *entity_name* and
             *name* (a blank *name* is none); a prop with no *position*, or
-            one on lanelet 0 or less; a negative *shift_max* or *speed*.
+            one on lanelet 0 or less; a negative or non-finite *shift_max*, *speed*, *length* or
+            *width*.
     """
 
     # Declared for the static check (docs/typecheck.md).
@@ -246,12 +318,24 @@ class SpawnAction(BaseAction):
             raise ValueError(f"{label}: the ego is in the scene from the start")
         if entity_name is None and position is None:
             raise ValueError(f"{label}: adding prop '{prop_name}' needs a position")
-        if shift_max < 0.0:
-            raise ValueError(f"{label}: shift_max must not be negative")
-        if speed < 0.0:
-            raise ValueError(f"{label}: speed must not be negative")
-        if length < 0.0 or width < 0.0:
-            raise ValueError(f"{label}: length and width must not be negative")
+        # NaN passes `< 0.0` and would reach the placement and the speed.
+        if not math.isfinite(shift_max) or shift_max < 0.0:
+            raise ValueError(
+                f"{label}: shift_max must be finite and not negative, "
+                f"not {shift_max!r}"
+            )
+        if not math.isfinite(speed) or speed < 0.0:
+            raise ValueError(
+                f"{label}: speed must be finite and not negative, not {speed!r}"
+            )
+        if not math.isfinite(length) or length < 0.0:
+            raise ValueError(
+                f"{label}: length must be finite and not negative, not {length!r}"
+            )
+        if not math.isfinite(width) or width < 0.0:
+            raise ValueError(
+                f"{label}: width must be finite and not negative, not {width!r}"
+            )
         super().__init__(label=label, condition=condition, timing=timing, once=once)
         self._entity_name = "" if entity_name is None else str(entity_name)
         self._name = prop_name
@@ -368,12 +452,16 @@ class SpawnAction(BaseAction):
                 standing.rotation.yaw,
             )
         x, y, z, yaw = place
-        _put(world, found, x, y, z, yaw, self._speed)
+        # Where it is put, as its next tick shows it: a walker stood on the
+        # ground under the place and raised by half its height.
+        put_z = _put(world, found, x, y, z, yaw, self._speed)
         _keep_entry_speed(found, self._speed)
-        try:
-            _ENTERED[int(found.id)] = (int(world.get_snapshot().frame), self._speed)
-        except (AttributeError, RuntimeError):
-            pass
+        frame = _frame(world)
+        if frame >= 0:
+            _ENTERED[int(found.id)] = (frame, self._speed)
+        # Read by a place written against it on this frame: the world shows
+        # where it is put only from the next tick on.
+        note_brought_in(world, self._entity_name, CarlaWorldPose(x, y, put_z, yaw=yaw))
         self._spawned.append((self._entity_name, int(found.id)))
         logger.info(
             "%s: '%s' spawned at (%.1f, %.1f) at %.1f m/s",
@@ -450,7 +538,13 @@ class SpawnAction(BaseAction):
         """CARLA ``(x, y, z, yaw)`` to put the thing at: its place, or the
         nearest clear one on along its lane within *shift_max* if that is
         taken (said either way); ``None`` with no place of its own (an
-        entity's declared spawn) or one that cannot be resolved (said)."""
+        entity's declared spawn) or one that cannot be resolved (said) --
+        among them one written against an entity that is not in the scene
+        (not spawned yet, gone, or spawned hidden and parked under the map,
+        and not brought in on this frame: :class:`_BroughtInReferences`).
+        A place written against an entity
+        (:func:`~..trajectory.model.placed_against_entity`) with no ``yaw``
+        faces along the lane it is placed on."""
         vertex = self._at
         if vertex is None:
             return None
@@ -462,9 +556,18 @@ class SpawnAction(BaseAction):
             given: Lanelet2Pose = position
             if int(given.lanelet_id) <= 0:
                 return None  # an entity's declared spawn
-        reference = _ReferencePose(world)
+        # An entity parked under the map (spawned hidden, not brought in yet)
+        # is not in the scene: nothing is placed against it, as against one
+        # not in the world -- unless brought in on this very frame, which the
+        # world does not show yet: then where it was put.
+        reference = _BroughtInReferences(world)
         try:
-            x0, y0, z0, yaw0 = resolve_position(position, reference.pose)
+            if placed_against_entity(position):
+                # Without a heading of its own, along the lane it is placed
+                # on: no lane is looked up for it afterwards (lane_place).
+                x0, y0, z0, yaw0 = resolve_along_lane(position, reference.pose)
+            else:
+                x0, y0, z0, yaw0 = resolve_position(position, reference.pose)
         except ValueError as exc:
             logger.warning("%s: no place to spawn at: %s", self.label, exc)
             return None
@@ -666,10 +769,11 @@ def _put(
     z: float,
     yaw: float,
     speed: float,
-) -> None:
+) -> float:
     """Put *actor* at CARLA ``(x, y, z)`` facing *yaw*, physics on, moving at
     *speed*: a walker stood on the ground under it (the lane's height is the
-    road's, and a walker set into a raised kerb's mesh never moves)."""
+    road's, and a walker set into a raised kerb's mesh never moves).  The z
+    its origin was put at."""
     import typesafe_carla.carla as carla  # noqa: PLC0415
 
     from ..coordinate.snap import refine_z_with_ground_projection  # noqa: PLC0415
@@ -684,8 +788,9 @@ def _put(
         except RuntimeError:
             pass
         lift = float(actor.bounding_box.extent.z)
+    put_z = z + lift
     actor.set_transform(
-        carla.Transform(carla.Location(x=x, y=y, z=z + lift), carla.Rotation(yaw=yaw))
+        carla.Transform(carla.Location(x=x, y=y, z=put_z), carla.Rotation(yaw=yaw))
     )
     heading = math.radians(yaw)
     direction = carla.Vector3D(math.cos(heading), math.sin(heading), 0.0)
@@ -697,6 +802,7 @@ def _put(
         actor.set_target_velocity(
             carla.Vector3D(speed * direction.x, speed * direction.y, 0.0)
         )
+    return put_z
 
 
 def _taken(

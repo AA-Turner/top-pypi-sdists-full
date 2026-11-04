@@ -58,6 +58,11 @@ def _parse_response(
 
         return response_403
 
+    if response.status_code == 413:
+        response_413 = ErrorResponse.from_dict(response.json())
+
+        return response_413
+
     if response.status_code == 500:
         response_500 = ErrorResponse.from_dict(response.json())
 
@@ -89,10 +94,10 @@ def sync_detailed(
 ) -> Response[DeploymentResponse | ErrorResponse]:
     """UploadDeploymentBytes
 
-     Upload deployment tarball bytes. Auth: ``DataplaneUserJwt`` with ``deployment:upload`` grant on the
-    URL ``deployment_id``. Server parses the tarball, stores it + the requirements + the files manifest
-    in vault, then writes the row back to the CP API. Returns the freshly-created
-    ``DeploymentResponse``.
+     Uploads the package for the deployment id you got from `deployments/-issue-upload`, using that
+    call's `upload_token`. `file` is the tar.gz package built by dlt (it must contain `manifest.yaml`).
+    `requirements_file` is the workspace requirements manifest. On success the deployment is created and
+    returned. A package that cannot be read answers 400; a request body over 10 MB answers 413.
 
     Args:
         workspace_id (UUID):
@@ -128,10 +133,10 @@ def sync(
 ) -> DeploymentResponse | ErrorResponse | None:
     """UploadDeploymentBytes
 
-     Upload deployment tarball bytes. Auth: ``DataplaneUserJwt`` with ``deployment:upload`` grant on the
-    URL ``deployment_id``. Server parses the tarball, stores it + the requirements + the files manifest
-    in vault, then writes the row back to the CP API. Returns the freshly-created
-    ``DeploymentResponse``.
+     Uploads the package for the deployment id you got from `deployments/-issue-upload`, using that
+    call's `upload_token`. `file` is the tar.gz package built by dlt (it must contain `manifest.yaml`).
+    `requirements_file` is the workspace requirements manifest. On success the deployment is created and
+    returned. A package that cannot be read answers 400; a request body over 10 MB answers 413.
 
     Args:
         workspace_id (UUID):
@@ -162,10 +167,10 @@ async def asyncio_detailed(
 ) -> Response[DeploymentResponse | ErrorResponse]:
     """UploadDeploymentBytes
 
-     Upload deployment tarball bytes. Auth: ``DataplaneUserJwt`` with ``deployment:upload`` grant on the
-    URL ``deployment_id``. Server parses the tarball, stores it + the requirements + the files manifest
-    in vault, then writes the row back to the CP API. Returns the freshly-created
-    ``DeploymentResponse``.
+     Uploads the package for the deployment id you got from `deployments/-issue-upload`, using that
+    call's `upload_token`. `file` is the tar.gz package built by dlt (it must contain `manifest.yaml`).
+    `requirements_file` is the workspace requirements manifest. On success the deployment is created and
+    returned. A package that cannot be read answers 400; a request body over 10 MB answers 413.
 
     Args:
         workspace_id (UUID):
@@ -199,10 +204,10 @@ async def asyncio(
 ) -> DeploymentResponse | ErrorResponse | None:
     """UploadDeploymentBytes
 
-     Upload deployment tarball bytes. Auth: ``DataplaneUserJwt`` with ``deployment:upload`` grant on the
-    URL ``deployment_id``. Server parses the tarball, stores it + the requirements + the files manifest
-    in vault, then writes the row back to the CP API. Returns the freshly-created
-    ``DeploymentResponse``.
+     Uploads the package for the deployment id you got from `deployments/-issue-upload`, using that
+    call's `upload_token`. `file` is the tar.gz package built by dlt (it must contain `manifest.yaml`).
+    `requirements_file` is the workspace requirements manifest. On success the deployment is created and
+    returned. A package that cannot be read answers 400; a request body over 10 MB answers 413.
 
     Args:
         workspace_id (UUID):

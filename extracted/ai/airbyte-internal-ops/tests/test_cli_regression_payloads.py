@@ -10,6 +10,7 @@ import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -29,6 +30,10 @@ from airbyte_ops_mcp.regression_tests import connector_runner, read_budget
 from airbyte_ops_mcp.regression_tests.ci_output import (
     generate_action_test_comparison_report,
 )
+from airbyte_ops_mcp.regression_tests.config_overrides import (
+    InjectedCatalogs,
+    build_injected_catalogs,
+)
 from airbyte_ops_mcp.regression_tests.connection_fetcher import ConnectionData
 from airbyte_ops_mcp.regression_tests.connector_runner import (
     DEFAULT_TIMEOUT_SECONDS,
@@ -38,12 +43,17 @@ from airbyte_ops_mcp.regression_tests.http_metrics import (
     HttpMetrics,
     MitmproxySession,
 )
-from airbyte_ops_mcp.regression_tests.masking import MaskPolicy, mask_record_data
+from airbyte_ops_mcp.regression_tests.masking import (
+    MaskPolicy,
+    mask_message,
+    mask_record_data,
+)
 from airbyte_ops_mcp.regression_tests.models import (
     Command,
     ComparableOutputs,
     ExecutionInputs,
     ExecutionResult,
+    OutputMode,
     StoppedEarly,
     StreamError,
     TargetOrControl,
@@ -4060,6 +4070,325 @@ def test_run_connector_command_reports_the_stop_and_passes_the_limits(
     assert captured["max_records"] is None
     assert captured["mask_policy"] is None
     assert result["output_mode"] == "raw"
+
+
+def _write_masking_catalogs(
+    tmp_path: Path,
+    *,
+    schema: dict[str, Any],
+    target_cursor_field: str,
+    control_cursor_field: str,
+    target_primary_key: list[list[str]],
+    control_primary_key: list[list[str]],
+) -> tuple[InjectedCatalogs, Path, Path]:
+    def discovered_stream(
+        cursor_field: str, primary_key: list[list[str]]
+    ) -> dict[str, Any]:
+        return {
+            "name": "orders",
+            "json_schema": schema,
+            "supported_sync_modes": ["incremental"],
+            "source_defined_cursor": True,
+            "default_cursor_field": [cursor_field],
+            "source_defined_primary_key": primary_key,
+        }
+
+    injection = build_injected_catalogs(
+        None,
+        {"orders"},
+        {"streams": [discovered_stream(target_cursor_field, target_primary_key)]},
+        {"streams": [discovered_stream(control_cursor_field, control_primary_key)]},
+        sync_mode="incremental",
+    )
+    target_path = tmp_path / "target_catalog.json"
+    control_path = tmp_path / "control_catalog.json"
+    target_path.write_text(json.dumps(injection.target_catalog))
+    control_path.write_text(json.dumps(injection.control_catalog))
+    return injection, target_path, control_path
+
+
+def _capture_masking_runner(
+    monkeypatch,
+) -> list[tuple[ExecutionInputs, MaskPolicy | None]]:
+    captured: list[tuple[ExecutionInputs, MaskPolicy | None]] = []
+
+    class _FakeRunner:
+        def __init__(
+            self,
+            execution_inputs: ExecutionInputs,
+            *,
+            timeout_seconds: int,
+            proxy_url: str | None,
+            ca_cert_path: str | None,
+            max_records: int | None,
+            mask_policy: MaskPolicy | None,
+        ):
+            captured.append((execution_inputs, mask_policy))
+            self.inputs = execution_inputs
+
+        def run(self) -> ExecutionResult:
+            self.inputs.output_dir.mkdir(parents=True, exist_ok=True)
+            stdout = self.inputs.output_dir / "stdout.txt"
+            stdout.write_text(
+                json.dumps(
+                    {
+                        "type": "RECORD",
+                        "record": {
+                            "stream": "orders",
+                            "data": {"id": "1"},
+                            "emitted_at": 0,
+                        },
+                    }
+                )
+            )
+            stderr = self.inputs.output_dir / "stderr.txt"
+            stderr.write_text("")
+            return ExecutionResult(
+                connector_under_test=self.inputs.connector_under_test,
+                command=self.inputs.command,
+                stdout_file_path=stdout,
+                stderr_file_path=stderr,
+                success=True,
+                exit_code=0,
+            )
+
+    monkeypatch.setattr(cloud, "ConnectorRunner", _FakeRunner)
+    return captured
+
+
+def _run_catalog_read(
+    tmp_path: Path,
+    side: TargetOrControl,
+    catalog_path: Path,
+    *,
+    output_mode: OutputMode = "masked",
+    mask_catalog_path: Path | None = None,
+) -> None:
+    mask_catalog = (
+        {"mask_catalog_path": mask_catalog_path}
+        if mask_catalog_path is not None
+        else {}
+    )
+    cloud._run_connector_command(
+        connector_image=f"airbyte/source-test:{side.value}",
+        command=Command.READ,
+        output_dir=tmp_path / side.value,
+        target_or_control=side,
+        config_path=_connector_config(tmp_path),
+        catalog_path=catalog_path,
+        output_mode=output_mode,
+        mask_key=KEY,
+        **mask_catalog,
+    )
+
+
+def test_shared_stream_cursor_masks_under_the_target_catalog(tmp_path, monkeypatch):
+    schema = {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "created_at": {"type": "string", "format": "date-time"},
+            "updated_at": {"type": "string", "format": "date-time"},
+        },
+    }
+    _, target_path, control_path = _write_masking_catalogs(
+        tmp_path,
+        schema=schema,
+        target_cursor_field="updated_at",
+        control_cursor_field="created_at",
+        target_primary_key=[["id"]],
+        control_primary_key=[["id"]],
+    )
+    captured = _capture_masking_runner(monkeypatch)
+
+    _run_catalog_read(
+        tmp_path,
+        TargetOrControl.CONTROL,
+        control_path,
+        mask_catalog_path=target_path,
+    )
+    _run_catalog_read(tmp_path, TargetOrControl.TARGET, target_path)
+
+    (control_inputs, control_policy), (target_inputs, target_policy) = captured
+    assert control_policy is not None
+    assert target_policy is not None
+    assert control_policy.readable("orders") == target_policy.readable("orders")
+    assert control_policy.primary_key("orders") == target_policy.primary_key("orders")
+    record = {
+        "type": "RECORD",
+        "record": {
+            "stream": "orders",
+            "data": {
+                "id": "1",
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-02T00:00:00Z",
+            },
+            "emitted_at": 0,
+        },
+    }
+    assert mask_message(record, control_policy) == mask_message(record, target_policy)
+    assert control_inputs.configured_catalog is not None
+    assert control_inputs.configured_catalog.streams[0].cursor_field == ["created_at"]
+    assert target_inputs.configured_catalog is not None
+    assert target_inputs.configured_catalog.streams[0].cursor_field == ["updated_at"]
+
+
+def test_shared_stream_primary_key_masks_under_the_target_catalog(
+    tmp_path, monkeypatch
+):
+    schema = {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "updated_at": {"type": "string", "format": "date-time"},
+            "account": {
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+            },
+        },
+    }
+    _, target_path, control_path = _write_masking_catalogs(
+        tmp_path,
+        schema=schema,
+        target_cursor_field="updated_at",
+        control_cursor_field="updated_at",
+        target_primary_key=[["id"]],
+        control_primary_key=[["account", "id"]],
+    )
+    captured = _capture_masking_runner(monkeypatch)
+
+    _run_catalog_read(
+        tmp_path,
+        TargetOrControl.CONTROL,
+        control_path,
+        mask_catalog_path=target_path,
+    )
+    _run_catalog_read(tmp_path, TargetOrControl.TARGET, target_path)
+
+    (control_inputs, control_policy), (target_inputs, target_policy) = captured
+    assert control_policy is not None
+    assert target_policy is not None
+    assert control_policy.readable("orders") == target_policy.readable("orders")
+    assert control_policy.primary_key("orders") == target_policy.primary_key("orders")
+    record = {
+        "type": "RECORD",
+        "record": {
+            "stream": "orders",
+            "data": {
+                "id": "1",
+                "updated_at": "2024-01-02T00:00:00Z",
+                "account": {"id": "acct-1"},
+            },
+            "emitted_at": 0,
+        },
+    }
+    assert mask_message(record, control_policy) == mask_message(record, target_policy)
+    assert control_inputs.configured_catalog is not None
+    assert control_inputs.configured_catalog.streams[0].primary_key == [
+        ["account", "id"]
+    ]
+    assert target_inputs.configured_catalog is not None
+    assert target_inputs.configured_catalog.streams[0].primary_key == [["id"]]
+
+
+def test_raw_shared_stream_reads_do_not_build_mask_policies(tmp_path, monkeypatch):
+    schema = {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "created_at": {"type": "string", "format": "date-time"},
+            "updated_at": {"type": "string", "format": "date-time"},
+        },
+    }
+    _, target_path, control_path = _write_masking_catalogs(
+        tmp_path,
+        schema=schema,
+        target_cursor_field="updated_at",
+        control_cursor_field="created_at",
+        target_primary_key=[["id"]],
+        control_primary_key=[["id"]],
+    )
+    captured = _capture_masking_runner(monkeypatch)
+
+    _run_catalog_read(
+        tmp_path,
+        TargetOrControl.CONTROL,
+        control_path,
+        output_mode="raw",
+        mask_catalog_path=target_path,
+    )
+    _run_catalog_read(
+        tmp_path,
+        TargetOrControl.TARGET,
+        target_path,
+        output_mode="raw",
+    )
+
+    assert [policy for _, policy in captured] == [None, None]
+
+
+def test_comparison_read_passes_the_target_catalog_as_the_control_mask_catalog(
+    tmp_path, capsys, monkeypatch, stub_comparison_run
+):
+    schema = {
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "updated_at": {"type": "string", "format": "date-time"},
+        },
+    }
+    injection, target_path, control_path = _write_masking_catalogs(
+        tmp_path,
+        schema=schema,
+        target_cursor_field="updated_at",
+        control_cursor_field="updated_at",
+        target_primary_key=[["id"]],
+        control_primary_key=[["id"]],
+    )
+    base_catalog = _configured_catalog(tmp_path / "base_catalog.json", "orders")
+    config_path = _connector_config(tmp_path)
+    monkeypatch.setattr(
+        cloud,
+        "_inject_discovered_streams",
+        lambda **_kwargs: (target_path, control_path, injection),
+    )
+    seen = stub_comparison_run(
+        {
+            "success": True,
+            "exit_code": 0,
+            "message_counts": {},
+            "record_counts_per_stream": {},
+        },
+        {
+            "success": True,
+            "exit_code": 0,
+            "message_counts": {},
+            "record_counts_per_stream": {},
+        },
+    )
+
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        config_path=str(config_path),
+        catalog_path=str(base_catalog),
+        output_dir=str(tmp_path / "wiring"),
+        discover_missing_streams=True,
+        selected_streams="orders",
+        output_mode="masked",
+        skip_record_comparison=True,
+    )
+    capsys.readouterr()
+
+    calls = seen["calls"]
+    control_call, target_call = calls
+    assert control_call["role"] is TargetOrControl.CONTROL
+    assert control_call["catalog_path"] == control_path
+    assert control_call["mask_catalog_path"] == target_path
+    assert target_call["role"] is TargetOrControl.TARGET
+    assert target_call["catalog_path"] == target_path
+    assert target_call.get("mask_catalog_path") is None
 
 
 # ---------------------------------------------------------------------------

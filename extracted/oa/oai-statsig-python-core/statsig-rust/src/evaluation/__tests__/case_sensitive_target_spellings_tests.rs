@@ -233,6 +233,27 @@ fn exact_target_coercions_and_defaults_keep_existing_semantics() {
 }
 
 #[test]
+fn unicode_membership_normalizes_public_and_eager_strings() {
+    for (input, lowercase) in [("İ", "i\u{307}"), ("ΟΣ", "ος"), ("ǅ", "ǆ")] {
+        let dynamic = DynamicValue::from_string(input);
+        let eager = UserValue::from_string(input);
+        let target = EvaluatorValue::from_json_value(json!([lowercase]));
+        for value in [UserValueRef::Dynamic(&dynamic), UserValueRef::User(&eager)] {
+            assert!(
+                compare_strings_in_array(value, target.as_value_ref(), ConditionOperator::Any),
+                "input={input:?}"
+            );
+        }
+    }
+    // Lowercase/uncased Unicode must still share its eager cache allocation.
+    let unchanged = crate::user::user_value::UserString::new("é中文🦀".into());
+    assert!(std::ptr::eq(
+        unchanged.value.as_str().as_ptr(),
+        unchanged.lowercased_value.as_str().as_ptr()
+    ));
+}
+
+#[test]
 fn normalized_and_exact_target_caches_are_isolated_in_both_parse_orders() {
     let target = json!(["cache-ios", "CACHE-IOS"]);
     for operators in [["any", "any_case_sensitive"], ["any_case_sensitive", "any"]] {
@@ -436,6 +457,10 @@ rusty_fork_test! {
             assert!(matches!(normalized.inner, EvaluatorValueInner::Mmap(_)));
             assert_ne!(exact.hash, normalized.hash);
             assert_eq!(serde_json::to_value(exact).unwrap(), target);
+            if !first.is_ascii() {
+                let input = UserValue::from(first);
+                assert!(compare_strings_in_array((&input).into(), normalized.as_value_ref(), ConditionOperator::Any));
+            }
             let protobuf = protobuf_conditions(&[
                 ("any_case_sensitive", target.clone()),
                 ("none_case_sensitive", target.clone()),
@@ -545,5 +570,53 @@ rusty_fork_test! {
                 }
             }
         }
+    }
+}
+
+rusty_fork_test! {
+    #[test]
+    fn legacy_unicode_rule_id_reuse_preserves_assignment_and_materialization() {
+        use crate::interned_values::mmap_data_v2::{MmapDataV2, MmapSpec};
+        use crate::specs_response::spec_types::Spec;
+        let name = InternedString::from_str_ref("unicode-id");
+        let mut gate = gate_json(name.as_str(), "unused");
+        gate["checksum"] = json!("123");
+        gate["rules"][0]["conditions"] = json!([]);
+        gate["rules"][0]["idType"] = json!("É");
+        gate["rules"][0]["passPercentage"] = json!(50);
+        let mut payload = specs_json(serde_json::Map::new());
+        payload["feature_gates"][name.as_str()] = gate.clone();
+        let wire = serde_json::to_vec(&payload).unwrap();
+        let fresh: SpecsResponseFull = serde_json::from_slice(&wire).unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("legacy-rule-id.mmap");
+        write_mmap_v2_for_test(&wire, &path).unwrap();
+        // Old writers kept the original Unicode cache and its content fingerprint.
+        let mut legacy: Spec = serde_json::from_value(gate).unwrap();
+        legacy.rules[0].id_type.lowercased_value = legacy.rules[0].id_type.value.clone();
+        let bytes = std::fs::read(&path).unwrap();
+        let mut data = rkyv::from_bytes::<MmapDataV2, rkyv::rancor::Error>(&bytes).unwrap();
+        data.feature_gates
+            .insert(name.hash, MmapSpec::from_owned(&legacy));
+        std::fs::write(&path, rkyv::to_bytes::<rkyv::rancor::Error>(&data).unwrap()).unwrap();
+        preload_mmap_v2_for_test(&path).unwrap();
+        let reused: SpecsResponseFull = serde_json::from_slice(&wire).unwrap();
+        let archived = reused.feature_gates.get(&name).unwrap();
+        assert!(
+            archived.is_mmap(),
+            "matching checksum must exercise archived rules"
+        );
+        // This ID fails the 50% rule; the empty fallback incorrectly passes it.
+        let public = StatsigUser::with_custom_ids(HashMap::from([("é", "unicode-unit-0")]));
+        let user = StatsigUserInternal::new(&public, None);
+        assert!(!evaluate_gate(&fresh, &user, name.as_str()));
+        assert!(!evaluate_gate(&reused, &user, name.as_str()));
+        let materialized_id = &archived.as_spec_ref().rules[0].id_type;
+        assert_eq!(materialized_id.value.as_str(), "É");
+        assert_eq!(
+            user.get_unit_id(materialized_id)
+                .and_then(UserValueRef::string_value),
+            Some("unicode-unit-0")
+        );
     }
 }

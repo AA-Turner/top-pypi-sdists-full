@@ -133,6 +133,8 @@ impl SpecsAdapter for StatsigGrpcSpecsAdapter {
         statsig_runtime: &Arc<StatsigRuntime>,
     ) -> Result<(), StatsigErr> {
         self.shutdown_notify.notify_one();
+        // The stream may already have exited after exhausting retries.
+        self.cancel_poll_notify.notify_waiters();
 
         let opt_handle_id = match self.task_handle_id.try_lock_for(Duration::from_secs(5)) {
             Some(mut lock) => lock.take(),
@@ -222,10 +224,13 @@ impl StatsigGrpcSpecsAdapter {
     fn spawn_poll_from_statsig_thread(
         http_spec_adapter: Arc<StatsigHttpSpecsAdapter>,
         cancel_notify: Arc<Notify>,
-        shutdown_notify: Arc<Notify>,
     ) {
         let weak_http_adapter = Arc::downgrade(&http_spec_adapter);
+        // Register before spawning and retain this future across HTTP requests,
+        // so recovery cancels this poller even when it is not currently waiting.
+        let cancelled = cancel_notify.notified_owned();
         tokio::task::spawn(async move {
+            tokio::pin!(cancelled);
             loop {
                 tokio::select! {
                     _ = sleep(Duration::from_millis(3000)) => {
@@ -236,12 +241,8 @@ impl StatsigGrpcSpecsAdapter {
                             break;
                         }
                     }
-                    _ = cancel_notify.notified() => {
+                    _ = &mut cancelled => {
                         log_d!(TAG, "Cancel grpc fallback background specs sync");
-                        break;
-                    }
-                    _ = shutdown_notify.notified() => {
-                        log_d!(TAG, "Shutting down grpc fallback specs background sync");
                         break;
                     }
                 }
@@ -289,7 +290,7 @@ impl StatsigGrpcSpecsAdapter {
                         }
                         if attempt == FALL_BACK_TO_POLLING_THREASHOLD {
                             log_d!(TAG, "SFP is not reachable after {} tries: Falling back to polling from statsig", FALL_BACK_TO_POLLING_THREASHOLD);
-                            Self::spawn_poll_from_statsig_thread(self.http_specs_adapter.clone(), self.cancel_poll_notify.clone(), self.shutdown_notify.clone());
+                            Self::spawn_poll_from_statsig_thread(self.http_specs_adapter.clone(), self.cancel_poll_notify.clone());
                         }
                         self.grpc_client.reset_client();
 
@@ -303,10 +304,20 @@ impl StatsigGrpcSpecsAdapter {
                         self.retry_state.backoff_interval_ms.store(new_backoff,Ordering::SeqCst);
                         self.retry_state.is_retrying.store(true, Ordering::SeqCst);
                         self.log_streaming_err(err, attempt, curr_backoff);
-                        tokio::time::sleep(Duration::from_millis(curr_backoff)).await;
+                        tokio::select! {
+                            _ = sleep(Duration::from_millis(curr_backoff)) => {},
+                            _ = self.shutdown_notify.notified() => {
+                                self.cancel_poll_notify.notify_waiters();
+                                log_d!(TAG, "Received shutdown signal during retry backoff, stopping stream listener.");
+                                break;
+                            }
+                        }
                     }
                 },
                 _ = self.shutdown_notify.notified() => {
+                    // Only the stream receives shutdown, then cancels all pollers
+                    // it spawned. A poller must not consume this shutdown signal.
+                    self.cancel_poll_notify.notify_waiters();
                     log_d!(TAG, "Received shutdown signal, stopping stream listener.");
                     break;
                 }
@@ -338,7 +349,9 @@ impl StatsigGrpcSpecsAdapter {
                         }
                     };
 
-                    self.cancel_poll_notify.notify_one();
+                    // Recovery applies only to pollers that already exist, not
+                    // to a fallback started by a later outage.
+                    self.cancel_poll_notify.notify_waiters();
                     if self.retry_state.is_retrying.load(Ordering::SeqCst) {
                         // Reset retry state
                         self.retry_state.is_retrying.store(false, Ordering::SeqCst);
@@ -517,6 +530,7 @@ mod tests {
             }))
             .await;
 
+        let poll_cancelled = adapter.cancel_poll_notify.notified();
         let result = timeout(Duration::from_secs(2), adapter.handle_grpc_request_stream())
             .await
             .expect("hydration failure should return from the stream loop");
@@ -528,12 +542,9 @@ mod tests {
         ));
         assert!(!listener.received_update.load(Ordering::SeqCst));
         assert!(
-            timeout(
-                Duration::from_millis(50),
-                adapter.cancel_poll_notify.notified()
-            )
-            .await
-            .is_err()
+            timeout(Duration::from_millis(50), poll_cancelled)
+                .await
+                .is_err()
         );
 
         mock_proxy.stop().await;
@@ -733,3 +744,7 @@ mod tests {
         result
     }
 }
+
+#[cfg(test)]
+#[path = "__tests__/grpc_fallback_tests.rs"]
+mod fallback_tests;

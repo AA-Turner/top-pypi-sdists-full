@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from datetime import datetime
 from time import monotonic
 from uuid import UUID
 
@@ -28,8 +29,12 @@ class DeployProgress(BaseModel):
     build_finished: bool = False
 
     @classmethod
-    def from_status(cls, status: AgentDetailResponse) -> DeployProgress:
+    def from_status(
+        cls, status: AgentDetailResponse, *, revision: str | None = None, requested_at: datetime | None = None
+    ) -> DeployProgress:
         build_phase = (status.build_phase or "").casefold()
+        if build_phase == "failed" and _is_previous_build(status, revision=revision, requested_at=requested_at):
+            build_phase = ""
         rollout_status = (status.rollout_status or "").casefold()
         if build_phase == "failed":
             return cls(label="Build failed", is_live=False, failure=status.build_message or "image build failed")
@@ -55,6 +60,12 @@ class DeployProgress(BaseModel):
         return cls(label="Queued", is_live=False)
 
 
+def _is_previous_build(status: AgentDetailResponse, *, revision: str | None, requested_at: datetime | None) -> bool:
+    if revision is not None and status.build_commit_sha is not None and status.build_commit_sha != revision:
+        return True
+    return requested_at is not None and status.build_started_at is not None and status.build_started_at < requested_at
+
+
 def _shorten(message: str, limit: int = 90) -> str:
     collapsed = " ".join(message.split())
     return collapsed if len(collapsed) <= limit else f"{collapsed[: limit - 1]}…"
@@ -73,6 +84,8 @@ async def wait_for_deploy(
     timeout_seconds: float,
     poll_interval_seconds: float,
     on_progress: Callable[[DeployProgress, float], None],
+    revision: str | None = None,
+    requested_at: datetime | None = None,
 ) -> float:
     async with AgentsClient(base_url=server_url, api_key=api_key) as client:
         return await wait_until_active(
@@ -81,6 +94,8 @@ async def wait_for_deploy(
             timeout_seconds=timeout_seconds,
             poll_interval_seconds=poll_interval_seconds,
             on_progress=on_progress,
+            revision=revision,
+            requested_at=requested_at,
         )
 
 
@@ -91,12 +106,14 @@ async def wait_until_active(
     timeout_seconds: float,
     poll_interval_seconds: float,
     on_progress: Callable[[DeployProgress, float], None],
+    revision: str | None = None,
+    requested_at: datetime | None = None,
 ) -> float:
     started_at = monotonic()
     # Sticky: status reads can lag or go blank after the build, but a finished build stays finished.
     build_finished = False
     while True:
-        progress = await _poll(client, agent_id)
+        progress = await _poll(client, agent_id, revision=revision, requested_at=requested_at)
         elapsed_seconds = monotonic() - started_at
         if progress is not None:
             on_progress(progress, elapsed_seconds)
@@ -121,7 +138,9 @@ async def wait_until_active(
             await asyncio.sleep(remainder)
 
 
-async def _poll(client: AgentsClient, agent_id: UUID) -> DeployProgress | None:
+async def _poll(
+    client: AgentsClient, agent_id: UUID, *, revision: str | None, requested_at: datetime | None
+) -> DeployProgress | None:
     try:
         status = await client.get_agent(agent_id)
     except httpx.HTTPStatusError as exc:
@@ -130,4 +149,4 @@ async def _poll(client: AgentsClient, agent_id: UUID) -> DeployProgress | None:
         return None
     except httpx.HTTPError:
         return None
-    return DeployProgress.from_status(status)
+    return DeployProgress.from_status(status, revision=revision, requested_at=requested_at)

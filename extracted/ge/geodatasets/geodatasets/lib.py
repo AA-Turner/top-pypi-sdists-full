@@ -209,7 +209,8 @@ class Bunch(dict):
             if geometry_type is not None:
                 geom_type_match = False
                 if (
-                    dataset.geometry_type.upper()
+                    "geometry_type" in dataset.keys()
+                    and dataset.geometry_type.upper()
                     == geometry_type.translate(QUERY_NAME_TRANSLATION).upper()
                 ):
                     geom_type_match = True
@@ -346,13 +347,13 @@ def _load_json(f):
 
     items = Bunch()
 
-    for item_name in data.keys():
+    for item_name in sorted(data.keys()):
         item = data[item_name]
 
         if "url" in item.keys():
             items[item_name] = Dataset(item)
         else:
-            items[item_name] = Bunch({i: Dataset(item[i]) for i in item})
+            items[item_name] = Bunch({i: Dataset(item[i]) for i in sorted(item)})
 
     return items
 

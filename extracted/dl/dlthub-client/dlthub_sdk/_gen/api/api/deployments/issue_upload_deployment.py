@@ -87,14 +87,12 @@ def sync_detailed(
 ) -> Response[ErrorResponse | IssueUploadDeploymentResponse]:
     """IssueUploadDeployment
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``deployment:upload``
-    grant, with the workspace taken from its signed binding) and return the
-    absolute DP API URL where the tarball +
-    requirements bytes are POSTed next. **No database row is created in this
-    step** — the row is INSERTed by the DP API after vault store succeeds, via
-    the ``dp-api → api DEPLOYMENTS_WRITE`` write-back edge.
+    Prepares the upload of a new deployment. Send a multipart POST with `file` (the package) and
+    `requirements_file` to
+    `upload_url`, with `Authorization: Bearer <upload_token>`, within 10 minutes. The deployment
+    exists, under `deployment_id`, only after the upload succeeds.
 
-    Requires WRITE permission on the workspace.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -124,14 +122,12 @@ def sync(
 ) -> ErrorResponse | IssueUploadDeploymentResponse | None:
     """IssueUploadDeployment
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``deployment:upload``
-    grant, with the workspace taken from its signed binding) and return the
-    absolute DP API URL where the tarball +
-    requirements bytes are POSTed next. **No database row is created in this
-    step** — the row is INSERTed by the DP API after vault store succeeds, via
-    the ``dp-api → api DEPLOYMENTS_WRITE`` write-back edge.
+    Prepares the upload of a new deployment. Send a multipart POST with `file` (the package) and
+    `requirements_file` to
+    `upload_url`, with `Authorization: Bearer <upload_token>`, within 10 minutes. The deployment
+    exists, under `deployment_id`, only after the upload succeeds.
 
-    Requires WRITE permission on the workspace.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -156,14 +152,12 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | IssueUploadDeploymentResponse]:
     """IssueUploadDeployment
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``deployment:upload``
-    grant, with the workspace taken from its signed binding) and return the
-    absolute DP API URL where the tarball +
-    requirements bytes are POSTed next. **No database row is created in this
-    step** — the row is INSERTed by the DP API after vault store succeeds, via
-    the ``dp-api → api DEPLOYMENTS_WRITE`` write-back edge.
+    Prepares the upload of a new deployment. Send a multipart POST with `file` (the package) and
+    `requirements_file` to
+    `upload_url`, with `Authorization: Bearer <upload_token>`, within 10 minutes. The deployment
+    exists, under `deployment_id`, only after the upload succeeds.
 
-    Requires WRITE permission on the workspace.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -191,14 +185,12 @@ async def asyncio(
 ) -> ErrorResponse | IssueUploadDeploymentResponse | None:
     """IssueUploadDeployment
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``deployment:upload``
-    grant, with the workspace taken from its signed binding) and return the
-    absolute DP API URL where the tarball +
-    requirements bytes are POSTed next. **No database row is created in this
-    step** — the row is INSERTed by the DP API after vault store succeeds, via
-    the ``dp-api → api DEPLOYMENTS_WRITE`` write-back edge.
+    Prepares the upload of a new deployment. Send a multipart POST with `file` (the package) and
+    `requirements_file` to
+    `upload_url`, with `Authorization: Bearer <upload_token>`, within 10 minutes. The deployment
+    exists, under `deployment_id`, only after the upload succeeds.
 
-    Requires WRITE permission on the workspace.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

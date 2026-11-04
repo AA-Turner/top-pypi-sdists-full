@@ -62,7 +62,8 @@ async fn built_in_adapters_recover_after_timeout_before_id_list_start() {
         Mock, MockServer, ResponseTemplate,
         matchers::{method, path},
     };
-    for timeout in [Some(0), Some(20)] {
+    for (timeout, shared) in [(0, false), (20, false), (0, true), (20, true)] {
+        let directory = shared.then(|| tempfile::tempdir().unwrap());
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/v2/download_config_specs"))
@@ -76,7 +77,10 @@ async fn built_in_adapters_recover_after_timeout_before_id_list_start() {
                 id_lists_url: Some(format!("{}/manifest", server.uri())),
                 specs_sync_interval_ms: Some(1000),
                 id_lists_sync_interval_ms: Some(1000),
-                init_timeout_ms: timeout,
+                init_timeout_ms: Some(timeout),
+                shared_id_lists_dir: directory
+                    .as_ref()
+                    .map(|dir| dir.path().to_str().unwrap().to_owned()),
                 enable_id_lists: Some(true),
                 disable_all_logging: Some(true),
                 disable_country_lookup: Some(true),

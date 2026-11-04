@@ -90,11 +90,12 @@ def sync_detailed(
 ) -> Response[ErrorResponse | JobResponse]:
     """PublishJob
 
-    Enables or regenerates the public URL for a job. This creates a new public_secret UUID
-    that can be used to access the job without authentication. Calling this endpoint again
-    will generate a new UUID, invalidating any previous public URLs.
+    Enables or regenerates the public URL for a job. This creates a new `public_secret` that
+    gives access to the job without authentication. Calling it again generates a new
+    `public_secret`, invalidating any previous public URL. The URL does not work while the job
+    is archived.
 
-    Requires WRITE permission on the organization level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -127,11 +128,12 @@ def sync(
 ) -> ErrorResponse | JobResponse | None:
     """PublishJob
 
-    Enables or regenerates the public URL for a job. This creates a new public_secret UUID
-    that can be used to access the job without authentication. Calling this endpoint again
-    will generate a new UUID, invalidating any previous public URLs.
+    Enables or regenerates the public URL for a job. This creates a new `public_secret` that
+    gives access to the job without authentication. Calling it again generates a new
+    `public_secret`, invalidating any previous public URL. The URL does not work while the job
+    is archived.
 
-    Requires WRITE permission on the organization level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -159,11 +161,12 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | JobResponse]:
     """PublishJob
 
-    Enables or regenerates the public URL for a job. This creates a new public_secret UUID
-    that can be used to access the job without authentication. Calling this endpoint again
-    will generate a new UUID, invalidating any previous public URLs.
+    Enables or regenerates the public URL for a job. This creates a new `public_secret` that
+    gives access to the job without authentication. Calling it again generates a new
+    `public_secret`, invalidating any previous public URL. The URL does not work while the job
+    is archived.
 
-    Requires WRITE permission on the organization level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):
@@ -194,11 +197,12 @@ async def asyncio(
 ) -> ErrorResponse | JobResponse | None:
     """PublishJob
 
-    Enables or regenerates the public URL for a job. This creates a new public_secret UUID
-    that can be used to access the job without authentication. Calling this endpoint again
-    will generate a new UUID, invalidating any previous public URLs.
+    Enables or regenerates the public URL for a job. This creates a new `public_secret` that
+    gives access to the job without authentication. Calling it again generates a new
+    `public_secret`, invalidating any previous public URL. The URL does not work while the job
+    is archived.
 
-    Requires WRITE permission on the organization level.
+    Requires the developer role (or higher) in the workspace.
 
     Args:
         workspace_id (UUID):

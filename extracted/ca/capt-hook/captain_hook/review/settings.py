@@ -19,7 +19,8 @@ def resolve_review_db_path() -> Path:
 class ReviewAdmission(BaseSettings):
     """What the hook guards read before they admit a reviewer child, from ``HOOKS_REVIEW_*``.
 
-    ``db_path`` locates the pending-pass locks. ``sweep_interval_minutes`` spaces the passes a
+    ``enabled`` turns the reviewer off everywhere, ahead of the enrollment that auto-watches a new
+    repo. ``db_path`` locates the pending-pass locks. ``sweep_interval_minutes`` spaces the passes a
     ``Stop`` or ``SessionStart`` queues over one transcript directory. The guards read these without
     validating the full :class:`ReviewSettings`, so a malformed reviewer knob still reaches the
     detached child, which records the failure.
@@ -27,6 +28,7 @@ class ReviewAdmission(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="HOOKS_REVIEW_")
 
+    enabled: bool = True
     db_path: Path = Field(default_factory=resolve_review_db_path)
     sweep_interval_minutes: int = 30
 
@@ -35,7 +37,8 @@ class ReviewSettings(HooksSettings):
     """Session-reviewer settings, backed by environment variables with ``HOOKS_REVIEW_`` prefix.
 
     The threshold knobs gate when a candidate becomes PR-eligible (the ``*_fix``
-    variants apply to hook-misfire fix candidates), the judge knobs bound the
+    variants apply to hook-misfire fix candidates), ``evidence_window_days`` limits
+    which observations can support a PR, the judge knobs bound the
     per-session LLM verdict pass, the ``triage_*`` knobs bound the cheaper junk
     pre-screen that runs before it, and ``brain_max_turns``/``brain_max_budget_usd``
     cap the headless PR-drafting agent and ``brain_deadline_seconds`` kills a
@@ -51,6 +54,7 @@ class ReviewSettings(HooksSettings):
     min_days: int = 2
     max_open_prs: int = 2
     stale_after_days: int = 30
+    evidence_window_days: int = 30
     min_confidence: Confidence = MEDIUM
     min_sessions_fix: int = 2
     min_days_fix: int = 0

@@ -9,6 +9,15 @@ from plato.git_ops.models import GitOpRequest, GitOpResult
 from plato.utils.subprocess import VM_PATH_EXPORT, _close_subprocess, build_ssh_command
 
 
+class GitOpTimeoutError(RuntimeError):
+    """The git ops server sent no reply for one op within its timeout."""
+
+    def __init__(self, operation: str, hostname: str) -> None:
+        super().__init__(f"Timed out waiting for git operation {operation} on {hostname}")
+        self.operation = operation
+        self.hostname = hostname
+
+
 class RemoteGitClient:
     """Long-lived SSH-backed stdio client for git ops."""
 
@@ -32,9 +41,7 @@ class RemoteGitClient:
                 line = await asyncio.wait_for(proc.stdout.readline(), timeout=timeout)
             except TimeoutError as exc:
                 await self.close()
-                raise RuntimeError(
-                    f"Timed out waiting for git operation {request.operation} on {self._hostname}"
-                ) from exc
+                raise GitOpTimeoutError(request.operation, self._hostname) from exc
             if not line:
                 stderr = "\n".join(self._stderr_lines[-20:]).strip()
                 await self.close()

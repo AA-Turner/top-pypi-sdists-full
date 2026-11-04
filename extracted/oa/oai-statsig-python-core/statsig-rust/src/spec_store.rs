@@ -1,6 +1,7 @@
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use chrono::Utc;
+use dashmap::DashMap;
 use parking_lot::{Mutex, MutexGuard};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -11,12 +12,14 @@ use serde_json::Value;
 
 use crate::data_store_interface::{DataStoreCacheKeys, DataStoreTrait, RequestPath};
 use crate::evaluation::dynamic_string::DynamicString;
+use crate::evaluation::evaluation_data::{RuleRef, SpecView};
 use crate::evaluation::evaluator::SpecType;
 use crate::gcir::evaluation_plan::GcirEvaluationPlan;
 use crate::global_configs::GlobalConfigs;
 use crate::hashing::{self, HashUtil};
 use crate::id_lists_adapter::{
-    IdList, IdListPropagationState, IdListPropagationUpdate, IdListUpdate, IdListsUpdateListener,
+    IdList, IdListPropagationState, IdListPropagationUpdate, IdListPublicationMode, IdListUpdate,
+    IdListsUpdateListener,
 };
 use crate::interned_string::InternedString;
 use crate::interned_values::interned_store::{InternedStore, MmapProjectId};
@@ -26,18 +29,15 @@ use crate::observability::observability_client_adapter::{MetricType, Observabili
 use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::observability::sdk_errors_observer::ErrorBoundaryEvent;
 use crate::sdk_event_emitter::{SdkEvent, SdkEventEmitter};
-use crate::specs_adapter::remote_config_value_hydrator::{
-    JsonStoreHydrationContext, RemoteConfigValueHydrator,
-};
+use crate::specs_adapter::remote_config_value_hydrator::StoreHydrationOptions;
 use crate::specs_response::parse_options::{SpecsResponseParseOptions, with_parse_options};
 use crate::specs_response::proto_compression::{ProtoCompression, is_compressed_protobuf_response};
 use crate::specs_response::proto_specs::{
-    ProtobufHydrationContext, ProtobufStoreParseBase, ProtobufUpdate, SpecsFieldChecksums,
-    VerifiedRemoteConfigValues, deserialize_protobuf_for_store_with_options,
-    prepare_protobuf_store_update,
+    ProtobufStoreParseBase, ProtobufUpdate, SpecsFieldChecksums, VerifiedRemoteConfigValues,
+    deserialize_protobuf_for_store_with_options, prepare_protobuf_store_update,
 };
 use crate::specs_response::spec_types::{
-    ConditionOperator, SpecsResponseFull, SpecsResponseNoUpdates,
+    ConditionOperator, ConditionType, SpecsResponseFull, SpecsResponseNoUpdates,
 };
 use crate::specs_response::specs_hash_map::{SpecDecodeStats, track_spec_decodes};
 use crate::statsig_options::SnapshotEvaluationSessionInitOptions;
@@ -59,6 +59,8 @@ pub(crate) struct IdListLookupCondition {
     pub(crate) id_type: DynamicString,
 }
 
+type IdListDependencyCache = DashMap<(IdListDependencySpecKind, String), Arc<HashSet<String>>>;
+
 #[derive(Clone)]
 pub struct SpecStoreData {
     pub source: SpecsSource,
@@ -69,6 +71,7 @@ pub struct SpecStoreData {
     pub(crate) has_id_list_conditions: bool,
     pub(crate) may_have_time_dependent_evaluations: bool,
     pub(crate) id_list_lookup_conditions: Arc<OnceLock<Vec<IdListLookupCondition>>>,
+    id_list_dependencies: Arc<IdListDependencyCache>,
     pub(crate) auto_capture_settings_value: Option<Arc<Value>>,
     pub(crate) auto_capture_settings_hash: u64,
     pub(crate) live_overlay_target_app_index: Arc<OnceLock<LiveOverlayTargetAppIndex>>,
@@ -89,6 +92,15 @@ struct ConfigSyncCursor {
 }
 
 impl SpecStoreData {
+    fn protobuf_parse_base(&self) -> ProtobufStoreParseBase<'_> {
+        ProtobufStoreParseBase::new(
+            &self.snapshot,
+            self.spec_decode_stats,
+            &self.field_checksums,
+            &self.verified_remote_values,
+        )
+    }
+
     pub(crate) fn id_list_lookup_conditions(&self) -> &[IdListLookupCondition] {
         self.id_list_lookup_conditions
             .get_or_init(|| {
@@ -118,6 +130,34 @@ impl SpecStoreData {
             .as_slice()
     }
 
+    /// Returns every ID-list name reachable from a public evaluation through
+    /// nested gates, experiment-group checks, delegates, CMAB targeting, and
+    /// override mappings.
+    pub(crate) fn id_list_dependencies(
+        &self,
+        name: &str,
+        spec_type: &SpecType,
+    ) -> Arc<HashSet<String>> {
+        let kind = match spec_type {
+            SpecType::Gate => IdListDependencySpecKind::Gate,
+            SpecType::DynamicConfig | SpecType::Experiment => {
+                IdListDependencySpecKind::DynamicConfig
+            }
+            SpecType::Layer => IdListDependencySpecKind::Layer,
+            SpecType::ParameterStore => return Arc::new(HashSet::new()),
+        };
+        let key = (kind, name.to_string());
+        if let Some(cached) = self.id_list_dependencies.get(&key) {
+            return Arc::clone(cached.value());
+        }
+
+        let mut walker = IdListDependencyWalker::new(self);
+        walker.collect_spec(kind, name);
+        let dependencies = Arc::new(walker.names);
+        let cached = self.id_list_dependencies.entry(key).or_insert(dependencies);
+        Arc::clone(cached.value())
+    }
+
     pub(crate) fn gcir_evaluation_plan(&self, hashing: &HashUtil) -> &GcirEvaluationPlan {
         self.gcir_evaluation_plan
             .get_or_init(|| GcirEvaluationPlan::new(self.snapshot.as_ref(), hashing))
@@ -129,6 +169,139 @@ impl SpecStoreData {
 
     fn checksum(&self) -> Option<&str> {
         self.sync_cursor.checksum.as_deref()
+    }
+}
+
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+enum IdListDependencySpecKind {
+    Gate,
+    DynamicConfig,
+    Layer,
+}
+
+struct IdListDependencyWalker<'a> {
+    data: &'a SpecStoreData,
+    visited: HashSet<(IdListDependencySpecKind, String)>,
+    names: HashSet<String>,
+}
+
+impl<'a> IdListDependencyWalker<'a> {
+    fn new(data: &'a SpecStoreData) -> Self {
+        Self {
+            data,
+            visited: HashSet::new(),
+            names: HashSet::new(),
+        }
+    }
+
+    fn collect_spec(&mut self, kind: IdListDependencySpecKind, name: &str) {
+        if !self.visited.insert((kind, name.to_string())) {
+            return;
+        }
+
+        let snapshot = self.data.snapshot.as_ref();
+        let interned_name = InternedString::from_str_ref(name);
+        let spec = match kind {
+            IdListDependencySpecKind::Gate => snapshot.feature_gates.get(&interned_name),
+            IdListDependencySpecKind::DynamicConfig => snapshot.dynamic_configs.get(&interned_name),
+            IdListDependencySpecKind::Layer => snapshot.layer_configs.get(&interned_name),
+        };
+
+        if let Some(spec) = spec.map(|pointer| pointer.view()) {
+            self.collect_spec_rules(spec);
+        }
+
+        if matches!(
+            kind,
+            IdListDependencySpecKind::DynamicConfig | IdListDependencySpecKind::Layer
+        ) {
+            if let Some(target) = snapshot
+                .cmab_configs
+                .as_ref()
+                .and_then(|configs| configs.get(name))
+                .and_then(|cmab| cmab.targeting_gate_name.as_ref())
+            {
+                self.collect_spec(IdListDependencySpecKind::Gate, target.as_str());
+            }
+        }
+
+        self.collect_override_mappings(kind, name);
+    }
+
+    fn collect_spec_rules(&mut self, spec: SpecView<'_>) {
+        for index in 0..spec.rules_len() {
+            self.collect_rule(spec.rule(index));
+        }
+    }
+
+    fn collect_rule(&mut self, rule: RuleRef<'_>) {
+        let snapshot = self.data.snapshot.as_ref();
+        for index in 0..rule.conditions_len() {
+            let Some(condition) = rule.condition_id(index).get_from(&snapshot.condition_map) else {
+                continue;
+            };
+
+            if matches!(
+                condition.compiled_operator,
+                ConditionOperator::InSegmentList | ConditionOperator::NotInSegmentList
+            ) {
+                if let Some(name) = condition
+                    .target_value
+                    .as_ref()
+                    .and_then(|value| value.as_value_ref().string_value())
+                {
+                    self.names.insert(name.to_string());
+                }
+                continue;
+            }
+
+            match condition.compiled_condition_type {
+                ConditionType::PassGate | ConditionType::FailGate => {
+                    if let Some(name) = condition
+                        .target_value
+                        .as_ref()
+                        .and_then(|value| value.as_value_ref().string_value())
+                    {
+                        self.collect_spec(IdListDependencySpecKind::Gate, name);
+                    }
+                }
+                ConditionType::ExperimentGroup => {
+                    if let Some(name) = condition.field.as_ref() {
+                        self.collect_spec(
+                            IdListDependencySpecKind::DynamicConfig,
+                            name.value.as_str(),
+                        );
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if let Some(delegate) = rule.config_delegate() {
+            self.collect_spec(IdListDependencySpecKind::DynamicConfig, delegate.as_str());
+        }
+    }
+
+    fn collect_override_mappings(&mut self, kind: IdListDependencySpecKind, name: &str) {
+        let snapshot = self.data.snapshot.as_ref();
+        let Some(mappings) = snapshot
+            .overrides
+            .as_ref()
+            .and_then(|overrides| overrides.get(name))
+        else {
+            return;
+        };
+
+        for mapping in mappings {
+            if let Some(override_rules) = snapshot.override_rules.as_ref() {
+                for override_rule in &mapping.rules {
+                    if let Some(rule) = override_rules.get(&override_rule.rule_name) {
+                        self.collect_rule(RuleRef::from(rule));
+                    }
+                }
+            }
+            self.collect_spec(kind, mapping.new_config_name.as_str());
+        }
     }
 }
 
@@ -193,12 +366,15 @@ const CONFIG_PROTO_UPDATE_CURSOR_ONLY: &str = "cursor_only";
 const CONFIG_PROTO_UPDATE_DUPLICATE: &str = "duplicate";
 const CONFIG_PROTO_UPDATE_MATERIALIZED: &str = "materialized";
 const INTERNED_MMAP_SPEC_DECODE_COUNT_METRIC: &str = "interned_mmap.spec_decode.count";
+const REMOTE_CONFIG_SNAPSHOT_VERIFIED_VALUES_METRIC: &str =
+    "remote_config_snapshot.verified_values";
 
 pub struct SpecStore {
     output_policy: crate::output_policy::OutputPolicy,
     data: ArcSwap<SpecStoreData>,
     update_lock: Mutex<()>,
     id_list_propagation: Mutex<HashMap<String, IdListPropagationState>>,
+    private_id_list_mutation: Option<Mutex<()>>,
     config_updates: Arc<crate::ConfigUpdates>,
 
     data_store_keys: DataStoreCacheKeys,
@@ -267,6 +443,7 @@ impl SpecStore {
                 has_id_list_conditions: false,
                 may_have_time_dependent_evaluations: true,
                 id_list_lookup_conditions: Arc::new(OnceLock::new()),
+                id_list_dependencies: Arc::new(DashMap::new()),
                 auto_capture_settings_value: None,
                 auto_capture_settings_hash: 0,
                 live_overlay_target_app_index: Arc::new(OnceLock::new()),
@@ -278,6 +455,10 @@ impl SpecStore {
             }),
             update_lock: Mutex::new(()),
             id_list_propagation: Mutex::new(HashMap::new()),
+            private_id_list_mutation: options
+                .and_then(|options| options.enable_id_list_elias_fano)
+                .unwrap_or(false)
+                .then(Mutex::default),
             config_updates: Arc::new(crate::ConfigUpdates::default()),
             event_emitter,
             data_store,
@@ -479,6 +660,7 @@ enum PrepResult {
 
 enum LockedSetValuesResult {
     Applied(SpecsFormat, ApplyResult, ConfigResponseType, bool),
+    CursorOnly(SpecsSource, Option<String>, ConfigResponseType),
     NoSemanticUpdate(SpecsSource, Option<String>, ConfigResponseType),
     Duplicate,
     CurrentValuesNewer,
@@ -514,6 +696,20 @@ struct SpecUpdateNotification {
 }
 
 impl SpecStore {
+    fn hydration_options<'a>(
+        &self,
+        update: &SpecsUpdate,
+        hydration: &'a SpecsUpdateHydration,
+    ) -> StoreHydrationOptions<'a> {
+        StoreHydrationOptions::new(&hydration.source_url, self.mmap_project_id)
+            .with_sync_trigger(hydration.sync_trigger)
+            .with_session_update_mode(self.preserve_session_update_mode)
+            .with_data_store_capture(
+                self.writable_data_store_for_update(&update.source, &update.data)
+                    .is_some(),
+            )
+    }
+
     pub(crate) async fn set_values_with_json_hydration_metrics(
         &self,
         update: SpecsUpdate,
@@ -523,9 +719,7 @@ impl SpecStore {
         self.output_policy
             .scope(self.set_values_with_json_hydration(
                 update,
-                hydration.hydrator.as_ref(),
-                &hydration.source_url,
-                hydration.sync_trigger,
+                &hydration,
                 Some(response_has_updates),
             ))
             .await
@@ -534,9 +728,7 @@ impl SpecStore {
     async fn set_values_with_json_hydration(
         &self,
         mut specs_update: SpecsUpdate,
-        hydrator: &RemoteConfigValueHydrator,
-        source_url: &str,
-        sync_trigger: Option<crate::specs_adapter::SpecsSyncTrigger>,
+        hydration: &SpecsUpdateHydration,
         response_has_updates: Option<&AtomicBool>,
     ) -> Result<(), StatsigErr> {
         let update_started_at = Instant::now();
@@ -547,21 +739,14 @@ impl SpecStore {
         // Reuse proofs belong to this immutable snapshot. Downloads happen
         // outside the writer lock, and a changed base rejects the candidate.
         let parse_base = self.load_data();
-        let capture_data_store_bytes = self
-            .writable_data_store_for_update(&specs_update.source, &specs_update.data)
-            .is_some();
-        let hydrated = match hydrator
+        let options = self.hydration_options(&specs_update, hydration);
+        let hydrated = match hydration
+            .hydrator
             .prepare_json_store_update(
                 &mut specs_update.data,
-                JsonStoreHydrationContext {
-                    source_url,
-                    sync_trigger,
-                    current_verified_values: &parse_base.verified_remote_values,
-                    mmap_project_id: self.mmap_project_id,
-                    preserve_session_update_mode: self.preserve_session_update_mode,
-                    capture_data_store_bytes,
-                    response_has_updates,
-                },
+                options,
+                &parse_base.verified_remote_values,
+                response_has_updates,
             )
             .await
         {
@@ -608,16 +793,14 @@ impl SpecStore {
             locked_result,
             specs_update,
             update_started_at,
-            capture_data_store_bytes,
+            options.capture_data_store_bytes,
         )
     }
 
     async fn set_values_with_protobuf_hydration(
         &self,
         mut specs_update: SpecsUpdate,
-        hydrator: &RemoteConfigValueHydrator,
-        source_url: &str,
-        sync_trigger: Option<crate::specs_adapter::SpecsSyncTrigger>,
+        hydration: &SpecsUpdateHydration,
     ) -> Result<(), StatsigErr> {
         let update_started_at = Instant::now();
 
@@ -647,63 +830,49 @@ impl SpecStore {
         }
 
         let mut next_values = Box::new(SpecsResponseFull::default());
-        let capture_hydrated_data_store_bytes = self
-            .writable_data_store_for_update(&specs_update.source, &specs_update.data)
-            .is_some();
-        let (protobuf_update, spec_decode_stats, hydrated_data_store_bytes, verified_remote_values) =
-            match prepare_protobuf_store_update(
-                &self.ops_stats,
-                ProtobufStoreParseBase {
-                    specs: parse_base.snapshot.as_ref(),
-                    decode_stats: parse_base.spec_decode_stats,
-                    field_checksums: &parse_base.field_checksums,
-                    verified_remote_values: &parse_base.verified_remote_values,
-                },
-                next_values.as_mut(),
-                &mut specs_update.data,
-                ProtobufHydrationContext {
-                    hydrator,
-                    source_url,
-                    sync_trigger,
-                    mmap_project_id: self.mmap_project_id,
-                    capture_hydrated_data_store_bytes,
-                    preserve_session_update_mode: self.preserve_session_update_mode,
-                },
-            )
-            .await
-            {
-                Ok(result) => result,
-                Err(first_error) => {
-                    // Preserve the legacy fallback for responses whose headers
-                    // identify protobuf but whose body is the JSON no-update
-                    // shape.
-                    if specs_update
-                        .data
-                        .deserialize_into::<SpecsResponseNoUpdates>()
-                        .is_ok_and(|result| !result.has_updates)
-                    {
-                        return self.finish_set_values(
-                            LockedSetValuesResult::NoSemanticUpdate(
-                                specs_update.source.clone(),
-                                specs_update.source_api.clone(),
-                                ConfigResponseType::NoUpdate,
-                            ),
-                            specs_update,
-                            update_started_at,
-                            true,
-                        );
-                    }
-
-                    log_error_to_statsig_and_console!(self.ops_stats, TAG, first_error);
-                    return Err(first_error);
+        let options = self.hydration_options(&specs_update, hydration);
+        let hydrated = match prepare_protobuf_store_update(
+            &self.ops_stats,
+            parse_base.protobuf_parse_base(),
+            next_values.as_mut(),
+            &mut specs_update.data,
+            &hydration.hydrator,
+            options,
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(first_error) => {
+                // Preserve the legacy fallback for responses whose headers
+                // identify protobuf but whose body is the JSON no-update
+                // shape.
+                if specs_update
+                    .data
+                    .deserialize_into::<SpecsResponseNoUpdates>()
+                    .is_ok_and(|result| !result.has_updates)
+                {
+                    return self.finish_set_values(
+                        LockedSetValuesResult::NoSemanticUpdate(
+                            specs_update.source.clone(),
+                            specs_update.source_api.clone(),
+                            ConfigResponseType::NoUpdate,
+                        ),
+                        specs_update,
+                        update_started_at,
+                        true,
+                    );
                 }
-            };
 
-        if let Some(bytes) = hydrated_data_store_bytes {
+                log_error_to_statsig_and_console!(self.ops_stats, TAG, first_error);
+                return Err(first_error);
+            }
+        };
+
+        if let Some(bytes) = hydrated.hydrated_data_store_bytes {
             specs_update.data.set_data_store_protobuf_bytes(bytes);
         }
 
-        let prep_result = match protobuf_update {
+        let prep_result = match hydrated.update {
             ProtobufUpdate::Materialized {
                 field_checksums,
                 is_delta,
@@ -718,8 +887,8 @@ impl SpecStore {
                         field_checksums,
                         response_format: SpecsFormat::Protobuf,
                         is_delta,
-                        spec_decode_stats,
-                        verified_remote_values,
+                        spec_decode_stats: hydrated.spec_decode_stats,
+                        verified_remote_values: hydrated.verified_remote_values,
                     }
                 } else {
                     PrepResult::NoUpdates
@@ -749,7 +918,7 @@ impl SpecStore {
             locked_result,
             specs_update,
             update_started_at,
-            capture_hydrated_data_store_bytes,
+            options.capture_data_store_bytes,
         )
     }
 
@@ -833,7 +1002,7 @@ impl SpecStore {
                     specs_update.source.clone(),
                     specs_update.source_api.clone(),
                 );
-                Ok(LockedSetValuesResult::NoSemanticUpdate(
+                Ok(LockedSetValuesResult::CursorOnly(
                     specs_update.source.clone(),
                     specs_update.source_api.clone(),
                     response_type,
@@ -892,6 +1061,14 @@ impl SpecStore {
         update_started_at: Instant,
         allow_data_store_write: bool,
     ) -> Result<(), StatsigErr> {
+        if matches!(
+            &locked_result,
+            LockedSetValuesResult::NoSemanticUpdate(..)
+                | LockedSetValuesResult::Duplicate
+                | LockedSetValuesResult::CurrentValuesNewer
+        ) {
+            self.ops_stats_refresh_remote_config_snapshot();
+        }
         let (response_format, apply_result, response_type, is_delta) = match locked_result {
             LockedSetValuesResult::Applied(
                 response_format,
@@ -904,7 +1081,8 @@ impl SpecStore {
                 }
                 (response_format, apply_result, response_type, is_delta)
             }
-            LockedSetValuesResult::NoSemanticUpdate(source, source_api, response_type) => {
+            LockedSetValuesResult::CursorOnly(source, source_api, response_type)
+            | LockedSetValuesResult::NoSemanticUpdate(source, source_api, response_type) => {
                 if matches!(response_type, ConfigResponseType::Delta) {
                     self.ops_stats_log_proto_update(CONFIG_PROTO_UPDATE_CURSOR_ONLY);
                     self.ops_stats_log_proto_update_latency(
@@ -988,7 +1166,13 @@ impl SpecStore {
     }
 
     fn publish_data(&self, data: SpecStoreData) {
-        self.data.store(Arc::new(data));
+        if self.should_report_blob_snapshot_backing() {
+            let data = Arc::new(data);
+            self.data.store(Arc::clone(&data));
+            self.ops_stats_log_remote_config_snapshot(&data);
+        } else {
+            self.data.store(Arc::new(data));
+        }
         self.config_updates.notify();
     }
 
@@ -1201,6 +1385,7 @@ impl SpecStore {
             has_id_list_conditions,
             may_have_time_dependent_evaluations,
             id_list_lookup_conditions: Arc::new(OnceLock::new()),
+            id_list_dependencies: Arc::new(Default::default()),
             auto_capture_settings_value,
             auto_capture_settings_hash,
             live_overlay_target_app_index,
@@ -1319,7 +1504,7 @@ impl SpecStore {
                             &current_data.field_checksums,
                             next_values.as_mut(),
                             response_data,
-                            self.preserve_session_update_mode,
+                            SpecsResponseParseOptions::for_store(self.preserve_session_update_mode),
                         )?;
                         match update {
                             ProtobufUpdate::Materialized {
@@ -1336,11 +1521,8 @@ impl SpecStore {
                         }
                     }
                     SpecsFormat::Json => {
-                        let parse_options = if self.preserve_session_update_mode {
-                            SpecsResponseParseOptions::preserving_session_update_mode()
-                        } else {
-                            SpecsResponseParseOptions::default()
-                        };
+                        let parse_options =
+                            SpecsResponseParseOptions::for_store(self.preserve_session_update_mode);
                         with_parse_options(parse_options, || {
                             response_data.deserialize_in_place(next_values.as_mut())
                         })?;
@@ -1694,6 +1876,56 @@ async fn write_specs_to_data_store(
 // -------------------------------------------------------------------------------------------- [ OpsStats Helpers ]
 
 impl SpecStore {
+    fn should_report_blob_snapshot_backing(&self) -> bool {
+        self.internal_observability_enabled && !self.output_policy.is_silent()
+    }
+
+    fn ops_stats_refresh_remote_config_snapshot(&self) {
+        if !self.should_report_blob_snapshot_backing() {
+            return;
+        }
+        // A no-update poll can finish after another writer publishes. Observe the
+        // latest snapshot under the same lock as publication, or skip this refresh.
+        let Some(_update_guard) = self.update_lock.try_lock() else {
+            return;
+        };
+        self.ops_stats_log_remote_config_snapshot(&self.load_data());
+    }
+
+    fn ops_stats_log_remote_config_snapshot(&self, data: &SpecStoreData) {
+        if !self.should_report_blob_snapshot_backing() {
+            return;
+        }
+
+        // The registry already deduplicates by (config, SHA) and shares the actual
+        // parsed values. Missing provenance is not evidence of an inline value.
+        let mut mmap = 0usize;
+        let mut non_mmap = 0usize;
+        for values in data.verified_remote_values.values() {
+            for value in values.values() {
+                if value.value.get_json_archived_ref().is_some() {
+                    mmap += 1;
+                } else {
+                    non_mmap += 1;
+                }
+            }
+        }
+
+        // Keep labels stable and emit zeros so a removed/replaced blob clears
+        // its previous gauge. Do not attach a config, rule, SHA or update trigger.
+        for (backing, count) in [("mmap", mmap), ("non_mmap", non_mmap)] {
+            self.ops_stats.try_log(ObservabilityEvent::new_event(
+                MetricType::Gauge,
+                REMOTE_CONFIG_SNAPSHOT_VERIFIED_VALUES_METRIC.to_string(),
+                count as f64,
+                Some(HashMap::from([
+                    ("backing".to_string(), backing.to_string()),
+                    ("sdk_key".to_string(), self.loggable_sdk_key.clone()),
+                ])),
+            ));
+        }
+    }
+
     fn ops_stats_log_interned_mmap_spec_decode(&self, stats: SpecDecodeStats) {
         if !self.internal_observability_enabled || stats.total == 0 {
             return;
@@ -1856,23 +2088,12 @@ impl SpecsUpdateListener for SpecStore {
                     SpecsFormat::Protobuf
                 ) {
                     return self
-                        .set_values_with_protobuf_hydration(
-                            update,
-                            hydration.hydrator.as_ref(),
-                            &hydration.source_url,
-                            hydration.sync_trigger,
-                        )
+                        .set_values_with_protobuf_hydration(update, &hydration)
                         .await;
                 }
 
-                self.set_values_with_json_hydration(
-                    update,
-                    hydration.hydrator.as_ref(),
-                    &hydration.source_url,
-                    hydration.sync_trigger,
-                    None,
-                )
-                .await
+                self.set_values_with_json_hydration(update, &hydration, None)
+                    .await
             })
             .await
     }
@@ -1924,7 +2145,7 @@ impl IdListsUpdateListener for SpecStore {
     }
 
     fn did_receive_id_list_updates(&self, updates: HashMap<String, IdListUpdate>) {
-        self.apply_id_list_updates(updates, HashMap::new());
+        self.did_receive_id_list_updates_with_propagation(updates, HashMap::new());
     }
 
     fn did_receive_id_list_updates_with_propagation(
@@ -1932,7 +2153,75 @@ impl IdListsUpdateListener for SpecStore {
         updates: HashMap<String, IdListUpdate>,
         propagation: HashMap<String, IdListPropagationUpdate>,
     ) {
-        self.apply_id_list_updates(updates, propagation);
+        if let Err(err) = self.try_receive_id_list_updates_with_propagation(updates, propagation) {
+            let _scope = self.output_policy.enter();
+            log_w!(TAG, "ID-list update was not published: {}", err);
+        }
+    }
+
+    fn did_receive_partial_id_list_updates_with_propagation(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
+    ) {
+        if let Err(err) =
+            self.apply_id_list_updates(updates, propagation, IdListPublicationMode::Merge)
+        {
+            let _scope = self.output_policy.enter();
+            log_w!(TAG, "Partial ID-list update was not published: {}", err);
+        }
+    }
+
+    fn try_receive_id_list_updates_with_propagation(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
+    ) -> Result<(), StatsigErr> {
+        self.apply_id_list_updates(updates, propagation, IdListPublicationMode::Replace)
+    }
+
+    fn try_receive_incomplete_id_list_refresh(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
+    ) -> Result<(), StatsigErr> {
+        self.apply_id_list_updates(
+            updates,
+            propagation,
+            IdListPublicationMode::IncompleteRefresh,
+        )
+    }
+
+    fn requires_blocking_id_list_publication(&self) -> bool {
+        self.private_id_list_mutation.is_some()
+    }
+
+    fn supports_id_list_snapshots(&self) -> bool {
+        true
+    }
+
+    fn did_receive_id_list_snapshot(
+        &self,
+        lists: HashMap<String, IdList>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
+    ) -> Result<(), StatsigErr> {
+        let _output_scope = self.output_policy.enter();
+        let _update_guard = self
+            .try_lock_for_update("did_receive_id_list_snapshot")
+            .ok_or_else(|| {
+                StatsigErr::LockFailure(
+                    "Unable to acquire ID-list snapshot update lock".to_string(),
+                )
+            })?;
+        let data = self.load_data();
+        self.publish_id_lists(
+            &data,
+            Arc::new(lists),
+            propagation,
+            "shared_mmap",
+            IdListPublicationMode::Replace,
+        );
+        Ok(())
     }
 }
 
@@ -1941,44 +2230,145 @@ impl SpecStore {
         &self,
         updates: HashMap<String, IdListUpdate>,
         propagation: HashMap<String, IdListPropagationUpdate>,
-    ) {
+        mode: IdListPublicationMode,
+    ) -> Result<(), StatsigErr> {
         let _output_scope = self.output_policy.enter();
-        let Some(_update_guard) = self.try_lock_for_update("did_receive_id_list_updates") else {
-            return;
-        };
-
-        let data = self.load_data();
-        let mut id_lists = data.id_lists.as_ref().clone();
-
-        // delete any id_lists that are not in the updates
-        id_lists.retain(|name, _| updates.contains_key(name));
-
-        for (list_name, update) in updates {
-            if let Some(entry) = id_lists.get_mut(&list_name) {
-                // update existing
-                entry.apply_update(update);
-            } else {
-                // add new
-                let mut list = IdList::new(update.new_metadata.clone());
-                list.apply_update(update);
-                id_lists.insert(list_name, list);
-            }
+        if let Some(mutation) = &self.private_id_list_mutation {
+            let _mutation = mutation.lock();
+            // Serialize private deltas from base selection through commit. Config and
+            // shared snapshot writers can still publish while we encode the heap image.
+            let base = Arc::clone(&self.data.load().id_lists);
+            let lists = self.updated_id_lists(&base, updates, mode);
+            return self.publish_staged_id_lists(&base, lists, propagation, mode);
         }
 
-        let mut next_data = data.as_ref().clone();
-        next_data.id_lists = Arc::new(id_lists);
-        let published_lists = next_data.id_lists.clone();
-        self.publish_data(next_data);
+        let Some(_update_guard) = self.try_lock_for_update("did_receive_id_list_updates") else {
+            return Ok(());
+        };
+        let data = self.load_data();
+        let lists = self.updated_id_lists(&data.id_lists, updates, mode);
+        self.publish_id_lists(
+            &data,
+            lists,
+            propagation,
+            &SpecsSource::Network.to_string(),
+            mode,
+        );
+        Ok(())
+    }
 
+    fn updated_id_lists(
+        &self,
+        base: &Arc<HashMap<String, IdList>>,
+        updates: HashMap<String, IdListUpdate>,
+        mode: IdListPublicationMode,
+    ) -> Arc<HashMap<String, IdList>> {
+        // A complete manifest removes omitted names; lazy loads merge only the
+        // requested materialized lists into the currently published snapshot.
+        let replace_all = mode != IdListPublicationMode::Merge;
+        let mut changed = replace_all && updates.len() != base.len();
+        let mut lists = if replace_all {
+            HashMap::with_capacity(updates.len())
+        } else {
+            base.as_ref().clone()
+        };
+        for (name, update) in updates {
+            let previous = base.get(&name);
+            let mut list = previous
+                .cloned()
+                .unwrap_or_else(|| IdList::new(update.new_metadata.clone()));
+            if self.private_id_list_mutation.is_some() {
+                list.apply_update_with_elias_fano(update);
+                // A generation change replaces ids even for an empty file. An append
+                // advances size even if none of its lines change membership.
+                changed |= previous.is_none_or(|old| {
+                    old.metadata.size != list.metadata.size || !Arc::ptr_eq(&old.ids, &list.ids)
+                });
+            } else {
+                list.apply_update(update);
+            }
+            lists.insert(name, list);
+        }
+        if self.private_id_list_mutation.is_some() && !changed {
+            // A metadata-only poll can carry propagation without invalidating a staged append.
+            Arc::clone(base)
+        } else {
+            Arc::new(lists)
+        }
+    }
+
+    fn publish_staged_id_lists(
+        &self,
+        base: &Arc<HashMap<String, IdList>>,
+        lists: Arc<HashMap<String, IdList>>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
+        mode: IdListPublicationMode,
+    ) -> Result<(), StatsigErr> {
+        let _update_guard = self
+            .update_lock
+            .try_lock_for(LOCK_TIMEOUT)
+            .ok_or_else(|| StatsigErr::LockFailure("ID-list update lock timed out".into()))?;
+        let current = self.load_data();
+        if !Arc::ptr_eq(base, &current.id_lists) {
+            // Another list snapshot committed first. Replaying these bytes on it could
+            // double-advance its cursor. The next HTTP poll reads the committed offset.
+            return Err(StatsigErr::InvalidOperation(
+                "ID-list snapshot changed during publication; refresh from the current cursor"
+                    .into(),
+            ));
+        }
+        self.publish_id_lists(
+            &current,
+            lists,
+            propagation,
+            &SpecsSource::Network.to_string(),
+            mode,
+        );
+        Ok(())
+    }
+
+    fn publish_id_lists(
+        &self,
+        data: &SpecStoreData,
+        lists: Arc<HashMap<String, IdList>>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
+        source: &str,
+        mode: IdListPublicationMode,
+    ) {
+        self.publish_data(SpecStoreData {
+            id_lists: Arc::clone(&lists),
+            ..data.clone()
+        });
+        self.record_id_list_propagation(data, &lists, propagation, source, mode);
+    }
+
+    fn record_id_list_propagation(
+        &self,
+        data: &SpecStoreData,
+        published_lists: &HashMap<String, IdList>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
+        source: &str,
+        mode: IdListPublicationMode,
+    ) {
         let now = Utc::now().timestamp_millis() as u64;
         let mut states = self.id_list_propagation.lock();
-        states.retain(|name, _| propagation.contains_key(name));
+        match mode {
+            IdListPublicationMode::Replace => {
+                states.retain(|name, _| propagation.contains_key(name))
+            }
+            IdListPublicationMode::IncompleteRefresh => {
+                states.retain(|name, _| published_lists.contains_key(name))
+            }
+            IdListPublicationMode::Merge => {}
+        }
         for (name, observation) in propagation {
             // apply_update may reject an older generation. Never attribute it to the installed file.
             let Some(list) = published_lists.get(&name) else {
                 continue;
             };
-            if list.metadata.file_id != observation.file_id {
+            if list.metadata.file_id != observation.file_id
+                || observation.creation_time < list.metadata.creation_time
+            {
                 continue;
             }
             let initialized = states.contains_key(&name) && data.id_lists.contains_key(&name);
@@ -1992,7 +2382,7 @@ impl SpecStore {
                     "id_list_propagation_diff".to_string(),
                     applied_at.saturating_sub(lcut) as f64,
                     Some(HashMap::from([
-                        ("source".to_string(), SpecsSource::Network.to_string()),
+                        ("source".to_string(), source.to_string()),
                         ("id_list_name".to_string(), name),
                         ("lcut".to_string(), lcut.to_string()),
                         ("prev_lcut".to_string(), prev_lcut.to_string()),
@@ -2003,6 +2393,14 @@ impl SpecStore {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "spec_store_private_id_list_tests.rs"]
+mod private_id_list_tests;
+
+#[cfg(test)]
+#[path = "spec_store_snapshot_backing_tests.rs"]
+mod snapshot_backing_tests;
 
 #[cfg(test)]
 mod tests {
@@ -2487,6 +2885,7 @@ mod tests {
             has_id_list_conditions: false,
             may_have_time_dependent_evaluations: true,
             id_list_lookup_conditions: Arc::new(OnceLock::new()),
+            id_list_dependencies: Arc::new(Default::default()),
             auto_capture_settings_value: None,
             auto_capture_settings_hash: 0,
             live_overlay_target_app_index: Arc::new(Default::default()),

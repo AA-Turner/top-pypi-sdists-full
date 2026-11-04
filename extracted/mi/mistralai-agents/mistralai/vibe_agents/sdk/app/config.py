@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import StrEnum
@@ -28,6 +29,21 @@ MANAGED_AGENT_SERVICE_NAME = "mistralai-agents"
 
 DEFAULT_SESSION_LIFETIME_SECONDS = 86400
 """How long a Session may live by default, and so how long Koyeb keeps its sandbox."""
+
+MANAGED_MAX_LIFETIME_LIMIT_SECONDS = 604800
+"""The longest lifetime limit a worker Mistral operates may set: one week."""
+MANAGED_MAX_IDLE_TIMEOUT_SECONDS = 86400
+"""The longest idle limit a worker Mistral operates may set: 24 hours."""
+SELF_HOSTED_MAX_SESSION_LIMIT_SECONDS = 31536000
+"""The longest lifetime or idle limit a self-hosted worker may set: one year."""
+
+
+def is_managed_worker(env: Mapping[str, str] | None = None) -> bool:
+    """Whether Mistral operates this worker, as opposed to a self-hosted one."""
+    # The aeon operator sets this sentinel on every managed worker; the Workflows SDK reads it the same way.
+    from mistralai.workflows.protocol.v1.workflow import MANAGED_K8S_CLUSTER_SENTINEL  # noqa: PLC0415
+
+    return (os.environ if env is None else env).get("DEPLOYMENT_LOCATION_K8S_CLUSTER") == MANAGED_K8S_CLUSTER_SENTINEL
 
 
 def mistral_api_url(names: tuple[str, ...] = MISTRAL_API_URL_ENV_VARS) -> str | None:
@@ -342,14 +358,16 @@ class AppSettings(TelemetrySettings):
     # Temporal's execution timeout, across every Continue-As-New run. A backstop only: the
     # lifetime and idle limits below end the Session first, through its normal terminal path.
     execution_timeout_seconds: float = Field(default=604800.0, gt=0.0)
-    # Longest a Session may live, counted from its first run; at most one week, whatever the
-    # execution timeout.
-    lifetime_limit_seconds: float = Field(default=float(DEFAULT_SESSION_LIFETIME_SECONDS), gt=0.0, le=604800.0)
+    # Longest a Session may live, counted from its first run: at most one week on a managed worker,
+    # one year on a self-hosted one, whatever the execution timeout.
+    lifetime_limit_seconds: float = Field(
+        default=float(DEFAULT_SESSION_LIFETIME_SECONDS), gt=0.0, le=float(SELF_HOSTED_MAX_SESSION_LIMIT_SECONDS)
+    )
     # Longest a Session may stay idle; deployment configuration only, never set per Session. Idle
     # means no Turn runs or waits to run, or every unfinished Action of the running Turn waits for
     # the user or the app. A Session is never idle while one of its direct children is starting or
-    # running a Turn.
-    idle_timeout_seconds: float = Field(default=14400.0, gt=0.0, le=86400.0)
+    # running a Turn. At most 24 hours on a managed worker, one year on a self-hosted one.
+    idle_timeout_seconds: float = Field(default=14400.0, gt=0.0, le=float(SELF_HOSTED_MAX_SESSION_LIMIT_SECONDS))
     # How long a Session stopped at a limit may take to end before it is force-ended.
     limit_grace_seconds: float = Field(default=300.0, gt=0.0)
     # How long an approval or a client tool call waits for the app's answer before the call fails.
@@ -409,7 +427,24 @@ class AppSettings(TelemetrySettings):
         # whole grace period.
         if self.lifetime_limit_seconds + self.limit_grace_seconds >= self.execution_timeout_seconds:
             raise ValueError(
-                "lifetime_limit_seconds plus limit_grace_seconds must be strictly less than execution_timeout_seconds"
+                "AGENTS_SDK_LIFETIME_LIMIT_SECONDS plus AGENTS_SDK_LIMIT_GRACE_SECONDS must be strictly less than "
+                "AGENTS_SDK_EXECUTION_TIMEOUT_SECONDS: set AGENTS_SDK_EXECUTION_TIMEOUT_SECONDS above "
+                f"{self.lifetime_limit_seconds + self.limit_grace_seconds:.0f}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_managed_worker_limits(self) -> Self:
+        # A self-hosted worker may keep Sessions up to a year; Mistral's workers keep the product limits.
+        if not is_managed_worker():
+            return self
+        if self.lifetime_limit_seconds > MANAGED_MAX_LIFETIME_LIMIT_SECONDS:
+            raise ValueError(
+                f"AGENTS_SDK_LIFETIME_LIMIT_SECONDS is at most {MANAGED_MAX_LIFETIME_LIMIT_SECONDS} on a managed worker"
+            )
+        if self.idle_timeout_seconds > MANAGED_MAX_IDLE_TIMEOUT_SECONDS:
+            raise ValueError(
+                f"AGENTS_SDK_IDLE_TIMEOUT_SECONDS is at most {MANAGED_MAX_IDLE_TIMEOUT_SECONDS} on a managed worker"
             )
         return self
 
@@ -466,6 +501,9 @@ class ControlPlaneSettings(_CheckedSettings):
     mistral_api_key: str = Field(  # type: ignore[pydantic-alias]
         default="", validation_alias=AliasChoices("MISTRAL_API_KEY", "PROD_MISTRAL_API_KEY")
     )
+    # The release of the code `agents serve` runs, such as the commit an image was built from. A restart
+    # with the same configuration and code version keeps its agent. Unset, the SDK hashes the project.
+    code_version: str = ""
 
     @property
     def api_key(self) -> str:

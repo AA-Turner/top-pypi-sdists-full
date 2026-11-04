@@ -8,7 +8,7 @@ from mistralai.vibe.harness.app_server.session import McpHttpSourceConfiguration
 from mistralai.vibe.harness.runtime.completion import CompletionConfig
 from mistralai.workflows.plugins.mistralai.connectors import decorator as connector_decorator
 
-from . import connector_selection, contracts
+from . import connector_selection, contracts, mcp_sources
 from . import tool as tool_authoring
 from . import types as authoring_types
 from .errors import SdkError
@@ -16,7 +16,7 @@ from .skills import AllRegistrySkills, RegistrySkill
 
 
 class Subagent:
-    """A named child agent the parent can start with ``agents.spawn``.
+    """A named child agent the parent can start with the ``agents.spawn`` tool.
 
     Every field left as ``None`` is inherited from the agent that spawns this child. A field that
     is set replaces the inherited value, and an empty list clears it: nothing is merged. A child
@@ -26,7 +26,7 @@ class Subagent:
     ``model``, ``reasoning_effort`` and ``temperature`` change the completion the child inherits,
     under the same rules as on ``agents.Agent``. ``provider`` or ``completion`` replace it instead,
     and are exclusive with each other: ``provider`` needs ``model`` too, and ``completion.model``
-    must equal ``model`` when both are set. The parent's ``response_format`` never reaches a
+    must equal ``model`` when both are set. The parent's ``output_type`` never reaches a
     child, because a child's result is its final answer.
 
     Connectors are inherited too, including ``all_connectors()`` on the root's Harness.
@@ -148,6 +148,15 @@ class Subagent:
                 connectors, connector_discovery = contracts.split_connectors(connectors, owner=f"Subagent {name!r}")
             except (TypeError, ValueError) as error:
                 raise SdkError(str(error)) from error
+        if mcps is not None:
+            # Whether a source left at the default model_access is direct depends on the builtins
+            # this Subagent inherits, so assembly checks those sources again once they are known.
+            mcp_sources.check_mcp_sources(mcps, programmatic=None, owner=f"Subagent {name!r}")
+            authored_tools = [
+                *(tool_authoring.authored_tool(tool) for tool in tools or ()),
+                *(tool for hook in hooks or () for tool in hook.tools),
+            ]
+            mcp_sources.refuse_tool_namespaces(authored_tools, mcps, subagent=(name,))
         for skill in skills or ():
             if isinstance(skill, AllRegistrySkills):
                 raise TypeError(

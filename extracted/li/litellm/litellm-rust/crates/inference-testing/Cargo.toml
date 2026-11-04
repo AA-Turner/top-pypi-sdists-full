@@ -5,9 +5,12 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
+readme = "README.md"
 
 [dependencies]
+litellm-auth.workspace = true
 futures-util.workspace = true
 litellm-http.workspace = true
 litellm-inference.workspace = true
 litellm-secrets.workspace = true
+tokio.workspace = true

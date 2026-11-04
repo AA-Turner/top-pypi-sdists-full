@@ -53,7 +53,6 @@ class ChecklistMigrator(Migrator[Checklist, ChecklistCopyOptions]):
         if existing_checklist is not None:
             return existing_checklist
 
-        destination_client = self.destination_client_for(source)
         api_source_checklist = source._get_latest_api()
         commit_message = (
             options.new_commit_message
@@ -70,7 +69,7 @@ class ChecklistMigrator(Migrator[Checklist, ChecklistCopyOptions]):
         properties = (
             options.new_properties if options.new_properties is not None else api_source_checklist.metadata.properties
         )
-        labels = options.new_labels if options.new_labels is not None else api_source_checklist.metadata.labels
+        labels = self.ctx.destination_labels(api_source_checklist.metadata.labels, override=options.new_labels)
         checklist_variables = (
             options.new_checklist_variables
             if options.new_checklist_variables is not None
@@ -95,7 +94,7 @@ class ChecklistMigrator(Migrator[Checklist, ChecklistCopyOptions]):
                     source_assignee_rid,
                     source.rid,
                 )
-        workspace_rid = destination_client.get_workspace(destination_client._clients.workspace_rid).rid
+        workspace_rid = self.ctx.destination_workspace_rid_for(source)
 
         if self.ctx.dry_run:
             logger.info(would_create_message(self.resource_type), source.name, source.rid)
@@ -103,7 +102,7 @@ class ChecklistMigrator(Migrator[Checklist, ChecklistCopyOptions]):
             return source
 
         new_checklist = _create_checklist_with_content(
-            client=destination_client,
+            client=self.destination_client_for(source),
             commit_message=commit_message,
             assignee_rid=assignee_rid,
             title=title,

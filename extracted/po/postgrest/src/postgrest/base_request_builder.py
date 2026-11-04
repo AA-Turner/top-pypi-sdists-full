@@ -1,54 +1,36 @@
 from __future__ import annotations
 
 import json
-import sys
+from collections.abc import Awaitable, Iterable, Mapping, Sequence
+from datetime import date, time
 from json import JSONDecodeError
 from re import search
 from typing import (
     Any,
-    Awaitable,
-    Dict,
     Generic,
-    Iterable,
-    List,
-    Literal,
     NamedTuple,
-    Optional,
-    Tuple,
-    Type,
+    Self,
+    TypeGuard,
     TypeVar,
-    Union,
     overload,
 )
+from uuid import UUID
 
-from httpx import AsyncClient, BasicAuth, Client, Headers, QueryParams
+from httpx import AsyncClient, Auth, BasicAuth, Client, Headers, QueryParams
 from httpx import Response as RequestResponse
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from yarl import URL
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
-try:
-    # >= 2.0.0
-    from pydantic import field_validator
-except ImportError:
-    # < 2.0.0
-    from pydantic import validator as field_validator  # type: ignore
-
-from .base_client import BasePostgrestClient
 from .types import (
     JSON,
     CountMethod,
     Filters,
     FilterValue,
-    JSONAdapter,
+    RequestBody,
     RequestMethod,
     ReturnMethod,
 )
-from .utils import sanitize_array_param, sanitize_param
+from .utils import _quote, sanitize_array_param, sanitize_param
 
 
 class QueryArgs(NamedTuple):
@@ -56,7 +38,7 @@ class QueryArgs(NamedTuple):
     method: RequestMethod
     params: QueryParams
     headers: Headers
-    json: JSON
+    json: RequestBody
 
 
 C = TypeVar("C", Client, AsyncClient)
@@ -72,7 +54,7 @@ class RequestConfig(Generic[C]):
         headers: Headers,
         params: QueryParams,
         auth: BasicAuth | None,
-        json: JSON,
+        json: RequestBody,
         retry_enabled: bool = True,
     ) -> None:
         self.session: C = session
@@ -83,6 +65,11 @@ class RequestConfig(Generic[C]):
         self.json = None if http_method in {"GET", "HEAD"} else json
         self.auth = auth
         self.retry_enabled = retry_enabled
+        self.strip_nulls = False
+
+    def _reject_strip_nulls(self, method: str) -> None:
+        if self.strip_nulls:
+            raise ValueError(f"strip_nulls() cannot be used with {method}()")
 
     @overload
     def send(
@@ -95,27 +82,86 @@ class RequestConfig(Generic[C]):
 
     def send(self: RequestConfig[C], additional_headers: Headers):
         additional_headers.update(self.headers)
+        auth: Auth | None = self.auth
+        if auth is None and "Authorization" not in additional_headers:
+            auth = self.session.auth
+        if self.strip_nulls:
+            accept = additional_headers.get("Accept")
+            if accept == "application/vnd.pgrst.object+json":
+                additional_headers["Accept"] = f"{accept};nulls=stripped"
+            elif accept in (None, "application/json"):
+                additional_headers["Accept"] = (
+                    "application/vnd.pgrst.array+json;nulls=stripped"
+                )
+        content = None
+        if self.json is not None:
+            content = _encode_json_body(self.json)
+            if "Content-Type" not in additional_headers:
+                additional_headers["Content-Type"] = "application/json"
         return self.session.request(
             self.http_method,
             str(self.path),
-            json=self.json,
+            content=content,
             params=self.params,
             headers=additional_headers,
-            auth=self.auth,
+            auth=auth,
         )
 
-    def should_retry(self, response: RequestResponse, attempt_count: int) -> bool:
+    def _can_retry(self, attempt_count: int) -> bool:
         if not self.retry_enabled or attempt_count >= MAX_RETRIES:
             return False
-        if not (self.http_method == "GET" or self.http_method == "HEAD"):
+        return self.http_method == "GET" or self.http_method == "HEAD"
+
+    def should_retry(self, response: RequestResponse, attempt_count: int) -> bool:
+        if not self._can_retry(attempt_count):
             return False
         return response.status_code == 503 or response.status_code == 520
 
 
-def _unique_columns(json: List[Dict[str, JSON]]):
+def _encode_json_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        return dict(value)
+    if isinstance(value, Sequence) and not isinstance(
+        value, (bytes, bytearray, memoryview)
+    ):
+        return list(value)
+    if isinstance(value, (date, time)):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return "\\x" + bytes(value).hex()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def _encode_json_body(body: object) -> bytes:
+    """Encode a request body as JSON, the way httpx does for ``json=``.
+
+    On top of plain JSON values this encodes the types that appear in the
+    models generated by ``supabase gen types --lang python``: ``datetime``,
+    ``date`` and ``time`` as ISO 8601 strings, ``UUID`` as its canonical string
+    and ``bytes`` in the ``\\x`` hex format PostgreSQL uses for ``bytea``.
+    """
+    return json.dumps(
+        body,
+        default=_encode_json_value,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def _is_row_list(body: object) -> TypeGuard[Sequence[Mapping[str, object]]]:
+    return (
+        isinstance(body, Sequence)
+        and not isinstance(body, (str, bytes, bytearray))
+        and all(isinstance(row, Mapping) for row in body)
+    )
+
+
+def _unique_columns(json: Sequence[Mapping[str, object]]) -> str:
     unique_keys = {key for row in json for key in row.keys()}
-    columns = ",".join([f'"{k}"' for k in unique_keys])
-    return columns
+    return ",".join(_quote(key) for key in unique_keys)
 
 
 def _serialize_filter_value(value: Any) -> str:
@@ -133,7 +179,7 @@ def _serialize_filter_value(value: Any) -> str:
     return str(value)
 
 
-def _cleaned_columns(columns: Tuple[str, ...]) -> str:
+def _cleaned_columns(columns: tuple[str, ...]) -> str:
     quoted = False
     cleaned = []
 
@@ -152,8 +198,8 @@ def _cleaned_columns(columns: Tuple[str, ...]) -> str:
 
 def pre_select(
     *columns: str,
-    count: Optional[CountMethod] = None,
-    head: Optional[bool] = None,
+    count: CountMethod | None = None,
+    head: bool | None = None,
 ) -> QueryArgs:
     method = RequestMethod.HEAD if head else RequestMethod.GET
     cleaned_columns = _cleaned_columns(columns or ("*",))
@@ -164,9 +210,9 @@ def pre_select(
 
 
 def pre_insert(
-    json: JSON,
+    json: RequestBody,
     *,
-    count: Optional[CountMethod],
+    count: CountMethod | None,
     returning: ReturnMethod,
     upsert: bool,
     default_to_null: bool = True,
@@ -181,15 +227,17 @@ def pre_insert(
     headers = Headers({"Prefer": ",".join(prefer_headers)})
     # Adding 'columns' query parameters
     query_params = {}
-    if isinstance(json, list):
-        query_params = {"columns": _unique_columns(json)}
+    if _is_row_list(json):
+        columns = _unique_columns(json)
+        if columns:
+            query_params = {"columns": columns}
     return QueryArgs(RequestMethod.POST, QueryParams(query_params), headers, json)
 
 
 def pre_upsert(
-    json: JSON,
+    json: RequestBody,
     *,
-    count: Optional[CountMethod],
+    count: CountMethod | None,
     returning: ReturnMethod,
     ignore_duplicates: bool,
     on_conflict: str = "",
@@ -207,15 +255,17 @@ def pre_upsert(
     if on_conflict:
         query_params["on_conflict"] = on_conflict
     # Adding 'columns' query parameters
-    if isinstance(json, list):
-        query_params["columns"] = _unique_columns(json)
+    if _is_row_list(json):
+        columns = _unique_columns(json)
+        if columns:
+            query_params["columns"] = columns
     return QueryArgs(RequestMethod.POST, QueryParams(query_params), headers, json)
 
 
 def pre_update(
-    json: JSON,
+    json: RequestBody,
     *,
-    count: Optional[CountMethod],
+    count: CountMethod | None,
     returning: ReturnMethod,
 ) -> QueryArgs:
     prefer_headers = [f"return={returning}"]
@@ -227,7 +277,7 @@ def pre_update(
 
 def pre_delete(
     *,
-    count: Optional[CountMethod],
+    count: CountMethod | None,
     returning: ReturnMethod,
 ) -> QueryArgs:
     prefer_headers = [f"return={returning}"]
@@ -238,17 +288,19 @@ def pre_delete(
 
 
 class APIResponse(BaseModel):
-    data: List[JSON]
+    data: list[JSON]
     """The data returned by the query."""
-    count: Optional[int] = None
+    count: int | None = None
     """The number of rows returned."""
 
     @staticmethod
     def _get_count_from_content_range_header(
         content_range_header: str,
-    ) -> Optional[int]:
+    ) -> int | None:
         content_range = content_range_header.split("/")
-        return None if len(content_range) < 2 else int(content_range[1])
+        if len(content_range) < 2 or content_range[1] == "*":
+            return None
+        return int(content_range[1])
 
     @staticmethod
     def _is_count_in_prefer_header(prefer_header: str) -> bool:
@@ -258,16 +310,14 @@ class APIResponse(BaseModel):
     @staticmethod
     def _get_count_from_http_request_response(
         request_response: RequestResponse,
-    ) -> Optional[int]:
-        prefer_header: Optional[str] = request_response.request.headers.get("prefer")
+    ) -> int | None:
+        prefer_header: str | None = request_response.request.headers.get("prefer")
         if not prefer_header:
             return None
         is_count_in_prefer_header = APIResponse._is_count_in_prefer_header(
             prefer_header
         )
-        content_range_header: Optional[str] = request_response.headers.get(
-            "content-range"
-        )
+        content_range_header: str | None = request_response.headers.get("content-range")
         if is_count_in_prefer_header and content_range_header:
             return APIResponse._get_count_from_content_range_header(
                 content_range_header
@@ -278,14 +328,14 @@ class APIResponse(BaseModel):
     def from_http_request_response(request_response: RequestResponse) -> APIResponse:
         count = APIResponse._get_count_from_http_request_response(request_response)
         try:
-            data = JSONAdapter.validate_json(request_response.content)
-        except ValidationError:
+            data = json.loads(request_response.content)
+        except ValueError:
             data = request_response.text if len(request_response.text) > 0 else []
         return APIResponse.model_construct(data=data, count=count)
 
 
 class SingleAPIResponse(APIResponse):
-    data: JSON  # type: ignore
+    data: JSON  # type: ignore[assignment]
     """The data returned by the query."""
 
     @staticmethod
@@ -453,7 +503,7 @@ class BaseFilterRequestBuilder(Generic[C]):
         """
         return self.filter(column, Filters.ILIKE, pattern)
 
-    def or_(self: Self, filters: str, reference_table: Optional[str] = None) -> Self:
+    def or_(self: Self, filters: str, reference_table: str | None = None) -> Self:
         """An 'or' filter
 
         Args:
@@ -485,7 +535,9 @@ class BaseFilterRequestBuilder(Generic[C]):
         return self.filter(column, Filters.WFTS, query)
 
     def in_(self: Self, column: str, values: Iterable[FilterValue]) -> Self:
-        stringified_values = ",".join(map(sanitize_param, values))
+        stringified_values = ",".join(
+            sanitize_param(_serialize_filter_value(value)) for value in values
+        )
         return self.filter(column, Filters.IN, f"({stringified_values})")
 
     def cs(self: Self, column: str, values: Iterable[FilterValue]) -> Self:
@@ -497,7 +549,7 @@ class BaseFilterRequestBuilder(Generic[C]):
     def contains(
         self: Self,
         column: str,
-        value: Union[Iterable[FilterValue], str, Dict[str, JSON]],
+        value: Iterable[FilterValue] | str | dict[str, JSON],
     ) -> Self:
         if isinstance(value, str):
             # range types can be inclusive '[', ']' or exclusive '(', ')' so just
@@ -512,7 +564,7 @@ class BaseFilterRequestBuilder(Generic[C]):
     def contained_by(
         self: Self,
         column: str,
-        value: Union[Iterable[FilterValue], str, Dict[str, JSON]],
+        value: Iterable[FilterValue] | str | dict[str, JSON],
     ) -> Self:
         if isinstance(value, str):
             # range
@@ -524,7 +576,7 @@ class BaseFilterRequestBuilder(Generic[C]):
     def ov(
         self: Self,
         column: str,
-        value: Union[Iterable[FilterValue], str, Dict[str, JSON]],
+        value: Iterable[FilterValue] | str | dict[str, JSON],
     ) -> Self:
         if isinstance(value, str):
             # range types can be inclusive '[', ']' or exclusive '(', ')' so just
@@ -535,40 +587,50 @@ class BaseFilterRequestBuilder(Generic[C]):
             return self.filter(column, Filters.OV, sanitize_array_param(value))
         return self.filter(column, Filters.OV, json.dumps(value))
 
-    def sl(self: Self, column: str, range: Tuple[int, int]) -> Self:
+    def sl(self: Self, column: str, range: tuple[FilterValue, FilterValue]) -> Self:
         return self.filter(column, Filters.SL, f"({range[0]},{range[1]})")
 
-    def sr(self: Self, column: str, range: Tuple[int, int]) -> Self:
+    def sr(self: Self, column: str, range: tuple[FilterValue, FilterValue]) -> Self:
         return self.filter(column, Filters.SR, f"({range[0]},{range[1]})")
 
-    def nxl(self: Self, column: str, range: Tuple[int, int]) -> Self:
+    def nxl(self: Self, column: str, range: tuple[FilterValue, FilterValue]) -> Self:
         return self.filter(column, Filters.NXL, f"({range[0]},{range[1]})")
 
-    def nxr(self: Self, column: str, range: Tuple[int, int]) -> Self:
+    def nxr(self: Self, column: str, range: tuple[FilterValue, FilterValue]) -> Self:
         return self.filter(column, Filters.NXR, f"({range[0]},{range[1]})")
 
-    def adj(self: Self, column: str, range: Tuple[int, int]) -> Self:
+    def adj(self: Self, column: str, range: tuple[FilterValue, FilterValue]) -> Self:
         return self.filter(column, Filters.ADJ, f"({range[0]},{range[1]})")
 
-    def range_gt(self: Self, column: str, range: Tuple[int, int]) -> Self:
+    def range_gt(
+        self: Self, column: str, range: tuple[FilterValue, FilterValue]
+    ) -> Self:
         return self.sr(column, range)
 
-    def range_gte(self: Self, column: str, range: Tuple[int, int]) -> Self:
+    def range_gte(
+        self: Self, column: str, range: tuple[FilterValue, FilterValue]
+    ) -> Self:
         return self.nxl(column, range)
 
-    def range_lt(self: Self, column: str, range: Tuple[int, int]) -> Self:
+    def range_lt(
+        self: Self, column: str, range: tuple[FilterValue, FilterValue]
+    ) -> Self:
         return self.sl(column, range)
 
-    def range_lte(self: Self, column: str, range: Tuple[int, int]) -> Self:
+    def range_lte(
+        self: Self, column: str, range: tuple[FilterValue, FilterValue]
+    ) -> Self:
         return self.nxr(column, range)
 
-    def range_adjacent(self: Self, column: str, range: Tuple[int, int]) -> Self:
+    def range_adjacent(
+        self: Self, column: str, range: tuple[FilterValue, FilterValue]
+    ) -> Self:
         return self.adj(column, range)
 
     def overlaps(self: Self, column: str, values: Iterable[FilterValue]) -> Self:
         return self.ov(column, values)
 
-    def match(self: Self, query: Dict[str, Any]) -> Self:
+    def match(self: Self, query: dict[str, Any]) -> Self:
         updated_query = self
 
         if not query:
@@ -589,16 +651,19 @@ class BaseFilterRequestBuilder(Generic[C]):
         Args:
             value: The maximum number of rows that can be affected
         """
-        prefer_header = self.request.headers.get("Prefer", "")
-        if prefer_header:
-            if "handling=strict" not in prefer_header:
-                prefer_header += ",handling=strict"
-        else:
-            prefer_header = "handling=strict"
-
-        prefer_header += f",max-affected={value}"
-
-        self.request.headers["Prefer"] = prefer_header
+        preferences = []
+        for preference in self.request.headers.get_list("Prefer", split_commas=True):
+            if not preference or preference.startswith("max-affected="):
+                continue
+            if preference.startswith("handling="):
+                if "handling=strict" not in preferences:
+                    preferences.append("handling=strict")
+            else:
+                preferences.append(preference)
+        if "handling=strict" not in preferences:
+            preferences.append("handling=strict")
+        preferences.append(f"max-affected={value}")
+        self.request.headers["Prefer"] = ",".join(preferences)
         return self
 
 
@@ -608,8 +673,8 @@ class BaseSelectRequestBuilder(BaseFilterRequestBuilder[C]):
         column: str,
         *,
         desc: bool = False,
-        nullsfirst: Optional[bool] = None,
-        foreign_table: Optional[str] = None,
+        nullsfirst: bool | None = None,
+        foreign_table: str | None = None,
     ) -> Self:
         """Sort the returned rows in some specific order.
 
@@ -636,7 +701,7 @@ class BaseSelectRequestBuilder(BaseFilterRequestBuilder[C]):
         )
         return self
 
-    def limit(self: Self, size: int, *, foreign_table: Optional[str] = None) -> Self:
+    def limit(self: Self, size: int, *, foreign_table: str | None = None) -> Self:
         """Limit the number of rows returned by a query.
 
         Args:
@@ -663,7 +728,7 @@ class BaseSelectRequestBuilder(BaseFilterRequestBuilder[C]):
         return self
 
     def range(
-        self: Self, start: int, end: int, foreign_table: Optional[str] = None
+        self: Self, start: int, end: int, foreign_table: str | None = None
     ) -> Self:
         self.request.params = self.request.params.add(
             f"{foreign_table}.offset" if foreign_table else "offset", start
@@ -672,6 +737,16 @@ class BaseSelectRequestBuilder(BaseFilterRequestBuilder[C]):
             f"{foreign_table}.limit" if foreign_table else "limit",
             end - start + 1,
         )
+        return self
+
+    def strip_nulls(self: Self) -> Self:
+        """Strip null values from the response data.
+
+        Only available in PostgREST v11.2+.
+        """
+        if self.request.headers.get("Accept") == "text/csv":
+            raise ValueError("strip_nulls() cannot be used with csv()")
+        self.request.strip_nulls = True
         return self
 
 
@@ -707,5 +782,6 @@ class BaseRPCRequestBuilder(BaseSelectRequestBuilder):
 
     def csv(self) -> Self:
         """Specify that the query must retrieve data as a single CSV string."""
+        self.request._reject_strip_nulls("csv")
         self.request.headers["Accept"] = "text/csv"
         return self

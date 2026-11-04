@@ -69,6 +69,7 @@ __all__ = [
     "TrajectorySample",
     "TrajectoryTiming",
     "TrajectoryVertex",
+    "placed_against_entity",
 ]
 
 #: Segments shorter than this (m) have no direction of their own.
@@ -453,6 +454,41 @@ TrajectoryPosition = Union[
 ]
 
 
+def placed_against_entity(
+    position: Union[
+        CarlaWorldPose,
+        Lanelet2Pose,
+        OpenDrivePose,
+        MapPose,
+        RelativeLanePose,
+        RouteLanePose,
+        RouteOppositePose,
+        RouteCrossingPose,
+        RouteCrosswalkPose,
+        RouteRoadsidePose,
+    ],
+) -> bool:
+    """Whether *position* is placed against where an entity is now, and so
+    moves with it: a :class:`RelativeLanePose` (its ``entity_ref``), or a
+    route pose counted from the ego (a :class:`RouteLanePose`,
+    :class:`RouteOppositePose` or :class:`RouteRoadsidePose` without an
+    ``anchor``).  Any other is a fixed place."""
+    if isinstance(position, RelativeLanePose):
+        return True
+    # Each class on its own, named as the class: Codon reads no attribute of
+    # a union (docs/typecheck.md).
+    if isinstance(position, RouteLanePose):
+        on_lane: RouteLanePose = position
+        return on_lane.anchor is None
+    if isinstance(position, RouteOppositePose):
+        opposite: RouteOppositePose = position
+        return opposite.anchor is None
+    if isinstance(position, RouteRoadsidePose):
+        roadside: RouteRoadsidePose = position
+        return roadside.anchor is None
+    return False
+
+
 #: How a vertex's time is written now, for the errors below.
 _HOW = "TrajectoryVertex(position, advance=TrajectoryTimeCondition({time!r}))"
 
@@ -790,11 +826,12 @@ class TrajectoryTiming:
     Args:
         domain: What the times are measured from.
         scale: Factor applied to every vertex time; ``2.0`` plays a recording at
-            half speed.  Must be positive.
-        offset: Seconds added after scaling.
+            half speed.  Must be finite and positive.
+        offset: Seconds added after scaling.  Must be finite.
 
     Raises:
-        ValueError: If *scale* is not positive.
+        ValueError: If *scale* is not finite and positive, or *offset* is
+            not finite.
     """
 
     domain: ReferenceContext = ReferenceContext.RELATIVE
@@ -802,8 +839,18 @@ class TrajectoryTiming:
     offset: float = 0.0
 
     def __post_init__(self) -> None:
-        if not self.scale > 0.0:
-            raise ValueError("TrajectoryTiming.scale must be positive")
+        # NaN fails `> 0.0`, but infinity passes it and would freeze a timed
+        # trajectory at its first vertex; a non-finite offset makes every
+        # trajectory time NaN.
+        if not math.isfinite(self.scale) or not self.scale > 0.0:
+            raise ValueError(
+                f"TrajectoryTiming.scale must be finite and positive, "
+                f"not {self.scale!r}"
+            )
+        if not math.isfinite(self.offset):
+            raise ValueError(
+                f"TrajectoryTiming.offset must be finite, not {self.offset!r}"
+            )
 
     def trajectory_time(self, scenario_time: float, action_start: float) -> float:
         """The vertex time that corresponds to *scenario_time*."""

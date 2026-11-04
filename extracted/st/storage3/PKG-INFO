@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: storage3
-Version: 2.33.0
+Version: 2.34.0
 Summary: Supabase Storage client for Python.
 Author: Joel Lee, Leon Fedden, Daniel Reinón García, Leynier Gutiérrez González, Anand Krishna
 Author-email: Joel Lee <joel@joellee.org>, Leon Fedden <leonfedden@gmail.com>, Daniel Reinón García <danielreinon@outlook.com>, Leynier Gutiérrez González <leynier41@gmail.com>, Anand Krishna <anand2312@proton.me>
@@ -10,12 +10,12 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Dist: httpx[http2]>=0.26,<0.29
 Requires-Dist: deprecation>=2.1.0
-Requires-Dist: pydantic>=2.11.7
+Requires-Dist: pydantic>=2.11.7,<3
 Requires-Dist: yarl>=1.20.1
-Requires-Dist: pyiceberg>=0.10.0 ; extra == 'iceberg'
+Requires-Dist: pyiceberg[pyarrow]>=0.10.0 ; extra == 'iceberg'
 Maintainer: Leonardo Santiago
 Maintainer-email: Leonardo Santiago <leonardo.santiago@supabase.io>
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Project-URL: changelog, https://github.com/supabase/supabase-py/tree/main/CHANGELOG.md
 Project-URL: documentation, https://supabase.github.io/storage-py
 Project-URL: homepage, https://supabase.github.io/storage-py
@@ -26,6 +26,12 @@ Description-Content-Type: text/markdown
 # Storage-py
 
 Python Client library to interact with Supabase Storage.
+
+## Supabase Service Compatibility
+
+`storage3` only guarantees compatibility with the [latest Supabase Storage release](https://github.com/supabase/storage/releases). Older Supabase Storage releases are supported on a best-effort basis, but compatibility is not guaranteed.
+
+If you self-host Supabase Storage, we recommend upgrading to the latest release when upgrading this SDK.
 
 ## How to use
 

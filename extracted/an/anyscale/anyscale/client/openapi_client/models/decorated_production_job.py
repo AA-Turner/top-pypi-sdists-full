@@ -65,6 +65,9 @@ class DecoratedProductionJob(object):
         'integration_details': 'IntegrationDetails',
         'connections': 'list[DecoratedJobConnectionInfo]',
         'position_in_job_queue': 'int',
+        'is_admission_queued': 'bool',
+        'admission_queue_name': 'str',
+        'admission_workloads_ahead': 'int',
         'secrets_masked': 'bool'
     }
 
@@ -101,10 +104,13 @@ class DecoratedProductionJob(object):
         'integration_details': 'integration_details',
         'connections': 'connections',
         'position_in_job_queue': 'position_in_job_queue',
+        'is_admission_queued': 'is_admission_queued',
+        'admission_queue_name': 'admission_queue_name',
+        'admission_workloads_ahead': 'admission_workloads_ahead',
         'secrets_masked': 'secrets_masked'
     }
 
-    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, is_imported=False, source_job_id=None, project=None, creator=None, last_job_run=None, schedule=None, job_queue=None, integration_details=None, connections=None, position_in_job_queue=None, secrets_masked=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, is_imported=False, source_job_id=None, project=None, creator=None, last_job_run=None, schedule=None, job_queue=None, integration_details=None, connections=None, position_in_job_queue=None, is_admission_queued=None, admission_queue_name=None, admission_workloads_ahead=None, secrets_masked=False, local_vars_configuration=None):  # noqa: E501
         """DecoratedProductionJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -142,6 +148,9 @@ class DecoratedProductionJob(object):
         self._integration_details = None
         self._connections = None
         self._position_in_job_queue = None
+        self._is_admission_queued = None
+        self._admission_queue_name = None
+        self._admission_workloads_ahead = None
         self._secrets_masked = None
         self.discriminator = None
 
@@ -197,6 +206,12 @@ class DecoratedProductionJob(object):
             self.connections = connections
         if position_in_job_queue is not None:
             self.position_in_job_queue = position_in_job_queue
+        if is_admission_queued is not None:
+            self.is_admission_queued = is_admission_queued
+        if admission_queue_name is not None:
+            self.admission_queue_name = admission_queue_name
+        if admission_workloads_ahead is not None:
+            self.admission_workloads_ahead = admission_workloads_ahead
         if secrets_masked is not None:
             self.secrets_masked = secrets_masked
 
@@ -959,6 +974,75 @@ class DecoratedProductionJob(object):
         """
 
         self._position_in_job_queue = position_in_job_queue
+
+    @property
+    def is_admission_queued(self):
+        """Gets the is_admission_queued of this DecoratedProductionJob.  # noqa: E501
+
+        True when the job's cluster is waiting on scheduler admission (queued) rather than starting immediately. Null when the job is not awaiting a cluster or the admission status could not be determined.  # noqa: E501
+
+        :return: The is_admission_queued of this DecoratedProductionJob.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_admission_queued
+
+    @is_admission_queued.setter
+    def is_admission_queued(self, is_admission_queued):
+        """Sets the is_admission_queued of this DecoratedProductionJob.
+
+        True when the job's cluster is waiting on scheduler admission (queued) rather than starting immediately. Null when the job is not awaiting a cluster or the admission status could not be determined.  # noqa: E501
+
+        :param is_admission_queued: The is_admission_queued of this DecoratedProductionJob.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_admission_queued = is_admission_queued
+
+    @property
+    def admission_queue_name(self):
+        """Gets the admission_queue_name of this DecoratedProductionJob.  # noqa: E501
+
+        Name of the scheduler queue the job's cluster is waiting in. Null when the job is not waiting on scheduler admission, or when it is waiting but has not been assigned a queue yet.  # noqa: E501
+
+        :return: The admission_queue_name of this DecoratedProductionJob.  # noqa: E501
+        :rtype: str
+        """
+        return self._admission_queue_name
+
+    @admission_queue_name.setter
+    def admission_queue_name(self, admission_queue_name):
+        """Sets the admission_queue_name of this DecoratedProductionJob.
+
+        Name of the scheduler queue the job's cluster is waiting in. Null when the job is not waiting on scheduler admission, or when it is waiting but has not been assigned a queue yet.  # noqa: E501
+
+        :param admission_queue_name: The admission_queue_name of this DecoratedProductionJob.  # noqa: E501
+        :type: str
+        """
+
+        self._admission_queue_name = admission_queue_name
+
+    @property
+    def admission_workloads_ahead(self):
+        """Gets the admission_workloads_ahead of this DecoratedProductionJob.  # noqa: E501
+
+        Number of queued scheduling requests ahead of this job in its scheduler queue; 0 means it is next in line for admission. A cluster asking for several node groups contributes one request per group, so this is not a count of distinct jobs. Null when the job is not waiting on scheduler admission, or when its place in the queue is not yet known.  # noqa: E501
+
+        :return: The admission_workloads_ahead of this DecoratedProductionJob.  # noqa: E501
+        :rtype: int
+        """
+        return self._admission_workloads_ahead
+
+    @admission_workloads_ahead.setter
+    def admission_workloads_ahead(self, admission_workloads_ahead):
+        """Sets the admission_workloads_ahead of this DecoratedProductionJob.
+
+        Number of queued scheduling requests ahead of this job in its scheduler queue; 0 means it is next in line for admission. A cluster asking for several node groups contributes one request per group, so this is not a count of distinct jobs. Null when the job is not waiting on scheduler admission, or when its place in the queue is not yet known.  # noqa: E501
+
+        :param admission_workloads_ahead: The admission_workloads_ahead of this DecoratedProductionJob.  # noqa: E501
+        :type: int
+        """
+
+        self._admission_workloads_ahead = admission_workloads_ahead
 
     @property
     def secrets_masked(self):

@@ -122,7 +122,7 @@ pub fn list_of_values_to_py_list(py: Python, list: &Vec<Value>) -> PyResult<Py<P
     for value in list {
         match value {
             Value::String(s) => py_list.append(s)?,
-            Value::Number(n) => py_list.append(n.as_i64().unwrap_or(0))?,
+            Value::Number(_) => py_list.append(json_value_to_py_object(py, value)?)?,
             Value::Bool(b) => py_list.append(b)?,
             Value::Object(o) => {
                 let map: HashMap<String, Value> =
@@ -163,8 +163,14 @@ pub fn py_any_to_value(value: &Bound<PyAny>) -> PyResult<Value> {
         return Ok(Value::Number(Number::from(val)));
     }
 
+    if let Ok(val) = value.extract::<u64>() {
+        return Ok(Value::Number(Number::from(val)));
+    }
+
     if let Ok(val) = value.extract::<f64>() {
-        return Ok(Value::Number(Number::from(val as i64)));
+        // Match DynamicValue's existing fallback for non-finite numbers.
+        let number = Number::from_f64(val).unwrap_or_else(|| Number::from(val as i64));
+        return Ok(Value::Number(number));
     }
 
     if let Ok(dict) = value.cast::<PyDict>() {
@@ -251,7 +257,7 @@ pub fn py_any_to_dynamic_value(value: &Bound<PyAny>) -> PyResult<DynamicValue> {
                 let dyn_value = py_any_to_dynamic_value(&value)?;
 
                 str_vec.push(dyn_value.string_value.clone());
-                vec.push(py_any_to_dynamic_value(&value)?);
+                vec.push(dyn_value);
             }
         }
 

@@ -309,3 +309,61 @@ fn full_fallback_counter_skips_other_sync_outcomes() {
 
     assert!(receiver.try_recv().is_err());
 }
+
+#[test]
+fn source_metadata_preserves_source_labels_and_removes_only_authority_userinfo() {
+    for (source, expected) in [
+        (
+            "https://fake-user@proxy.test/v2/specs",
+            "https://proxy.test/v2",
+        ),
+        (
+            "https://fake-user:fake%40password@proxy.test/v10/specs",
+            "https://proxy.test/v10",
+        ),
+        (
+            "https://fake-user:fake@password@proxy.test",
+            "https://proxy.test",
+        ),
+        (
+            "http://fake-user:fake-password@[::1]:8080/v1/specs",
+            "http://[::1]:8080/v1",
+        ),
+        (
+            "https://proxy.test:8443/v2/specs?fake=user@query#fragment",
+            "https://proxy.test:8443/v2",
+        ),
+        (
+            "https://proxy.test/prefix@path/v2/specs",
+            "https://proxy.test",
+        ),
+        ("https://proxy.test/v1beta/specs", "https://proxy.test"),
+        ("https:///v2/specs", "https:/v2"),
+        ("datastore", "datastore"),
+        ("custom-source@label", "custom-source@label"),
+        ("proxy.test/v2/specs", "proxy.test/v2/specs"),
+        ("", ""),
+    ] {
+        let metrics = ConfigSyncMetrics::from_network_error(source, true);
+        assert_eq!(metrics.source_api, expected);
+        let ops_stats = Arc::new(OpsStatsForInstance::new());
+        let mut events = ops_stats.subscribe_for_test();
+        log_config_sync_full_fallback_count(
+            &ops_stats,
+            source,
+            true,
+            "full",
+            DeltaFallbackReason::BeforeEarliestLcut,
+            DeltaFallbackSource::LocalCompute,
+            "incremental",
+        );
+        let OpsStatsEvent::Observability(event) = events.try_recv().unwrap() else {
+            panic!("expected fallback observability event");
+        };
+        assert_eq!(event.metric_name, CONFIG_SYNC_FULL_FALLBACK_COUNT_METRIC);
+        assert_eq!(
+            event.tags.unwrap()[CONFIG_SYNC_OVERALL_SOURCE_API_TAG],
+            expected
+        );
+    }
+}

@@ -36,7 +36,7 @@ def server_setup(httpserver: HTTPServer):
 
 
 def test_interned_store_preload(server_setup):
-    InternedStore.preload_multi([EVAL_PROJ_JSON, DEMO_PROJ_PROTO])
+    InternedStore.preload([EVAL_PROJ_JSON, DEMO_PROJ_PROTO])
 
     specs_url, log_event_url = server_setup
 
@@ -97,10 +97,12 @@ def _assert_interned_store_mmap_preload(specs_url, log_event_url, preload_kind, 
         else {"precompute_returnable_stable_hashes": precompute == "true"}
     )
     if preload_kind == "single":
-        assert InternedStore.preload_mmap(sdk_key, **options) is None
+        report = InternedStore.preload_mmap(required=sdk_key, **options)
+        assert report.loaded == 1
+        assert report.skipped_optional_indexes == []
     else:
-        report = InternedStore.preload_mmap_multi(
-            [sdk_key], [f"missing-{uuid.uuid4()}"], **options
+        report = InternedStore.preload_mmap(
+            required=[sdk_key], optional=[f"missing-{uuid.uuid4()}"], **options
         )
         assert report.loaded == 1
         assert report.skipped_optional_indexes == [0]
@@ -160,7 +162,7 @@ def _assert_mmap_missing_required(precompute):
     message = "Invalid operation: No committed interned mmap V2 artifact was found"
     for preload, argument in (
         (InternedStore.preload_mmap, sdk_key),
-        (InternedStore.preload_mmap_multi, [sdk_key]),
+        (InternedStore.preload_mmap, [sdk_key]),
     ):
         with pytest.raises(RuntimeError) as raised:
             preload(argument, **options)
@@ -169,3 +171,64 @@ def _assert_mmap_missing_required(precompute):
         assert raised.value.args == (message,)
         assert raised.value.error_name == "InvalidOperation"
         assert raised.value.error_message == message
+
+
+@pytest.mark.parametrize("kind", ["single", "list"])
+def test_byte_preload_unified_inputs(server_setup, kind):
+    _run_isolated("_assert_byte_preload_unified_inputs", *server_setup, kind)
+
+
+def _assert_byte_preload_unified_inputs(specs_url, log_event_url, kind):
+    assert not hasattr(InternedStore, "preload_multi")
+    assert not hasattr(InternedStore, "preload_mmap_multi")
+    # Reject wrong input types before installing anything.
+    for data in ("not bytes", [EVAL_PROJ_JSON, "not bytes"]):
+        with pytest.raises(TypeError):
+            InternedStore.preload(data)
+    with pytest.raises(RuntimeError):
+        InternedStore.preload([EVAL_PROJ_JSON, b"invalid"])
+    data = EVAL_PROJ_JSON if kind == "single" else [EVAL_PROJ_JSON, DEMO_PROJ_PROTO]
+    assert InternedStore.preload(data) is None
+    statsig = Statsig("secret-key", StatsigOptions(specs_url=specs_url, log_event_url=log_event_url))
+    statsig.initialize().wait()
+    assert statsig.get_feature_gate(StatsigUser("a-user"), "test_public").value is True
+    statsig.shutdown().wait()
+    with pytest.raises(RuntimeError):
+        InternedStore.preload(data)
+
+
+@pytest.mark.parametrize("kind", ["single", "list"])
+def test_optional_mmap_zero_then_partial_success(server_setup, kind):
+    _run_isolated("_assert_optional_mmap_zero_then_partial_success", *server_setup, kind)
+
+
+def _assert_optional_mmap_zero_then_partial_success(specs_url, log_event_url, kind):
+    missing = f"missing-{uuid.uuid4()}"
+    for kwargs in ({}, {"required": [], "optional": []}):
+        with pytest.raises(RuntimeError):
+            InternedStore.preload_mmap(**kwargs)
+    for kwargs in ({"required": 1}, {"optional": [missing, 1]}):
+        with pytest.raises(TypeError):
+            InternedStore.preload_mmap(**kwargs)
+    report = InternedStore.preload_mmap(optional=missing if kind == "single" else [missing])
+    assert report.loaded == 0
+    assert report.skipped_optional_indexes == [0]
+    assert InternedStore.mmap_reader_memory_snapshot() is None
+
+    key = f"available-{uuid.uuid4()}"
+    assert InternedStore.fetch_and_write_mmap(key, specs_url).wait(5)
+    # A required failure must roll back even if an earlier key loaded.
+    with pytest.raises(RuntimeError):
+        InternedStore.preload_mmap(required=[key, missing], optional=key)
+    assert InternedStore.mmap_reader_memory_snapshot() is None
+    report = InternedStore.preload_mmap(optional=[missing, key, key])
+    assert report.loaded == 1
+    assert report.skipped_optional_indexes == [0, 2]
+    # Both mapped and unmapped SDK keys must still initialize and evaluate.
+    for sdk_key in (key, missing):
+        statsig = Statsig(sdk_key, StatsigOptions(specs_url=specs_url, log_event_url=log_event_url))
+        statsig.initialize().wait()
+        assert statsig.get_feature_gate(StatsigUser("a-user"), "test_public").value is True
+        statsig.shutdown().wait()
+    with pytest.raises(RuntimeError):
+        InternedStore.preload_mmap(optional=missing)

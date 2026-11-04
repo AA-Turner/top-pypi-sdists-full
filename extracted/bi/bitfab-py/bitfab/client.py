@@ -34,7 +34,7 @@ from typing_extensions import ParamSpec
 from bitfab import baml_auto_trace, jev, provider_calls, subtree
 from bitfab.baml import run_function_with_baml
 from bitfab.categories import CategoriesClient
-from bitfab.client_patching import node_owns_next_call
+from bitfab.client_patching import node_owns_next_call, node_stream_slot
 from bitfab.commit_ref import CommitRef, current_commit_ref, start_commit_ref_resolution
 from bitfab.constants import (
     DEFAULT_SERVICE_URL,
@@ -319,7 +319,7 @@ def _build_provider_auto_run(
             )
             return response
 
-    return _renamed_run(run, provider_calls.CREATE, span_name)
+    return _renamed_run(run, call.method, span_name)
 
 
 def _record_baml_collector(collector: Any) -> None:
@@ -1211,7 +1211,10 @@ class Bitfab:
                 so they keep recording past it. Spans sent without inputs and
                 outputs only because the sim plan could not be read still
                 count. Past it, further discovered calls with capture on record
-                nothing.
+                nothing. LLM calls (BAML, Jev, and the provider client calls
+                ``trace()`` records) never count and keep recording past it, so
+                the trace's token usage and cost stay complete; ``max_depth``
+                still applies to them.
             simulation_plan: Read the organization's sim plan and apply its
                 content-capture decisions (default: True). The first read starts
                 here, and a root span entered while it is in flight waits for it,
@@ -2529,6 +2532,7 @@ class Bitfab:
         mirror_in_enclosing_traces: bool = False,
         instrumentation: SpanInstrumentation | None = None,
         framework_parent_span_id: str | None = None,
+        owns_llm_call: bool = False,
     ) -> Callable[[Callable[P, T]], Callable[P, T]]:
         span_type = type
         explicit_name = name
@@ -2779,6 +2783,29 @@ class Bitfab:
                     self.http_client.trace_completion.end(
                         span_context["traceId"], span_context["spanId"]
                     )
+
+            def _end_when_stream_ends(
+                recording: provider_calls.StreamRecording,
+                span_context: SpanContext,
+                borrowed: subtree.BorrowedSpan,
+                base_params: dict[str, Any],
+            ) -> None:
+                def end(outcome: provider_calls.StreamOutcome) -> None:
+                    span = CurrentSpan(span_context)
+                    if outcome.prompt:
+                        span.set_prompt(outcome.prompt)
+                    for context in outcome.contexts or ():
+                        span.add_context(context)
+                    borrowed.emit(outcome.result, outcome.error)
+                    _safe_send_span(
+                        span_context,
+                        **base_params,
+                        result=outcome.result,
+                        error=outcome.error,
+                        ended_at=_get_ended_at(),
+                    )
+
+                recording.when_done(end)
 
             def _resolve_recorded_output(
                 mock_entry: dict[str, Any],
@@ -3482,19 +3509,27 @@ class Bitfab:
 
                     token = _span_stack.set(new_stack)
                     try:
-                        with subtree.borrowed_span(
-                            monitored_code,
-                            span_ctx["traceId"],
-                            span_ctx["spanId"],
-                            name=span_name if mirror_in_enclosing_traces else None,
-                            span_type=span_type,
-                            args=base_params["raw_args"],
-                            kwargs=kwargs,
-                            experiment_id=base_params["experiment_id"],
-                            variant=base_params["variant"],
-                            details=span_ctx,
-                        ) as borrowed:
+                        with (
+                            subtree.borrowed_span(
+                                monitored_code,
+                                span_ctx["traceId"],
+                                span_ctx["spanId"],
+                                name=span_name if mirror_in_enclosing_traces else None,
+                                span_type=span_type,
+                                args=base_params["raw_args"],
+                                kwargs=kwargs,
+                                experiment_id=base_params["experiment_id"],
+                                variant=base_params["variant"],
+                                details=span_ctx,
+                            ) as borrowed,
+                            node_stream_slot(owns_llm_call) as node_streams,
+                        ):
                             result = await fn(*args, **kwargs)
+                        if node_streams:
+                            _end_when_stream_ends(
+                                node_streams[0], span_ctx, borrowed, base_params
+                            )
+                            return result
                         try:
                             if finalize is not None:
                                 output, finalize_error = await _run_finalize_async(
@@ -3568,19 +3603,27 @@ class Bitfab:
                         return mocked_output  # type: ignore[no-any-return]
 
                     def execute() -> T:
-                        with subtree.borrowed_span(
-                            monitored_code,
-                            span_ctx["traceId"],
-                            span_ctx["spanId"],
-                            name=span_name if mirror_in_enclosing_traces else None,
-                            span_type=span_type,
-                            args=base_params["raw_args"],
-                            kwargs=kwargs,
-                            experiment_id=base_params["experiment_id"],
-                            variant=base_params["variant"],
-                            details=span_ctx,
-                        ) as borrowed:
+                        with (
+                            subtree.borrowed_span(
+                                monitored_code,
+                                span_ctx["traceId"],
+                                span_ctx["spanId"],
+                                name=span_name if mirror_in_enclosing_traces else None,
+                                span_type=span_type,
+                                args=base_params["raw_args"],
+                                kwargs=kwargs,
+                                experiment_id=base_params["experiment_id"],
+                                variant=base_params["variant"],
+                                details=span_ctx,
+                            ) as borrowed,
+                            node_stream_slot(owns_llm_call) as node_streams,
+                        ):
                             result = fn(*args, **kwargs)
+                        if node_streams:
+                            _end_when_stream_ends(
+                                node_streams[0], span_ctx, borrowed, base_params
+                            )
+                            return result
                         try:
                             if finalize is not None:
                                 output, finalize_error = _run_finalize(finalize, result)
@@ -3659,7 +3702,9 @@ class Bitfab:
             replay_reusable: Experimental output-only subtree reuse; same
                 lossless JSON and no-hidden-effects contract as :meth:`span`.
             finalize: Optional callable that records a serializable view of the
-                result while returning the original result to the caller.
+                result while returning the original result to the caller. Not
+                used when the node is placed directly on a streamed LLM client
+                call: the span records the assembled stream and its usage.
             variant: Tells apart calls sharing this node's name, such as one
                 function running several times at once on a thread pool. A
                 non-empty string, or a function that receives the call's
@@ -3751,17 +3796,17 @@ class Bitfab:
     def _cached_llm_call(
         self,
         cache: dict[Any, Callable[..., Any]],
-        original: Callable[..., Any],
+        key: Any,
         build: Callable[[], Callable[..., Any]],
     ) -> Callable[..., Any]:
-        existing = cache.get(original)
+        existing = cache.get(key)
         if existing is not None:
             return existing
         with self._llm_auto_traced_lock:
-            existing = cache.get(original)
+            existing = cache.get(key)
             if existing is None:
                 existing = build()
-                cache[original] = existing
+                cache[key] = existing
             return existing
 
     def _llm_auto_traced_call(
@@ -3769,10 +3814,11 @@ class Bitfab:
         span_name: str,
         original: Callable[..., Any],
         run: Callable[[str, Callable[..., Any]], Callable[..., Any]],
+        key: Any = None,
     ) -> Callable[..., Any]:
         return self._cached_llm_call(
             self._llm_auto_traced,
-            original,
+            original if key is None else key,
             lambda: self._integration_span(
                 span_name,
                 name=span_name,
@@ -3820,6 +3866,7 @@ class Bitfab:
             span_name,
             original,
             lambda name, fn: self._provider_auto_run(call, name, fn),
+            key=(call, original),
         )
 
     def _provider_auto_run(
@@ -3830,7 +3877,7 @@ class Bitfab:
     ) -> Callable[..., Any]:
         return self._cached_llm_call(
             self._llm_auto_runs,
-            original,
+            (call, original),
             lambda: _build_provider_auto_run(call, span_name, original),
         )
 
@@ -4046,6 +4093,7 @@ class Bitfab:
                     surface="opt-out",
                     mirror_in_enclosing_traces=True,
                     instrumentation=instrumentation,
+                    owns_llm_call=owns_llm_call,
                 )(fn)
                 traced_by_policy[policy_key] = traced
                 return traced
@@ -4269,7 +4317,10 @@ class Bitfab:
                 past it. Spans sent without inputs and outputs only because the
                 sim plan could not be read still count toward it. Past it,
                 further discovered calls with capture on record nothing.
-                Resolved from this argument, then
+                LLM calls (BAML, Jev, and the provider client calls ``trace()``
+                records) never count and keep recording past it, so the
+                trace's token usage and cost stay complete; ``max_depth``
+                still applies to them. Resolved from this argument, then
                 ``Bitfab(max_captured_subtree_spans=...)``, then
                 ``BITFAB_MAX_CAPTURED_SUBTREE_SPANS``, then 500.
             exclude: Function names never recorded as descendant spans.
@@ -4669,11 +4720,14 @@ class Bitfab:
         Beneath a ``trace`` root, ``chat.completions.create`` calls on an
         ``openai`` client whose base URL is ``openrouter.ai`` are already
         recorded without this wrapper as their own ``llm`` span named
-        ``Completions.create`` (or ``AsyncCompletions.create``). Wrapping such
-        a call records nothing more, and ``node`` on the wrapper configures
-        that one span. A call the OpenAI Agents SDK or LangChain integration
-        is already recording is not recorded a second time. Streaming calls
-        (``stream=True``) are not recorded.
+        ``Completions.create`` (or ``AsyncCompletions.create``), and calls on
+        any other base URL are recorded the same way with ``provider``
+        ``"openai"`` (see ``wrap_openai_chat``). Wrapping such a call records
+        nothing more, and ``node`` on the wrapper configures that one span. A
+        call the OpenAI Agents SDK or LangChain integration is already
+        recording is not recorded a second time. Beneath a root,
+        streamed calls (``stream=True``) are recorded too, when the stream
+        finishes or is closed; the wrapper itself does not record a stream.
 
         Example::
 
@@ -4698,7 +4752,7 @@ class Bitfab:
             ValueError: If ``fn`` has no ``__name__``.
         """
         return self._wrap_provider_call(
-            provider_calls.OPENROUTER,
+            (provider_calls.OPENROUTER,),
             fn,
             on_response=on_response,
             example="llm.chat.completions.create",
@@ -4731,8 +4785,10 @@ class Bitfab:
         ``AsyncMessages.create``). Wrapping such a call records nothing more,
         and ``node`` on the wrapper configures that one span. A call the
         OpenAI Agents SDK or LangChain integration is already recording is
-        not recorded a second time. Streaming calls (``stream=True`` or
-        ``messages.stream``) are not recorded.
+        not recorded a second time. Beneath a root, streamed calls
+        (``stream=True`` or ``messages.stream``) are recorded too, when the
+        stream finishes or is closed; the wrapper itself does not record a
+        stream.
 
         Example::
 
@@ -4758,7 +4814,7 @@ class Bitfab:
             ValueError: If ``fn`` has no ``__name__``.
         """
         return self._wrap_provider_call(
-            provider_calls.ANTHROPIC,
+            (provider_calls.ANTHROPIC,),
             fn,
             on_response=on_response,
             example="anthropic.messages.create",
@@ -4791,7 +4847,9 @@ class Bitfab:
         Wrapping such a call records nothing more, and ``node`` on the wrapper
         configures that one span. A call the OpenAI Agents SDK or LangChain
         integration is already recording is not recorded a second time.
-        Streaming calls (``stream=True``) are not recorded.
+        Beneath a root, streamed calls (``stream=True``) are recorded too,
+        when the stream finishes or is closed; the wrapper itself does not
+        record a stream.
 
         Example::
 
@@ -4813,16 +4871,252 @@ class Bitfab:
             ValueError: If ``fn`` has no ``__name__``.
         """
         return self._wrap_provider_call(
-            provider_calls.OPENAI_RESPONSES,
+            (provider_calls.OPENAI_RESPONSES,),
             fn,
             on_response=on_response,
             example="llm.responses.create",
             method="wrap_openai_responses",
         )
 
+    def wrap_openai_chat(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends a chat completion to the OpenAI API to
+        record the call's prompt, model, token usage, and duration. Bitfab
+        works out the cost from the model and token counts.
+
+        The wrapper opens no span of its own. Each call writes onto the span
+        that is current when the call starts, so call it inside a ``span``,
+        ``trace``, or ``node``. Outside any span it records nothing and
+        returns the completion unchanged. The request's ``messages`` become
+        the span's prompt, and one context entry holds ``provider``
+        (``"openai"``), ``model``, ``inputTokens``, ``outputTokens``,
+        ``cachedInputTokens``, ``reasoningTokens``, ``costUsd`` (only when the
+        response reports one), and ``durationMs``. Fields the response omits
+        are left out. When ``fn`` is the client's own bound method, a client
+        pointed at OpenRouter is recorded with ``provider`` ``"openrouter"``
+        and ``upstreamProvider``, the same as ``wrap_openrouter``.
+
+        Beneath a ``trace`` root, ``chat.completions.create`` and
+        ``chat.completions.parse`` calls on an ``openai`` client are already
+        recorded without this wrapper as their own ``llm`` span named
+        ``Completions.create`` or ``Completions.parse`` (``AsyncCompletions``
+        for the async client). Wrapping such a call records nothing more, and
+        ``node`` on the wrapper configures that one span. A call the OpenAI
+        Agents SDK or LangChain integration is already recording is not
+        recorded a second time. Beneath a root, streamed calls
+        (``stream=True``) are recorded too, when the stream finishes or is
+        closed; the wrapper itself does not record a stream.
+
+        Example::
+
+            llm = OpenAI()
+            complete = client.wrap_openai_chat(llm.chat.completions.create)
+            response = complete(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": text}],
+            )
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the chat completion.
+            on_response: Called with each chat completion after it is
+                recorded. Errors it raises are ignored.
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``. A failed
+            call raises its error unchanged and records nothing.
+
+        Raises:
+            ValueError: If ``fn`` has no ``__name__``.
+        """
+        return self._wrap_provider_call(
+            (provider_calls.OPENROUTER, provider_calls.OPENAI_CHAT),
+            fn,
+            on_response=on_response,
+            example="llm.chat.completions.create",
+            method="wrap_openai_chat",
+        )
+
+    def wrap_openai_embeddings(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends an embeddings request to the OpenAI API
+        to record the call's model, token usage, and duration. Bitfab works
+        out the cost from the model and token counts.
+
+        The wrapper opens no span of its own. Each call writes onto the span
+        that is current when the call starts, so call it inside a ``span``,
+        ``trace``, or ``node``. Outside any span it records nothing and
+        returns the response unchanged. The request's ``input`` becomes the
+        span's prompt, and one context entry holds ``provider``
+        (``"openai"``, or ``"openrouter"`` when ``fn`` is the bound method of
+        a client pointed at OpenRouter), ``model``, ``upstreamProvider`` (for an OpenRouter call),
+        ``inputTokens``, ``outputTokens`` (always ``0``), ``costUsd`` (only
+        when the response reports one), and ``durationMs``. Fields the
+        response omits are left out.
+
+        Beneath a ``trace`` root, ``embeddings.create`` calls on an ``openai``
+        client are already recorded without this wrapper as their own ``llm``
+        span named ``Embeddings.create`` (or ``AsyncEmbeddings.create``).
+        Wrapping such a call records nothing more, and ``node`` on the wrapper
+        configures that one span. A call the OpenAI Agents SDK or LangChain
+        integration is already recording is not recorded a second time.
+
+        Example::
+
+            llm = OpenAI()
+            embed = client.wrap_openai_embeddings(llm.embeddings.create)
+            response = embed(model="text-embedding-3-small", input=text)
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the embeddings response.
+            on_response: Called with each response after it is recorded.
+                Errors it raises are ignored.
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``. A failed
+            call raises its error unchanged and records nothing.
+
+        Raises:
+            ValueError: If ``fn`` has no ``__name__``.
+        """
+        return self._wrap_provider_call(
+            (provider_calls.OPENROUTER_EMBEDDINGS, provider_calls.OPENAI_EMBEDDINGS),
+            fn,
+            on_response=on_response,
+            example="llm.embeddings.create",
+            method="wrap_openai_embeddings",
+        )
+
+    def wrap_openai_transcriptions(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends audio to the OpenAI transcriptions API to
+        record the call's model, usage, and duration.
+
+        The wrapper opens no span of its own. Each call writes onto the span
+        that is current when the call starts, so call it inside a ``span``,
+        ``trace``, or ``node``. Outside any span it records nothing and
+        returns the transcription unchanged. The request's ``prompt``, when
+        given, becomes the span's prompt, and one context entry holds
+        ``provider`` (``"openai"``), ``model``, ``inputTokens`` and
+        ``outputTokens`` (for models billed by token, such as
+        ``gpt-4o-transcribe``), ``audioSeconds`` (for models billed by
+        duration, such as ``whisper-1``), and ``durationMs``. Fields the
+        response omits are left out. Bitfab works out the cost of
+        token-billed models from the model and token counts; duration-billed
+        models record no cost.
+
+        Beneath a ``trace`` root, ``audio.transcriptions.create`` calls on an
+        ``openai`` client are already recorded without this wrapper as their
+        own ``llm`` span named ``Transcriptions.create`` (or
+        ``AsyncTranscriptions.create``). Wrapping such a call records nothing
+        more, and ``node`` on the wrapper configures that one span. Beneath a
+        root, streamed calls (``stream=True``) are recorded too, when the
+        stream finishes or is closed; the wrapper itself does not record a
+        stream.
+
+        Example::
+
+            llm = OpenAI()
+            transcribe = client.wrap_openai_transcriptions(
+                llm.audio.transcriptions.create
+            )
+            transcription = transcribe(model="gpt-4o-transcribe", file=audio)
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the transcription.
+            on_response: Called with each transcription after it is recorded.
+                Errors it raises are ignored.
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``. A failed
+            call raises its error unchanged and records nothing.
+
+        Raises:
+            ValueError: If ``fn`` has no ``__name__``.
+        """
+        return self._wrap_provider_call(
+            (provider_calls.OPENAI_TRANSCRIPTIONS,),
+            fn,
+            on_response=on_response,
+            example="llm.audio.transcriptions.create",
+            method="wrap_openai_transcriptions",
+        )
+
+    def wrap_gemini(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends a ``generate_content`` request to Gemini
+        through the ``google-genai`` client to record the call's prompt,
+        model, token usage, and duration. Bitfab works out the cost from the
+        model and token counts.
+
+        The wrapper opens no span of its own. Each call writes onto the span
+        that is current when the call starts, so call it inside a ``span``,
+        ``trace``, or ``node``. Outside any span it records nothing and
+        returns the response unchanged. The request's ``contents`` and
+        ``config.system_instruction`` become the span's prompt, and one
+        context entry holds ``provider`` (``"gemini"``), ``model``,
+        ``inputTokens`` (prompt and tool-use prompt tokens),
+        ``outputTokens`` (response and thinking tokens),
+        ``cachedInputTokens``, ``reasoningTokens`` (thinking tokens), and
+        ``durationMs``. Fields the response omits are left out.
+
+        Beneath a ``trace`` root, ``models.generate_content`` and
+        ``models.generate_content_stream`` calls on a ``google-genai`` client
+        are already recorded without this wrapper as their own ``llm`` span
+        named ``Models.generate_content`` or ``Models.generate_content_stream``
+        (``AsyncModels`` for ``client.aio``). Wrapping such a call records
+        nothing more, and ``node`` on the wrapper configures that one span. A
+        streamed call is recorded when the stream finishes or is closed; the
+        wrapper itself does not record a stream.
+
+        Example::
+
+            genai_client = genai.Client()
+            generate = client.wrap_gemini(genai_client.models.generate_content)
+            response = generate(model="gemini-2.5-flash", contents=text)
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the response.
+            on_response: Called with each response after it is recorded.
+                Errors it raises are ignored.
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``. A failed
+            call raises its error unchanged and records nothing.
+
+        Raises:
+            ValueError: If ``fn`` has no ``__name__``.
+        """
+        return self._wrap_provider_call(
+            (provider_calls.GEMINI,),
+            fn,
+            on_response=on_response,
+            example="genai_client.models.generate_content",
+            method="wrap_gemini",
+        )
+
     def _wrap_provider_call(
         self,
-        call_type: provider_calls.ProviderCall,
+        calls: tuple[provider_calls.ProviderCall, ...],
         fn: Callable[..., Any],
         *,
         on_response: Callable[[Any], None] | None,
@@ -4831,6 +5125,7 @@ class Bitfab:
     ) -> Callable[..., Any]:
         if not getattr(fn, "__name__", None):
             raise ValueError(f"{method} requires a named function (e.g., {example}).")
+        call_type = provider_calls.call_for_function(calls, fn)
         fn = provider_calls.resolve_call_target(fn) or fn
 
         def finish(
@@ -5621,7 +5916,10 @@ class BitfabFunction:
                 past it. Spans sent without inputs and outputs only because the
                 sim plan could not be read still count toward it. Past it,
                 further discovered calls with capture on record nothing.
-                Resolved from this argument, then
+                LLM calls (BAML, Jev, and the provider client calls ``trace()``
+                records) never count and keep recording past it, so the
+                trace's token usage and cost stay complete; ``max_depth``
+                still applies to them. Resolved from this argument, then
                 ``Bitfab(max_captured_subtree_spans=...)``, then
                 ``BITFAB_MAX_CAPTURED_SUBTREE_SPANS``, then 500.
             exclude: Function names never recorded as descendants.
@@ -5874,3 +6172,103 @@ class BitfabFunction:
             A wrapper with the same signature and name as ``fn``
         """
         return self._client.wrap_openai_responses(fn, on_response=on_response)
+
+    def wrap_openai_chat(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends a chat completion to the OpenAI API to record
+        the call's prompt, model, token usage, and duration.
+
+        Delegates to ``Bitfab.wrap_openai_chat``. See that method for details.
+
+        Like ``wrap_openrouter``, it does not use the bound key and opens no
+        span of its own: it writes onto the span that is current when the call
+        starts.
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the chat completion
+            on_response: Called with each chat completion after it is recorded
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``
+        """
+        return self._client.wrap_openai_chat(fn, on_response=on_response)
+
+    def wrap_openai_embeddings(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends an embeddings request to the OpenAI API to
+        record the call's model, token usage, and duration.
+
+        Delegates to ``Bitfab.wrap_openai_embeddings``. See that method for details.
+
+        Like ``wrap_openrouter``, it does not use the bound key and opens no
+        span of its own: it writes onto the span that is current when the call
+        starts.
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the embeddings response
+            on_response: Called with each embeddings response after it is recorded
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``
+        """
+        return self._client.wrap_openai_embeddings(fn, on_response=on_response)
+
+    def wrap_openai_transcriptions(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends audio to the OpenAI transcriptions API to
+        record the call's model, usage, and duration.
+
+        Delegates to ``Bitfab.wrap_openai_transcriptions``. See that method for details.
+
+        Like ``wrap_openrouter``, it does not use the bound key and opens no
+        span of its own: it writes onto the span that is current when the call
+        starts.
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the transcription
+            on_response: Called with each transcription after it is recorded
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``
+        """
+        return self._client.wrap_openai_transcriptions(fn, on_response=on_response)
+
+    def wrap_gemini(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends a ``generate_content`` request to Gemini to
+        record the call's prompt, model, token usage, and duration.
+
+        Delegates to ``Bitfab.wrap_gemini``. See that method for details.
+
+        Like ``wrap_openrouter``, it does not use the bound key and opens no
+        span of its own: it writes onto the span that is current when the call
+        starts.
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the response
+            on_response: Called with each response after it is recorded
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``
+        """
+        return self._client.wrap_gemini(fn, on_response=on_response)

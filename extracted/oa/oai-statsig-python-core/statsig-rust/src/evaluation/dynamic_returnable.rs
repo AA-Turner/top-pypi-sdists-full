@@ -2,13 +2,13 @@ use std::{borrow::Cow, collections::HashMap, num::NonZeroU64, sync::Arc};
 
 use rkyv::{collections::swiss_table::ArchivedHashMap, string::ArchivedString};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
-use serde_json::{
-    Value as JsonValue,
-    value::{RawValue, to_raw_value},
-};
+use serde_json::{Value as JsonValue, value::to_raw_value};
 
 use crate::{
-    evaluation::rkyv_value::{ArchivedRkyvValue, RkyvValue, stable_object_hash},
+    evaluation::{
+        raw_json::RawJson,
+        rkyv_value::{ArchivedRkyvValue, RkyvValue, stable_object_hash},
+    },
     hashing,
     interned_values::InternedStore,
     log_e,
@@ -192,8 +192,8 @@ impl<'de> Deserialize<'de> for DynamicReturnable {
     where
         D: Deserializer<'de>,
     {
-        let raw_value_ref: Cow<RawValue> = Deserialize::deserialize(deserializer)?;
-        Ok(InternedStore::get_or_intern_returnable(raw_value_ref))
+        let raw_value = RawJson::deserialize(deserializer)?;
+        Ok(InternedStore::get_or_intern_returnable_json(&raw_value.0))
     }
 }
 

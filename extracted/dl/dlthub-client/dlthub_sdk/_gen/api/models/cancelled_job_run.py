@@ -18,7 +18,7 @@ class CancelledJobRun:
     Attributes:
         job_ref (str): Job reference of the cancelled run.
         job_run_id (UUID): ID of the cancelled run.
-        job_run_number (int): Run number.
+        job_run_number (int): Number of the run within its job; numbers repeat across jobs.
         previous_status (RunStatus | str): Status of the run when the cancel request arrived.
     """
 

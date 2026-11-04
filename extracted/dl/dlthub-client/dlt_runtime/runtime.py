@@ -21,10 +21,12 @@ from dlt.common.configuration.specs.runtime_configuration import RuntimeConfigur
 from dlt_runtime._telemetry import DEVICE_ID_HEADER, get_telemetry_device_id
 from dlt_runtime.exceptions import (
     ApiKeyInvalid,
+    ErrorCode,
     OrgRegionRequired,
     RuntimeClientException,
     RuntimeNotAuthenticated,
     RuntimeOperationNotAuthorized,
+    WorkspaceLimitReached,
     handle_client_exceptions,
 )
 from dlt_runtime.strings import API_KEY_UNRECOGNIZED
@@ -401,9 +403,12 @@ class CliSession:
                     organization_id=organization_id,
                 )
         except RuntimeClientException as e:
-            # 409 means the organization has no region pinned yet.
-            if isinstance(e.__cause__, SdkConflict):
-                raise OrgRegionRequired() from e
+            cause = e.__cause__
+            if isinstance(cause, SdkConflict):
+                if cause.code == ErrorCode.REGION_REQUIRED:
+                    raise OrgRegionRequired() from e
+                if cause.code == ErrorCode.WORKSPACE_LIMIT_REACHED:
+                    raise WorkspaceLimitReached() from e
             raise
         return created.id
 

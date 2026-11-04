@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from captain_hook.review.sync import CachedPrState, PrState
 
 PROMPT_FINGERPRINT_KEY = "prompt_fingerprint"
+BRAIN_OUTCOME_PREFIX = "brain_outcome:"
 QUERY_PAGE_SIZE = 256
 
 CANDIDATES_QUERY = """
@@ -207,7 +208,8 @@ def signal_confidence(payload_json: object) -> Confidence:
 
 
 def judge_worthy(row: Mapping[str, object]) -> bool:
-    return signal_confidence(row["payload_json"]) >= NOISE_FLOOR
+    payload: dict[str, Any] = json.loads(str(row["payload_json"])) if row["payload_json"] else {}
+    return "source_path" in payload and from_payload(payload["signal"]).confidence >= NOISE_FLOOR
 
 
 @dataclass(frozen=True, slots=True)
@@ -220,13 +222,21 @@ class ThresholdStatus:
             can become eligible.
         watching: Whether the repo gating eligibility is watched — the origin repo
             the misfire fired in for a pack fix, else the candidate's own repo.
-        sessions: How many distinct sessions carry a judge-accepted observation.
-        days: How many distinct UTC days carry a judge-accepted observation.
+        sessions: How many distinct sessions carry a judge-accepted observation inside
+            the evidence window.
+        days: How many distinct UTC days carry a judge-accepted observation inside the
+            evidence window.
         open_prs: How many live, non-stale PRs of the candidate's kind target the
             candidate's repo — the pool its kind's cap counts against.
-        single_observation: Whether any observation is both judge-accepted and
-            heuristically at least ``min_confidence_fix_single`` — the fix-mode
-            single-observation path.
+        single_observation: Whether any observation inside the evidence window is both
+            judge-accepted and heuristically at least ``min_confidence_fix_single`` — the
+            fix-mode single-observation path.
+        evidence: The token naming the accepted evidence behind these counts, which
+            a new or re-judged observation or a reopen changes.
+        considered: Whether the brain already considered the candidate at exactly
+            ``evidence`` and left it ``watching``, which holds it from eligibility.
+        older: How many judge-accepted observations fall outside the evidence window. They
+            stay in ``evidence``, so aging out never re-arms a candidate, but cannot support a PR.
     """
 
     kind: CandidateKind
@@ -236,6 +246,17 @@ class ThresholdStatus:
     days: int
     open_prs: int
     single_observation: bool
+    evidence: str = ""
+    considered: bool = False
+    older: int = 0
+
+
+def evidence_cutoff(settings: ReviewSettings) -> str:
+    return (datetime.now(UTC) - timedelta(days=settings.evidence_window_days)).isoformat()
+
+
+def evidence_token(generation: object, observation_ids: Sequence[int]) -> str:
+    return f"{generation}:{len(observation_ids)}:{max(observation_ids, default=0)}"
 
 
 def threshold_targets(status: ThresholdStatus, settings: ReviewSettings) -> tuple[tuple[str, int, int], ...]:
@@ -262,15 +283,19 @@ def crosses_thresholds(status: ThresholdStatus, *, settings: ReviewSettings) -> 
 
     The single eligibility predicate, shared by :meth:`ReviewStore.eligible` and
     the status dashboard so a candidate shown as eligible is exactly one the
-    reviewer would act on. Create candidates need ``min_sessions`` distinct
+    reviewer would act on. Only observations from the last ``evidence_window_days``
+    count, and create candidates need ``min_sessions`` distinct
     judge-accepted sessions across ``min_days`` distinct UTC days; fix candidates
     need the ``min_sessions_fix``/``min_days_fix`` pair or one observation that is
     both judge-accepted and heuristically at least ``min_confidence_fix_single``.
     Both require the repo watched and a free slot in their own kind's pool
-    (:func:`open_pr_cap`), so open create PRs never hold fix candidates back.
+    (:func:`open_pr_cap`), so open create PRs never hold fix candidates back. A
+    candidate the brain already considered at its current evidence is held until
+    that evidence changes, so an unchanged candidate costs no further brain run.
     """
     if (
         status.status != CandidateStatus.WATCHING
+        or status.considered
         or not status.watching
         or status.open_prs >= open_pr_cap(status.kind, settings=settings)
     ):
@@ -403,6 +428,13 @@ class ReviewStore:
     async def file_mtimes(self) -> dict[str, float]:
         """Returns the recorded ``path`` to ``mtime`` map for incremental scans."""
         return await self.db.file_mtimes()
+
+    async def transcript_path(self, session_id: str) -> str | None:
+        """Returns a session's most recently scanned transcript, for rows recorded without a ``source_path``."""
+        rows = await self.db.sql(
+            "SELECT path FROM files WHERE path LIKE ? ORDER BY mtime DESC LIMIT 1", (f"%/{session_id}.jsonl",)
+        )
+        return str(rows[0]["path"]) if rows else None
 
     async def record_file_scan(self, path: str, mtime: float, candidates: Sequence[FeedbackCandidate]) -> int:
         """Records a scanned file and its candidates in one transaction."""
@@ -1099,7 +1131,7 @@ WHERE c.candidate_kind = 'fix' AND c.status = ? AND c.resolved_at IS NOT NULL
 
         accepted = await self.db.sql(
             f"""
-SELECT o.session_id, substr(o.occurred_at, 1, 10) AS day, e.payload_json
+SELECT o.id AS observation_id, o.session_id, o.occurred_at, substr(o.occurred_at, 1, 10) AS day, e.payload_json
 FROM candidate_observations o
 JOIN {VERDICT_TABLE} v ON v.dedup_key = o.dedup_key AND v.role = 'judge' AND v.prompt_version = ?
 JOIN feedback_events e ON e.dedup_key = o.dedup_key
@@ -1108,17 +1140,24 @@ WHERE o.candidate_id = ? AND v.{ACCEPTED_COLUMN} = 1 AND v.confidence >= ?
 """,
             (self.versions.of(kind), candidate_id, settings.min_judge_confidence, since, since),
         )
+        evidence = evidence_token(candidates[0]["generation"], [int(row["observation_id"]) for row in accepted])
+        outcome = await self.brain_outcome(candidate_id)
+        cutoff = evidence_cutoff(settings)
+        recent = [row for row in accepted if str(row["occurred_at"]) >= cutoff]
 
         return ThresholdStatus(
             kind=kind,
             status=status,
             watching=await self.watching(watching_repo),
-            sessions=len({row["session_id"] for row in accepted}),
-            days=len({row["day"] for row in accepted}),
+            sessions=len({row["session_id"] for row in recent}),
+            days=len({row["day"] for row in recent}),
             open_prs=(await self.open_pr_targets(settings=settings))[repo, kind],
             single_observation=any(
-                signal_confidence(row["payload_json"]) >= settings.min_confidence_fix_single for row in accepted
+                signal_confidence(row["payload_json"]) >= settings.min_confidence_fix_single for row in recent
             ),
+            evidence=evidence,
+            considered=outcome is not None and outcome["evidence"] == evidence,
+            older=len(accepted) - len(recent),
         )
 
     async def eligible(self, candidate_id: int, *, settings: ReviewSettings) -> bool:
@@ -1133,6 +1172,62 @@ WHERE o.candidate_id = ? AND v.{ACCEPTED_COLUMN} = 1 AND v.confidence >= ?
             settings: The thresholds and judge knobs to check under.
         """
         return crosses_thresholds(await self.threshold_status(candidate_id, settings=settings), settings=settings)
+
+    async def record_brain_skip(self, candidate_id: int, *, evidence: str, reason: str) -> None:
+        """Records the brain's decision against a PR, holding the candidate until its evidence changes.
+
+        Args:
+            candidate_id: The candidate the brain decided on.
+            evidence: The candidate's current :attr:`ThresholdStatus.evidence`.
+            reason: Why the candidate gets no PR.
+        """
+        await self._record_brain_outcome(candidate_id, outcome="skipped", evidence=evidence, reason=reason)
+
+    async def record_brain_failure(self, candidate_id: int, *, evidence: str, exit_code: int) -> None:
+        """Records that a brain run ended without deciding a candidate, holding it until reconsidered.
+
+        Args:
+            candidate_id: The candidate the run left undecided.
+            evidence: The :attr:`ThresholdStatus.evidence` the brain was spawned over.
+            exit_code: The brain's exit code.
+        """
+        await self._record_brain_outcome(
+            candidate_id,
+            outcome="failed",
+            evidence=evidence,
+            reason=f"exit {exit_code}" if exit_code else "exit 0 with no decision recorded",
+            exit_code=exit_code,
+        )
+
+    async def _record_brain_outcome(self, candidate_id: int, *, outcome: str, evidence: str, **fields: object) -> None:
+        await self.set_meta(
+            f"{BRAIN_OUTCOME_PREFIX}{candidate_id}",
+            json.dumps({"outcome": outcome, "evidence": evidence, "considered_at": now(), **fields}),
+        )
+
+    async def brain_outcome(self, candidate_id: int) -> dict[str, object] | None:
+        """Returns the last recorded brain outcome for a candidate, or ``None`` before its first."""
+        value = await self.meta(f"{BRAIN_OUTCOME_PREFIX}{candidate_id}")
+        return json.loads(value) if value is not None else None
+
+    async def reconsider(self, candidate_ids: Sequence[int], *, failed_only: bool = False) -> int:
+        """Makes held candidates eligible again without new evidence, keeping their recorded outcomes.
+
+        Args:
+            candidate_ids: The candidates to re-arm.
+            failed_only: Leave candidates the brain recorded a skip for held.
+
+        Returns:
+            How many of them had an outcome holding them.
+        """
+        rearmed = 0
+        for candidate_id in candidate_ids:
+            outcome = await self.brain_outcome(candidate_id)
+            if outcome is None or outcome["evidence"] is None or (failed_only and outcome["outcome"] != "failed"):
+                continue
+            await self.set_meta(f"{BRAIN_OUTCOME_PREFIX}{candidate_id}", json.dumps(outcome | {"evidence": None}))
+            rearmed += 1
+        return rearmed
 
     async def pr_summary(self, candidate_id: int, *, settings: ReviewSettings) -> str | None:
         """Returns the candidate's most-confident accepted verdict summary — what its PR would do.
@@ -1230,7 +1325,8 @@ ORDER BY o.id
         placeholders = ",".join("?" * len(ids))
         accepted_rows = await self.db.sql(
             f"""
-SELECT o.candidate_id, o.session_id, substr(o.occurred_at, 1, 10) AS day, e.payload_json
+SELECT o.id AS observation_id, o.candidate_id, o.session_id, o.occurred_at,
+  substr(o.occurred_at, 1, 10) AS day, e.payload_json
 FROM candidate_observations o
 JOIN candidates c ON c.id = o.candidate_id
 JOIN {VERDICT_TABLE} v ON v.dedup_key = o.dedup_key AND v.role = 'judge'
@@ -1250,19 +1346,30 @@ WHERE o.candidate_id IN ({placeholders}) AND v.{ACCEPTED_COLUMN} = 1 AND v.confi
 
         open_prs = await self.open_pr_targets(settings=settings)
 
+        outcome_rows = await self.db.sql(
+            "SELECT key, value FROM review_meta WHERE key LIKE ?", (f"{BRAIN_OUTCOME_PREFIX}%",)
+        )
+        held = {str(row["key"]): json.loads(str(row["value"]))["evidence"] for row in outcome_rows}
+        cutoff = evidence_cutoff(settings)
+
         def status_for(row: Mapping[str, object]) -> ThresholdStatus:
             obs = accepted.get(int(str(row["id"])), [])
+            recent = [o for o in obs if str(o["occurred_at"]) >= cutoff]
             watching_repo = str(row["origin_repo_key"] or row["repo_key"])
+            evidence = evidence_token(row["generation"], [int(str(o["observation_id"])) for o in obs])
             return ThresholdStatus(
                 kind=(kind := CandidateKind(str(row["candidate_kind"]))),
                 status=CandidateStatus(str(row["status"])),
                 watching=watching.get(watching_repo, False),
-                sessions=len({o["session_id"] for o in obs}),
-                days=len({o["day"] for o in obs}),
+                sessions=len({o["session_id"] for o in recent}),
+                days=len({o["day"] for o in recent}),
                 open_prs=open_prs[RepoKey(str(row["repo_key"])), kind],
                 single_observation=any(
-                    signal_confidence(o["payload_json"]) >= settings.min_confidence_fix_single for o in obs
+                    signal_confidence(o["payload_json"]) >= settings.min_confidence_fix_single for o in recent
                 ),
+                evidence=evidence,
+                considered=held.get(f"{BRAIN_OUTCOME_PREFIX}{row['id']}") == evidence,
+                older=len(obs) - len(recent),
             )
 
         return {int(str(row["id"])): status_for(row) for row in rows}
@@ -1410,15 +1517,18 @@ ORDER BY repo
             for ref in await self._judge_refs(fix=fix, prompt_version=version, refresh_summary=refresh_summary)
         ]
         cursor_key = f"judge_summary_cursor:{self.versions.create}:{self.versions.fix}"
+        fresh_cursor_key = f"judge_fresh_cursor:{self.versions.create}:{self.versions.fix}"
         if limit is not None:
             refs = [ref for ref in refs if judge_worthy(ref)]
             cursor = int(await self.meta(cursor_key) or "0")
-            fresh = [ref for ref in refs if ref["verdict_id"] is None]
+            fresh_cursor = int(await self.meta(fresh_cursor_key) or "0")
+            fresh = sorted((ref for ref in refs if ref["verdict_id"] is None), key=lambda ref: int(str(ref["id"])))
             summaries = sorted(
                 (ref for ref in refs if ref["verdict_id"] is not None), key=lambda ref: int(str(ref["id"]))
             )
             refs = (
-                fresh
+                [ref for ref in fresh if int(str(ref["id"])) > fresh_cursor]
+                + [ref for ref in fresh if int(str(ref["id"])) <= fresh_cursor]
                 + [ref for ref in summaries if int(str(ref["id"])) > cursor]
                 + [ref for ref in summaries if int(str(ref["id"])) <= cursor]
             )[:limit]
@@ -1438,6 +1548,8 @@ ORDER BY repo
                 kept.append(row)
         if limit is not None and (summaries := [ref for ref in refs if ref["verdict_id"] is not None]):
             await self.set_meta(cursor_key, str(summaries[-1]["id"]))
+        if limit is not None and (fresh := [ref for ref in refs if ref["verdict_id"] is None]):
+            await self.set_meta(fresh_cursor_key, str(fresh[-1]["id"]))
         return kept
 
     async def _judge_refs(self, *, fix: bool, prompt_version: int, refresh_summary: bool) -> list[dict[str, object]]:

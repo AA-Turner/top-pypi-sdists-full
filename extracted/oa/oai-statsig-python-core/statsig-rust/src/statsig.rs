@@ -34,6 +34,7 @@ use crate::event_logging_adapter::StatsigHttpEventLoggingAdapter;
 use crate::gcir::gcir_formatter::GCIRFormatter;
 use crate::gcir::target_app_id_utils::select_app_id_for_gcir;
 use crate::hashing::HashUtil;
+use crate::id_lists_adapter::StatsigSharedIdListsAdapter;
 use crate::initialize_evaluations_response::InitializeEvaluationsResponse;
 use crate::initialize_response::InitializeResponse;
 use crate::initialize_v2_response::InitializeV2Response;
@@ -47,7 +48,7 @@ use crate::output_logger::{initialize_output_logger, shutdown_output_logger};
 use crate::persistent_storage::persistent_values_manager::PersistentValuesManager;
 use crate::sdk_diagnostics::diagnostics::{ContextType, Diagnostics};
 use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker};
-use crate::sdk_event_emitter::SdkEventEmitter;
+use crate::sdk_event_emitter::{SdkEvent, SdkEventEmitter};
 #[cfg(test)]
 use crate::snapshot_evaluation_session::SnapshotEvaluationSession;
 use crate::spec_store::{SpecStore, SpecStoreData};
@@ -93,13 +94,13 @@ use serde_json::json;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Weak, mpsc};
 use std::time::{Duration, Instant};
 
 #[cfg(test)]
 #[path = "__tests__/state_read_initialization_tests.rs"]
 mod state_read_initialization_tests;
-use tokio::try_join;
+use tokio::{task::JoinSet, try_join};
 
 const TAG: &str = stringify!(Statsig);
 
@@ -128,6 +129,60 @@ struct RawExperimentExposureOptions {
 const ERROR_SDK_KEY: &str = "__STATSIG_ERROR_SDK_KEY__";
 const INIT_IP_TAG: &str = "INIT_COUNTRY_LOOKUP";
 const INIT_UA_TAG: &str = "INIT_UA";
+const LAZY_ID_LIST_LOAD_TAG: &str = "LAZY_ID_LIST_LOAD";
+const LAZY_ID_LIST_LOAD_TIMEOUT: Duration = Duration::from_millis(30);
+
+#[derive(Clone, Copy)]
+enum LazyIdListLoadStatus {
+    Ready,
+    Timeout,
+    Failed,
+}
+
+impl LazyIdListLoadStatus {
+    fn has_unresolved_lists(self) -> bool {
+        !matches!(self, Self::Ready)
+    }
+
+    fn metric_outcome(self) -> &'static str {
+        match self {
+            Self::Ready => "success",
+            Self::Timeout => "timeout",
+            Self::Failed => "failure",
+        }
+    }
+
+    fn partial_evaluation_reason(self) -> Option<&'static str> {
+        match self {
+            Self::Ready => None,
+            Self::Timeout => Some("IdListLoadTimeout"),
+            Self::Failed => Some("IdListLoadFailure"),
+        }
+    }
+}
+
+struct LazyIdListLoadOutcome {
+    status: LazyIdListLoadStatus,
+    /// The exact store snapshot whose dependencies were checked. Evaluation
+    /// must use this snapshot rather than loading the store again.
+    data: Arc<SpecStoreData>,
+}
+
+fn lazy_id_list_spec_type_name(spec_type: &SpecType) -> &'static str {
+    match spec_type {
+        SpecType::Gate => "gate",
+        SpecType::DynamicConfig => "dynamic_config",
+        SpecType::Experiment => "experiment",
+        SpecType::Layer => "layer",
+        SpecType::ParameterStore => "parameter_store",
+    }
+}
+
+fn mark_partial_id_list_evaluation(details: &mut EvaluationDetails, status: LazyIdListLoadStatus) {
+    if let Some(reason) = status.partial_evaluation_reason() {
+        details.reason = format!("{}:PartialEvaluation:{reason}", details.reason);
+    }
+}
 
 lazy_static::lazy_static! {
     static ref SHARED_INSTANCE: Mutex<Option<Arc<Statsig>>> = Mutex::new(None);
@@ -135,6 +190,7 @@ lazy_static::lazy_static! {
 
 pub struct Statsig {
     output_policy: crate::output_policy::OutputPolicy,
+    reuse_default_only_layer_values: bool,
     pub statsig_runtime: Arc<StatsigRuntime>,
     pub options: Arc<StatsigOptions>,
     pub event_emitter: Arc<SdkEventEmitter>,
@@ -184,6 +240,9 @@ impl Drop for Statsig {
         if let Some(adapter) = &self.id_lists_adapter.as_default_adapter {
             adapter.force_shutdown();
         }
+        if let Some(adapter) = &self.id_lists_adapter.as_shared_adapter {
+            adapter.force_shutdown();
+        }
 
         if let Some(adapter) = &self.specs_adapter.as_default_adapter {
             adapter.force_shutdown();
@@ -200,9 +259,13 @@ impl Statsig {
         let output_policy = crate::output_policy::OutputPolicy::from_options(options.as_deref());
         let _output_scope = output_policy.enter();
         let options = options.map(|o| o.validate_and_fix()).unwrap_or_default();
-        let statsig_runtime = StatsigRuntime::get_runtime_with_options(
+        // Lazy ID-list loads are awaited from synchronous evaluation APIs. Keep
+        // that work on an SDK-owned runtime so a caller already running inside
+        // Tokio cannot deadlock its own executor while waiting.
+        let statsig_runtime = StatsigRuntime::get_runtime_with_options_and_owned_preference(
             options.sdk_runtime_thread_count,
             options.runtime_thread_start_callback.clone(),
+            options.lazy_load_id_lists == Some(true),
         );
 
         initialize_output_logger(
@@ -218,7 +281,6 @@ impl Statsig {
             get_data_store_key(RequestPath::RulesetsV2, sdk_key, &hashing, &options);
 
         let specs_adapter = initialize_specs_adapter(sdk_key, &data_store_key, &options);
-        let id_lists_adapter = initialize_id_lists_adapter(sdk_key, &options);
         let event_logging_adapter = initialize_event_logging_adapter(sdk_key, &options);
         let override_adapter = match options.override_adapter.as_ref() {
             Some(adapter) => Some(Arc::clone(adapter)),
@@ -259,6 +321,8 @@ impl Statsig {
             Some(&options),
         ));
 
+        let id_lists_adapter = initialize_id_lists_adapter(sdk_key, &options, &spec_store);
+
         let environment = options
             .environment
             .as_ref()
@@ -278,6 +342,10 @@ impl Statsig {
         Statsig {
             output_policy,
             sdk_key: sdk_key.to_string(),
+            reuse_default_only_layer_values: options
+                .experimental_flags
+                .as_ref()
+                .is_some_and(|flags| flags.contains("reuse_default_only_layer_values")),
             options,
             hashing,
             statsig_environment: environment,
@@ -1224,6 +1292,7 @@ impl Statsig {
             &data,
             data.snapshot.app_id.as_ref(),
             self.override_adapter.as_ref(),
+            false,
         );
         get_cmab_ranked_list(&mut context, cmab_name)
     }
@@ -1237,7 +1306,7 @@ impl Statsig {
         let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
 
-        let mut experiment = self.get_experiment_impl(&user_internal, cmab_name, None);
+        let mut experiment = self.get_experiment_impl(&user_internal, cmab_name, None, None, false);
         experiment.rule_id = group_id;
 
         self.event_logger.enqueue(EnqueueExperimentExpoOp {
@@ -1469,11 +1538,15 @@ impl Statsig {
     ) -> bool {
         let _output_scope = self.output_policy.enter();
         let disable_exposure_logging = options.disable_exposure_logging;
-        let (details, evaluation) = self.get_gate_evaluation(
+        let load = self.ensure_spec_id_lists(gate_name, &SpecType::Gate);
+        let (mut details, evaluation) = self.get_gate_evaluation(
             user_internal,
             gate_name,
             Some(options.disable_exposure_logging),
+            Some(load.data),
+            load.status.has_unresolved_lists(),
         );
+        mark_partial_id_list_evaluation(&mut details, load.status);
 
         let value = evaluation.as_ref().map(|e| e.value).unwrap_or_default();
         let rule_id = evaluation
@@ -1514,11 +1587,15 @@ impl Statsig {
         let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         let disable_exposure_logging = options.disable_exposure_logging;
-        let (details, evaluation) = self.get_gate_evaluation(
+        let load = self.ensure_spec_id_lists(gate_name, &SpecType::Gate);
+        let (mut details, evaluation) = self.get_gate_evaluation(
             &user_internal,
             gate_name,
             Some(options.disable_exposure_logging),
+            Some(load.data),
+            load.status.has_unresolved_lists(),
         );
+        mark_partial_id_list_evaluation(&mut details, load.status);
 
         if disable_exposure_logging {
             log_d!(TAG, "Exposure logging is disabled for gate {}", gate_name);
@@ -1553,8 +1630,12 @@ impl Statsig {
         gate_name: &InternedString,
     ) {
         let _output_scope = self.output_policy.enter();
-        let (details, evaluation) =
-            self.evaluate_spec_raw(user_internal, gate_name.as_str(), &SpecType::Gate, None);
+        let (details, evaluation) = self.evaluate_spec_raw_for_manual_exposure(
+            user_internal,
+            gate_name.as_str(),
+            &SpecType::Gate,
+            None,
+        );
 
         self.event_logger.enqueue(EnqueueExposureOp::gate_exposure(
             user_internal,
@@ -1575,6 +1656,158 @@ impl Statsig {
 // ------------------------------------------------------------------------------- [ Dynamic Config ]
 
 impl Statsig {
+    /// Makes every ID list referenced by an evaluation's current dependency
+    /// graph available before synchronous evaluation. The returned snapshot is
+    /// the exact one that was validated and must also be used for evaluation.
+    fn ensure_spec_id_lists(&self, spec_name: &str, spec_type: &SpecType) -> LazyIdListLoadOutcome {
+        let mut data = self.spec_store.load_data();
+        if self.options.lazy_load_id_lists != Some(true) {
+            return LazyIdListLoadOutcome {
+                status: LazyIdListLoadStatus::Ready,
+                data,
+            };
+        }
+
+        // The 30 ms budget applies only to waiting for asynchronous body loads.
+        // Dependency walking and snapshot validation do not consume it.
+        let mut remaining_wait = LAZY_ID_LIST_LOAD_TIMEOUT;
+        loop {
+            let required = data.id_list_dependencies(spec_name, spec_type);
+            let missing = required
+                .iter()
+                .filter(|name| !data.id_lists.contains_key(name.as_str()))
+                .cloned()
+                .collect::<Vec<_>>();
+            if missing.is_empty() {
+                return LazyIdListLoadOutcome {
+                    status: LazyIdListLoadStatus::Ready,
+                    data,
+                };
+            }
+
+            // SDK-managed lazy loading is implemented by the built-in HTTP
+            // adapter. Custom adapters retain their eager-loading contract.
+            let Some(adapter) = self.id_lists_adapter.as_default_adapter.clone() else {
+                return self.finish_lazy_id_list_load(
+                    LazyIdListLoadStatus::Failed,
+                    spec_type,
+                    data,
+                );
+            };
+            let (sender, receiver) = mpsc::sync_channel(1);
+            if let Err(error) =
+                self.statsig_runtime
+                    .spawn(LAZY_ID_LIST_LOAD_TAG, move |_| async move {
+                        // Fan out distinct lists. The adapter coalesces same-name
+                        // loads and globally limits body downloads to four.
+                        let mut loads = JoinSet::new();
+                        for name in missing {
+                            let adapter = Arc::clone(&adapter);
+                            loads.spawn(async move { adapter.process_id_list(&name).await });
+                        }
+
+                        let mut load_result = Ok(());
+                        while let Some(result) = loads.join_next().await {
+                            let error = match result {
+                                Ok(Ok(())) => continue,
+                                Ok(Err(error)) => error,
+                                Err(error) => StatsigErr::ThreadFailure(error.to_string()),
+                            };
+                            if load_result.is_ok() {
+                                load_result = Err(error);
+                            }
+                        }
+                        // The receiver may be gone after a timeout; completed work
+                        // remains published for a later evaluation.
+                        let _ = sender.send(load_result);
+                    })
+            {
+                log_error_to_statsig_and_console!(&self.ops_stats, TAG, error);
+                return self.finish_lazy_id_list_load(
+                    LazyIdListLoadStatus::Failed,
+                    spec_type,
+                    data,
+                );
+            }
+
+            let wait_started = Instant::now();
+            let result = receiver.recv_timeout(remaining_wait);
+            remaining_wait = remaining_wait.saturating_sub(wait_started.elapsed());
+            let current = self.spec_store.load_data();
+            match result {
+                Ok(Ok(())) => {
+                    if !Arc::ptr_eq(&data.snapshot, &current.snapshot) {
+                        // The spec graph changed while loading. Recompute from
+                        // the new snapshot and use only the remaining wait budget.
+                        data = current;
+                        if remaining_wait.is_zero() {
+                            return self.finish_lazy_id_list_load(
+                                LazyIdListLoadStatus::Timeout,
+                                spec_type,
+                                data,
+                            );
+                        }
+                        continue;
+                    }
+                    let status = if required
+                        .iter()
+                        .all(|name| current.id_lists.contains_key(name.as_str()))
+                    {
+                        LazyIdListLoadStatus::Ready
+                    } else {
+                        LazyIdListLoadStatus::Failed
+                    };
+                    return self.finish_lazy_id_list_load(status, spec_type, current);
+                }
+                Ok(Err(error)) => {
+                    log_error_to_statsig_and_console!(&self.ops_stats, TAG, error);
+                    return self.finish_lazy_id_list_load(
+                        LazyIdListLoadStatus::Failed,
+                        spec_type,
+                        data,
+                    );
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    return self.finish_lazy_id_list_load(
+                        LazyIdListLoadStatus::Timeout,
+                        spec_type,
+                        data,
+                    );
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    return self.finish_lazy_id_list_load(
+                        LazyIdListLoadStatus::Failed,
+                        spec_type,
+                        data,
+                    );
+                }
+            }
+        }
+    }
+
+    fn finish_lazy_id_list_load(
+        &self,
+        status: LazyIdListLoadStatus,
+        spec_type: &SpecType,
+        data: Arc<SpecStoreData>,
+    ) -> LazyIdListLoadOutcome {
+        if !matches!(status, LazyIdListLoadStatus::Ready) {
+            self.ops_stats.log(ObservabilityEvent::new_event(
+                MetricType::Increment,
+                "lazy_id_list_load.count".to_string(),
+                1.0,
+                Some(HashMap::from([
+                    ("outcome".to_string(), status.metric_outcome().to_string()),
+                    (
+                        "spec_type".to_string(),
+                        lazy_id_list_spec_type_name(spec_type).to_string(),
+                    ),
+                ])),
+            ));
+        }
+        LazyIdListLoadOutcome { status, data }
+    }
+
     pub fn get_dynamic_config(
         &self,
         user: &StatsigUser,
@@ -1597,11 +1830,15 @@ impl Statsig {
         let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         let disable_exposure_logging = options.disable_exposure_logging;
-        let dynamic_config = self.get_dynamic_config_impl(
+        let load = self.ensure_spec_id_lists(dynamic_config_name, &SpecType::DynamicConfig);
+        let mut dynamic_config = self.get_dynamic_config_impl(
             &user_internal,
             dynamic_config_name,
             Some(options.disable_exposure_logging),
+            Some(load.data),
+            load.status.has_unresolved_lists(),
         );
+        mark_partial_id_list_evaluation(&mut dynamic_config.details, load.status);
 
         if disable_exposure_logging {
             log_d!(
@@ -1646,7 +1883,7 @@ impl Statsig {
         dynamic_config_name: &InternedString,
     ) {
         let _output_scope = self.output_policy.enter();
-        let (details, evaluation) = self.evaluate_spec_raw(
+        let (details, evaluation) = self.evaluate_spec_raw_for_manual_exposure(
             user_internal,
             dynamic_config_name.as_str(),
             &SpecType::DynamicConfig,
@@ -1691,11 +1928,15 @@ impl Statsig {
         let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         let disable_exposure_logging = options.disable_exposure_logging;
+        let load = self.ensure_spec_id_lists(experiment_name, &SpecType::Experiment);
         let mut experiment = self.get_experiment_impl(
             &user_internal,
             experiment_name,
             Some(options.disable_exposure_logging),
+            Some(load.data),
+            load.status.has_unresolved_lists(),
         );
+        mark_partial_id_list_evaluation(&mut experiment.details, load.status);
 
         experiment = PersistentValuesManager::try_apply_sticky_value_to_experiment(
             &self.persistent_values_manager,
@@ -1758,7 +1999,7 @@ impl Statsig {
         exposure_metadata: Option<HashMap<String, Value>>,
     ) {
         let _output_scope = self.output_policy.enter();
-        let (details, evaluation) = self.evaluate_spec_raw(
+        let (details, evaluation) = self.evaluate_spec_raw_for_manual_exposure(
             user_internal,
             experiment_name.as_str(),
             &SpecType::Experiment,
@@ -1973,7 +2214,8 @@ impl Statsig {
     ) -> Layer {
         let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
-        self.get_layer_impl(user_internal, layer_name, options)
+        let load = self.ensure_spec_id_lists(layer_name, &SpecType::Layer);
+        self.get_layer_impl(user_internal, layer_name, options, load)
     }
 
     pub fn manually_log_layer_parameter_exposure(
@@ -2018,8 +2260,12 @@ impl Statsig {
         exposure_metadata: Option<HashMap<String, Value>>,
     ) {
         let _output_scope = self.output_policy.enter();
-        let (details, evaluation) =
-            self.evaluate_spec_raw(user_internal, layer_name.as_str(), &SpecType::Layer, None);
+        let (details, evaluation) = self.evaluate_spec_raw_for_manual_exposure(
+            user_internal,
+            layer_name.as_str(),
+            &SpecType::Layer,
+            None,
+        );
         let shared_control_exposures = self.build_shared_control_layer_exposures(
             user_internal,
             evaluation
@@ -2185,13 +2431,18 @@ impl Statsig {
         use crate::evaluation::evaluator_result::result_to_gate_raw;
 
         let interned_gate_name = InternedString::from_str_ref(gate_name);
-        let (details, evaluation, _) = self.evaluate_spec_raw_with_include_local_override(
-            user_internal,
-            gate_name,
-            &SpecType::Gate,
-            None,
-            include_local_override,
-        );
+        let load = self.ensure_spec_id_lists(gate_name, &SpecType::Gate);
+        let (mut details, evaluation, _) = self
+            .evaluate_spec_raw_with_include_local_override::<false>(
+                user_internal,
+                gate_name,
+                &SpecType::Gate,
+                None,
+                include_local_override,
+                Some(load.data),
+                load.status.has_unresolved_lists(),
+            );
+        mark_partial_id_list_evaluation(&mut details, load.status);
 
         let raw = result_to_gate_raw(gate_name, &details, evaluation.as_ref());
         let result = callback(&raw);
@@ -2346,13 +2597,18 @@ impl Statsig {
 
         let interned_dynamic_config_name = InternedString::from_str_ref(dynamic_config_name);
         let disable_exposure_logging: bool = options.disable_exposure_logging;
-        let (details, evaluation, data) = self.evaluate_spec_raw_with_include_local_override(
-            user_internal,
-            dynamic_config_name,
-            &SpecType::DynamicConfig,
-            Some(disable_exposure_logging),
-            raw_options.include_local_override,
-        );
+        let load = self.ensure_spec_id_lists(dynamic_config_name, &SpecType::DynamicConfig);
+        let (mut details, evaluation, data) = self
+            .evaluate_spec_raw_with_include_local_override::<false>(
+                user_internal,
+                dynamic_config_name,
+                &SpecType::DynamicConfig,
+                Some(disable_exposure_logging),
+                raw_options.include_local_override,
+                Some(load.data),
+                load.status.has_unresolved_lists(),
+            );
+        mark_partial_id_list_evaluation(&mut details, load.status);
 
         let raw = result_to_dynamic_config_raw(dynamic_config_name, &details, evaluation.as_ref());
         // Accepted snapshots, including empty ones, retain their receipt time across failures.
@@ -2698,13 +2954,18 @@ impl Statsig {
         let interned_experiment_name = InternedString::from_str_ref(experiment_name);
         let disable_exposure_logging: bool = options.disable_exposure_logging;
 
-        let (details, evaluation, _) = self.evaluate_spec_raw_with_include_local_override(
-            user_internal,
-            experiment_name,
-            &SpecType::Experiment,
-            Some(disable_exposure_logging),
-            include_local_override,
-        );
+        let load = self.ensure_spec_id_lists(experiment_name, &SpecType::Experiment);
+        let (mut details, evaluation, _) = self
+            .evaluate_spec_raw_with_include_local_override::<false>(
+                user_internal,
+                experiment_name,
+                &SpecType::Experiment,
+                Some(disable_exposure_logging),
+                include_local_override,
+                Some(load.data),
+                load.status.has_unresolved_lists(),
+            );
+        mark_partial_id_list_evaluation(&mut details, load.status);
 
         let (evaluation, details) =
             PersistentValuesManager::try_apply_sticky_value_to_raw_experiment(
@@ -2870,13 +3131,18 @@ impl Statsig {
 
         let disable_exposure_logging: bool = options.disable_exposure_logging;
 
-        let (details, evaluation, _) = self.evaluate_spec_raw_with_include_local_override(
-            user_internal,
-            layer_name,
-            &SpecType::Layer,
-            Some(disable_exposure_logging),
-            include_local_override,
-        );
+        let load = self.ensure_spec_id_lists(layer_name, &SpecType::Layer);
+        let (mut details, evaluation, _) = self
+            .evaluate_spec_raw_with_include_local_override::<false>(
+                user_internal,
+                layer_name,
+                &SpecType::Layer,
+                Some(disable_exposure_logging),
+                include_local_override,
+                Some(load.data),
+                load.status.has_unresolved_lists(),
+            );
+        mark_partial_id_list_evaluation(&mut details, load.status);
 
         let (evaluation, details) = PersistentValuesManager::try_apply_sticky_value_to_raw_layer(
             &self.persistent_values_manager,
@@ -3565,8 +3831,9 @@ impl Statsig {
         data: &'a SpecStoreData,
         app_id: Option<&'a DynamicValue>,
         override_adapter: Option<&'a Arc<dyn OverrideAdapter>>,
+        unresolved_lazy_id_lists: bool,
     ) -> EvaluatorContext<'a> {
-        EvaluatorContext::new(
+        let mut context = EvaluatorContext::new(
             user_internal,
             &data.snapshot,
             IdListResolution::MapLookup(data.id_lists.as_ref()),
@@ -3575,7 +3842,11 @@ impl Statsig {
             override_adapter,
             self.should_user_third_party_parser(),
             true,
-        )
+        );
+        context.unresolved_missing_id_lists = unresolved_lazy_id_lists;
+        // GCIR v2 hashes the original assembled returnable. Keep its context on that path.
+        context.reuse_default_only_layer_values = self.reuse_default_only_layer_values;
+        context
     }
 
     fn create_gcir_eval_context<'a>(
@@ -3604,36 +3875,41 @@ impl Statsig {
         )
     }
 
-    fn evaluate_spec_raw(
+    fn evaluate_spec_raw_for_manual_exposure(
         &self,
         user_internal: &StatsigUserInternal,
         spec_name: &str,
         spec_type: &SpecType,
         disable_exposure_logging: Option<bool>,
     ) -> (EvaluationDetails, Option<EvaluatorResult>) {
-        let (details, evaluation, _) = self.evaluate_spec_raw_with_include_local_override(
+        let (details, evaluation, _) = self.evaluate_spec_raw_with_include_local_override::<true>(
             user_internal,
             spec_name,
             spec_type,
             disable_exposure_logging,
             true,
+            None,
+            false,
         );
         (details, evaluation)
     }
 
-    fn evaluate_spec_raw_with_include_local_override(
+    #[allow(clippy::too_many_arguments)]
+    fn evaluate_spec_raw_with_include_local_override<const MANUAL_EXPOSURE: bool>(
         &self,
         user_internal: &StatsigUserInternal,
         spec_name: &str,
         spec_type: &SpecType,
         disable_exposure_logging: Option<bool>,
         include_local_override: bool,
+        pinned_data: Option<Arc<SpecStoreData>>,
+        unresolved_lazy_id_lists: bool,
     ) -> (
         EvaluationDetails,
         Option<EvaluatorResult>,
         Arc<SpecStoreData>,
     ) {
-        let data = self.spec_store.load_data();
+        let data = pinned_data.unwrap_or_else(|| self.spec_store.load_data());
 
         let override_adapter = if include_local_override {
             self.override_adapter.as_ref()
@@ -3646,8 +3922,11 @@ impl Statsig {
             &data,
             data.snapshot.app_id.as_ref(),
             override_adapter,
+            unresolved_lazy_id_lists,
         );
 
+        context.manual_layer_exposure_only =
+            MANUAL_EXPOSURE && matches!(spec_type, SpecType::Layer);
         let evaluation = Self::evaluate_with_details(&mut context, &data, spec_name, spec_type);
         self.report_nested_experiment_evaluations(
             &data,
@@ -3677,14 +3956,17 @@ impl Statsig {
         make_result: impl FnOnce(EvaluatorResult, EvaluationDetails) -> T,
         spec_type: &SpecType,
         disable_exposure_logging: Option<bool>,
+        pinned_data: Option<Arc<SpecStoreData>>,
+        unresolved_lazy_id_lists: bool,
     ) -> T {
-        let data = self.spec_store.load_data();
+        let data = pinned_data.unwrap_or_else(|| self.spec_store.load_data());
 
         let mut context = self.create_standard_eval_context(
             user_internal,
             &data,
             data.snapshot.app_id.as_ref(),
             self.override_adapter.as_ref(),
+            unresolved_lazy_id_lists,
         );
 
         let evaluation = Self::evaluate_with_details(&mut context, &data, spec_name, spec_type);
@@ -3741,15 +4023,32 @@ impl Statsig {
             } else {
                 None
             };
-            let experiment = make_experiment(nested.experiment_name.as_str(), evaluation, details);
-
             // Targeting must not log an experiment exposure, even when the parent logs.
             if disable_exposure_logging {
                 self.event_logger
                     .increment_non_exposure_checks(nested.experiment_name.as_str());
             }
 
-            self.emit_experiment_evaluated(&experiment);
+            // As with raw evaluation events, borrow the returnable for listeners. A
+            // public Experiment also decodes its parameters into an owned JSON map,
+            // which is unused here: the event reads the internal evaluation value.
+            // Keep the normalized evaluation so default values and suffixed rule IDs
+            // retain the public Experiment event's shape.
+            self.emit(SdkEvent::ExperimentEvaluated {
+                experiment_name: nested.experiment_name.as_str(),
+                reason: details.reason.as_str(),
+                rule_id: Some(
+                    evaluation
+                        .as_ref()
+                        .map(|evaluation| evaluation.base.rule_id.as_str())
+                        .unwrap_or_else(|| InternedString::default_rule_id_ref().as_str()),
+                ),
+                value: evaluation.as_ref().map(|evaluation| &evaluation.value),
+                group_name: evaluation
+                    .as_ref()
+                    .and_then(|evaluation| evaluation.group_name.as_ref())
+                    .map(|group_name| group_name.as_str()),
+            });
         }
     }
 
@@ -3809,6 +4108,8 @@ impl Statsig {
         user_internal: &StatsigUserInternal,
         gate_name: &str,
         disable_exposure_logging: Option<bool>,
+        pinned_data: Option<Arc<SpecStoreData>>,
+        unresolved_lazy_id_lists: bool,
     ) -> (EvaluationDetails, Option<GateEvaluation>) {
         self.evaluate_spec(
             user_internal,
@@ -3820,6 +4121,8 @@ impl Statsig {
             },
             &SpecType::Gate,
             disable_exposure_logging,
+            pinned_data,
+            unresolved_lazy_id_lists,
         )
     }
 
@@ -3828,6 +4131,8 @@ impl Statsig {
         user_internal: &StatsigUserInternal,
         config_name: &str,
         disable_exposure_logging: Option<bool>,
+        pinned_data: Option<Arc<SpecStoreData>>,
+        unresolved_lazy_id_lists: bool,
     ) -> DynamicConfig {
         self.evaluate_spec(
             user_internal,
@@ -3839,6 +4144,8 @@ impl Statsig {
             },
             &SpecType::DynamicConfig,
             disable_exposure_logging,
+            pinned_data,
+            unresolved_lazy_id_lists,
         )
     }
 
@@ -3847,6 +4154,8 @@ impl Statsig {
         user_internal: &StatsigUserInternal,
         experiment_name: &str,
         disable_exposure_logging: Option<bool>,
+        pinned_data: Option<Arc<SpecStoreData>>,
+        unresolved_lazy_id_lists: bool,
     ) -> Experiment {
         self.evaluate_spec(
             user_internal,
@@ -3858,6 +4167,8 @@ impl Statsig {
             },
             &SpecType::Experiment,
             disable_exposure_logging,
+            pinned_data,
+            unresolved_lazy_id_lists,
         )
     }
 
@@ -3866,6 +4177,7 @@ impl Statsig {
         user_internal: StatsigUserInternal,
         layer_name: &str,
         evaluation_options: LayerEvaluationOptions,
+        load: LazyIdListLoadOutcome,
     ) -> Layer {
         let disable_exposure_logging = evaluation_options.disable_exposure_logging;
 
@@ -3901,7 +4213,10 @@ impl Statsig {
             },
             &SpecType::Layer,
             Some(evaluation_options.disable_exposure_logging),
+            Some(load.data),
+            load.status.has_unresolved_lists(),
         );
+        mark_partial_id_list_evaluation(&mut layer.details, load.status);
 
         layer = PersistentValuesManager::try_apply_sticky_value_to_layer(
             &self.persistent_values_manager,
@@ -3941,12 +4256,14 @@ impl Statsig {
         shared_control_experiments
             .iter()
             .filter_map(|shared_control_experiment| {
-                let (_, result, _) = self.evaluate_spec_raw_with_include_local_override(
+                let (_, result, _) = self.evaluate_spec_raw_with_include_local_override::<false>(
                     user_internal,
                     shared_control_experiment.name.as_str(),
                     &SpecType::Experiment,
                     None,
                     include_local_override,
+                    None,
+                    false,
                 );
                 let mut result = result?;
                 if !result.is_experiment_group
@@ -4107,32 +4424,57 @@ fn initialize_specs_adapter(
     }
 }
 
-fn initialize_id_lists_adapter(sdk_key: &str, options: &StatsigOptions) -> IdListsAdapterHousing {
+fn initialize_id_lists_adapter(
+    sdk_key: &str,
+    options: &StatsigOptions,
+    spec_store: &Arc<SpecStore>,
+) -> IdListsAdapterHousing {
     if let Some(id_lists_adapter) = options.id_lists_adapter.clone() {
         return IdListsAdapterHousing {
             inner: Some(id_lists_adapter),
             as_default_adapter: None,
+            as_shared_adapter: None,
         };
     }
 
     if options.enable_id_lists.unwrap_or(false) {
+        if !options.disable_disk_access.unwrap_or(false)
+            && !options.disable_network.unwrap_or(false)
+            && options.proxy_config.is_none()
+            && options
+                .shared_id_lists_dir
+                .as_deref()
+                .is_some_and(|path| !path.trim().is_empty())
+        {
+            let adapter = Arc::new(
+                StatsigSharedIdListsAdapter::new(sdk_key, options)
+                    .with_listener(spec_store.clone()),
+            );
+            return IdListsAdapterHousing {
+                inner: Some(adapter.clone()),
+                as_default_adapter: None,
+                as_shared_adapter: Some(adapter),
+            };
+        }
         let adapter = Arc::new(StatsigHttpIdListsAdapter::new(sdk_key, options));
-
         return IdListsAdapterHousing {
             inner: Some(adapter.clone()),
             as_default_adapter: Some(adapter),
+            as_shared_adapter: None,
         };
     }
 
     IdListsAdapterHousing {
         inner: None,
         as_default_adapter: None,
+        as_shared_adapter: None,
     }
 }
 
 struct IdListsAdapterHousing {
     inner: Option<Arc<dyn IdListsAdapter>>,
     as_default_adapter: Option<Arc<StatsigHttpIdListsAdapter>>,
+    as_shared_adapter: Option<Arc<StatsigSharedIdListsAdapter>>,
 }
 
 struct SpecsAdapterHousing {
@@ -4173,12 +4515,16 @@ fn setup_ops_stats(
     ops_stat
 }
 
+#[cfg(test)]
+mod default_layer_value_reuse_tests;
 #[cfg(all(test, feature = "ffi-support"))]
 mod typed_config_tests;
 
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
     use rusty_fork::rusty_fork_test;
+    use std::sync::atomic::AtomicUsize;
 
     use super::*;
     use crate::{
@@ -4187,10 +4533,605 @@ mod tests {
             InternedStore,
             interned_store::{preload_mmap_v2_multi_for_test, write_mmap_v2_for_test},
         },
-        networking::ResponseData,
+        networking::{HttpMethod, NetworkProvider, RequestArgs, Response, ResponseData},
     };
 
     const EVAL_PROJ_JSON: &[u8] = include_bytes!("../tests/data/eval_proj_dcs.json");
+
+    const LAZY_CONFIG_ID_LIST_MANIFEST_URL: &str = "https://lists.test/manifest";
+    const LAZY_CONFIG_ID_LIST_FILE_URL: &str = "https://lists.test/lazy-members";
+
+    #[derive(Default)]
+    struct CapturingEventLoggingAdapter {
+        payloads: Mutex<Vec<crate::log_event_payload::LogEventPayload>>,
+    }
+
+    #[async_trait]
+    impl EventLoggingAdapter for CapturingEventLoggingAdapter {
+        async fn start(&self, _statsig_runtime: &Arc<StatsigRuntime>) -> Result<(), StatsigErr> {
+            Ok(())
+        }
+
+        async fn log_events(
+            &self,
+            request: crate::log_event_payload::LogEventRequest,
+        ) -> Result<bool, StatsigErr> {
+            self.payloads.lock().push(request.payload);
+            Ok(true)
+        }
+
+        async fn shutdown(&self) -> Result<(), StatsigErr> {
+            Ok(())
+        }
+
+        fn should_schedule_background_flush(&self) -> bool {
+            false
+        }
+    }
+
+    struct LazyConfigIdListProvider {
+        delay: Duration,
+        member_hash: String,
+        downloads: AtomicUsize,
+        first_body_gate: Mutex<Option<Arc<tokio::sync::Semaphore>>>,
+    }
+
+    impl LazyConfigIdListProvider {
+        fn new(delay: Duration, member_hash: String) -> Self {
+            Self {
+                delay,
+                member_hash,
+                downloads: AtomicUsize::new(0),
+                first_body_gate: Mutex::new(None),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl NetworkProvider for LazyConfigIdListProvider {
+        async fn send(&self, _method: &HttpMethod, args: &RequestArgs) -> Response {
+            if args.url == LAZY_CONFIG_ID_LIST_MANIFEST_URL {
+                let body = format!("+{}\n", self.member_hash);
+                return Response {
+                    status_code: Some(200),
+                    data: Some(ResponseData::from_bytes(
+                        serde_json::to_vec(&json!({
+                            "lazy-members": {
+                                "name": "lazy-members",
+                                "url": LAZY_CONFIG_ID_LIST_FILE_URL,
+                                "fileID": "generation-1",
+                                "size": body.len(),
+                                "creationTime": 1,
+                            },
+                            "replacement-members": {
+                                "name": "replacement-members",
+                                "url": "https://lists.test/replacement-members",
+                                "fileID": "generation-1",
+                                "size": body.len(),
+                                "creationTime": 1,
+                            }
+                        }))
+                        .unwrap(),
+                    )),
+                    error: None,
+                };
+            }
+
+            self.downloads.fetch_add(1, Ordering::SeqCst);
+            if args.url == LAZY_CONFIG_ID_LIST_FILE_URL {
+                let gate = self.first_body_gate.lock().clone();
+                if let Some(gate) = gate {
+                    gate.acquire().await.unwrap().forget();
+                } else {
+                    tokio::time::sleep(self.delay).await;
+                }
+            }
+            let body = format!("+{}\n", self.member_hash);
+            Response {
+                status_code: Some(200),
+                data: Some(ResponseData::from_bytes(body.into_bytes())),
+                error: None,
+            }
+        }
+    }
+
+    async fn setup_lazy_config_test(delay: Duration) -> (Statsig, Arc<LazyConfigIdListProvider>) {
+        let (statsig, provider, _) = setup_lazy_config_test_with_logging(delay, false).await;
+        (statsig, provider)
+    }
+
+    async fn setup_lazy_config_test_with_logging(
+        delay: Duration,
+        capture_events: bool,
+    ) -> (
+        Statsig,
+        Arc<LazyConfigIdListProvider>,
+        Option<Arc<CapturingEventLoggingAdapter>>,
+    ) {
+        setup_lazy_config_test_with_option(delay, capture_events, Some(true)).await
+    }
+
+    async fn setup_lazy_config_test_with_option(
+        delay: Duration,
+        capture_events: bool,
+        lazy_load_id_lists: Option<bool>,
+    ) -> (
+        Statsig,
+        Arc<LazyConfigIdListProvider>,
+        Option<Arc<CapturingEventLoggingAdapter>>,
+    ) {
+        let hash = HashUtil::new().sha256("lazy-member");
+        let provider = Arc::new(LazyConfigIdListProvider::new(
+            delay,
+            hash.chars().take(8).collect(),
+        ));
+        let event_logging_adapter =
+            capture_events.then(|| Arc::new(CapturingEventLoggingAdapter::default()));
+        let options = Arc::new(StatsigOptions {
+            enable_id_lists: Some(true),
+            lazy_load_id_lists,
+            id_lists_url: Some(LAZY_CONFIG_ID_LIST_MANIFEST_URL.to_string()),
+            disable_all_logging: Some(!capture_events),
+            event_logging_adapter: event_logging_adapter
+                .clone()
+                .map(|adapter| adapter as Arc<dyn EventLoggingAdapter>),
+            ..StatsigOptions::default()
+        });
+        let mut statsig = Statsig::new("secret-lazy-config-test", Some(Arc::clone(&options)));
+        let mut adapter = StatsigHttpIdListsAdapter::new("secret-lazy-config-test", &options);
+        let network: Arc<dyn NetworkProvider> = provider.clone();
+        adapter.set_network_provider_for_test(Arc::downgrade(&network));
+        let adapter = Arc::new(adapter);
+        statsig.id_lists_adapter = IdListsAdapterHousing {
+            inner: Some(adapter.clone()),
+            as_default_adapter: Some(adapter.clone()),
+            as_shared_adapter: None,
+        };
+        adapter
+            .clone()
+            .start(&statsig.statsig_runtime, statsig.spec_store.clone())
+            .await
+            .unwrap();
+
+        let mut specs: Value = serde_json::from_slice(EVAL_PROJ_JSON).unwrap();
+        specs["condition_map"]["lazy-id-list"] = json!({
+            "type": "unit_id",
+            "targetValue": "lazy-members",
+            "operator": "in_segment_list",
+            "idType": "userID"
+        });
+        specs["condition_map"]["lazy-id-list-exclusion"] = json!({
+            "type": "unit_id",
+            "targetValue": "lazy-members",
+            "operator": "not_in_segment_list",
+            "idType": "userID"
+        });
+        specs["condition_map"]["lazy-nested-gate"] = json!({
+            "type": "pass_gate",
+            "targetValue": "lazy-list-gate",
+            "operator": null,
+            "idType": "userID"
+        });
+        specs["condition_map"]["lazy-nested-fail-gate"] = json!({
+            "type": "fail_gate",
+            "targetValue": "lazy-list-gate",
+            "operator": null,
+            "idType": "userID"
+        });
+        specs["condition_map"]["lazy-public"] = json!({
+            "type": "public",
+            "targetValue": null,
+            "operator": null,
+            "idType": "userID"
+        });
+        let mut list_gate = specs["feature_gates"]["test_small_pass_gate"].clone();
+        list_gate["rules"][0]["passPercentage"] = json!(100);
+        list_gate["rules"][0]["salt"] = json!("");
+        list_gate["rules"][0]["conditions"] = json!(["lazy-id-list"]);
+        specs["feature_gates"]["lazy-list-gate"] = list_gate;
+        let mut exclusion_gate = specs["feature_gates"]["test_small_pass_gate"].clone();
+        exclusion_gate["rules"][0]["passPercentage"] = json!(100);
+        exclusion_gate["rules"][0]["salt"] = json!("");
+        exclusion_gate["rules"][0]["conditions"] = json!(["lazy-id-list-exclusion"]);
+        specs["feature_gates"]["lazy-exclusion-gate"] = exclusion_gate;
+        for (name, condition) in [
+            ("lazy-pass-gate-wrapper", "lazy-nested-gate"),
+            ("lazy-fail-gate-wrapper", "lazy-nested-fail-gate"),
+        ] {
+            let mut wrapper = specs["feature_gates"]["test_small_pass_gate"].clone();
+            wrapper["rules"] = json!([{
+                "name": "nested",
+                "passPercentage": 100,
+                "conditions": [condition],
+                "returnValue": true,
+                "id": "nested",
+                "salt": "",
+                "idType": "userID"
+            }, {
+                "name": "later",
+                "passPercentage": 100,
+                "conditions": ["lazy-public"],
+                "returnValue": true,
+                "id": "later",
+                "salt": "",
+                "idType": "userID"
+            }]);
+            specs["feature_gates"][name] = wrapper;
+        }
+        for (name, condition) in [
+            ("lazy-inclusion-config", "lazy-id-list"),
+            ("lazy-exclusion-config", "lazy-id-list-exclusion"),
+        ] {
+            specs["dynamic_configs"][name] = json!({
+                "type": "dynamic_config",
+                "salt": name,
+                "enabled": true,
+                "defaultValue": {"selected": "default"},
+                "rules": [{
+                    "name": "id-list",
+                    "passPercentage": 100,
+                    "conditions": [condition],
+                    "returnValue": {"selected": "id-list"},
+                    "id": "id-list",
+                    "salt": "",
+                    "idType": "userID"
+                }, {
+                    "name": "later",
+                    "passPercentage": 100,
+                    "conditions": ["lazy-public"],
+                    "returnValue": {"selected": "later"},
+                    "id": "later",
+                    "salt": "",
+                    "idType": "userID"
+                }],
+                "idType": "userID",
+                "entity": "dynamic_config",
+                "version": 1
+            });
+        }
+        specs["dynamic_configs"]["lazy-config"] = json!({
+            "type": "dynamic_config",
+            "salt": "lazy-config",
+            "enabled": true,
+            "defaultValue": {"loaded": false},
+            "rules": [{
+                "name": "lazy-rule",
+                "passPercentage": 100,
+                "conditions": ["lazy-nested-gate"],
+                "returnValue": {"loaded": true},
+                "id": "lazy-rule",
+                "salt": "",
+                "idType": "userID"
+            }],
+            "idType": "userID",
+            "entity": "dynamic_config",
+            "version": 1
+        });
+        specs["dynamic_configs"]["lazy-experiment"] = json!({
+            "type": "dynamic_config",
+            "salt": "lazy-experiment",
+            "enabled": true,
+            "defaultValue": {"group": "default"},
+            "rules": [{
+                "name": "member",
+                "groupName": "Member",
+                "passPercentage": 100,
+                "conditions": ["lazy-id-list"],
+                "returnValue": {"group": "member"},
+                "id": "member",
+                "salt": "",
+                "idType": "userID",
+                "isExperimentGroup": true
+            }],
+            "idType": "userID",
+            "entity": "experiment",
+            "isActive": true,
+            "version": 1
+        });
+        specs["layer_configs"]["lazy-layer"] = json!({
+            "type": "dynamic_config",
+            "salt": "lazy-layer",
+            "enabled": true,
+            "defaultValue": {"loaded": false},
+            "rules": [{
+                "name": "member",
+                "passPercentage": 100,
+                "conditions": ["lazy-id-list"],
+                "returnValue": {"loaded": true},
+                "id": "member",
+                "salt": "",
+                "idType": "userID"
+            }],
+            "idType": "userID",
+            "entity": "layer",
+            "version": 1
+        });
+        statsig
+            .spec_store
+            .set_values(SpecsUpdate {
+                data: ResponseData::from_bytes(serde_json::to_vec(&specs).unwrap()),
+                source: SpecsSource::Network,
+                received_at: 2_000,
+                source_api: Some("lazy-config-test".to_string()),
+                has_updates: None,
+            })
+            .unwrap();
+        (statsig, provider, event_logging_adapter)
+    }
+
+    #[tokio::test]
+    async fn get_dynamic_config_downloads_reachable_id_lists_without_an_async_api() {
+        let (statsig, adapter) = setup_lazy_config_test(Duration::ZERO).await;
+        let config =
+            statsig.get_dynamic_config(&StatsigUser::with_user_id("lazy-member"), "lazy-config");
+
+        assert_eq!(config.get_opt::<bool>("loaded"), Some(true));
+        assert_eq!(adapter.downloads.load(Ordering::SeqCst), 1);
+
+        let cached =
+            statsig.get_dynamic_config(&StatsigUser::with_user_id("lazy-member"), "lazy-config");
+        assert_eq!(cached.get_opt::<bool>("loaded"), Some(true));
+        assert_eq!(adapter.downloads.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn direct_gate_experiment_and_layer_apis_lazy_load_id_lists() {
+        let user = StatsigUser::with_user_id("lazy-member");
+
+        let (gate_statsig, gate_provider, gate_events) =
+            setup_lazy_config_test_with_logging(Duration::ZERO, true).await;
+        let gate = gate_statsig.get_feature_gate(&user, "lazy-list-gate");
+        assert!(gate.value);
+        assert_eq!(gate_provider.downloads.load(Ordering::SeqCst), 1);
+        gate_statsig.flush_events().await;
+        let gate_events = gate_events.unwrap();
+        {
+            let payloads = gate_events.payloads.lock();
+            let exposure = payloads
+                .iter()
+                .flat_map(|payload| payload.events.as_array().into_iter().flatten())
+                .find(|event| event["eventName"] == "statsig::gate_exposure")
+                .expect("direct gate evaluation should log its exposure");
+            assert_eq!(exposure["metadata"]["gate"], "lazy-list-gate");
+            assert_eq!(exposure["metadata"]["gateValue"], "true");
+        }
+
+        let (experiment_statsig, experiment_provider) =
+            setup_lazy_config_test(Duration::ZERO).await;
+        let experiment = experiment_statsig.get_experiment(&user, "lazy-experiment");
+        assert_eq!(
+            experiment.get_opt::<String>("group").as_deref(),
+            Some("member")
+        );
+        assert_eq!(experiment_provider.downloads.load(Ordering::SeqCst), 1);
+
+        let (layer_statsig, layer_provider) = setup_lazy_config_test(Duration::ZERO).await;
+        let layer = layer_statsig.get_layer(&user, "lazy-layer");
+        assert_eq!(layer.get_opt::<bool>("loaded"), Some(true));
+        assert_eq!(layer_provider.downloads.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn lazy_load_timeout_partially_evaluates_logs_reason_and_reports_ops_stats() {
+        let (statsig, adapter, event_logging_adapter) =
+            setup_lazy_config_test_with_logging(Duration::from_millis(200), true).await;
+        let event_logging_adapter = event_logging_adapter.unwrap();
+        let mut ops_stats = statsig.ops_stats.subscribe_for_test();
+        let started = Instant::now();
+        let timed_out =
+            statsig.get_dynamic_config(&StatsigUser::with_user_id("lazy-member"), "lazy-config");
+
+        assert!(started.elapsed() < Duration::from_millis(150));
+        assert_eq!(timed_out.get_opt::<bool>("loaded"), None);
+        assert!(
+            timed_out
+                .details
+                .reason
+                .ends_with(":PartialEvaluation:IdListLoadTimeout")
+        );
+        assert!(timed_out.details.reason.contains(":Unsupported"));
+        let metric = loop {
+            match ops_stats.try_recv() {
+                Ok(crate::observability::ops_stats::OpsStatsEvent::Observability(event))
+                    if event.metric_name == "lazy_id_list_load.count" =>
+                {
+                    break event;
+                }
+                Ok(_) => continue,
+                Err(error) => panic!("missing lazy-load OpsStats metric: {error}"),
+            }
+        };
+        let tags = metric.tags.unwrap();
+        assert_eq!(tags.get("outcome").map(String::as_str), Some("timeout"));
+        assert_eq!(
+            tags.get("spec_type").map(String::as_str),
+            Some("dynamic_config")
+        );
+
+        statsig.flush_events().await;
+        {
+            let payloads = event_logging_adapter.payloads.lock();
+            let exposure = payloads
+                .iter()
+                .flat_map(|payload| payload.events.as_array().into_iter().flatten())
+                .find(|event| event["eventName"] == "statsig::config_exposure")
+                .expect("partial evaluation should still log a config exposure");
+            assert_eq!(
+                exposure["metadata"]["reason"],
+                timed_out.details.reason.as_str()
+            );
+        }
+
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        let loaded =
+            statsig.get_dynamic_config(&StatsigUser::with_user_id("lazy-member"), "lazy-config");
+        assert_eq!(loaded.get_opt::<bool>("loaded"), Some(true));
+        assert_eq!(adapter.downloads.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn unavailable_id_list_is_unsupported_and_stops_later_rules() {
+        let (statsig, _) = setup_lazy_config_test(Duration::from_millis(200)).await;
+        let user = StatsigUser::with_user_id("not-a-member");
+
+        for name in ["lazy-inclusion-config", "lazy-exclusion-config"] {
+            let config = statsig.get_dynamic_config(&user, name);
+            assert_ne!(
+                config.get_opt::<String>("selected").as_deref(),
+                Some("later"),
+                "{name} must not select the later public rule"
+            );
+            assert_ne!(config.rule_id, "later");
+            assert!(config.details.reason.contains(":Unsupported"));
+            assert!(
+                config
+                    .details
+                    .reason
+                    .ends_with(":PartialEvaluation:IdListLoadTimeout")
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn unavailable_id_list_propagates_through_pass_and_fail_gate() {
+        let (statsig, _) = setup_lazy_config_test(Duration::from_millis(200)).await;
+        let user = StatsigUser::with_user_id("not-a-member");
+
+        for name in ["lazy-pass-gate-wrapper", "lazy-fail-gate-wrapper"] {
+            let gate = statsig.get_feature_gate(&user, name);
+            assert!(!gate.value, "{name} must preserve the unresolved result");
+            assert_ne!(gate.rule_id, "later", "{name} must not select a later rule");
+            assert!(gate.details.reason.contains(":Unsupported"));
+            assert!(
+                gate.details
+                    .reason
+                    .ends_with(":PartialEvaluation:IdListLoadTimeout")
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn unset_and_disabled_lazy_loading_remain_eager() {
+        let user = StatsigUser::with_user_id("lazy-member");
+
+        for lazy_load_id_lists in [None, Some(false)] {
+            let (statsig, provider, _) =
+                setup_lazy_config_test_with_option(Duration::ZERO, false, lazy_load_id_lists).await;
+            let eager_downloads = provider.downloads.load(Ordering::SeqCst);
+            assert_eq!(eager_downloads, 2);
+
+            let config = statsig.get_dynamic_config(&user, "lazy-config");
+            assert_eq!(config.get_opt::<bool>("loaded"), Some(true));
+            assert!(!config.details.reason.contains("PartialEvaluation"));
+            assert_eq!(provider.downloads.load(Ordering::SeqCst), eager_downloads);
+        }
+    }
+
+    #[tokio::test]
+    async fn spec_update_during_load_revalidates_and_evaluates_one_snapshot() {
+        let (statsig, provider) = setup_lazy_config_test(Duration::ZERO).await;
+        let first_body_gate = Arc::new(tokio::sync::Semaphore::new(0));
+        *provider.first_body_gate.lock() = Some(Arc::clone(&first_body_gate));
+        let updated_specs = json!({
+            "feature_gates": {
+                "lazy-list-gate": {
+                    "type": "feature_gate",
+                    "salt": "lazy-list-gate",
+                    "enabled": true,
+                    "defaultValue": false,
+                    "rules": [{
+                        "name": "member",
+                        "passPercentage": 100,
+                        "conditions": ["lazy-id-list"],
+                        "returnValue": true,
+                        "id": "member",
+                        "salt": "",
+                        "idType": "userID"
+                    }],
+                    "idType": "userID",
+                    "entity": "feature_gate",
+                    "version": 2
+                }
+            },
+            "dynamic_configs": {
+                "lazy-config": {
+                    "type": "dynamic_config",
+                    "salt": "lazy-config",
+                    "enabled": true,
+                    "defaultValue": {"loaded": false},
+                    "rules": [{
+                        "name": "lazy-rule",
+                        "passPercentage": 100,
+                        "conditions": ["lazy-nested-gate"],
+                        "returnValue": {"loaded": true},
+                        "id": "lazy-rule",
+                        "salt": "",
+                        "idType": "userID"
+                    }],
+                    "idType": "userID",
+                    "entity": "dynamic_config",
+                    "version": 2
+                }
+            },
+            "layer_configs": {},
+            "experiment_to_layer": {},
+            "param_stores": {},
+            "condition_map": {
+                "lazy-id-list": {
+                    "type": "unit_id",
+                    "targetValue": "replacement-members",
+                    "operator": "in_segment_list",
+                    "idType": "userID"
+                },
+                "lazy-nested-gate": {
+                    "type": "pass_gate",
+                    "targetValue": "lazy-list-gate",
+                    "operator": null,
+                    "idType": "userID"
+                }
+            },
+            "time": 1767981029385_u64,
+            "checksum": "lazy-replacement-generation",
+            "has_updates": true
+        });
+
+        let statsig = Arc::new(statsig);
+        let updater = {
+            let statsig = Arc::clone(&statsig);
+            let provider = Arc::clone(&provider);
+            let first_body_gate = Arc::clone(&first_body_gate);
+            std::thread::spawn(move || {
+                while provider.downloads.load(Ordering::SeqCst) == 0 {
+                    std::thread::yield_now();
+                }
+                statsig
+                    .spec_store
+                    .set_values(SpecsUpdate {
+                        data: ResponseData::from_bytes(serde_json::to_vec(&updated_specs).unwrap()),
+                        source: SpecsSource::Network,
+                        received_at: 2_001,
+                        source_api: Some("lazy-config-race-test".to_string()),
+                        has_updates: None,
+                    })
+                    .unwrap();
+                first_body_gate.add_permits(1);
+            })
+        };
+
+        let config =
+            statsig.get_dynamic_config(&StatsigUser::with_user_id("lazy-member"), "lazy-config");
+        updater.join().unwrap();
+
+        assert_eq!(
+            config.get_opt::<bool>("loaded"),
+            Some(true),
+            "reason={}, downloads={}",
+            config.details.reason,
+            provider.downloads.load(Ordering::SeqCst)
+        );
+        assert!(!config.details.reason.contains("PartialEvaluation"));
+        assert_eq!(provider.downloads.load(Ordering::SeqCst), 2);
+    }
 
     rusty_fork_test! {
         #[test]

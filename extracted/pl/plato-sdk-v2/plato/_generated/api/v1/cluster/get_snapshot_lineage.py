@@ -13,6 +13,8 @@ from plato._generated.models import ArtifactLineageResponse, SnapshotConfig
 def _build_request_args(
     artifact_id: str,
     include_full_details: bool | None = False,
+    authorization: str | None = None,
+    x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
     url = "/api/v1/cluster/snapshots/lineage"
@@ -23,10 +25,17 @@ def _build_request_args(
     if include_full_details is not None:
         params["include_full_details"] = include_full_details
 
+    headers: dict[str, str] = {}
+    if authorization is not None:
+        headers["authorization"] = authorization
+    if x_api_key is not None:
+        headers["X-API-Key"] = x_api_key
+
     return {
         "method": "GET",
         "url": url,
         "params": params,
+        "headers": headers,
     }
 
 
@@ -34,10 +43,16 @@ def sync(
     client: httpx.Client,
     artifact_id: str,
     include_full_details: bool | None = False,
+    authorization: str | None = None,
+    x_api_key: str | None = None,
 ) -> SnapshotConfig | ArtifactLineageResponse:
     """Build and return the full snapshot lineage for a given artifact ID.
 
     This works for both regular snapshots and blockdiff checkpoints.
+
+    Admin-only: snapshot lineage exposes S3 URIs and artifact metadata across
+    orgs, so it is gated to admins (consumed by the admin cluster UI and
+    ``platoctl artifact``).
 
     Args:
         artifact_id: The artifact ID to build lineage for
@@ -47,6 +62,8 @@ def sync(
     request_args = _build_request_args(
         artifact_id=artifact_id,
         include_full_details=include_full_details,
+        authorization=authorization,
+        x_api_key=x_api_key,
     )
 
     response = client.request(**request_args)
@@ -58,10 +75,16 @@ async def asyncio(
     client: httpx.AsyncClient,
     artifact_id: str,
     include_full_details: bool | None = False,
+    authorization: str | None = None,
+    x_api_key: str | None = None,
 ) -> SnapshotConfig | ArtifactLineageResponse:
     """Build and return the full snapshot lineage for a given artifact ID.
 
     This works for both regular snapshots and blockdiff checkpoints.
+
+    Admin-only: snapshot lineage exposes S3 URIs and artifact metadata across
+    orgs, so it is gated to admins (consumed by the admin cluster UI and
+    ``platoctl artifact``).
 
     Args:
         artifact_id: The artifact ID to build lineage for
@@ -71,6 +94,8 @@ async def asyncio(
     request_args = _build_request_args(
         artifact_id=artifact_id,
         include_full_details=include_full_details,
+        authorization=authorization,
+        x_api_key=x_api_key,
     )
 
     response = await client.request(**request_args)

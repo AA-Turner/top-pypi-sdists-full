@@ -21,13 +21,13 @@ T = TypeVar("T", bound="DeployedJob")
 class DeployedJob:
     """
     Attributes:
-        job (JobResponse): The job as it stands after the deploy.
-        outcome (JobDeployOutcome): What the deploy did to the job.
+        job (JobResponse):
+        outcome (JobDeployOutcome | str): What the deploy did to the job.
         previous_version (JobVersionResponse | None | Unset): The version an updated job had before the deploy.
     """
 
     job: JobResponse
-    outcome: JobDeployOutcome
+    outcome: JobDeployOutcome | str
     previous_version: JobVersionResponse | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -36,7 +36,11 @@ class DeployedJob:
 
         job = self.job.to_dict()
 
-        outcome = self.outcome.value
+        outcome: str
+        if isinstance(self.outcome, JobDeployOutcome):
+            outcome = self.outcome.value
+        else:
+            outcome = self.outcome
 
         previous_version: dict[str, Any] | None | Unset
         if isinstance(self.previous_version, Unset):
@@ -67,7 +71,18 @@ class DeployedJob:
         d = dict(src_dict)
         job = JobResponse.from_dict(d.pop("job"))
 
-        outcome = JobDeployOutcome(d.pop("outcome"))
+        def _parse_outcome(data: object) -> JobDeployOutcome | str:
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                outcome_type_0 = JobDeployOutcome(data)
+
+                return outcome_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(JobDeployOutcome | str, data)
+
+        outcome = _parse_outcome(d.pop("outcome"))
 
         def _parse_previous_version(data: object) -> JobVersionResponse | None | Unset:
             if data is None:

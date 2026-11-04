@@ -23,7 +23,7 @@ class WorkspaceMeResponse:
     """
     Attributes:
         email (str): The email of the current user
-        organization (OrganizationResponse): The organization where new workspaces are created by default
+        organization (OrganizationResponse):
         organization_membership_id (UUID): The ID of the organization member in the parent organization
         organization_role (OrganizationMembershipRole | str): The role of the user in the parent organization
         user_id (UUID): The ID of the current user

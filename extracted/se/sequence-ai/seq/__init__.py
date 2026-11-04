@@ -80,7 +80,7 @@ from seq.run_logs import benchmark_logs, eval_logs
 
 from seq.machines_cli import planner_list, planner_status, robot_status
 from seq.params import OneOf, Range
-from seq.registry import Timeouts, registration
+from seq.registry import registration
 from seq.secret import Secret
 from sequence_base.construct import config
 from sequence_base.episode import Episode
@@ -122,7 +122,6 @@ from seq.manage_cli import (
 
 from sequence_base.contract import (
     Camera,
-    Tensors,
     BenchmarkSpec,
     DeploymentAccepted,
     DeploymentRequest,
@@ -147,7 +146,7 @@ Replay = ReplaySpec
 __all__ = [
     "safety",
 
-    "Tensors", "Camera",
+    "Camera",
 
     "Episode",
 
@@ -214,7 +213,6 @@ __all__ = [
     "volume_rm",
     "Secret",
     "config",
-    "Timeouts",
 
     "Range",
     "OneOf",

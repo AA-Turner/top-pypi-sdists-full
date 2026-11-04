@@ -1,6 +1,6 @@
 """Deployment workflow configuration."""
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from types import MethodType
 from typing import Any, override
 
@@ -14,10 +14,7 @@ from pyrig.rig.tools.packages.manager import PackageManager
 
 
 class DeployWorkflowConfigFile(WorkflowConfigFile):
-    """Workflow configuration for deployment-style jobs.
-
-    Each job runs under its own auto-derived environment.
-    """
+    """Workflow configuration for deployment-style jobs."""
 
     @override
     def concurrency_cancel_in_progress(self) -> bool:
@@ -29,11 +26,12 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         """Return the deployment job builders.
 
         Returns:
-            Tuple containing the repository and documentation job builders.
+            Tuple containing repository, documentation build, and deployment builders.
         """
         return (
             self.job_repository,
-            self.job_documentation,
+            self.job_build_documentation,
+            self.job_deploy_documentation,
         )
 
     @override
@@ -50,71 +48,19 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         """
         return self.on_workflow_call()
 
-    @override
-    def job(
-        self,
-        method: MethodType,
-        *,
-        needs: Iterable[MethodType] | None = None,
-        strategy: dict[str, Any] | None = None,
-        permissions: dict[str, Any] | None = None,
-        if_condition: str | None = None,
-        runs_on: str = WorkflowConfigFile.UBUNTU_LATEST,
-        environment: str | None = None,
-        steps: list[dict[str, Any]] | None = None,
-        uses: str | None = None,
-        secrets: dict[str, Any] | None = None,
-        timeout_minutes: int = WorkflowConfigFile.TIMEOUT_MINUTES_DEFAULT,
-    ) -> dict[str, Any]:
-        """Build a deployment job with an environment derived from its ID.
-
-        Args:
-            method: Method representing this job; its name is used to derive
-                the job ID and default environment name.
-            needs: Job methods that must complete before this job starts.
-                Each method is converted to a kebab-case job ID.
-            strategy: Matrix or other strategy configuration.
-            permissions: Job-level permissions override.
-            if_condition: GitHub Actions conditional expression controlling
-                whether the job runs.
-            runs_on: Runner label. Defaults to `ubuntu-latest`.
-            environment: Deployment environment name. Defaults to the job ID
-                when omitted.
-            steps: Ordered list of job steps.
-            uses: Reference to a reusable workflow instead of job steps.
-            secrets: Named secrets to forward to a called workflow.
-            timeout_minutes: Maximum time in minutes that the job can run. Only
-                effective when `uses` is not set. Defaults to `TIMEOUT_MINUTES_DEFAULT`.
+    def job_deploy_documentation(self) -> dict[str, Any]:
+        """Build the job that deploys the uploaded documentation site.
 
         Returns:
-            Deployment job configuration with the requested settings and environment.
-        """
-        environment = environment or self.job_id_from_method(method)
-        return super().job(
-            method,
-            needs=needs,
-            strategy=strategy,
-            permissions=permissions,
-            if_condition=if_condition,
-            runs_on=runs_on,
-            environment=environment,
-            steps=steps,
-            uses=uses,
-            secrets=secrets,
-            timeout_minutes=timeout_minutes,
-        )
-
-    def job_documentation(self) -> dict[str, Any]:
-        """Build the job that builds and deploys the documentation site.
-
-        Returns:
-            Job configuration for building and deploying the documentation site.
+            Job configuration for deploying the Pages artifact after the build.
         """
         return self.job(
-            self.job_documentation,
-            permissions=self.job_documentation_permissions(),
-            steps=self.steps_documentation(),
-            timeout_minutes=60,
+            self.job_deploy_documentation,
+            needs=self.job_deploy_documentation_needs(),
+            environment="documentation",
+            permissions=self.job_deploy_documentation_permissions(),
+            steps=self.steps_deploy_documentation(),
+            timeout_minutes=30,
         )
 
     def job_repository(self) -> dict[str, Any]:
@@ -125,23 +71,30 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         """
         return self.job(
             self.job_repository,
+            environment="repository",
             permissions=self.job_repository_permissions(),
             steps=self.steps_repository(),
             timeout_minutes=10,
         )
 
-    def job_documentation_permissions(self) -> dict[str, Any]:
-        """Return the permissions for the documentation job.
+    def job_deploy_documentation_needs(self) -> tuple[MethodType, ...]:
+        """Return the documentation build prerequisite for deployment.
 
-        Requests `contents: read` to check out the repository, plus
-        `pages: write` and `id-token: write`, required by the GitHub Pages
-        deployment API.
+        Returns:
+            Tuple containing the documentation build job.
+        """
+        return (self.job_build_documentation,)
+
+    def job_deploy_documentation_permissions(self) -> dict[str, Any]:
+        """Return the permissions for the documentation deployment job.
+
+        Requests only `pages: write` and `id-token: write`, required by the
+        GitHub Pages deployment API. No repository checkout is needed.
 
         Returns:
             Permissions mapping for the documentation job.
         """
         return {
-            **self.permission_contents(),
             **self.permission_id_token(write=True),
             **self.permission_pages(write=True),
         }
@@ -158,18 +111,14 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         """
         return self.permission_contents()
 
-    def steps_documentation(self) -> list[dict[str, Any]]:
-        """Build the ordered steps for the documentation job.
+    def steps_deploy_documentation(self) -> list[dict[str, Any]]:
+        """Build the ordered steps for the documentation deployment job.
 
         Returns:
-            Ordered list of step dicts: environment setup, build the
-            documentation, enable Pages, upload the artifact, deploy it.
+            Pages enablement followed by deployment of the uploaded artifact.
         """
         return [
-            *self.steps_core_installed_setup(),
-            self.step_build_documentation(),
             self.step_configure_pages(),
-            self.step_upload_documentation(),
             self.step_deploy_documentation(),
         ]
 
@@ -184,30 +133,35 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
             self.step_configure_repository(),
         ]
 
-    def step_build_documentation(self) -> dict[str, Any]:
-        """Build a step that builds the documentation site into the `site/` directory.
+    def job_build_documentation(self) -> dict[str, Any]:
+        """Build the job that builds and uploads the documentation site.
 
         Returns:
-            Step that runs the documentation build command.
+            Job configuration for building and uploading the Pages artifact.
         """
-        return self.step(
-            self.step_build_documentation,
-            run=str(PackageManager.I.run_args(*DocsBuilder.I.build_args())),
+        return self.job(
+            self.job_build_documentation,
+            permissions=self.job_build_documentation_permissions(),
+            steps=self.steps_build_documentation(),
+            timeout_minutes=60,
         )
 
     def step_configure_pages(self) -> dict[str, Any]:
         """Build a step that enables GitHub Pages.
 
         Uses `actions/configure-pages`, defaulting to
-        `configure_pages_action()`.
+        `action_configure_pages()`.
 
         Returns:
             Pages-configuration step using the repository token.
         """
         return self.step(
             self.step_configure_pages,
-            uses=self.configure_pages_action(),
-            with_={"enablement": "true", "token": self.insert_repo_token()},
+            uses=self.action_configure_pages(),
+            with_={
+                "enablement": "true",
+                "token": self.insert_repo_token(),
+            },
         )
 
     def step_configure_repository(self) -> dict[str, Any]:
@@ -225,7 +179,7 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
     def step_deploy_documentation(self) -> dict[str, Any]:
         """Build a step that deploys the uploaded Pages artifact to GitHub Pages.
 
-        Uses `actions/deploy-pages`, defaulting to `deploy_pages_action()`.
+        Uses `actions/deploy-pages`, defaulting to `action_deploy_pages()`.
 
         Requires the job to have `pages: write` and `id-token: write`
         permissions.
@@ -235,44 +189,75 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         """
         return self.step(
             self.step_deploy_documentation,
-            uses=self.deploy_pages_action(),
+            uses=self.action_deploy_pages(),
+        )
+
+    def action_configure_pages(self) -> tuple[str, str, str]:
+        """Return action metadata for `actions/configure-pages`.
+
+        Returns:
+            Tuple of action name, pinned commit SHA, and release tag.
+        """
+        return self.action_from_resource(self.action_configure_pages, resources)
+
+    def action_deploy_pages(self) -> tuple[str, str, str]:
+        """Return action metadata for `actions/deploy-pages`.
+
+        Returns:
+            Tuple of action name, pinned commit SHA, and release tag.
+        """
+        return self.action_from_resource(self.action_deploy_pages, resources)
+
+    def job_build_documentation_permissions(self) -> dict[str, Any]:
+        """Return read-only checkout permissions for the documentation build.
+
+        Returns:
+            Permissions mapping granting `contents: read`.
+        """
+        return self.permission_contents()
+
+    def steps_build_documentation(self) -> list[dict[str, Any]]:
+        """Build the ordered steps for the documentation build job.
+
+        Returns:
+            Environment setup, documentation build, and Pages artifact upload.
+        """
+        return [
+            *self.steps_core_installed_setup(),
+            self.step_build_documentation(),
+            self.step_upload_documentation(),
+        ]
+
+    def step_build_documentation(self) -> dict[str, Any]:
+        """Build a step that builds the documentation site into the `site/` directory.
+
+        Returns:
+            Step that runs the documentation build command.
+        """
+        return self.step(
+            self.step_build_documentation,
+            run=str(PackageManager.I.run_args(*DocsBuilder.I.build_args())),
         )
 
     def step_upload_documentation(self) -> dict[str, Any]:
         """Build a step that uploads the `site/` directory as a Pages artifact.
 
         Uses `actions/upload-pages-artifact`, defaulting to
-        `upload_pages_artifact_action()`.
+        `action_upload_pages_artifact()`.
 
         Returns:
             Step using `actions/upload-pages-artifact@<ref>`.
         """
         return self.step(
             self.step_upload_documentation,
-            uses=self.upload_pages_artifact_action(),
+            uses=self.action_upload_pages_artifact(),
             with_={"path": DocsBuilder.I.site_dir().as_posix()},
         )
 
-    def configure_pages_action(self) -> tuple[str, str, str]:
-        """Return action metadata for `actions/configure-pages`.
-
-        Returns:
-            Tuple of action name, pinned commit SHA, and release tag.
-        """
-        return self.action_from_resource(self.configure_pages_action, resources)
-
-    def deploy_pages_action(self) -> tuple[str, str, str]:
-        """Return action metadata for `actions/deploy-pages`.
-
-        Returns:
-            Tuple of action name, pinned commit SHA, and release tag.
-        """
-        return self.action_from_resource(self.deploy_pages_action, resources)
-
-    def upload_pages_artifact_action(self) -> tuple[str, str, str]:
+    def action_upload_pages_artifact(self) -> tuple[str, str, str]:
         """Return action metadata for `actions/upload-pages-artifact`.
 
         Returns:
             Tuple of action name, pinned commit SHA, and release tag.
         """
-        return self.action_from_resource(self.upload_pages_artifact_action, resources)
+        return self.action_from_resource(self.action_upload_pages_artifact, resources)

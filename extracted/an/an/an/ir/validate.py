@@ -226,7 +226,7 @@ def _has_procedural_rig(kind: str) -> bool:
     return registered is not None and registered.placeholder_on_missing
 
 
-def _rig_document(entity, stores: Mapping[str, Any]) -> dict | None:
+def rig_document(entity, stores: Mapping[str, Any]) -> dict | None:
     """The MIGRATED descriptor behind ``entity``, or ``None``.
 
     Migrated because that is how the compiler reads it: every committed
@@ -524,10 +524,6 @@ def rig_scope(shot: Any, stores: Mapping[str, Any]) -> tuple[dict[str, Any], set
     return rigs, unchecked
 
 
-#: The name genre packages imported before it was public (API level < 13); removed by an#709.
-_rig_scope = rig_scope
-
-
 def _declared_swap_sets(entity, stores: Mapping[str, Any], *, cache: dict) -> Any:
     """``{set: {key: …}}`` that ``entity``'s kind declares through its
     :attr:`~an.genres.EntityKind.swap_declaration` hook, or ``None`` — the
@@ -627,7 +623,7 @@ def _check_swap_references(
         if prop == "value" and entity_id in text_blocks:
             continue  # a text block's `value`: `_check_text_blocks` owns it (an#342)
         entity = rigs.get(entity_id)
-        desc = _rig_document(entity, stores) if entity is not None else None
+        desc = rig_document(entity, stores) if entity is not None else None
         registered = entity_kind(entity.kind) if entity is not None else None
         swap_checks = registered.swap_checks if registered is not None else None
         if desc is None and entity is not None:
@@ -762,7 +758,7 @@ def _check_action_targets(
 ) -> None:
     """Every `set`/`tween` target must be a node the compiler BUILDS (an#193).
 
-    Resolved against :func:`_built_node_paths` — the compiler's own stage
+    Resolved against :func:`built_node_paths` — the compiler's own stage
     builder, the one a preset `play` is checked against (an#166) — so the rig
     is never restated here; the message is the compiler's
     (:func:`an.stage.compile.unknown_target_message`), with "did you
@@ -778,9 +774,9 @@ def _check_action_targets(
     the "targets were NOT checked" news instead of a warning of its own (the
     ``not_compiled`` line folds it in).
     """
-    from an.stage import STAGE_RENDERER_NAMES
+    from an.stage import draws_on_stage
 
-    if not stores or shot.renderer not in STAGE_RENDERER_NAMES:
+    if not stores or not draws_on_stage(shot):
         return
     from an.stage.compile import (
         CAMERA_NODE,
@@ -822,7 +818,7 @@ def _check_action_targets(
         return
     why = None
     if built is None:
-        built, why = _built_node_paths(shot, stores, resolution=resolution)
+        built, why = built_node_paths(shot, stores, resolution=resolution)
     if built is None and on_unbuilt is not None:
         on_unbuilt(why)
         return
@@ -842,7 +838,7 @@ def _check_action_targets(
             )
 
 
-def _built_node_paths(
+def built_node_paths(
     shot,
     stores: Mapping[str, Any],
     *,
@@ -854,7 +850,8 @@ def _built_node_paths(
     than restated: a preset play's node is checked against exactly what compile
     will look it up in (an#166). The failure is RETURNED so the caller reports
     that the check was skipped; swallowing it would be validate saying "fine"
-    about a play it never looked at."""
+    about a play it never looked at. Without ``resolution`` the stage is built
+    unsized, as a genre's check calls it (``built_node_paths(shot, stores)``)."""
     import warnings
 
     from an.motion import stage_poses
@@ -1021,7 +1018,7 @@ def _check_flat_pan(shot, keys, path: str, report: "ValidationReport", stores) -
         try:
             # MIGRATED, as the compiler reads it — a pre-flight that validates
             # a document differently from the thing it predicts is its own
-            # defect, which is the rule `_rig_document` already follows.
+            # defect, which is the rule `rig_document` already follows.
             env = environment_from_document(raw, entity)
         except Exception:  # noqa: BLE001 — a malformed descriptor is another check's
             continue
@@ -1905,7 +1902,7 @@ def _core_swap_references(ctx: ValidationContext) -> None:
         ctx.path,
         ctx.report,
         ctx.stores,
-        text_blocks=frozenset(_text_ids(ctx)),
+        text_blocks=frozenset(text_block_ids(ctx)),
     )
 
 
@@ -1920,9 +1917,11 @@ def _core_trim_targets(ctx: ValidationContext) -> None:
     _check_trim_targets(ctx.shot, ctx.path, ctx.report, ctx.stores)
 
 
-def _text_ids(ctx: ValidationContext) -> list:
-    """The current shot's text-block entity ids (checked by `_check_text_blocks`,
-    once; the target and entity-reference checks skip them)."""
+def text_block_ids(ctx: ValidationContext) -> list:
+    """The current shot's text-block entity ids, which the target and
+    entity-reference checks skip. Not a pure getter: the first call per shot
+    RUNS the text-block check (`_check_text_blocks`), reporting through
+    ``ctx.report``; later calls return the cached ids (an#730)."""
     res = ctx.scene.meta.resolution
     return ctx.cached(
         ("text ids", ctx.index),
@@ -1938,7 +1937,7 @@ def _text_ids(ctx: ValidationContext) -> list:
 
 
 def _core_text_blocks(ctx: ValidationContext) -> None:
-    _text_ids(ctx)
+    text_block_ids(ctx)
 
 
 def _core_stage_after(ctx: ValidationContext) -> None:
@@ -2004,7 +2003,7 @@ def _core_action_targets(ctx: ValidationContext) -> None:
         ctx.report,
         ctx.stores,
         resolution=(res.width or None, res.height or None),
-        skip=frozenset(_text_ids(ctx)),
+        skip=frozenset(text_block_ids(ctx)),
         built=_compiled_node_paths(ctx),
         on_unbuilt=_targets_unchecked(ctx),
     )
@@ -2095,7 +2094,7 @@ def _core_field_kinds(ctx: ValidationContext) -> None:
 
 def _core_entity_refs(ctx: ValidationContext) -> None:
     """Entity references resolve?"""
-    text_ids = _text_ids(ctx)
+    text_ids = text_block_ids(ctx)
     for j, entity in enumerate(ctx.shot.entities):
         if entity.id in text_ids:
             continue
@@ -2127,7 +2126,7 @@ def _check_entity_ref(
     store = mall_stores.get(store_name)
     if store is None:
         return True  # store not supplied → this check did not run
-    doc = _rig_document(entity, mall_stores)
+    doc = rig_document(entity, mall_stores)
     if doc is not None:
         _check_rig_document(
             doc, entity, ir_path, report, raw=store[entity.ref], renderer=renderer
@@ -2805,7 +2804,7 @@ def _report_plane_depths(ctx: ValidationContext, world: Any, env_store: Any) -> 
     one spelling; none is in a ``far`` frame (at infinity: factor 0). Reported
     once per member, at the first framed shot."""
     from an.ir.frames import FrameTree
-    from an.ir.world import plane_frame
+    from an.ir.world import _plane_at_infinity
     from an.stage.environments import (
         ENVIRONMENT_DOCUMENT_KIND,
         EnvironmentDescriptor,
@@ -2824,29 +2823,23 @@ def _report_plane_depths(ctx: ValidationContext, world: Any, env_store: Any) -> 
         except Exception:  # noqa: BLE001 — a missing or malformed environment is another check's
             continue
         planes = {p.name: p for p in env.planes}
-        frames = world.all_frames()
-        tree = FrameTree(frames)
+        tree = FrameTree(world.all_frames())
         for name in sorted(member.depths):
             where = f"world/members/{j}"
-            frame = plane_frame(world, member, name)
-            travel_far = world.travel is not None and f"{member.id}/{name}" in (
-                world.travel.plates.get("far", ())
-            )
-            if travel_far:
+            far = _plane_at_infinity(world, member.id, name, member=member, tree=tree)
+            if far is not None and far.reason == "listed":
                 ctx.report.add(
                     "error",
                     where,
-                    f"plane '{member.id}/{name}' has a world depth but `world.travel.plates` "
+                    f"plane '{far.path}' has a world depth but `world.travel.plates` "
                     "lists it `far`: that is at infinity, factor 0. Drop one.",
                 )
-            elif frame in tree and any(
-                frames[n].coupling == "far" for n in tree.chain(frame)
-            ):
+            elif far is not None:
                 ctx.report.add(
                     "error",
                     where,
                     f"plane {member.id}/{name!r} has a world depth but is in frame "
-                    f"{frame!r}, coupled by rotation only: that is at infinity, "
+                    f"{far.frame!r}, coupled by rotation only: that is at infinity, "
                     "factor 0. Drop the depth.",
                 )
             elif name not in planes:
@@ -2895,15 +2888,14 @@ def _core_viewpoint(ctx: ValidationContext) -> None:
     _report_plane_depths(ctx, world, env_store)
     from an.ir.frames import FrameTree
     from an.ir.schema import WORLD_FRAME
-    from an.ir.world import plane_frame, viewpoint_of
+    from an.ir.world import _plane_at_infinity, _stated_plane_frame, viewpoint_of
     from an.stage.environments import (
         ENVIRONMENT_DOCUMENT_KIND,
         environment_from_document,
     )
 
     travel = world.travel
-    frames = world.all_frames()
-    tree = FrameTree(frames)
+    tree = FrameTree(world.all_frames())
     vp = viewpoint_of(world, shot.viewpoint)
     vp_frame = (vp.frame if vp is not None else None) or world.default_frame()
     moving_view = vp_frame != WORLD_FRAME and not tree.is_still(vp_frame)
@@ -2938,24 +2930,12 @@ def _core_viewpoint(ctx: ValidationContext) -> None:
         for plane in env.planes:
             path = f"{entity.id}/{plane.name}"
             role = roles.get(path)
-            frame = (
-                ((member.planes or {}).get(plane.name) or member.frame)
-                if member is not None
-                else None
-            )
-            if (
-                frame is None
-                and member is not None
-                and plane.name in (member.depths or {})
-            ):
-                # a depth says where it is: in the frame a member naming none is in,
-                # as the lowering reads it (`plane_frame`)
-                frame = plane_frame(world, member, plane.name)
+            frame = _stated_plane_frame(world, member, plane.name)
             if frame is not None and frame not in tree:
                 continue  # an unknown frame: the schema refuses one as it loads
-            at_infinity = role == "far" or (
-                frame is not None
-                and any(frames[n].coupling == "far" for n in tree.chain(frame))
+            # the one rule of "at infinity", shared with genres (an#735)
+            far = _plane_at_infinity(
+                world, entity.id, plane.name, member=member, tree=tree
             )
             if role is None and frame is None:
                 if moving_view:
@@ -2977,15 +2957,15 @@ def _core_viewpoint(ctx: ValidationContext) -> None:
                         "the far range: nothing nearer, which the streams draw) or `vehicle` "
                         "(rigid with the camera: the cabin, the dashboard).",
                     )
-            elif at_infinity:
+            elif far is not None:
                 if plane.factors() != (0.0, 0.0):
                     ctx.report.add(
                         "warning",
                         f"{ctx.path}/entities",
                         f"plane {path!r} is declared `far` (at infinity) but its parallax "
                         f"factor is {plane.factors()}: a far plate is pinned, `depth: 0`."
-                        if role == "far"
-                        else f"plane {path!r} is in frame {frame!r}, coupled by rotation only "
+                        if far.reason == "listed"
+                        else f"plane {path!r} is in frame {far.frame!r}, coupled by rotation only "
                         f"(at infinity), but its parallax factor is {plane.factors()}: a far "
                         "plate is pinned, `depth: 0`.",
                     )
@@ -3469,3 +3449,9 @@ def _sound_duration_problem(sounds: Mapping[str, Any], key: str) -> str | None:
 
 
 _register_core_checks()
+
+
+#: The private spellings genre packages imported before they were public (API level < 16); removed by an#747.
+_built_node_paths = built_node_paths
+_rig_document = rig_document
+_text_ids = text_block_ids

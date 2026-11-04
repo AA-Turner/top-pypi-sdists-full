@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import shlex
 import shutil
 import time as _time
 from collections.abc import Awaitable, Callable
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,6 +18,7 @@ from git import Actor, Repo
 
 from plato.git_ops import (
     GitOpRequest,
+    WorldGitSshTimeoutError,
     checkout_main_from_bare,
     ensure_remote_git_server,
     run_remote_git_checked,
@@ -23,7 +26,7 @@ from plato.git_ops import (
     trust_git_directory,
 )
 from plato.markers import WorkspaceMarker
-from plato.transports.base import Transport, build_auditctl_commands
+from plato.transports.base import Transport
 from plato.utils.subprocess import run_local, run_ssh
 
 if TYPE_CHECKING:
@@ -34,6 +37,49 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _PLATO_ACTOR = Actor("Plato", "plato@plato.dev")
 _AGENT_ACTOR = Actor("Plato Agent", "agent@plato.dev")
+
+# Stays above the 45s world-git ssh limit, so a lost link fails first with the ssh error.
+_CLONE_SETUP_TIMEOUT_S = 60
+
+# SSH options for the agent VM's connection back to the world VM (``world-git``),
+# which every clone, fetch and push uses. Without them, a lost TCP SYN or a
+# stalled session leaves git silent until the caller's 60s git-op timeout,
+# with no stderr, and the hung op keeps the agent daemon's per-repo lock. With
+# them, ssh retries the connect and then fails with its own error (3 x 15s =
+# 45s, inside the 60s push timeout). Same values as the world -> agent options
+# in ``plato.utils.subprocess``.
+_WORLD_GIT_SSH_TIMEOUT_OPTIONS = "".join(
+    f"    {option}\n"
+    for option in (
+        "ConnectTimeout 15",
+        "ConnectionAttempts 3",
+        "ServerAliveInterval 10",
+        "ServerAliveCountMax 3",
+    )
+)
+
+
+class GitSetupTimeoutError(RuntimeError):
+    """The agent VM's initial clone of the world bare timed out.
+
+    Raised only from ``setup_agent``, before the agent starts, so no agent
+    work exists yet. ``plato.agents.execution`` retries the run on a fresh VM
+    for this error.
+    """
+
+    def __init__(self, hostname: str, detail: str) -> None:
+        super().__init__(f"Git clone_setup timed out on agent VM {hostname}: {detail}")
+        self.hostname = hostname
+
+
+def _is_git_op_timeout(exc: BaseException) -> bool:
+    """True for a git-op timeout on either transport (SSH stdio or agent daemon)."""
+    from plato.git_ops.client import GitOpTimeoutError
+    from plato.rpc.errors import RpcException
+
+    if isinstance(exc, GitOpTimeoutError):
+        return True
+    return isinstance(exc, RpcException) and exc.error.code == "DEADLINE_EXCEEDED"
 
 
 class GitPushConflict(RuntimeError):
@@ -69,7 +115,12 @@ class GitTransport(Transport):
         self.world_vm_ip = world_vm_ip
         self.ssh_key_path = ssh_key_path
         self.mount_path = mount_path
-        self._bare_repo_path = f"{path}/.git-bare"
+        # Active object store lives on local VM disk, OFF the FUSE workspace
+        # mount. Persistence is a packed snapshot at ``_mirror_repo_path``
+        # (inside the FUSE mount, so the normal workspace checkpoint ships it
+        # to S3). See ``_init_bare_repo`` / ``snapshot_to_mirror``.
+        self._bare_repo_path = self._local_bare_path(path)
+        self._mirror_repo_path = f"{path}/.git-bare"
         self._raise_on_conflict = raise_on_conflict
         self._published_ref: GitPublishedRef | None = None
         if git_config is None:
@@ -80,9 +131,46 @@ class GitTransport(Transport):
         self._merge_resolver: Callable[[str, Path, str, list[str]], Awaitable[None]] | None = None
         self._sync_lock = asyncio.Lock() if self._git_config.serialize_sync else None
 
+    @staticmethod
+    def _local_bare_path(workspace_path: str) -> str:
+        """Local-disk path for the active bare, keyed by the workspace path.
+
+        Deterministic in ``workspace_path`` so the same workspace resolves to
+        the same local bare across sessions on a given VM (the path is stable;
+        the contents are rehydrated from the persisted mirror on resume).
+        """
+        digest = hashlib.sha1(workspace_path.encode("utf-8")).hexdigest()[:16]
+        return f"/tmp/plato-git/{digest}/.git-bare"
+
+    @staticmethod
+    def _local_worktree_git_path(workspace_path: str) -> str:
+        """Local-disk git dir for the repo/ working tree (gitfile layout).
+
+        Sibling of :meth:`_local_bare_path` under the same digest dir; used
+        when ``git_config.worktree_git_off_fuse`` is enabled so the worktree's
+        object/ref/index I/O never traverses the FUSE workspace mount. Like the
+        bare, it is disposable per-VM state: on resume it is rebuilt from the
+        local bare (itself hydrated from the persisted mirror).
+        """
+        digest = hashlib.sha1(workspace_path.encode("utf-8")).hexdigest()[:16]
+        return f"/tmp/plato-git/{digest}/.repo-git"
+
+    @property
+    def worktree_git_dir(self) -> str:
+        """Local-disk git dir backing repo/ when ``worktree_git_off_fuse`` is on."""
+        return self._local_worktree_git_path(self.path)
+
     @property
     def bare_repo_path(self) -> str:
+        """Active bare on local VM disk — what agents clone/push and what
+        checkout/publish operate against."""
         return self._bare_repo_path
+
+    @property
+    def mirror_repo_path(self) -> str:
+        """Persisted packed snapshot of the bare, inside the FUSE workspace
+        mount (shipped to S3 by the workspace checkpoint)."""
+        return self._mirror_repo_path
 
     @property
     def repo_path(self) -> str:
@@ -162,77 +250,223 @@ class GitTransport(Transport):
         if exit_code != 0:
             raise RuntimeError(f"Failed to create workspace path {path}: {stderr}")
 
-    @staticmethod
-    def _apply_bare_unpack_config(bare_dir: Path) -> None:
-        """Force receive-pack to unpack incoming pushes into loose objects.
+    async def _hydrate_local_bare_from_mirror(self, bare_dir: Path, mirror_dir: Path) -> None:
+        """Reconstruct the local-disk bare from the persisted mirror, if needed.
 
-        Without this, receive-pack uses ``index-pack --fix-thin`` to write
-        the incoming push as a pack inside the ``objects/incoming-XXX/``
-        quarantine directory. When the client sends a thin pack and the
-        server reconstructs missing base objects, the resulting .pack and
-        .idx can disagree on object count — receive-pack then rejects the
-        push with::
-
-            packfile objects/incoming-XXX/...pack claims to have N objects
-            while index indicates M objects
-
-        This is observed on FUSE-backed bares (the bare lives on a
-        plato-fuse mount), where rename/fsync semantics for index-pack's
-        multi-file write are not strictly atomic.
-
-        Setting both ``receive.unpackLimit`` and ``transfer.unpackLimit``
-        to a large value forces receive-pack to invoke ``unpack-objects``
-        instead of ``index-pack``, writing each incoming object as a loose
-        file. Loose objects have no pack/idx coupling, so the mismatch is
-        impossible.
-
-        Applied on every bare init — fresh or restored from checkpoint —
-        so older bares that pre-date this config still get hardened on
-        the next session.
+        On resume, only the mirror (``{workspace}/.git-bare``) is restored —
+        it rides back in on the workspace checkpoint. The active bare lives on
+        local VM disk and is empty on a fresh VM, so copy the mirror's packed
+        objects/refs over. No-op when the local bare already exists (same VM
+        session) or when there is no mirror to hydrate from (fresh workspace).
         """
-        bare_repo = Repo(bare_dir)
-        with bare_repo.config_writer() as config:
-            config.set_value("receive", "unpackLimit", "100000")
-            config.set_value("transfer", "unpackLimit", "100000")
+        if (bare_dir / "HEAD").exists():
+            return
+        if not (mirror_dir / "HEAD").exists():
+            return
+        logger.info("Hydrating active bare %s from restored mirror %s", bare_dir, mirror_dir)
 
-    async def _init_bare_repo(self, workspace_path: str, bare_path: str) -> None:
+        def _copy() -> None:
+            shutil.rmtree(bare_dir, ignore_errors=True)
+            bare_dir.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(mirror_dir, bare_dir)
+
+        await asyncio.to_thread(_copy)
+        trust_git_directory(bare_dir)
+
+    async def ensure_local_bare(self) -> None:
+        """Public entrypoint to hydrate the local bare from the persisted mirror.
+
+        Called on the resume path before the working tree is re-checked-out
+        (the checkout reads from the local bare, which must exist first).
+        Idempotent.
+        """
+        await self._hydrate_local_bare_from_mirror(Path(self._bare_repo_path), Path(self._mirror_repo_path))
+
+    async def snapshot_to_mirror(self) -> None:
+        """Write a packed snapshot of the active bare to the FUSE mirror.
+
+        Run at checkpoint time so the persisted mirror at ``mirror_repo_path``
+        is a handful of pack files — fast manifest commit, cheap S3 delta,
+        browsable ``repo/`` working tree — instead of the 40k+ loose objects
+        the old in-FUSE bare accumulated. The mirror is then shipped to S3 by
+        the normal workspace checkpoint.
+
+        The active bare is left **untouched**: a consumer may deliberately keep
+        it loose (e.g. webclone's transport patch unpacks objects on checkout),
+        and the snapshot must not fight that. The pack is built on a local-disk
+        staging copy and the finished result is copied into the mirror — we
+        never run ``repack`` against the FUSE mirror itself, which would
+        reintroduce the non-atomic multi-file pack write the off-FUSE move was
+        meant to avoid. A plain ``copytree`` (vs rsync) is used because
+        ``refs/heads/main`` is a 41-byte file whose content changes but size
+        does not, so rsync's size+mtime quick-check can skip it and leave the
+        mirror's ``main`` stale when two snapshots land in the same 1s window.
+        """
+        bare_dir = Path(self._bare_repo_path)
+        mirror_dir = Path(self._mirror_repo_path)
+        if not (bare_dir / "HEAD").exists():
+            return
+
+        staging = Path(f"{bare_dir}.snapshot")
+
+        def _copy_to_staging() -> None:
+            if staging.exists():
+                shutil.rmtree(staging)
+            # copytree (not a bare clone) preserves ALL refs, including hidden
+            # refs/plato/* published refs that a clone would drop.
+            shutil.copytree(bare_dir, staging)
+
+        def _pack_and_swap() -> None:
+            trust_git_directory(staging)
+            Repo(staging).git.repack("-a", "-d", "-q")
+            mirror_dir.parent.mkdir(parents=True, exist_ok=True)
+            if mirror_dir.exists():
+                shutil.rmtree(mirror_dir)
+            shutil.copytree(staging, mirror_dir)
+            shutil.rmtree(staging, ignore_errors=True)
+
+        # Only the copy holds the sync lock: a push or merge that runs during
+        # the copy can leave refs/heads/main naming objects the copy missed.
+        # The repack and the mirror swap work on the private staging copy.
+        async with self._sync_lock or nullcontext():
+            await asyncio.to_thread(_copy_to_staging)
+        await asyncio.to_thread(_pack_and_swap)
+
+    def _write_post_receive_hook(self, bare_dir: Path, repo_dir: Path) -> None:
+        """(Re)write the post-receive hook that refreshes repo/ on push.
+
+        Rewritten on every init so a bare hydrated from a mirror picks up the
+        current VM's paths rather than whatever was baked in at creation time.
+        """
+        lock_name = str(bare_dir).replace("/", "_")
+        hook_content = (
+            "#!/bin/sh\n"
+            f'LOCK="/tmp/git-transport-{lock_name}.lock"\n'
+            f'REPO="{repo_dir}"\n'
+            f'BARE="{bare_dir}"\n'
+            "(\n"
+            "  flock 9\n"
+            '  git config --global --add safe.directory "$REPO" 2>/dev/null\n'
+            '  git config --global --add safe.directory "$BARE" 2>/dev/null\n'
+            '  git -C "$REPO" fetch origin main 2>&1\n'
+            '  git -C "$REPO" reset --hard origin/main 2>&1\n'
+            '  git -C "$REPO" clean -fd 2>&1\n'
+            ') 9>"$LOCK"\n'
+        )
+        self._write_hook(bare_dir / "hooks" / "post-receive", hook_content)
+
+    def _remove_worktree_git(self, repo_dir: Path) -> None:
+        """Remove repo/'s git identity, whatever its layout.
+
+        Handles the legacy in-FUSE ``.git`` directory, the gitfile layout
+        (``.git`` file + off-FUSE git dir), and a dangling gitfile left by a
+        checkpoint restore onto a fresh VM.
+        """
+        git_link = repo_dir / ".git"
+        if git_link.is_dir():
+            shutil.rmtree(git_link, ignore_errors=True)
+        elif git_link.exists():
+            git_link.unlink(missing_ok=True)
+        shutil.rmtree(self.worktree_git_dir, ignore_errors=True)
+
+    def _setup_worktree_git_off_fuse(self, repo_dir: Path) -> None:
+        """Attach repo/ to an off-FUSE git dir via a ``.git`` gitfile.
+
+        Git pack/ref/index writes into an in-FUSE ``.git`` (post-receive hook
+        fetches on every agent push, post-merge worktree refreshes) race the
+        workspace checkpoint machinery over the overlay backing store and get
+        truncated — the journal O_APPEND bug's pack-sized sibling (see
+        ``plato.workflows.journal.Journal.append``). A truncated pack is then
+        persisted to S3 by the checkpoint and re-served on every restore.
+        The gitfile layout keeps all git object I/O on local disk; only the
+        checked-out tree traverses FUSE.
+
+        Idempotent. Any existing in-FUSE ``.git`` directory (fresh restore of a
+        legacy checkpoint — possibly carrying corrupt packs) is DISCARDED and
+        the worktree is re-attached to the authoritative local bare; a dangling
+        gitfile (restore onto a fresh VM whose /tmp lacks the git dir) is
+        rebuilt the same way. The caller runs ``checkout_main_from_bare``
+        afterwards to fetch + hard-reset the tree.
+        """
+        git_link = repo_dir / ".git"
+        git_dir = Path(self.worktree_git_dir)
+        if git_link.is_file():
+            try:
+                target = git_link.read_text().strip().removeprefix("gitdir:").strip()
+            except OSError:
+                target = ""
+            if target == str(git_dir) and (git_dir / "HEAD").exists():
+                trust_git_directory(repo_dir)
+                trust_git_directory(git_dir)
+                return
+            logger.info("Rebuilding dangling off-FUSE worktree git dir for %s", repo_dir)
+        elif git_link.is_dir():
+            logger.info(
+                "Migrating in-FUSE worktree git dir %s to off-FUSE gitfile layout at %s",
+                git_link,
+                git_dir,
+            )
+        self._remove_worktree_git(repo_dir)
+        repo_dir.mkdir(parents=True, exist_ok=True)
+        git_dir.parent.mkdir(parents=True, exist_ok=True)
+        Repo.init(repo_dir, initial_branch="main", separate_git_dir=str(git_dir))
+        trust_git_directory(repo_dir)
+        trust_git_directory(git_dir)
+        # Origin remote + fetch + reset are handled by checkout_main_from_bare.
+
+    async def _init_bare_repo(self, workspace_path: str) -> None:
         await self._ensure_git_installed_local()
         workspace_dir = Path(workspace_path)
         repo_dir = workspace_dir / "repo"
-        bare_dir = Path(bare_path)
+        mirror_dir = Path(f"{workspace_path}/.git-bare")
+        bare_dir = Path(self._local_bare_path(workspace_path))
+        worktree_off_fuse = self._git_config.worktree_git_off_fuse
+
+        # The active bare lives on local VM disk (off the FUSE workspace mount):
+        # keeps git's object store and every agent push's index-pack write off
+        # FUSE, where multi-file rename/fsync is non-atomic and per-object
+        # latency is brutal at 40k+ objects. On resume, rebuild it from the
+        # restored packed mirror.
+        bare_dir.parent.mkdir(parents=True, exist_ok=True)
+        await self._hydrate_local_bare_from_mirror(bare_dir, mirror_dir)
         trust_git_directory(bare_dir)
 
-        # If a bare repo already exists (e.g. restored from checkpoint), keep it
+        # If the active bare already exists (same VM session, or just hydrated
+        # from a restored mirror), keep it and refresh the working tree.
         if (bare_dir / "HEAD").exists():
-            logger.info("Bare repo already exists at %s, skipping re-init", bare_dir)
-            # Still ensure repo/ working tree is checked out from main
+            logger.info("Active bare repo present at %s, skipping re-init", bare_dir)
             if repo_dir.exists():
+                if worktree_off_fuse:
+                    await asyncio.to_thread(self._setup_worktree_git_off_fuse, repo_dir)
                 trust_git_directory(repo_dir)
                 checkout_main_from_bare(bare_repo_path=str(bare_dir), worktree_path=str(repo_dir))
-            # Always re-apply unpack-limit config so bares restored from
-            # older checkpoints (created before this config existed) also
-            # force loose-object storage on incoming pushes. See _apply_bare_unpack_config.
-            self._apply_bare_unpack_config(bare_dir)
+            self._write_post_receive_hook(bare_dir, repo_dir)
+            await self.snapshot_to_mirror()
             return
 
         shutil.rmtree(bare_dir, ignore_errors=True)
         bare_dir.parent.mkdir(parents=True, exist_ok=True)
         bare_dir.mkdir(parents=True, exist_ok=True)
         Repo.init(bare_dir, bare=True, initial_branch="main")
-        self._apply_bare_unpack_config(bare_dir)
 
         # Seed bare repo with initial commit from repo/ if it has content,
         # otherwise create an empty initial commit.
         if repo_dir.exists() and any(repo_dir.iterdir()):
             trust_git_directory(repo_dir)
-            shutil.rmtree(repo_dir / ".git", ignore_errors=True)
-            seed = Repo.init(repo_dir, initial_branch="main")
+            self._remove_worktree_git(repo_dir)
+            if worktree_off_fuse:
+                # Seed via the off-FUSE git dir too: keeps even the one-shot
+                # seed commit's object/index writes off the overlay.
+                seed = Repo.init(repo_dir, initial_branch="main", separate_git_dir=self.worktree_git_dir)
+                trust_git_directory(self.worktree_git_dir)
+            else:
+                seed = Repo.init(repo_dir, initial_branch="main")
             gitignore_lines = list(WorkspaceMarker.DEFAULT_DVCIGNORE)
             (repo_dir / ".gitignore").write_text("\n".join(gitignore_lines) + "\n")
             seed.git.add(A=True)
             seed.index.commit("Initial workspace state", author=_PLATO_ACTOR, committer=_PLATO_ACTOR)
             seed.create_remote("origin", str(bare_dir)).push(refspec="main:main")
-            shutil.rmtree(repo_dir / ".git")
+            self._remove_worktree_git(repo_dir)
         else:
             # Empty seed so bare has a main branch
             import tempfile
@@ -247,27 +481,22 @@ class GitTransport(Transport):
         # Clone bare → repo/ as a proper git working tree
         shutil.rmtree(repo_dir, ignore_errors=True)
         trust_git_directory(bare_dir)
-        Repo.clone_from(str(bare_dir), str(repo_dir))
+        if worktree_off_fuse:
+            # init --separate-git-dir + fetch/reset instead of clone: the git
+            # dir (objects, refs, index) lands on local disk; only the checked
+            # out tree is written through the workspace mount.
+            repo_dir.mkdir(parents=True, exist_ok=True)
+            await asyncio.to_thread(self._setup_worktree_git_off_fuse, repo_dir)
+            checkout_main_from_bare(bare_repo_path=str(bare_dir), worktree_path=str(repo_dir))
+        else:
+            Repo.clone_from(str(bare_dir), str(repo_dir))
 
         # Post-receive hook: update repo/ working tree from bare on push
-        lock_name = bare_path.replace("/", "_")
-        repo_path_str = str(repo_dir)
-        hook_content = (
-            "#!/bin/sh\n"
-            f'LOCK="/tmp/git-transport-{lock_name}.lock"\n'
-            f'REPO="{repo_path_str}"\n'
-            f'BARE="{bare_path}"\n'
-            "(\n"
-            "  flock 9\n"
-            '  git config --global --add safe.directory "$REPO" 2>/dev/null\n'
-            '  git config --global --add safe.directory "$BARE" 2>/dev/null\n'
-            '  git -C "$REPO" fetch origin main 2>&1\n'
-            '  git -C "$REPO" reset --hard origin/main 2>&1\n'
-            '  git -C "$REPO" clean -fd 2>&1\n'
-            ') 9>"$LOCK"\n'
-        )
-        self._write_hook(bare_dir / "hooks" / "post-receive", hook_content)
-        logger.debug("Git bare repo initialized at %s (repo: %s)", bare_path, repo_dir)
+        self._write_post_receive_hook(bare_dir, repo_dir)
+        # Seed the persisted mirror so a resume before the first checkpoint
+        # still has something to hydrate from.
+        await self.snapshot_to_mirror()
+        logger.debug("Git bare repo initialized at %s (mirror: %s, repo: %s)", bare_dir, mirror_dir, repo_dir)
 
     async def _copy_ssh_key_to_agent(self, hostname: str) -> str:
         agent_key_path = "/root/.ssh/world_key"
@@ -356,7 +585,7 @@ class GitTransport(Transport):
 
     async def initialize(self) -> None:
         await self._setup_workspace_path(self.path)
-        await self._init_bare_repo(self.path, self._bare_repo_path)
+        await self._init_bare_repo(self.path)
 
     async def update_bare_repo(self, message: str = "Update workspace") -> None:
         """Commit any changes in repo/ and push to the bare repo."""
@@ -396,6 +625,7 @@ class GitTransport(Transport):
             "    StrictHostKeyChecking no\n"
             "    UserKnownHostsFile /dev/null\n"
             "    LogLevel ERROR\n"
+            f"{_WORLD_GIT_SSH_TIMEOUT_OPTIONS}"
         )
         await run_ssh(
             self.ssh_key_path,
@@ -411,28 +641,25 @@ class GitTransport(Transport):
         branch_name = mount.git_checkout.branch_name if mount.git_checkout is not None else None
         t2 = _time.monotonic()
         logger.debug("GitTransport.setup_agent: cloning %s -> %s on %s", self._bare_repo_path, remote, hostname)
-        await self._run_remote_git_checked(
-            hostname,
-            request=GitOpRequest.clone_setup(
-                remote,
-                bare_repo_path=self._bare_repo_path,
-                checkout_ref=checkout_ref,
-                branch_name=branch_name or "plato-task",
-            ),
-            timeout=120,
-            error_context="Failed to clone git repo on agent VM",
-        )
+        try:
+            await self._run_remote_git_checked(
+                hostname,
+                request=GitOpRequest.clone_setup(
+                    remote,
+                    bare_repo_path=self._bare_repo_path,
+                    checkout_ref=checkout_ref,
+                    branch_name=branch_name or "plato-task",
+                ),
+                timeout=_CLONE_SETUP_TIMEOUT_S,
+                error_context="Failed to clone git repo on agent VM",
+            )
+        except Exception as exc:
+            if _is_git_op_timeout(exc) or isinstance(exc, WorldGitSshTimeoutError):
+                raise GitSetupTimeoutError(hostname, str(exc)) from exc
+            raise
 
-        audit_key = mount.audit_key
-        tracked = mount.tracked
-        if tracked and audit_key:
-            audit_cmd = " && ".join(build_auditctl_commands(remote, audit_key))
-            exit_code, _, stderr = await run_ssh(self.ssh_key_path, hostname, audit_cmd, timeout=30)
-            if exit_code != 0:
-                raise RuntimeError(
-                    f"Failed to enable filesystem audit on agent VM for {remote} (key={audit_key}): {stderr}"
-                )
-            logger.info("Filesystem audit enabled on agent VM for %s (key=%s)", remote, audit_key)
+        if mount.git_sync is not None and mount.git_sync.mode == "none" and mount.git_sync.readonly:
+            await self._install_readonly_hook(hostname, remote)
 
         logger.info(
             "GitTransport.setup_agent: done on %s (clone=%.1fs, total=%.1fs): %s -> %s",
@@ -442,6 +669,33 @@ class GitTransport(Transport):
             self._bare_repo_path,
             remote,
         )
+
+    async def _install_readonly_hook(self, hostname: str, remote: str) -> None:
+        """Install a pre-commit hook rejecting commits on a read-only clone.
+
+        A commit on a ``GitSyncPolicy.none`` mount would silently vanish (no
+        sync-back), so it must fail loudly AT COMMIT TIME — and so must a
+        failure to install this hook, since that would silently disable the
+        enforcement. Quoted-heredoc write (same pattern as the ssh_config
+        block in setup_agent): the hook text lands verbatim regardless of the
+        quoting inside it.
+        """
+        hook_path = f"{remote}/.git/hooks/pre-commit"
+        hook_script = (
+            "#!/bin/sh\n"
+            "echo 'ERROR: this workspace mount is READ-ONLY - commits here never sync back.' >&2\n"
+            "echo 'Delegate writes to a build/fix agent (their sync modes carry the review gates).' >&2\n"
+            "exit 1\n"
+        )
+        exit_code, _, stderr = await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"cat > {hook_path} << 'ROHOOK'\n{hook_script}ROHOOK\nchmod +x {hook_path}",
+            timeout=15,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to install read-only pre-commit hook at {hook_path}: {stderr}")
+        logger.info("GitTransport.setup_agent: read-only pre-commit hook installed at %s", hook_path)
 
     async def sync_back(
         self,
@@ -453,34 +707,22 @@ class GitTransport(Transport):
         remote = mount.agent_path
         raise_on_conflict = mount.git_raise_on_conflict
 
+        if sync_mode == "none":
+            # GitSyncPolicy.none: read-only, or the agent pushes its own commits.
+            logger.debug("GitTransport.sync_back: skipping read-only mount %s", remote)
+            return
+
         if sync_mode != "merge_to_main":
             compare_ref = mount.git_checkout.ref if mount.git_checkout and mount.git_checkout.ref else "origin/main"
-            # Serialize publish_ref/push_branch pushes too: concurrent
-            # receive-pack invocations against the same bare repo race the
-            # packfile index even when each push targets a unique hidden
-            # ref, producing "packfile claims to have N objects while index
-            # indicates M" corruption.
-            if self._sync_lock:
-                async with self._sync_lock:
-                    await self._publish_sync_back_impl(
-                        agent_env,
-                        hostname,
-                        remote,
-                        sync_mode,
-                        sync_target,
-                        sync_exact,
-                        compare_ref,
-                    )
-            else:
-                await self._publish_sync_back_impl(
-                    agent_env,
-                    hostname,
-                    remote,
-                    sync_mode,
-                    sync_target,
-                    sync_exact,
-                    compare_ref,
-                )
+            await self._publish_sync_back_impl(
+                agent_env,
+                hostname,
+                remote,
+                sync_mode,
+                sync_target,
+                sync_exact,
+                compare_ref,
+            )
             return
         if self._sync_lock:
             async with self._sync_lock:
@@ -620,7 +862,14 @@ class GitTransport(Transport):
         retries = max(1, cfg.merge_agent.max_retries)
         for attempt in range(1, retries + 1):
             try:
-                await self._push_head_to_ref(remote, hostname, published_ref)
+                # Serialize publish_ref/push_branch pushes too: concurrent
+                # receive-pack invocations against the same bare repo race the
+                # packfile index even when each push targets a unique hidden
+                # ref, producing "packfile claims to have N objects while index
+                # indicates M" corruption. Only the push needs the lock; the
+                # commit and state reads above run on the agent VM.
+                async with self._sync_lock or nullcontext():
+                    await self._push_head_to_ref(remote, hostname, published_ref)
                 self._published_ref = GitPublishedRef(commit_sha=head_sha, ref=published_ref)
                 logger.info("Published agent %s commit %s to %s", hostname, head_sha, published_ref)
                 return
@@ -634,6 +883,95 @@ class GitTransport(Transport):
                     retries,
                     exc_info=True,
                 )
+
+    @staticmethod
+    def _salvage_ref_name(sync_target: str | None) -> str:
+        """Discoverable salvage ref for a failed agent, derived from its sync target.
+
+        The salvage ref is a *sibling* of the (never-published-on-failure)
+        success ref, NOT nested under it: pushing ``<target>/salvage`` while
+        ``<target>`` itself is a ref would be a git directory/file conflict on
+        any future success. Inserting a ``salvage/`` segment before the leaf
+        keeps them disjoint and groups salvages under one browsable prefix
+        (``git for-each-ref refs/plato/wf/salvage/``):
+
+        * ``refs/plato/wf/<call>``            -> ``refs/plato/wf/salvage/<call>``
+        * ``refs/plato/tasks/<task>-<uuid>``  -> ``refs/plato/tasks/salvage/<task>-<uuid>``
+        """
+        if sync_target:
+            target = sync_target.rstrip("/")
+            prefix, _, leaf = target.rpartition("/")
+            if prefix:
+                return f"{prefix}/salvage/{leaf}"
+            return f"salvage/{target}"
+        return "refs/plato/salvage/unknown"
+
+    async def salvage_sync(
+        self,
+        hostname: str,
+        mount: AgentWorkspaceMount,
+    ) -> GitPublishedRef | None:
+        """Best-effort capture of a FAILED agent's git state to a salvage ref.
+
+        Runs while the agent VM is still alive (before the execution manager
+        destroys it), so a crashed / non-zero-exit / raised-mid-run agent's work
+        is not lost. Commits BOTH dirty tracked changes AND untracked files
+        (``git add -A``, gitignore honored — see ``git_ops.repo.auto_commit``)
+        then force-pushes ``HEAD`` to a discoverable salvage ref WITHOUT merging
+        to main. Returns the published :class:`GitPublishedRef`, or ``None`` when
+        there is nothing to salvage (agent made no changes) or the mount is not a
+        publishable git mount.
+
+        NEVER raises: salvage is best-effort and must not mask the original agent
+        failure — the caller re-raises that. Any error here is logged and folded
+        into a ``None`` return.
+        """
+        _sync_mode, sync_target, _sync_exact = self._sync_policy(mount)
+        if mount.git_sync is None:
+            return None
+        remote = mount.agent_path
+        salvage_ref = self._salvage_ref_name(sync_target)
+        compare_ref = mount.git_checkout.ref if mount.git_checkout and mount.git_checkout.ref else "origin/main"
+        return await self._salvage_sync_impl(hostname, remote, salvage_ref, compare_ref)
+
+    async def _salvage_sync_impl(
+        self,
+        hostname: str,
+        remote: str,
+        salvage_ref: str,
+        compare_ref: str,
+    ) -> GitPublishedRef | None:
+        try:
+            # Always commit (regardless of commit_on_sync): the whole point of
+            # salvage is to preserve uncommitted work the agent left behind.
+            await self._auto_commit_changes(remote, hostname, "wf-salvage: failed agent git state")
+            head_sha = await self._git_rev_parse(remote, hostname, "HEAD")
+            compare = await self._run_remote_git(
+                hostname,
+                request=GitOpRequest.head_diff(remote, compare_ref),
+                timeout=10,
+            )
+            if compare.ok and bool(compare.noop):
+                logger.info("Salvage: agent %s produced no changes to salvage (head=%s)", hostname, head_sha)
+                return None
+            # Only the push holds the lock (packfile-index race, see
+            # _publish_sync_back_impl); a dead VM must not block other merges.
+            async with self._sync_lock or nullcontext():
+                await self._push_head_to_ref(remote, hostname, salvage_ref)
+            logger.info(
+                "Salvaged failed agent %s git state: commit %s -> %s",
+                hostname,
+                head_sha,
+                salvage_ref,
+            )
+            return GitPublishedRef(commit_sha=head_sha, ref=salvage_ref)
+        except Exception:
+            logger.warning(
+                "Salvage sync failed for agent %s (best-effort; original error preserved)",
+                hostname,
+                exc_info=True,
+            )
+            return None
 
     async def _refresh_local_workspace_from_main(self) -> None:
         await asyncio.to_thread(
@@ -769,31 +1107,10 @@ class GitTransport(Transport):
     async def add_export(self, path: str, fsid: int) -> None:
         del fsid
         await self._setup_workspace_path(path)
-        bare_path = f"{path}/.git-bare"
-        await self._init_bare_repo(path, bare_path)
+        await self._init_bare_repo(path)
 
     async def refresh_exports(self) -> None:
         """No-op for git transport."""
-
-    async def collect_audit_log(
-        self,
-        hostname: str,
-        audit_key: str | None = None,
-    ) -> str | None:
-        try:
-            key = audit_key or "plato_workspace"
-            exit_code, stdout, _ = await run_ssh(
-                self.ssh_key_path,
-                hostname,
-                f"ausearch -if /var/log/audit/audit.log --format raw -k {shlex.quote(key)} 2>/dev/null || true",
-                timeout=30,
-            )
-            if exit_code != 0 or not stdout.strip():
-                return None
-            return stdout
-        except Exception:
-            logger.warning("Failed to collect audit log from agent VM", exc_info=True)
-            return None
 
     async def prepare(self) -> None:
         await self._setup_workspace_path(self.path)

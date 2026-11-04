@@ -1,13 +1,14 @@
 from unittest import TestCase
-from joserfc import jws, jwe, jwt
-from joserfc.jwk import OctKey, GuestProtocol, Key, import_key
+
+from joserfc import jwe, jws, jwt
 from joserfc.errors import (
+    DecodeError,
     InvalidPayloadError,
     MissingClaimError,
-    UnsupportedHeaderError,
     UnsupportedAlgorithmError,
-    DecodeError,
+    UnsupportedHeaderError,
 )
+from joserfc.jwk import GuestProtocol, Key, OctKey, import_key
 
 
 def use_embedded_jwk(obj: GuestProtocol) -> Key:
@@ -34,6 +35,12 @@ class TestJWT(TestCase):
     def test_invalid_payload(self):
         data = jws.serialize_compact({"alg": "HS256"}, b"hello", self.oct_key)
         self.assertRaises(InvalidPayloadError, jwt.decode, data, self.oct_key)
+
+    def test_payload_must_be_a_json_object(self):
+        for payload in (b"[1, 2, 3]", b"null", b'"claims"', b"1", b"true"):
+            with self.subTest(payload=payload):
+                data = jws.serialize_compact({"alg": "HS256"}, payload, self.oct_key)
+                self.assertRaises(InvalidPayloadError, jwt.decode, data, self.oct_key)
 
     def test_claims_registry(self):
         data = jwt.encode({"alg": "HS256"}, {"sub": "a"}, self.oct_key)

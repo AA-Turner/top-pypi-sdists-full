@@ -45,6 +45,7 @@ if typing.TYPE_CHECKING:
     from .create_response_v2request_tool_choice import CreateResponseV2RequestToolChoiceParams
     from .create_response_v2response import CreateResponseV2ResponseParams
     from .create_response_v2response_tool_choice import CreateResponseV2ResponseToolChoiceParams
+    from .criteria import CriteriaParams
     from .diarized_entry import DiarizedEntryParams
     from .diarized_transcript import DiarizedTranscriptParams
     from .doc_ai_batch_document import DocAiBatchDocumentParams
@@ -120,6 +121,7 @@ if typing.TYPE_CHECKING:
     from .function_definition import FunctionDefinitionParams
     from .image_part import ImagePartParams
     from .image_url import ImageUrlParams
+    from .instructions import InstructionsParams
     from .job_live_status_response import JobLiveStatusResponseParams
     from .job_status_response import JobStatusResponseParams
     from .json_schema_definition import JsonSchemaDefinitionParams
@@ -194,6 +196,26 @@ if typing.TYPE_CHECKING:
     from .start_job_response import StartJobResponseParams
     from .stop_configuration import StopConfigurationParams
     from .stt_flush_signal import SttFlushSignalParams
+    from .system_one_answer import (
+        SystemOneAnswerParams,
+        SystemOneAnswer_ChoiceParams,
+        SystemOneAnswer_NoulParams,
+        SystemOneAnswer_ScoreParams,
+    )
+    from .system_one_choice_answer import SystemOneChoiceAnswerParams
+    from .system_one_choice_question import SystemOneChoiceQuestionParams
+    from .system_one_noul_answer import SystemOneNoulAnswerParams
+    from .system_one_noul_question import SystemOneNoulQuestionParams
+    from .system_one_question import (
+        SystemOneQuestionParams,
+        SystemOneQuestion_ChoiceParams,
+        SystemOneQuestion_NoulParams,
+        SystemOneQuestion_ScoreParams,
+    )
+    from .system_one_response import SystemOneResponseParams
+    from .system_one_score_answer import SystemOneScoreAnswerParams
+    from .system_one_score_question import SystemOneScoreQuestionParams
+    from .system_one_usage import SystemOneUsageParams
     from .task_detail import TaskDetailParams
     from .task_file_details import TaskFileDetailsParams
     from .text_part import TextPartParams
@@ -262,6 +284,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateResponseV2RequestToolChoiceParams": ".create_response_v2request_tool_choice",
     "CreateResponseV2ResponseParams": ".create_response_v2response",
     "CreateResponseV2ResponseToolChoiceParams": ".create_response_v2response_tool_choice",
+    "CriteriaParams": ".criteria",
     "DiarizedEntryParams": ".diarized_entry",
     "DiarizedTranscriptParams": ".diarized_transcript",
     "DocAiBatchDocumentParams": ".doc_ai_batch_document",
@@ -337,6 +360,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FunctionDefinitionParams": ".function_definition",
     "ImagePartParams": ".image_part",
     "ImageUrlParams": ".image_url",
+    "InstructionsParams": ".instructions",
     "JobLiveStatusResponseParams": ".job_live_status_response",
     "JobStatusResponseParams": ".job_status_response",
     "JsonSchemaDefinitionParams": ".json_schema_definition",
@@ -409,6 +433,22 @@ _dynamic_imports: typing.Dict[str, str] = {
     "StartJobResponseParams": ".start_job_response",
     "StopConfigurationParams": ".stop_configuration",
     "SttFlushSignalParams": ".stt_flush_signal",
+    "SystemOneAnswerParams": ".system_one_answer",
+    "SystemOneAnswer_ChoiceParams": ".system_one_answer",
+    "SystemOneAnswer_NoulParams": ".system_one_answer",
+    "SystemOneAnswer_ScoreParams": ".system_one_answer",
+    "SystemOneChoiceAnswerParams": ".system_one_choice_answer",
+    "SystemOneChoiceQuestionParams": ".system_one_choice_question",
+    "SystemOneNoulAnswerParams": ".system_one_noul_answer",
+    "SystemOneNoulQuestionParams": ".system_one_noul_question",
+    "SystemOneQuestionParams": ".system_one_question",
+    "SystemOneQuestion_ChoiceParams": ".system_one_question",
+    "SystemOneQuestion_NoulParams": ".system_one_question",
+    "SystemOneQuestion_ScoreParams": ".system_one_question",
+    "SystemOneResponseParams": ".system_one_response",
+    "SystemOneScoreAnswerParams": ".system_one_score_answer",
+    "SystemOneScoreQuestionParams": ".system_one_score_question",
+    "SystemOneUsageParams": ".system_one_usage",
     "TaskDetailParams": ".task_detail",
     "TaskFileDetailsParams": ".task_file_details",
     "TextPartParams": ".text_part",
@@ -501,6 +541,7 @@ __all__ = [
     "CreateResponseV2RequestToolChoiceParams",
     "CreateResponseV2ResponseParams",
     "CreateResponseV2ResponseToolChoiceParams",
+    "CriteriaParams",
     "DiarizedEntryParams",
     "DiarizedTranscriptParams",
     "DocAiBatchDocumentParams",
@@ -576,6 +617,7 @@ __all__ = [
     "FunctionDefinitionParams",
     "ImagePartParams",
     "ImageUrlParams",
+    "InstructionsParams",
     "JobLiveStatusResponseParams",
     "JobStatusResponseParams",
     "JsonSchemaDefinitionParams",
@@ -648,6 +690,22 @@ __all__ = [
     "StartJobResponseParams",
     "StopConfigurationParams",
     "SttFlushSignalParams",
+    "SystemOneAnswerParams",
+    "SystemOneAnswer_ChoiceParams",
+    "SystemOneAnswer_NoulParams",
+    "SystemOneAnswer_ScoreParams",
+    "SystemOneChoiceAnswerParams",
+    "SystemOneChoiceQuestionParams",
+    "SystemOneNoulAnswerParams",
+    "SystemOneNoulQuestionParams",
+    "SystemOneQuestionParams",
+    "SystemOneQuestion_ChoiceParams",
+    "SystemOneQuestion_NoulParams",
+    "SystemOneQuestion_ScoreParams",
+    "SystemOneResponseParams",
+    "SystemOneScoreAnswerParams",
+    "SystemOneScoreQuestionParams",
+    "SystemOneUsageParams",
     "TaskDetailParams",
     "TaskFileDetailsParams",
     "TextPartParams",

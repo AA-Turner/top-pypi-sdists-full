@@ -1,6 +1,21 @@
 use crate::StatsigOptions;
 
 #[test]
+fn private_id_list_format_serializes_only_when_set() {
+    for flag in [None, Some(false), Some(true)] {
+        let options = StatsigOptions::builder()
+            .enable_id_list_elias_fano(flag)
+            .build();
+        let serialized = serde_json::to_value(options).unwrap();
+        assert_eq!(
+            serialized.get("enable_id_list_elias_fano").cloned(),
+            flag.map(Into::into)
+        );
+        assert!(serialized.get("enable_id_lists").is_none());
+    }
+}
+
+#[test]
 fn test_prefer_http2_supported_option() {
     use crate::networking::http2::http2_enabled;
 
@@ -47,4 +62,16 @@ fn test_sdk_instance_id_can_be_overridden() {
         options.get_sdk_instance_id("secret-key"),
         "validator:route:target"
     );
+}
+
+#[test]
+fn test_lazy_id_list_options_are_built_and_serialized() {
+    let options = StatsigOptions::builder()
+        .lazy_load_id_lists(Some(true))
+        .build();
+
+    assert_eq!(options.lazy_load_id_lists, Some(true));
+
+    let json = serde_json::to_value(&options).unwrap();
+    assert_eq!(json["lazy_load_id_lists"], true);
 }

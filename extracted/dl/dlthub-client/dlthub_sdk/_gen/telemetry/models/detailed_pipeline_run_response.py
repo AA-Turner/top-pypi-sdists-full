@@ -25,41 +25,52 @@ T = TypeVar("T", bound="DetailedPipelineRunResponse")
 class DetailedPipelineRunResponse:
     """
     Attributes:
-        created_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        id (UUID):
-        pipeline_name (str):
-        status (PipelineRunStatus | str):
-        transaction_id (str):
-        updated_at (datetime.datetime): datetime with the constraint that the value must have timezone info
-        dataset_name (None | str | Unset):
-        destination_name (None | str | Unset):
-        dlt_plus_version (None | str | Unset):
-        dlt_version (None | str | Unset):
-        duration_ms (int | None | Unset):
-        error_message (None | str | Unset):
-        error_step (None | str | Unset):
-        error_traceback (None | str | Unset):
-        extract_duration_ms (int | None | Unset):
-        finished_at (datetime.datetime | None | Unset):
-        has_failed_load_jobs (bool | None | Unset):  Default: False.
-        has_pending_packages (bool | None | Unset):  Default: False.
-        has_schema_migration (bool | None | Unset):
-        is_empty_run (bool | None | Unset):  Default: False.
-        job_run_id (None | Unset | UUID):
-        load_duration_ms (int | None | Unset):
-        load_package_count (int | None | Unset):  Default: 0.
-        load_packages (list[LoadPackageResponse] | Unset):
-        normalize_duration_ms (int | None | Unset):
-        os_name (None | str | Unset):
-        os_version (None | str | Unset):
-        python_version (None | str | Unset):
-        resources (list[PipelineRunResourceResponse] | Unset):
-        started_at (datetime.datetime | None | Unset):
-        tables (list[PipelineRunTableResponse] | Unset):
-        total_bytes_extracted (int | Unset):  Default: 0.
-        total_bytes_loaded (int | Unset):  Default: 0.
-        total_rows_extracted (int | Unset):  Default: 0.
-        total_rows_loaded (int | Unset):  Default: 0.
+        created_at (datetime.datetime): When this run was first stored from telemetry, UTC.
+        id (UUID): ID of the pipeline run; not a job run ID.
+        pipeline_name (str): Name of the dlt pipeline.
+        status (PipelineRunStatus | str): `failed` when any step raised, otherwise `succeeded`.
+        transaction_id (str): dlt trace transaction id; one pipeline run per transaction.
+        updated_at (datetime.datetime): When this run was last updated from telemetry, UTC.
+        dataset_name (None | str | Unset): Dataset the run loaded into, from its load step; `null` when the run did not
+            reach load.
+        destination_name (None | str | Unset): Destination the run loaded to, from its load step; `null` when the run
+            did not reach load.
+        dlt_plus_version (None | str | Unset): Version of the `dlthub` package, from the trace's execution context;
+            `null` when it was not installed.
+        dlt_version (None | str | Unset): dlt version that ran the pipeline, from the trace's execution context.
+        duration_ms (int | None | Unset): `finished_at` − `started_at` in milliseconds.
+        error_message (None | str | Unset): Exception message of that step.
+        error_step (None | str | Unset): First step that raised, for example `extract`, `normalize` or `load`.
+        error_traceback (None | str | Unset): Stack trace of the step that raised.
+        extract_duration_ms (int | None | Unset): Duration of the extract step in milliseconds; `null` when it did not
+            run.
+        finished_at (datetime.datetime | None | Unset): End of the run from the dlt trace, UTC.
+        has_failed_load_jobs (bool | None | Unset): True when any load package has failed jobs. Default: False.
+        has_pending_packages (bool | None | Unset): True when any load package is in a state other than `loaded`.
+            Default: False.
+        has_schema_migration (bool | None | Unset): True when the load step created or changed user tables (`_dlt_*`
+            tables are ignored).
+        is_empty_run (bool | None | Unset): True when the run did not fail and extract produced no load packages.
+            Default: False.
+        job_run_id (None | Unset | UUID): Job run that sent this run's telemetry.
+        load_duration_ms (int | None | Unset): Duration of the load step in milliseconds; `null` when it did not run.
+        load_package_count (int | None | Unset): Number of load packages reported by the last step the run reached.
+            Default: 0.
+        load_packages (list[LoadPackageResponse] | Unset): Load packages of the run.
+        normalize_duration_ms (int | None | Unset): Duration of the normalize step in milliseconds; `null` when it did
+            not run.
+        os_name (None | str | Unset): Operating system that ran the pipeline, from the trace's execution context.
+        os_version (None | str | Unset): Version of that operating system.
+        python_version (None | str | Unset): Python version that ran the pipeline, from the trace's execution context.
+        resources (list[PipelineRunResourceResponse] | Unset): One entry per extracted resource and load package.
+        started_at (datetime.datetime | None | Unset): Start of the run from the dlt trace, UTC.
+        tables (list[PipelineRunTableResponse] | Unset): One entry per table and load package.
+        total_bytes_extracted (int | Unset): Size of the intermediate files written by the extract step. Default: 0.
+        total_bytes_loaded (int | Unset): Bytes that dlt prepared for loading in this run (size of the normalized
+            files). dlt does not report per-row load counts, so this is set even when loading failed. Default: 0.
+        total_rows_extracted (int | Unset): Rows written by the extract step. Default: 0.
+        total_rows_loaded (int | Unset): Rows that dlt prepared for loading in this run (normalized rows). dlt does not
+            report per-row load counts, so this is set even when loading failed. Default: 0.
     """
 
     created_at: datetime.datetime
